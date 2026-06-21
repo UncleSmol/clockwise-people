@@ -21,6 +21,9 @@ Phase 1 covers invite/provisioned auth, company setup, branch setup, department 
 
 - Owners and HR admins create employee records before employee login accounts exist.
 - Employee detail pages can create a pending `public.user_invitations` record and send a Supabase Auth invite from a server action.
+- Resending an invite cancels any existing pending invite for that employee before creating a new pending invite.
+- Only one pending invitation can exist per employee, enforced by a partial unique database index.
+- Old invite links cannot be accepted after a newer invite is sent because the old invitation is no longer pending.
 - The invite redirect points to `/auth/callback?inviteId=...`.
 - The callback exchanges the Supabase Auth code, verifies the authenticated email, then calls `public.accept_user_invitation()` with the service role.
 - `public.accept_user_invitation()` creates/updates `public.users`, assigns the invited role, links `public.users.employee_id`, links `public.employees.user_id`, and marks the invitation accepted.

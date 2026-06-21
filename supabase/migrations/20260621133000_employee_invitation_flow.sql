@@ -20,8 +20,7 @@ create table public.user_invitations (
   expires_at timestamptz not null default (now() + interval '7 days'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint user_invitations_email_not_blank check (btrim(email) <> ''),
-  constraint user_invitations_pending_unique unique (company_id, employee_id, status)
+  constraint user_invitations_email_not_blank check (btrim(email) <> '')
 );
 
 create index idx_user_invitations_company_status
@@ -29,6 +28,10 @@ on public.user_invitations(company_id, status);
 
 create index idx_user_invitations_email_status
 on public.user_invitations(lower(email), status);
+
+create unique index idx_user_invitations_one_pending_per_employee
+on public.user_invitations(company_id, employee_id)
+where status = 'pending';
 
 create trigger user_invitations_set_updated_at
 before update on public.user_invitations

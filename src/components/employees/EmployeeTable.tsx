@@ -133,7 +133,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           placeholder="Search employees"
           className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none ring-ring focus:ring-2 md:max-w-sm"
         />
-        <div className="flex rounded-md border border-border bg-surface p-1 text-sm font-semibold">
+        <div className="hidden rounded-md border border-border bg-surface p-1 text-sm font-semibold lg:flex">
           <button
             type="button"
             onClick={() => setDensity("comfortable")}
@@ -151,9 +151,70 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-md border border-border bg-surface">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] border-collapse text-left text-sm">
+      <div className="grid gap-3 lg:hidden">
+        {table.getRowModel().rows.map((row) => {
+          const employee = row.original;
+
+          return (
+            <Link
+              key={employee.id}
+              href={`/dashboard/employees/${employee.id}`}
+              className="rounded-md border border-border bg-surface p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground">
+                    {employee.full_name}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-muted">
+                    {employee.email ?? employee.employee_number}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
+                  {labelize(employee.employment_status)}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                    Branch
+                  </p>
+                  <p className="mt-1 truncate text-foreground">
+                    {employee.branch_name ?? "-"}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                    Role
+                  </p>
+                  <p className="mt-1 truncate text-foreground">
+                    {employee.job_title ?? "-"}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                    Start
+                  </p>
+                  <p className="mt-1 truncate text-foreground">{employee.start_date}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                    Payroll
+                  </p>
+                  <p className="mt-1 truncate text-foreground">
+                    {employee.payroll_identifier ?? "-"}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-md border border-border bg-surface lg:block">
+        <div>
+          <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-muted">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
