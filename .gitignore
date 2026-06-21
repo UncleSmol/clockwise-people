@@ -30,9 +30,28 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 dev-server*.log
+*.log
 
-# env files (can opt-in for committing if needed)
+# env and secrets
 .env*
+!.env.example
+.env.keys
+*.local
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+service-role*.json
+service_role*.json
+supabase-service-role*.json
+secrets.*
+
+# local supabase state
+/supabase/.temp/
+/supabase/.branches/
+/supabase/.env
+/supabase/.env.*
 
 # vercel
 .vercel
@@ -40,3 +59,9 @@ dev-server*.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local/editor
+.idea/
+.vscode/
+*.swp
+Thumbs.db
