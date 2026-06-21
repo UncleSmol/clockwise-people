@@ -59,10 +59,16 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
 
 html {
   background: var(--background);
+  -ms-overflow-style: none;
 }
 
 body {
@@ -70,6 +76,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
   margin: 0;
+  -ms-overflow-style: none;
 }
 
 a,

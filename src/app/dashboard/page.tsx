@@ -8,6 +8,39 @@ import {
 import { getEmployeePageData } from "@/lib/employees/queries";
 import { getEmployeeTimeState } from "@/lib/time-tracking/queries";
 
+function formatDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-ZA", {
+    day: "numeric",
+    month: "short",
+    weekday: "short",
+  }).format(new Date(year, month - 1, day));
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "Not recorded";
+
+  const [hours = "0", minutes = "0"] = value.split(":");
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+
+  return new Intl.DateTimeFormat("en-ZA", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatHours(value: number | string | null | undefined) {
+  return `${Number(value ?? 0).toFixed(2)}h`;
+}
+
+function formatTimeRange(start: string | null, end: string | null) {
+  if (!start && !end) return "Not recorded";
+  if (start && !end) return `${formatTime(start)} - active`;
+  if (!start && end) return `Started before ${formatTime(end)}`;
+  return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
 export default async function DashboardPage() {
   const [{ company }, access] = await Promise.all([
     getActiveCompany(),
@@ -21,48 +54,97 @@ export default async function DashboardPage() {
 
     return (
       <div className="grid gap-6">
-        <header className="rounded-md border border-border bg-surface p-4 sm:p-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
-            Employee dashboard
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
-            {displayName}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted">
-            {timeState.employee?.branch_name
-              ? `${timeState.employee.branch_name}${timeState.employee.job_title ? ` - ${timeState.employee.job_title}` : ""}`
-              : "Your time records are scoped to your own employee profile."}
-          </p>
+        <header className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+              Employee dashboard
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl">
+              {displayName}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              {timeState.employee?.branch_name
+                ? `${timeState.employee.branch_name}${timeState.employee.job_title ? ` - ${timeState.employee.job_title}` : ""}`
+                : "Your time records are scoped to your own employee profile."}
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-background px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Current day
+            </p>
+            <p className="mt-1 text-lg font-semibold text-foreground">
+              {new Intl.DateTimeFormat("en-ZA", {
+                day: "numeric",
+                month: "long",
+                weekday: "long",
+              }).format(new Date())}
+            </p>
+          </div>
         </header>
 
         <EmployeeTimeClock todayEntry={timeState.todayEntry} />
 
         <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Recent time records</h2>
-            <p className="mt-1 text-sm text-muted">
-              Only your own records are visible from this account.
-            </p>
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Recent time records</h2>
+              <p className="mt-1 text-sm text-muted">
+                Only your own records are visible from this account.
+              </p>
+            </div>
+            <span className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold text-foreground">
+              {timeState.recentEntries.length} records
+            </span>
           </div>
           {timeState.recentEntries.length === 0 ? (
             <p className="rounded-md border border-border bg-background p-4 text-sm text-muted">
               No time entries yet.
             </p>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="grid gap-3">
               {timeState.recentEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="grid gap-3 py-4 text-sm sm:grid-cols-[120px_1fr_120px]"
+                  className="grid gap-3 rounded-md border border-border bg-background p-4 text-sm lg:grid-cols-[140px_1fr_auto] lg:items-center"
                 >
-                  <span className="font-semibold text-foreground">{entry.work_date}</span>
-                  <span className="text-muted">
-                    {entry.clock_in ?? "--:--"} to {entry.clock_out ?? "--:--"}
-                    {entry.missing_clocking ? " - missing clocking" : ""}
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {Number(entry.paid_hours).toFixed(2)} paid hrs
-                  </span>
+                  <div>
+                    <p className="font-semibold text-foreground">
+                      {formatDate(entry.work_date)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
+                      {entry.status}
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-4">
+                    <div>
+                      <p className="text-xs text-muted">In</p>
+                      <p className="font-semibold text-foreground">{formatTime(entry.clock_in)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Lunch</p>
+                      <p className="font-semibold text-foreground">
+                        {formatTimeRange(entry.lunch_start, entry.lunch_end)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Out</p>
+                      <p className="font-semibold text-foreground">{formatTime(entry.clock_out)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted">Warnings</p>
+                      <p className="font-semibold text-foreground">
+                        {entry.missing_clocking || entry.late_arrival || entry.early_departure
+                          ? "Needs review"
+                          : "Clear"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-md bg-surface-muted px-3 py-2 text-right">
+                    <p className="text-xs text-muted">Paid</p>
+                    <p className="font-semibold text-foreground">
+                      {formatHours(entry.paid_hours)}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
