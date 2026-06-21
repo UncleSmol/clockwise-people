@@ -74,10 +74,13 @@ export default function AuthCallbackClient() {
       });
 
       if (!response.ok) {
-        await supabase.auth.signOut();
-        router.replace(
-          `/login?message=${encodeURIComponent("Unable to activate this invite. Contact your administrator.")}`,
-        );
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        setMessage(payload?.error ?? "Unable to activate this invite. Request a fresh invite link.");
+        setCanRetry(true);
+        setIsCompleting(false);
         return;
       }
 
