@@ -1,18 +1,12 @@
 import { notFound } from "next/navigation";
+import EmployeeAccountPanel from "@/components/employee-accounts/EmployeeAccountPanel";
 import EmployeeForm from "@/components/employees/EmployeeForm";
-import InviteLinkPanel from "@/components/invitations/InviteLinkPanel";
 import { deactivateEmployee } from "@/lib/employees/actions";
 import { getEmployeeDetail, getEmployeePageData } from "@/lib/employees/queries";
-import {
-  cancelEmployeeInvite,
-  createEmployeeInviteLink,
-  sendEmployeeInvite,
-} from "@/lib/invitations/actions";
-import { getEmployeeInvitation } from "@/lib/invitations/queries";
 
 type EmployeeDetailPageProps = {
   params: Promise<{ employeeId: string }>;
-  searchParams?: Promise<{ manualInviteUrl?: string; message?: string }>;
+  searchParams?: Promise<{ message?: string }>;
 };
 
 export default async function EmployeeDetailPage({
@@ -28,15 +22,7 @@ export default async function EmployeeDetailPage({
     notFound();
   }
 
-  const invitation = await getEmployeeInvitation(employee.id, employee.company_id);
   const deactivate = deactivateEmployee.bind(null, employee.id);
-  const sendInvite = sendEmployeeInvite.bind(null, employee.id);
-  const createInviteLink = createEmployeeInviteLink.bind(null, employee.id);
-  const cancelInvite = invitation
-    ? cancelEmployeeInvite.bind(null, invitation.id, employee.id)
-    : null;
-  const hasPendingInvite = invitation?.status === "pending";
-  const hasAcceptedInvite = invitation?.status === "accepted" || Boolean(employee.user_id);
 
   return (
     <div className="grid gap-8">
@@ -56,62 +42,11 @@ export default async function EmployeeDetailPage({
         </div>
       )}
 
-      <section className="rounded-md border border-border bg-surface p-4 sm:p-6">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Account access</h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted">
-              Invite this employee to create their own login. After acceptance, the backend links their auth account to this employee record and assigns the employee role.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2 text-sm">
-              <span className="rounded-full bg-surface-muted px-3 py-1 font-semibold text-foreground">
-                {employee.email ?? "No email saved"}
-              </span>
-              <span className="rounded-full bg-surface-muted px-3 py-1 font-semibold text-foreground">
-                {hasAcceptedInvite
-                  ? "Access active"
-                  : hasPendingInvite
-                    ? "Invite pending"
-                    : "Not invited"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            {!hasAcceptedInvite && employee.email && (
-              <form action={sendInvite}>
-                <button className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-                  {hasPendingInvite ? "Resend invite" : "Send invite"}
-                </button>
-              </form>
-            )}
-            {!hasAcceptedInvite && employee.email && (
-              <form action={createInviteLink}>
-                <button className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground">
-                  Create invite link
-                </button>
-              </form>
-            )}
-            {hasPendingInvite && cancelInvite && (
-              <form action={cancelInvite}>
-                <button className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground">
-                  Cancel invite
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-
-        {!employee.email && (
-          <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
-            Add an email address before sending an invite.
-          </div>
-        )}
-
-        {resolvedSearchParams?.manualInviteUrl && (
-          <InviteLinkPanel inviteUrl={resolvedSearchParams.manualInviteUrl} />
-        )}
-      </section>
+      <EmployeeAccountPanel
+        employeeId={employee.id}
+        email={employee.email}
+        hasAccount={Boolean(employee.user_id)}
+      />
 
       <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
         <div>

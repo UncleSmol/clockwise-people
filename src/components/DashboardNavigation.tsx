@@ -14,6 +14,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/company", label: "Company" },
   { href: "/dashboard/employees", label: "Employees" },
+  { href: "/dashboard/account", label: "Account" },
 ];
 
 function isActive(pathname: string, href: string) {
