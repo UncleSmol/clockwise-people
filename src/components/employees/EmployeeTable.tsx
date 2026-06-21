@@ -113,7 +113,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
   if (employees.length === 0) {
     return (
-      <div className="rounded-md border border-border bg-surface px-6 py-10 text-center">
+      <div className="premium-card rounded-md px-6 py-10 text-center">
         <p className="text-lg font-semibold text-foreground">No employees registered</p>
         <p className="mt-2 text-sm text-muted">
           Add the first employee to start building the company register.
@@ -131,9 +131,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           value={globalFilter}
           onChange={(event) => setGlobalFilter(event.target.value)}
           placeholder="Search employees"
-          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none ring-ring focus:ring-2 md:max-w-sm"
+          className="w-full rounded-md border border-border bg-surface/90 px-3 py-2 text-sm outline-none ring-ring focus:ring-2 md:max-w-sm"
         />
-        <div className="hidden rounded-md border border-border bg-surface p-1 text-sm font-semibold lg:flex">
+        <div className="hidden rounded-md border border-border bg-surface/80 p-1 text-sm font-semibold shadow-sm lg:flex">
           <button
             type="button"
             onClick={() => setDensity("comfortable")}
@@ -159,7 +159,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <Link
               key={employee.id}
               href={`/dashboard/employees/${employee.id}`}
-              className="rounded-md border border-border bg-surface p-4 shadow-sm"
+              className="premium-card rounded-md p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -212,10 +212,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
         })}
       </div>
 
-      <div className="hidden overflow-hidden rounded-md border border-border bg-surface lg:block">
+      <div className="premium-card hidden overflow-hidden rounded-md lg:block">
         <div>
           <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-surface-muted text-xs uppercase tracking-[0.08em] text-muted">
+            <thead className="bg-surface-muted/80 text-xs uppercase tracking-[0.08em] text-muted">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -230,7 +230,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             </thead>
             <tbody className="divide-y divide-border">
               {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="align-top">
+                <tr key={row.id} className="align-top hover:bg-surface-muted/35">
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className={`${cellPadding} text-muted`}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

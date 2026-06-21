@@ -25,7 +25,7 @@ function DetailItem({
   value: string | number | null | undefined;
 }) {
   return (
-    <div className="rounded-md border border-border bg-background p-3">
+    <div className="rounded-md border border-border bg-background/80 p-3 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
         {label}
       </p>
@@ -42,35 +42,35 @@ export default async function AccountPage() {
 
   return (
     <div className="grid gap-8">
-      <header>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+      <header className="premium-hero rounded-md p-5 text-white sm:p-7">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
           Account
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
+        <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">
           Account profile
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted">
+        <p className="mt-3 max-w-2xl text-sm opacity-80">
           Signed in as {profile.account.email}. Account data is scoped to your
           role and employee record.
         </p>
       </header>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-md border border-border bg-surface p-5">
+        <div className="premium-panel rounded-md p-5">
           <p className="text-sm font-medium text-muted">Workspace</p>
           <p className="mt-2 text-xl font-semibold text-foreground">
             {profile.account.companyName}
           </p>
           <p className="mt-2 text-sm text-muted">{profile.account.companyTimezone}</p>
         </div>
-        <div className="rounded-md border border-border bg-surface p-5">
+        <div className="premium-panel rounded-md p-5">
           <p className="text-sm font-medium text-muted">Access role</p>
           <p className="mt-2 text-xl font-semibold capitalize text-foreground">
             {profile.account.roles.map(formatLabel).join(", ") || "Not assigned"}
           </p>
           <p className="mt-2 text-sm text-muted">Controls what this account can view.</p>
         </div>
-        <div className="rounded-md border border-border bg-surface p-5">
+        <div className="premium-panel rounded-md p-5">
           <p className="text-sm font-medium text-muted">Employee link</p>
           <p className="mt-2 text-xl font-semibold text-foreground">
             {employee ? employee.employeeNumber : "No employee profile"}
@@ -83,7 +83,7 @@ export default async function AccountPage() {
 
       {employee && (
         <>
-          <section className="rounded-md border border-border bg-surface p-4 sm:p-6">
+          <section className="premium-card rounded-md p-4 sm:p-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
               <div>
                 <h2 className="text-xl font-semibold text-foreground">Employee details</h2>
@@ -109,7 +109,7 @@ export default async function AccountPage() {
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
+            <div className="premium-card rounded-md p-4 sm:p-6">
               <h2 className="text-xl font-semibold text-foreground">Work placement</h2>
               <p className="mt-1 text-sm text-muted">
                 Branch and department context used for time and attendance.
@@ -125,7 +125,7 @@ export default async function AccountPage() {
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
+            <div className="premium-card rounded-md p-4 sm:p-6">
               <h2 className="text-xl font-semibold text-foreground">Payroll basis</h2>
               <p className="mt-1 text-sm text-muted">
                 Payroll identifiers and rates are visible only on your own linked profile.
@@ -139,7 +139,7 @@ export default async function AccountPage() {
             </div>
           </section>
 
-          <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
+          <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Time summary</h2>
               <p className="mt-1 text-sm text-muted">
@@ -161,7 +161,7 @@ export default async function AccountPage() {
         </>
       )}
 
-      <section className="grid max-w-xl gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
+      <section className="premium-card grid max-w-xl gap-4 rounded-md p-4 sm:p-6">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Change password</h2>
           <p className="mt-1 text-sm text-muted">

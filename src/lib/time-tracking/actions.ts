@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ClockEventType } from "./schema";
+import type { ClockEventType, TimeEntryRecord } from "./schema";
 
 type ClockActionState = {
+  entry?: TimeEntryRecord;
   ok: boolean;
   message: string;
 };
@@ -14,7 +15,7 @@ export async function recordClockEvent(
 ): Promise<ClockActionState> {
   const supabase = await createSupabaseServerClient();
 
-  const { error } = await supabase.rpc("record_employee_time_event", {
+  const { data, error } = await supabase.rpc("record_employee_time_event", {
     requested_event: eventType,
     device_metadata: {
       source: "dashboard",
@@ -26,7 +27,11 @@ export async function recordClockEvent(
   }
 
   revalidatePath("/dashboard");
-  return { ok: true, message: "Time record updated." };
+  return {
+    entry: data as TimeEntryRecord,
+    ok: true,
+    message: "Time record updated.",
+  };
 }
 
 export async function clockIn() {

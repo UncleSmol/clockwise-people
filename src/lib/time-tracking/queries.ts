@@ -8,17 +8,22 @@ import {
 } from "@/lib/foundation/queries";
 import type {
   ClockEventRecord,
+  CompanyLiveTimeEntry,
+  CompanyLiveTimeOverview,
   EmployeeTimeState,
   TimeEntryRecord,
 } from "./schema";
 
 type EmployeeRow = {
   id: string;
+  employee_number?: string;
   full_name: string;
   known_as: string | null;
   branch_id: string;
+  department_id?: string | null;
   job_title: string | null;
   branches?: { name: string }[] | { name: string } | null;
+  departments?: { name: string }[] | { name: string } | null;
 };
 
 function relationName(
@@ -127,5 +132,98 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     todayEntry: (todayEntryResult.data as TimeEntryRecord | null) ?? null,
     recentEntries,
     recentEvents: (eventsResult.data ?? []) as ClockEventRecord[],
+  };
+});
+
+function liveStatus(entry: TimeEntryRecord | null): CompanyLiveTimeEntry["status"] {
+  if (!entry?.clock_in) return "not_started";
+  if (entry.missing_clocking || entry.late_arrival || entry.early_departure) {
+    return "needs_review";
+  }
+  if (entry.clock_out) return "worked";
+  if (entry.lunch_start && !entry.lunch_end) return "on_lunch";
+  return "working";
+}
+
+export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTimeOverview(): Promise<CompanyLiveTimeOverview> {
+  const { company } = await getActiveCompany();
+  const { supabase } = await requireUser();
+  const workDate = currentDateInTimezone(company.timezone || "UTC");
+
+  const [employeesResult, entriesResult] = await Promise.all([
+    supabase
+      .from("employees")
+      .select(
+        "id, employee_number, full_name, known_as, branch_id, department_id, job_title, branches(name), departments(name)",
+      )
+      .eq("company_id", company.id)
+      .eq("employment_status", "active")
+      .is("deleted_at", null)
+      .order("full_name"),
+    supabase
+      .from("time_entries")
+      .select(
+        "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+      )
+      .eq("company_id", company.id)
+      .eq("work_date", workDate)
+      .is("deleted_at", null),
+  ]);
+
+  if (employeesResult.error) {
+    throw new Error(employeesResult.error.message);
+  }
+
+  if (entriesResult.error) {
+    throw new Error(entriesResult.error.message);
+  }
+
+  const entriesByEmployee = new Map(
+    ((entriesResult.data ?? []) as TimeEntryRecord[]).map((entry) => [
+      entry.employee_id,
+      entry,
+    ]),
+  );
+
+  const entries = ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(
+    (employee) => {
+      const entry = entriesByEmployee.get(employee.id) ?? null;
+      const status = liveStatus(entry);
+
+      return {
+        branchName: relationName(employee.branches),
+        clockIn: entry?.clock_in ?? null,
+        clockOut: entry?.clock_out ?? null,
+        departmentName: relationName(employee.departments),
+        earlyDeparture: Boolean(entry?.early_departure),
+        employeeId: employee.id,
+        employeeNumber: employee.employee_number ?? "",
+        fullName: employee.full_name,
+        jobTitle: employee.job_title,
+        knownAs: employee.known_as,
+        lateArrival: Boolean(entry?.late_arrival),
+        lunchEnd: entry?.lunch_end ?? null,
+        lunchStart: entry?.lunch_start ?? null,
+        missingClocking: Boolean(entry?.missing_clocking),
+        overtimeHours: Number(entry?.overtime_hours ?? 0),
+        paidHours: Number(entry?.paid_hours ?? 0),
+        status,
+        workDate: entry?.work_date ?? null,
+      };
+    },
+  );
+
+  return {
+    companyId: company.id,
+    entries,
+    totals: {
+      activeEmployees: entries.filter((entry) => entry.status === "working").length,
+      needsReview: entries.filter((entry) => entry.status === "needs_review").length,
+      notStarted: entries.filter((entry) => entry.status === "not_started").length,
+      onLunch: entries.filter((entry) => entry.status === "on_lunch").length,
+      totalEmployees: entries.length,
+      workedToday: entries.filter((entry) => entry.status === "worked").length,
+    },
+    workDate,
   };
 });

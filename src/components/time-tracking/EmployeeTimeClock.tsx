@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   clockIn,
   clockOut,
@@ -14,6 +14,7 @@ type EmployeeTimeClockProps = {
 };
 
 type ClockActionState = {
+  entry?: TimeEntryRecord;
   ok: boolean;
   message: string;
 };
@@ -67,20 +68,84 @@ function currentStatus(entry: TimeEntryRecord | null) {
   return "Working";
 }
 
+function localTimeValue() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function localDateValue() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function optimisticEntry(
+  entry: TimeEntryRecord | null,
+  eventLabel: string,
+): TimeEntryRecord {
+  const current = entry ?? {
+    branch_id: "",
+    clock_in: null,
+    clock_out: null,
+    company_id: "",
+    early_departure: false,
+    employee_id: "",
+    gross_hours: 0,
+    id: "optimistic",
+    late_arrival: false,
+    lunch_end: null,
+    lunch_hours: 0,
+    lunch_start: null,
+    missing_clocking: true,
+    normal_hours: 0,
+    notes: null,
+    overtime_hours: 0,
+    paid_hours: 0,
+    status: "draft",
+    warning_notes: null,
+    work_date: localDateValue(),
+  };
+  const next = { ...current };
+  const time = localTimeValue();
+
+  if (eventLabel === "Clock in") next.clock_in = time;
+  if (eventLabel === "Start lunch") next.lunch_start = time;
+  if (eventLabel === "End lunch") next.lunch_end = time;
+  if (eventLabel === "Clock out") next.clock_out = time;
+
+  return next;
+}
+
 export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps) {
-  const actionConfig = nextAction(todayEntry);
+  const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
   const [state, formAction, pending] = useActionState(
-    async () => {
-      if (!actionConfig) {
+    async (previousState: ClockActionState) => {
+      const currentEntry = previousState.entry ?? optimistic ?? todayEntry;
+      const currentAction = nextAction(currentEntry);
+
+      if (!currentAction) {
         return { ok: false, message: "Today is already complete." };
       }
 
-      return actionConfig.action();
+      setOptimistic(optimisticEntry(currentEntry, currentAction.label));
+      const result = await currentAction.action();
+      setOptimistic(null);
+
+      return result;
     },
     initialState,
   );
+  const displayEntry = state.entry ?? optimistic ?? todayEntry;
+  const actionConfig = nextAction(displayEntry);
 
-  const status = currentStatus(todayEntry);
+  const status = currentStatus(displayEntry);
   const buttonClass =
     actionConfig?.tone === "danger"
       ? "bg-danger text-white"
@@ -88,29 +153,29 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
         ? "border border-border bg-surface text-foreground"
         : "bg-primary text-primary-foreground";
   const timeline = [
-    { label: "Clock in", value: todayEntry?.clock_in },
-    { label: "Lunch start", value: todayEntry?.lunch_start },
-    { label: "Lunch end", value: todayEntry?.lunch_end },
-    { label: "Clock out", value: todayEntry?.clock_out },
+    { label: "Clock in", value: displayEntry?.clock_in },
+    { label: "Lunch start", value: displayEntry?.lunch_start },
+    { label: "Lunch end", value: displayEntry?.lunch_end },
+    { label: "Clock out", value: displayEntry?.clock_out },
   ];
 
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-surface">
-      <div className="grid gap-5 bg-primary p-5 text-primary-foreground sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+    <div className="premium-card overflow-hidden rounded-md">
+      <div className="premium-hero grid gap-5 p-5 text-white sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
             Today&apos;s shift
           </p>
-          <h2 className="mt-2 text-3xl font-semibold sm:text-4xl">{status}</h2>
+          <h2 className="mt-2 text-4xl font-semibold sm:text-5xl">{status}</h2>
           <p className="mt-2 text-sm opacity-80">
-            {todayEntry?.work_date ?? "No time record started yet"}
+            {displayEntry?.work_date ?? "No time record started yet"}
           </p>
         </div>
         {actionConfig ? (
           <form action={formAction}>
             <button
               disabled={pending}
-              className={`w-full rounded-md px-5 py-3 text-sm font-semibold shadow-sm disabled:opacity-60 sm:w-auto ${buttonClass}`}
+              className={`w-full rounded-md px-6 py-3 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
             >
               {pending ? "Saving..." : actionConfig.label}
             </button>
@@ -136,28 +201,28 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
         )}
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-md border border-border bg-background p-4">
+          <div className="premium-panel rounded-md p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Paid time
             </p>
             <p className="mt-2 text-2xl font-semibold text-foreground">
-              {formatHours(todayEntry?.paid_hours)}
+              {formatHours(displayEntry?.paid_hours)}
             </p>
           </div>
-          <div className="rounded-md border border-border bg-background p-4">
+          <div className="premium-panel rounded-md p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Lunch
             </p>
             <p className="mt-2 text-2xl font-semibold text-foreground">
-              {formatHours(todayEntry?.lunch_hours)}
+              {formatHours(displayEntry?.lunch_hours)}
             </p>
           </div>
-          <div className="rounded-md border border-border bg-background p-4">
+          <div className="premium-panel rounded-md p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Overtime
             </p>
             <p className="mt-2 text-2xl font-semibold text-foreground">
-              {formatHours(todayEntry?.overtime_hours)}
+              {formatHours(displayEntry?.overtime_hours)}
             </p>
           </div>
         </div>
@@ -169,10 +234,10 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
             return (
               <div
                 key={item.label}
-                className={`rounded-md border p-4 ${
+                className={`rounded-md border p-4 shadow-sm ${
                   complete
                     ? "border-accent/30 bg-accent/10"
-                    : "border-border bg-background"
+                    : "border-border bg-background/70"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -199,13 +264,13 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
           })}
         </div>
 
-        {(todayEntry?.missing_clocking ||
-          todayEntry?.late_arrival ||
-          todayEntry?.early_departure) && (
+        {(displayEntry?.missing_clocking ||
+          displayEntry?.late_arrival ||
+          displayEntry?.early_departure) && (
           <div className="mt-5 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
-            {todayEntry.missing_clocking && "Missing clocking detected. "}
-            {todayEntry.late_arrival && "Late arrival flagged. "}
-            {todayEntry.early_departure && "Early departure flagged."}
+            {displayEntry.missing_clocking && "Missing clocking detected. "}
+            {displayEntry.late_arrival && "Late arrival flagged. "}
+            {displayEntry.early_departure && "Early departure flagged."}
           </div>
         )}
       </div>

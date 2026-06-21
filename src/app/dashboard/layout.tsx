@@ -11,16 +11,16 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   ]);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="relative border-b border-border bg-surface">
+    <main className="premium-shell min-h-screen bg-background text-foreground">
+      <div className="sticky top-0 z-30 border-b border-border/70 bg-surface/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <Link
             href="/dashboard"
-            className="flex min-w-0 items-center gap-3 text-lg font-semibold text-primary"
+            className="flex min-w-0 items-center gap-3 rounded-md px-1 py-1 text-lg font-semibold text-primary"
           >
             <BrandMark
               imageSize={36}
-              imageClassName="size-9 rounded-md"
+              imageClassName="size-9 rounded-md shadow-sm"
               textClassName="truncate text-lg font-semibold text-primary"
               priority
             />
@@ -32,7 +32,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           />
         </div>
       </div>
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
     </main>
   );
 }

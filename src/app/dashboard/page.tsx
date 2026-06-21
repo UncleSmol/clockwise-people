@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CompanyLiveWorkforce from "@/components/time-tracking/CompanyLiveWorkforce";
 import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
 import {
   getActiveCompany,
@@ -6,7 +7,10 @@ import {
   getCurrentUserAccess,
 } from "@/lib/foundation/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
-import { getEmployeeTimeState } from "@/lib/time-tracking/queries";
+import {
+  getCompanyLiveTimeOverview,
+  getEmployeeTimeState,
+} from "@/lib/time-tracking/queries";
 
 function formatDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -54,25 +58,25 @@ export default async function DashboardPage() {
 
     return (
       <div className="grid gap-6">
-        <header className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-end">
+        <header className="premium-hero grid gap-4 rounded-md p-5 text-white sm:p-7 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
               Employee dashboard
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-foreground sm:text-4xl">
+            <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">
               {displayName}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
+            <p className="mt-3 max-w-2xl text-sm opacity-80">
               {timeState.employee?.branch_name
                 ? `${timeState.employee.branch_name}${timeState.employee.job_title ? ` - ${timeState.employee.job_title}` : ""}`
                 : "Your time records are scoped to your own employee profile."}
             </p>
           </div>
-          <div className="rounded-md border border-border bg-background px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+          <div className="rounded-md border border-white/15 bg-white/10 px-4 py-3 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
               Current day
             </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
+            <p className="mt-1 text-lg font-semibold">
               {new Intl.DateTimeFormat("en-ZA", {
                 day: "numeric",
                 month: "long",
@@ -84,7 +88,7 @@ export default async function DashboardPage() {
 
         <EmployeeTimeClock todayEntry={timeState.todayEntry} />
 
-        <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
+        <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Recent time records</h2>
@@ -105,7 +109,7 @@ export default async function DashboardPage() {
               {timeState.recentEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="grid gap-3 rounded-md border border-border bg-background p-4 text-sm lg:grid-cols-[140px_1fr_auto] lg:items-center"
+              className="grid gap-3 rounded-md border border-border bg-background/80 p-4 text-sm shadow-sm lg:grid-cols-[140px_1fr_auto] lg:items-center"
                 >
                   <div>
                     <p className="font-semibold text-foreground">
@@ -154,9 +158,10 @@ export default async function DashboardPage() {
     );
   }
 
-  const [{ branches, departments }, employeesData] = await Promise.all([
+  const [{ branches, departments }, employeesData, liveTimeOverview] = await Promise.all([
     getCompanySetup(company.id),
     getEmployeePageData(),
+    getCompanyLiveTimeOverview(),
   ]);
 
   const hasBranches = branches.length > 0;
@@ -262,13 +267,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="grid gap-6">
-      <header className="grid gap-5 rounded-md border border-border bg-surface p-4 sm:p-6 lg:grid-cols-[1fr_320px] lg:items-center">
+      <header className="premium-hero grid gap-5 rounded-md p-5 text-white sm:p-7 lg:grid-cols-[1fr_320px] lg:items-center">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
             Dashboard
           </p>
-          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{company.name}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted">
+          <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">{company.name}</h1>
+          <p className="mt-3 max-w-2xl text-sm opacity-80">
             {foundationComplete
               ? "A current snapshot of your workforce register."
               : "Complete the foundation in order: company assignment, branches, then employees."}
@@ -276,12 +281,12 @@ export default async function DashboardPage() {
         </div>
 
         {!foundationComplete ? (
-          <div className="rounded-md border border-border bg-background p-4">
+          <div className="rounded-md border border-white/15 bg-white/10 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-semibold text-foreground">Foundation readiness</span>
+              <span className="text-sm font-semibold">Foundation readiness</span>
               <span className="text-sm font-semibold text-accent">{setupProgress}%</span>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted">
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
               <div
                 className="h-full rounded-full bg-accent"
                 style={{ width: `${setupProgress}%` }}
@@ -295,7 +300,7 @@ export default async function DashboardPage() {
         <>
           <section className="grid gap-4 md:grid-cols-3">
             {workforceStats.map((stat) => (
-              <div key={stat.label} className="rounded-md border border-border bg-surface p-5">
+              <div key={stat.label} className="premium-panel rounded-md p-5">
                 <p className="text-sm font-medium text-muted">{stat.label}</p>
                 <p className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{stat.value}</p>
                 <p className="mt-2 text-sm text-muted">{stat.detail}</p>
@@ -303,8 +308,10 @@ export default async function DashboardPage() {
             ))}
           </section>
 
+          <CompanyLiveWorkforce overview={liveTimeOverview} />
+
           <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
-            <div className="rounded-md border border-border bg-surface">
+            <div className="premium-card rounded-md">
               <div className="border-b border-border px-4 py-4 sm:px-6">
                 <h2 className="text-xl font-semibold text-foreground">Workforce composition</h2>
                 <p className="mt-1 text-sm text-muted">
@@ -325,7 +332,7 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            <aside className="rounded-md border border-border bg-surface p-6">
+            <aside className="premium-card rounded-md p-6">
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">
                 Quick actions
               </p>
@@ -350,7 +357,7 @@ export default async function DashboardPage() {
         <>
           <section className="grid gap-4 md:grid-cols-3">
             {stats.map((stat) => (
-              <div key={stat.label} className="rounded-md border border-border bg-surface p-5">
+              <div key={stat.label} className="premium-panel rounded-md p-5">
                 <p className="text-sm font-medium text-muted">{stat.label}</p>
                 <p className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{stat.value}</p>
                 <p className="mt-2 text-sm text-muted">{stat.detail}</p>
@@ -359,7 +366,7 @@ export default async function DashboardPage() {
           </section>
 
           <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
-            <div className="rounded-md border border-border bg-surface">
+            <div className="premium-card rounded-md">
               <div className="border-b border-border px-4 py-4 sm:px-6">
                 <h2 className="text-xl font-semibold text-foreground">Setup checklist</h2>
                 <p className="mt-1 text-sm text-muted">
@@ -391,7 +398,7 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            <aside className="rounded-md border border-border bg-primary p-6 text-primary-foreground">
+            <aside className="premium-hero rounded-md p-6 text-white">
               <p className="text-sm font-semibold uppercase tracking-[0.16em] opacity-70">
                 Next step
               </p>

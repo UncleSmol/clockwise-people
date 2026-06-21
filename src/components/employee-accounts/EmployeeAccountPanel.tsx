@@ -44,7 +44,7 @@ export default function EmployeeAccountPanel({
   }
 
   return (
-    <section className="rounded-md border border-border bg-surface p-4 sm:p-6">
+    <section className="premium-card rounded-md p-4 sm:p-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Account access</h2>
@@ -66,7 +66,7 @@ export default function EmployeeAccountPanel({
             <button
               type="submit"
               disabled={pending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm disabled:opacity-60"
             >
               {pending ? "Creating..." : "Create account"}
             </button>
@@ -87,7 +87,7 @@ export default function EmployeeAccountPanel({
       )}
 
       {state.credentials && (
-        <div className="mt-4 rounded-md border border-accent/30 bg-accent/10 p-4">
+        <div className="mt-4 rounded-md border border-accent/30 bg-accent/10 p-4 shadow-sm">
           <p className="text-sm font-semibold text-foreground">
             {state.message ?? "Employee account created."}
           </p>

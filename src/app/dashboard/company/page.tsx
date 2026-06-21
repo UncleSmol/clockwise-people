@@ -29,22 +29,22 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
 
   return (
     <div className="grid gap-8">
-      <header className="rounded-md border border-border bg-surface p-4 sm:p-6">
+      <header className="premium-hero rounded-md p-5 text-white sm:p-7">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
               Company setup
             </p>
-            <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{company.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
+            <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">{company.name}</h1>
+            <p className="mt-3 max-w-2xl text-sm opacity-80">
               Configure the foundation records needed before employee registration and schedules.
             </p>
           </div>
-          <div className="rounded-md border border-border bg-background px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">
+          <div className="rounded-md border border-white/15 bg-white/10 px-4 py-3">
+            <p className="text-sm font-semibold">
               {hasBranches ? "Ready for employees" : "Branch required"}
             </p>
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 text-sm opacity-75">
               {hasBranches
                 ? "You can now register employees."
                 : "Add at least one branch before employee registration."}
@@ -60,7 +60,7 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
       )}
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
+        <div className="premium-card rounded-md p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-foreground">Add branch</h2>
           <p className="mt-1 text-sm text-muted">
             Branches are physical or operational locations employees can be assigned to.
@@ -130,7 +130,7 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
           </form>
         </div>
 
-        <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
+        <div className="premium-card rounded-md p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-foreground">Add department</h2>
           <p className="mt-1 text-sm text-muted">
             Departments help group employees for approvals and reports.

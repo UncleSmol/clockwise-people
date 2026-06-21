@@ -51,3 +51,38 @@ export type EmployeeTimeState = {
   recentEntries: TimeEntryRecord[];
   recentEvents: ClockEventRecord[];
 };
+
+export type CompanyLiveTimeEntry = {
+  employeeId: string;
+  employeeNumber: string;
+  fullName: string;
+  knownAs: string | null;
+  branchName: string | null;
+  departmentName: string | null;
+  jobTitle: string | null;
+  workDate: string | null;
+  clockIn: string | null;
+  lunchStart: string | null;
+  lunchEnd: string | null;
+  clockOut: string | null;
+  paidHours: number;
+  overtimeHours: number;
+  missingClocking: boolean;
+  lateArrival: boolean;
+  earlyDeparture: boolean;
+  status: "not_started" | "working" | "on_lunch" | "worked" | "needs_review";
+};
+
+export type CompanyLiveTimeOverview = {
+  companyId: string;
+  workDate: string;
+  totals: {
+    activeEmployees: number;
+    notStarted: number;
+    onLunch: number;
+    workedToday: number;
+    needsReview: number;
+    totalEmployees: number;
+  };
+  entries: CompanyLiveTimeEntry[];
+};

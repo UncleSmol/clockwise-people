@@ -29,12 +29,12 @@ export default async function EmployeeDetailPage({
 
   return (
     <div className="grid gap-8">
-      <header>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+      <header className="premium-hero rounded-md p-5 text-white sm:p-7">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
           Employee detail
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{employee.full_name}</h1>
-        <p className="mt-2 text-sm text-muted">
+        <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">{employee.full_name}</h1>
+        <p className="mt-3 text-sm opacity-80">
           {employee.employee_number} - {employee.branch_name ?? "No branch"}
         </p>
       </header>
@@ -51,7 +51,7 @@ export default async function EmployeeDetailPage({
         hasAccount={Boolean(employee.user_id)}
       />
 
-      <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
+      <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Edit employee</h2>
           <p className="mt-1 text-sm text-muted">
