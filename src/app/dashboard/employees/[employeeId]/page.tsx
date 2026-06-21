@@ -3,6 +3,7 @@ import EmployeeAccountPanel from "@/components/employee-accounts/EmployeeAccount
 import EmployeeForm from "@/components/employees/EmployeeForm";
 import { deactivateEmployee } from "@/lib/employees/actions";
 import { getEmployeeDetail, getEmployeePageData } from "@/lib/employees/queries";
+import { requireEmployeeAdmin } from "@/lib/foundation/queries";
 
 type EmployeeDetailPageProps = {
   params: Promise<{ employeeId: string }>;
@@ -13,6 +14,8 @@ export default async function EmployeeDetailPage({
   params,
   searchParams,
 }: EmployeeDetailPageProps) {
+  await requireEmployeeAdmin();
+
   const { employeeId } = await params;
   const resolvedSearchParams = await searchParams;
   const pageData = await getEmployeePageData();

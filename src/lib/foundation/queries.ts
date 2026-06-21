@@ -3,7 +3,19 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Branch, Company, Department } from "./schema";
+import type { AppRole, Branch, Company, Department } from "./schema";
+
+type UserRoleRow = {
+  roles?: { key: AppRole }[] | { key: AppRole } | null;
+};
+
+function roleKey(relation?: { key: AppRole }[] | { key: AppRole } | null) {
+  if (Array.isArray(relation)) {
+    return relation[0]?.key ?? null;
+  }
+
+  return relation?.key ?? null;
+}
 
 export const requireUser = cache(async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -47,6 +59,90 @@ export const getActiveCompany = cache(async function getActiveCompany() {
     company: companies[0],
   };
 });
+
+export const getCurrentUserAccess = cache(async function getCurrentUserAccess() {
+  const { supabase, user } = await requireUser();
+
+  const { data: appUsers, error: userError } = await supabase
+    .from("users")
+    .select("id, company_id, employee_id")
+    .eq("auth_user_id", user.id)
+    .eq("status", "active")
+    .is("deleted_at", null);
+
+  if (userError) {
+    throw new Error(userError.message);
+  }
+
+  const companyIds = (appUsers ?? []).map((appUser) => appUser.company_id);
+  const appUserIds = (appUsers ?? []).map((appUser) => appUser.id);
+
+  if (companyIds.length === 0) {
+    redirect("/login?message=Unable to access this workspace. Contact your administrator.");
+  }
+
+  const { data: roles, error: rolesError } = await supabase
+    .from("user_roles")
+    .select("company_id, roles(key)")
+    .in("company_id", companyIds)
+    .in("user_id", appUserIds)
+    .is("revoked_at", null);
+
+  if (rolesError) {
+    throw new Error(rolesError.message);
+  }
+
+  const roleKeys = new Set<AppRole>();
+  ((roles ?? []) as unknown as UserRoleRow[]).forEach((row) => {
+    const key = roleKey(row.roles);
+    if (key) {
+      roleKeys.add(key);
+    }
+  });
+
+  const currentAppUser = appUsers?.[0] ?? null;
+
+  return {
+    appUserId: currentAppUser?.id ?? null,
+    employeeId: currentAppUser?.employee_id ?? null,
+    roles: Array.from(roleKeys),
+    isOwner: roleKeys.has("owner"),
+    isHrAdmin: roleKeys.has("hr_admin"),
+    isBranchManager: roleKeys.has("branch_manager"),
+    isPayrollViewer: roleKeys.has("payroll_viewer"),
+    isEmployee: roleKeys.has("employee"),
+    canManageCompany: roleKeys.has("owner") || roleKeys.has("hr_admin"),
+    canManageEmployees: roleKeys.has("owner") || roleKeys.has("hr_admin"),
+    canReviewBranchTime:
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("branch_manager"),
+    canViewPayroll:
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("payroll_viewer"),
+  };
+});
+
+export async function requireCompanyAdmin() {
+  const access = await getCurrentUserAccess();
+
+  if (!access.canManageCompany) {
+    redirect("/dashboard");
+  }
+
+  return access;
+}
+
+export async function requireEmployeeAdmin() {
+  const access = await getCurrentUserAccess();
+
+  if (!access.canManageEmployees) {
+    redirect("/dashboard");
+  }
+
+  return access;
+}
 
 export const getCompanySetup = cache(async function getCompanySetup(companyId: string) {
   const { supabase } = await requireUser();

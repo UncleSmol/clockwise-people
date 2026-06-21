@@ -9,13 +9,19 @@ import {
   departmentHints,
   timezoneOptions,
 } from "@/lib/foundation/form-options";
-import { getActiveCompany, getCompanySetup } from "@/lib/foundation/queries";
+import {
+  getActiveCompany,
+  getCompanySetup,
+  requireCompanyAdmin,
+} from "@/lib/foundation/queries";
 
 type CompanyPageProps = {
   searchParams?: Promise<{ message?: string }>;
 };
 
 export default async function CompanyPage({ searchParams }: CompanyPageProps) {
+  await requireCompanyAdmin();
+
   const params = await searchParams;
   const { company } = await getActiveCompany();
   const { branches, departments } = await getCompanySetup(company.id);

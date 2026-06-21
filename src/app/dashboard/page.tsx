@@ -1,9 +1,77 @@
 import Link from "next/link";
-import { getActiveCompany, getCompanySetup } from "@/lib/foundation/queries";
+import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
+import {
+  getActiveCompany,
+  getCompanySetup,
+  getCurrentUserAccess,
+} from "@/lib/foundation/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
+import { getEmployeeTimeState } from "@/lib/time-tracking/queries";
 
 export default async function DashboardPage() {
-  const { company } = await getActiveCompany();
+  const [{ company }, access] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+  ]);
+
+  if (!access.canManageEmployees && access.employeeId) {
+    const timeState = await getEmployeeTimeState();
+    const displayName =
+      timeState.employee?.known_as ?? timeState.employee?.full_name ?? "Employee";
+
+    return (
+      <div className="grid gap-6">
+        <header className="rounded-md border border-border bg-surface p-4 sm:p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
+            Employee dashboard
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
+            {displayName}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted">
+            {timeState.employee?.branch_name
+              ? `${timeState.employee.branch_name}${timeState.employee.job_title ? ` - ${timeState.employee.job_title}` : ""}`
+              : "Your time records are scoped to your own employee profile."}
+          </p>
+        </header>
+
+        <EmployeeTimeClock todayEntry={timeState.todayEntry} />
+
+        <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Recent time records</h2>
+            <p className="mt-1 text-sm text-muted">
+              Only your own records are visible from this account.
+            </p>
+          </div>
+          {timeState.recentEntries.length === 0 ? (
+            <p className="rounded-md border border-border bg-background p-4 text-sm text-muted">
+              No time entries yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {timeState.recentEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="grid gap-3 py-4 text-sm sm:grid-cols-[120px_1fr_120px]"
+                >
+                  <span className="font-semibold text-foreground">{entry.work_date}</span>
+                  <span className="text-muted">
+                    {entry.clock_in ?? "--:--"} to {entry.clock_out ?? "--:--"}
+                    {entry.missing_clocking ? " - missing clocking" : ""}
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {Number(entry.paid_hours).toFixed(2)} paid hrs
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   const [{ branches, departments }, employeesData] = await Promise.all([
     getCompanySetup(company.id),
     getEmployeePageData(),

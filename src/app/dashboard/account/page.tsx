@@ -1,6 +1,9 @@
 import ChangePasswordForm from "@/components/account/ChangePasswordForm";
+import { requireUser } from "@/lib/foundation/queries";
 
-export default function AccountPage() {
+export default async function AccountPage() {
+  const { user } = await requireUser();
+
   return (
     <div className="grid gap-8">
       <header>
@@ -11,7 +14,7 @@ export default function AccountPage() {
           Security settings
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Update the password used to sign in to this workspace.
+          Update the password used to sign in as {user.email}.
         </p>
       </header>
 

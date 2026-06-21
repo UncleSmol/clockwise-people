@@ -7,13 +7,13 @@ import { signOut } from "@/lib/auth/actions";
 import ThemeToggle from "@/components/ThemeToggle";
 
 type DashboardNavigationProps = {
+  canManageCompany: boolean;
+  canManageEmployees: boolean;
   companyName: string;
 };
 
-const links = [
+const baseLinks = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/company", label: "Company" },
-  { href: "/dashboard/employees", label: "Employees" },
   { href: "/dashboard/account", label: "Account" },
 ];
 
@@ -25,9 +25,19 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function DashboardNavigation({ companyName }: DashboardNavigationProps) {
+export default function DashboardNavigation({
+  canManageCompany,
+  canManageEmployees,
+  companyName,
+}: DashboardNavigationProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const links = [
+    baseLinks[0],
+    ...(canManageCompany ? [{ href: "/dashboard/company", label: "Company" }] : []),
+    ...(canManageEmployees ? [{ href: "/dashboard/employees", label: "Employees" }] : []),
+    baseLinks[1],
+  ];
 
   return (
     <div className="flex items-center gap-2">

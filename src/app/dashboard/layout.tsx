@@ -1,11 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getActiveCompany } from "@/lib/foundation/queries";
+import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const { company } = await getActiveCompany();
+  const [{ company }, access] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+  ]);
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -22,7 +25,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               priority
             />
           </Link>
-          <DashboardNavigation companyName={company.name} />
+          <DashboardNavigation
+            canManageCompany={access.canManageCompany}
+            canManageEmployees={access.canManageEmployees}
+            companyName={company.name}
+          />
         </div>
       </div>
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>

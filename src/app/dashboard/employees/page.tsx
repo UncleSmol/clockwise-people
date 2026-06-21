@@ -1,5 +1,6 @@
 import EmployeeForm from "@/components/employees/EmployeeForm";
 import EmployeeTable from "@/components/employees/EmployeeTable";
+import { requireEmployeeAdmin } from "@/lib/foundation/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
 import Link from "next/link";
 
@@ -8,6 +9,8 @@ type EmployeesPageProps = {
 };
 
 export default async function EmployeesPage({ searchParams }: EmployeesPageProps) {
+  await requireEmployeeAdmin();
+
   const params = await searchParams;
   const data = await getEmployeePageData();
 

@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const appRoles = [
+  "owner",
+  "hr_admin",
+  "branch_manager",
+  "payroll_viewer",
+  "employee",
+] as const;
+
+export type AppRole = (typeof appRoles)[number];
+
 export const companySchema = z.object({
   name: z.string().trim().min(2, "Company name is required"),
   registration_number: z.string().trim().optional().or(z.literal("")),
