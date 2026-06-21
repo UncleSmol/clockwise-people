@@ -1,4 +1,4 @@
-import Image from "next/image";
+import BrandMark from "@/components/BrandMark";
 import { signIn } from "@/lib/auth/actions";
 
 type LoginPageProps = {
@@ -11,17 +11,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 py-10">
       <section className="w-full max-w-md rounded-md border border-border bg-surface p-6 shadow-sm">
-        <Image
-          src="/assets/clockwise-people-logo.png"
-          alt="ClockWise People logo"
-          width={56}
-          height={56}
-          className="mb-6 size-14 rounded-md"
+        <BrandMark
+          className="mb-6 flex"
+          imageSize={56}
+          imageClassName="size-14 rounded-md"
+          textClassName="text-xl font-semibold text-primary"
           priority
         />
         <h1 className="text-2xl font-semibold text-foreground">Sign in</h1>
         <p className="mt-2 text-sm text-muted">
-          Sign in to continue to ClockWise People.
+          Sign in to continue to your workspace.
         </p>
 
         {params?.message && (

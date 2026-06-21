@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
 
+const AUTH_USER_PAGE_SIZE = 1000;
+const AUTH_USER_PAGE_LIMIT = 10;
+
 function appBaseUrl() {
   const rawUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
@@ -12,6 +15,70 @@ function appBaseUrl() {
     "http://localhost:3000";
 
   return new URL(rawUrl).origin;
+}
+
+async function findAuthUserIdByEmail(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  email: string,
+) {
+  const targetEmail = email.trim().toLowerCase();
+
+  for (let page = 1; page <= AUTH_USER_PAGE_LIMIT; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_USER_PAGE_SIZE,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const authUser = data.users.find(
+      (candidate) => candidate.email?.toLowerCase() === targetEmail,
+    );
+
+    if (authUser) {
+      return authUser.id;
+    }
+
+    if (data.users.length < AUTH_USER_PAGE_SIZE) {
+      return null;
+    }
+  }
+
+  throw new Error("Unable to verify whether this email already has Auth access. Try again shortly.");
+}
+
+async function removeUnlinkedAuthInviteUser(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  email: string,
+) {
+  const authUserId = await findAuthUserIdByEmail(admin, email);
+
+  if (!authUserId) {
+    return;
+  }
+
+  const { data: linkedUser, error: linkedUserError } = await admin
+    .from("users")
+    .select("id")
+    .or(`auth_user_id.eq.${authUserId},email.eq.${email}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (linkedUserError) {
+    throw new Error(linkedUserError.message);
+  }
+
+  if (linkedUser) {
+    throw new Error("This email already has account access. Use the existing account or deactivate it first.");
+  }
+
+  const { error: deleteError } = await admin.auth.admin.deleteUser(authUserId);
+
+  if (deleteError) {
+    throw new Error(deleteError.message);
+  }
 }
 
 export async function sendEmployeeInvite(employeeId: string) {
@@ -49,6 +116,15 @@ export async function sendEmployeeInvite(employeeId: string) {
     redirect(`/dashboard/employees/${employeeId}?message=Unable to verify inviter permissions.`);
   }
 
+  const admin = createSupabaseAdminClient();
+
+  try {
+    await removeUnlinkedAuthInviteUser(admin, employee.email);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to prepare a fresh invite.";
+    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(message)}`);
+  }
+
   await supabase
     .from("user_invitations")
     .update({
@@ -75,7 +151,6 @@ export async function sendEmployeeInvite(employeeId: string) {
     redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(invitationError?.message ?? "Unable to create invite.")}`);
   }
 
-  const admin = createSupabaseAdminClient();
   const redirectTo = `${appBaseUrl()}/auth/callback?inviteId=${invitation.id}`;
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
     employee.email,

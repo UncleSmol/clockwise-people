@@ -71,3 +71,45 @@ body {
   font-family: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
   margin: 0;
 }
+
+a,
+button,
+input,
+select,
+textarea {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+button:not(:disabled),
+a[href],
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  a[href].rounded-md:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgb(11 31 58 / 10%);
+  }
+
+  [data-theme="dark"] button:not(:disabled):hover,
+  [data-theme="dark"] a[href].rounded-md:hover {
+    box-shadow: 0 8px 20px rgb(0 0 0 / 22%);
+  }
+
+  input:hover,
+  select:hover,
+  textarea:hover {
+    border-color: var(--color-accent);
+  }
+}

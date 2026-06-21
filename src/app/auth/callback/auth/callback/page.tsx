@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import AuthCallbackClient from "@/components/AuthCallbackClient";
 import BrandMark from "@/components/BrandMark";
 
-export default function AuthCallbackPage() {
+export default function NestedAuthCallbackPage() {
   return (
     <Suspense
       fallback={

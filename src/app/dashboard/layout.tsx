@@ -1,8 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { ReactNode } from "react";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import DashboardNavigation from "@/components/DashboardNavigation";
+import BrandMark from "@/components/BrandMark";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const { company } = await getActiveCompany();
@@ -15,14 +15,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             href="/dashboard"
             className="flex min-w-0 items-center gap-3 text-lg font-semibold text-primary"
           >
-            <Image
-              src="/assets/clockwise-people-logo.png"
-              alt="ClockWise People logo"
-              width={36}
-              height={36}
-              className="size-9 rounded-md"
+            <BrandMark
+              imageSize={36}
+              imageClassName="size-9 rounded-md"
+              textClassName="truncate text-lg font-semibold text-primary"
+              priority
             />
-            <span className="truncate">ClockWise People</span>
           </Link>
           <DashboardNavigation companyName={company.name} />
         </div>

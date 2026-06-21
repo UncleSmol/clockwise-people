@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import Image from "next/image";
+import BrandMark from "@/components/BrandMark";
 
 type ResourceStatus = "idle" | "loading" | "ready" | "error";
 
@@ -226,20 +226,13 @@ export default function IntroLoader({
           className="fixed inset-0 z-50 grid min-h-screen place-items-center bg-background px-6 text-foreground"
         >
           <div className="w-full max-w-xl text-center">
-            <div className="mx-auto mb-8 grid size-28 place-items-center rounded-2xl border border-border bg-surface p-2 shadow-sm sm:size-32">
-              <Image
-                src="/assets/clockwise-people-logo.png"
-                alt="ClockWise People logo"
-                width={128}
-                height={128}
-                className="size-full rounded-xl object-cover"
-                priority
-              />
-            </div>
-
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
-              ClockWise People
-            </p>
+            <BrandMark
+              className="mb-8 flex justify-center"
+              imageSize={128}
+              imageClassName="size-28 rounded-2xl border border-border bg-surface p-2 shadow-sm sm:size-32"
+              textClassName="text-sm font-semibold uppercase tracking-[0.18em] text-accent"
+              priority
+            />
             <h1 className="mt-3 text-4xl font-semibold tracking-normal text-primary sm:text-6xl">
               Getting your workspace ready
             </h1>

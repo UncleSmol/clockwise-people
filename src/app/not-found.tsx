@@ -1,16 +1,15 @@
-import Image from "next/image";
 import Link from "next/link";
+import BrandMark from "@/components/BrandMark";
 
 export default function NotFound() {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 py-10 text-foreground">
       <section className="w-full max-w-lg rounded-md border border-border bg-surface p-6 text-center shadow-sm">
-        <Image
-          src="/assets/clockwise-people-logo.png"
-          alt="ClockWise People logo"
-          width={72}
-          height={72}
-          className="mx-auto size-18 rounded-xl"
+        <BrandMark
+          className="flex justify-center"
+          imageSize={72}
+          imageClassName="size-18 rounded-xl"
+          textClassName="text-2xl font-semibold text-primary"
           priority
         />
         <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-accent">
