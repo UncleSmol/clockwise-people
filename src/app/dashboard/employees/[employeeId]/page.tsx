@@ -1,16 +1,18 @@
 import { notFound } from "next/navigation";
 import EmployeeForm from "@/components/employees/EmployeeForm";
+import InviteLinkPanel from "@/components/invitations/InviteLinkPanel";
 import { deactivateEmployee } from "@/lib/employees/actions";
 import { getEmployeeDetail, getEmployeePageData } from "@/lib/employees/queries";
 import {
   cancelEmployeeInvite,
+  createEmployeeInviteLink,
   sendEmployeeInvite,
 } from "@/lib/invitations/actions";
 import { getEmployeeInvitation } from "@/lib/invitations/queries";
 
 type EmployeeDetailPageProps = {
   params: Promise<{ employeeId: string }>;
-  searchParams?: Promise<{ message?: string }>;
+  searchParams?: Promise<{ manualInviteUrl?: string; message?: string }>;
 };
 
 export default async function EmployeeDetailPage({
@@ -29,6 +31,7 @@ export default async function EmployeeDetailPage({
   const invitation = await getEmployeeInvitation(employee.id, employee.company_id);
   const deactivate = deactivateEmployee.bind(null, employee.id);
   const sendInvite = sendEmployeeInvite.bind(null, employee.id);
+  const createInviteLink = createEmployeeInviteLink.bind(null, employee.id);
   const cancelInvite = invitation
     ? cancelEmployeeInvite.bind(null, invitation.id, employee.id)
     : null;
@@ -82,6 +85,13 @@ export default async function EmployeeDetailPage({
                 </button>
               </form>
             )}
+            {!hasAcceptedInvite && employee.email && (
+              <form action={createInviteLink}>
+                <button className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground">
+                  Create invite link
+                </button>
+              </form>
+            )}
             {hasPendingInvite && cancelInvite && (
               <form action={cancelInvite}>
                 <button className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground">
@@ -96,6 +106,10 @@ export default async function EmployeeDetailPage({
           <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
             Add an email address before sending an invite.
           </div>
+        )}
+
+        {resolvedSearchParams?.manualInviteUrl && (
+          <InviteLinkPanel inviteUrl={resolvedSearchParams.manualInviteUrl} />
         )}
       </section>
 

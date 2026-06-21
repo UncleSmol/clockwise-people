@@ -81,7 +81,7 @@ async function removeUnlinkedAuthInviteUser(
   }
 }
 
-export async function sendEmployeeInvite(employeeId: string) {
+async function createPendingEmployeeInvitation(employeeId: string) {
   const { company } = await getActiveCompany();
   const { supabase, user } = await requireUser();
 
@@ -151,6 +151,13 @@ export async function sendEmployeeInvite(employeeId: string) {
     redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(invitationError?.message ?? "Unable to create invite.")}`);
   }
 
+  return { admin, company, employee, invitation, supabase };
+}
+
+export async function sendEmployeeInvite(employeeId: string) {
+  const { admin, company, employee, invitation, supabase } =
+    await createPendingEmployeeInvitation(employeeId);
+
   const redirectTo = `${appBaseUrl()}/auth/callback?inviteId=${invitation.id}`;
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
     employee.email,
@@ -179,6 +186,43 @@ export async function sendEmployeeInvite(employeeId: string) {
 
   revalidatePath(`/dashboard/employees/${employeeId}`);
   redirect(`/dashboard/employees/${employeeId}?message=Invite sent.`);
+}
+
+export async function createEmployeeInviteLink(employeeId: string) {
+  const { admin, company, employee, invitation, supabase } =
+    await createPendingEmployeeInvitation(employeeId);
+
+  const redirectTo = `${appBaseUrl()}/auth/callback?inviteId=${invitation.id}`;
+  const { data, error: linkError } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: employee.email,
+    options: {
+      redirectTo,
+      data: {
+        invitation_id: invitation.id,
+        company_id: company.id,
+        employee_id: employee.id,
+      },
+    },
+  });
+
+  if (linkError || !data.properties.action_link) {
+    await supabase
+      .from("user_invitations")
+      .update({
+        status: "cancelled",
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq("company_id", company.id)
+      .eq("id", invitation.id);
+
+    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(linkError?.message ?? "Unable to create invite link.")}`);
+  }
+
+  revalidatePath(`/dashboard/employees/${employeeId}`);
+  redirect(
+    `/dashboard/employees/${employeeId}?message=Invite link created.&manualInviteUrl=${encodeURIComponent(data.properties.action_link)}`,
+  );
 }
 
 export async function cancelEmployeeInvite(invitationId: string, employeeId: string) {
