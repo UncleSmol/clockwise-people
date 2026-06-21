@@ -24,10 +24,10 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
 
   return (
     <div className="grid gap-8">
-      <header className="rounded-md border border-border bg-surface p-6">
+      <header className="rounded-md border border-border bg-surface p-4 sm:p-6">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Employee register</p>
-          <h1 className="mt-2 text-3xl font-semibold text-foreground">Employees</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">Employees</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted">
             Register employees for {data.companyName}. The backend resolves tenant scope through the signed-in user.
           </p>
@@ -40,7 +40,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
         </div>
       )}
 
-      <section className="rounded-md border border-border bg-surface p-6">
+      <section className="rounded-md border border-border bg-surface p-4 sm:p-6">
         <div className="mb-5">
           <h2 className="text-xl font-semibold text-foreground">Add employee</h2>
           <p className="mt-1 text-sm text-muted">All employee records are saved with `company_id`.</p>
@@ -73,7 +73,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
           <p className="mt-1 text-sm text-muted">{data.employees.length} active employee records</p>
         </div>
         {data.employees.length === 0 ? (
-          <div className="rounded-md border border-border bg-surface p-6">
+          <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
             <p className="text-lg font-semibold text-foreground">No employees yet</p>
             <p className="mt-2 max-w-2xl text-sm text-muted">
               Use the form above to add the first employee. After employees are registered, the next phase can add work schedules for accurate timesheet calculations.

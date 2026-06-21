@@ -41,7 +41,7 @@ export default async function EmployeeDetailPage({
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
           Employee detail
         </p>
-        <h1 className="mt-2 text-3xl font-semibold text-foreground">{employee.full_name}</h1>
+        <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{employee.full_name}</h1>
         <p className="mt-2 text-sm text-muted">
           {employee.employee_number} - {employee.branch_name ?? "No branch"}
         </p>
@@ -53,7 +53,7 @@ export default async function EmployeeDetailPage({
         </div>
       )}
 
-      <section className="rounded-md border border-border bg-surface p-6">
+      <section className="rounded-md border border-border bg-surface p-4 sm:p-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
           <div>
             <h2 className="text-xl font-semibold text-foreground">Account access</h2>
@@ -99,7 +99,7 @@ export default async function EmployeeDetailPage({
         )}
       </section>
 
-      <section className="grid gap-4 rounded-md border border-border bg-surface p-6">
+      <section className="grid gap-4 rounded-md border border-border bg-surface p-4 sm:p-6">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Edit employee</h2>
           <p className="mt-1 text-sm text-muted">
@@ -114,7 +114,7 @@ export default async function EmployeeDetailPage({
         />
       </section>
 
-      <section className="rounded-md border border-danger/30 bg-danger/10 p-6">
+      <section className="rounded-md border border-danger/30 bg-danger/10 p-4 sm:p-6">
         <h2 className="text-xl font-semibold text-danger">Deactivate employee</h2>
         <p className="mt-2 max-w-2xl text-sm text-danger">
           This performs a soft delete by marking the employee inactive and setting deleted_at.

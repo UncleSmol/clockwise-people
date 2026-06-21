@@ -112,12 +112,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="grid gap-6">
-      <header className="grid gap-5 rounded-md border border-border bg-surface p-6 lg:grid-cols-[1fr_320px] lg:items-center">
+      <header className="grid gap-5 rounded-md border border-border bg-surface p-4 sm:p-6 lg:grid-cols-[1fr_320px] lg:items-center">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
             Dashboard
           </p>
-          <h1 className="mt-2 text-3xl font-semibold text-foreground">{company.name}</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{company.name}</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted">
             {foundationComplete
               ? "A current snapshot of your workforce register."
@@ -147,7 +147,7 @@ export default async function DashboardPage() {
             {workforceStats.map((stat) => (
               <div key={stat.label} className="rounded-md border border-border bg-surface p-5">
                 <p className="text-sm font-medium text-muted">{stat.label}</p>
-                <p className="mt-2 text-3xl font-semibold text-foreground">{stat.value}</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{stat.value}</p>
                 <p className="mt-2 text-sm text-muted">{stat.detail}</p>
               </div>
             ))}
@@ -155,7 +155,7 @@ export default async function DashboardPage() {
 
           <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
             <div className="rounded-md border border-border bg-surface">
-              <div className="border-b border-border px-6 py-4">
+              <div className="border-b border-border px-4 py-4 sm:px-6">
                 <h2 className="text-xl font-semibold text-foreground">Workforce composition</h2>
                 <p className="mt-1 text-sm text-muted">
                   Employee count by employment type.
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
               </div>
               <div className="divide-y divide-border">
                 {Object.entries(employmentMix).map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between px-6 py-4">
+                  <div key={type} className="flex items-center justify-between px-4 py-4 sm:px-6">
                     <span className="font-semibold capitalize text-foreground">
                       {type.replaceAll("_", " ")}
                     </span>
@@ -202,7 +202,7 @@ export default async function DashboardPage() {
             {stats.map((stat) => (
               <div key={stat.label} className="rounded-md border border-border bg-surface p-5">
                 <p className="text-sm font-medium text-muted">{stat.label}</p>
-                <p className="mt-2 text-3xl font-semibold text-foreground">{stat.value}</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{stat.value}</p>
                 <p className="mt-2 text-sm text-muted">{stat.detail}</p>
               </div>
             ))}
@@ -210,7 +210,7 @@ export default async function DashboardPage() {
 
           <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
             <div className="rounded-md border border-border bg-surface">
-              <div className="border-b border-border px-6 py-4">
+              <div className="border-b border-border px-4 py-4 sm:px-6">
                 <h2 className="text-xl font-semibold text-foreground">Setup checklist</h2>
                 <p className="mt-1 text-sm text-muted">
                   The app will guide you through the minimum foundation before schedules and timesheets.
@@ -218,7 +218,7 @@ export default async function DashboardPage() {
               </div>
               <div className="divide-y divide-border">
                 {checklist.map((item) => (
-                  <div key={item.title} className="grid gap-3 px-6 py-5 sm:grid-cols-[120px_1fr]">
+                  <div key={item.title} className="grid gap-3 px-4 py-5 sm:grid-cols-[120px_1fr] sm:px-6">
                     <div>
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${

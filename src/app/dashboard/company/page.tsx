@@ -23,13 +23,13 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
 
   return (
     <div className="grid gap-8">
-      <header className="rounded-md border border-border bg-surface p-6">
+      <header className="rounded-md border border-border bg-surface p-4 sm:p-6">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
               Company setup
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-foreground">{company.name}</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">{company.name}</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted">
               Configure the foundation records needed before employee registration and schedules.
             </p>
@@ -54,7 +54,7 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
       )}
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-md border border-border bg-surface p-6">
+        <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-foreground">Add branch</h2>
           <p className="mt-1 text-sm text-muted">
             Branches are physical or operational locations employees can be assigned to.
@@ -124,7 +124,7 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
           </form>
         </div>
 
-        <div className="rounded-md border border-border bg-surface p-6">
+        <div className="rounded-md border border-border bg-surface p-4 sm:p-6">
           <h2 className="text-xl font-semibold text-foreground">Add department</h2>
           <p className="mt-1 text-sm text-muted">
             Departments help group employees for approvals and reports.
@@ -182,13 +182,13 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-md border border-border bg-surface">
-          <div className="border-b border-border px-6 py-4">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
             <h2 className="text-xl font-semibold text-foreground">Branches</h2>
             <p className="mt-1 text-sm text-muted">{branches.length} active branches</p>
           </div>
           <div className="divide-y divide-border">
             {branches.length === 0 ? (
-              <div className="px-6 py-8">
+              <div className="px-4 py-8 sm:px-6">
                 <p className="font-semibold text-foreground">Add your first branch</p>
                 <p className="mt-2 text-sm text-muted">
                   Employees cannot be registered until there is at least one active branch.
@@ -196,7 +196,7 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
               </div>
             ) : (
               branches.map((branch) => (
-                <div key={branch.id} className="flex items-start justify-between gap-4 px-6 py-4">
+                <div key={branch.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
                   <div>
                     <p className="font-semibold text-foreground">{branch.name}</p>
                     <p className="mt-1 text-sm text-muted">{branch.code ?? "No code"}</p>
@@ -214,13 +214,13 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
         </div>
 
         <div className="rounded-md border border-border bg-surface">
-          <div className="border-b border-border px-6 py-4">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
             <h2 className="text-xl font-semibold text-foreground">Departments</h2>
             <p className="mt-1 text-sm text-muted">{departments.length} active departments</p>
           </div>
           <div className="divide-y divide-border">
             {departments.length === 0 ? (
-              <div className="px-6 py-8">
+              <div className="px-4 py-8 sm:px-6">
                 <p className="font-semibold text-foreground">Departments are optional for now</p>
                 <p className="mt-2 text-sm text-muted">
                   Add departments when you want cleaner grouping for reporting and management.
@@ -228,7 +228,7 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
               </div>
             ) : (
               departments.map((department) => (
-                <div key={department.id} className="flex items-start justify-between gap-4 px-6 py-4">
+                <div key={department.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
                   <div>
                     <p className="font-semibold text-foreground">{department.name}</p>
                     <p className="mt-1 text-sm text-muted">{department.code ?? "No code"}</p>

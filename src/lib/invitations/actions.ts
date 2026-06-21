@@ -6,11 +6,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
 
 function appBaseUrl() {
-  return (
+  const rawUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.VERCEL_URL?.replace(/^/, "https://") ??
-    "http://localhost:3000"
-  );
+    "http://localhost:3000";
+
+  return new URL(rawUrl).origin;
 }
 
 export async function sendEmployeeInvite(employeeId: string) {
