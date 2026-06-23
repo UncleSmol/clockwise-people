@@ -161,13 +161,13 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
 
   return (
     <div className="premium-card overflow-hidden rounded-md">
-      <div className="premium-hero grid gap-5 p-5 text-white sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="premium-hero grid gap-3 p-4 text-white sm:p-5 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
             Today&apos;s shift
           </p>
-          <h2 className="mt-2 text-4xl font-semibold sm:text-5xl">{status}</h2>
-          <p className="mt-2 text-sm opacity-80">
+          <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{status}</h2>
+          <p className="mt-1 text-xs opacity-80">
             {displayEntry?.work_date ?? "No time record started yet"}
           </p>
         </div>
@@ -175,7 +175,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
           <form action={formAction}>
             <button
               disabled={pending}
-              className={`w-full rounded-md px-6 py-3 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
+              className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
             >
               {pending ? "Saving..." : actionConfig.label}
             </button>
@@ -187,10 +187,10 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
         )}
       </div>
 
-      <div className="p-4 sm:p-6">
+      <div className="p-4">
         {state.message && (
           <div
-            className={`mb-5 rounded-md border px-4 py-3 text-sm font-medium ${
+            className={`mb-4 rounded-md border px-3 py-2 text-sm font-medium ${
               state.ok
                 ? "border-accent/30 bg-accent/10 text-foreground"
                 : "border-danger/30 bg-danger/10 text-danger"
@@ -200,49 +200,49 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="premium-panel rounded-md p-4">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="premium-panel rounded-md p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Paid time
             </p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatHours(displayEntry?.paid_hours)}
             </p>
           </div>
-          <div className="premium-panel rounded-md p-4">
+          <div className="premium-panel rounded-md p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Lunch
             </p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatHours(displayEntry?.lunch_hours)}
             </p>
           </div>
-          <div className="premium-panel rounded-md p-4">
+          <div className="premium-panel rounded-md p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Overtime
             </p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatHours(displayEntry?.overtime_hours)}
             </p>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 lg:grid-cols-4">
+        <div className="mt-4 grid gap-2 lg:grid-cols-4">
           {timeline.map((item, index) => {
             const complete = Boolean(item.value);
 
             return (
               <div
                 key={item.label}
-                className={`rounded-md border p-4 shadow-sm ${
+                className={`rounded-md border p-3 shadow-sm ${
                   complete
                     ? "border-accent/30 bg-accent/10"
                     : "border-border bg-background/70"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span
-                    className={`grid size-8 place-items-center rounded-full text-xs font-semibold ${
+                    className={`grid size-7 place-items-center rounded-full text-xs font-semibold ${
                       complete
                         ? "bg-accent text-white"
                         : "bg-surface-muted text-muted"
@@ -254,7 +254,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                       {item.label}
                     </p>
-                    <p className="mt-1 text-xl font-semibold text-foreground">
+                    <p className="mt-1 text-base font-semibold text-foreground">
                       {formatTime(item.value)}
                     </p>
                   </div>
@@ -267,7 +267,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
         {(displayEntry?.missing_clocking ||
           displayEntry?.late_arrival ||
           displayEntry?.early_departure) && (
-          <div className="mt-5 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
+          <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
             {displayEntry.missing_clocking && "Missing clocking detected. "}
             {displayEntry.late_arrival && "Late arrival flagged. "}
             {displayEntry.early_departure && "Early departure flagged."}

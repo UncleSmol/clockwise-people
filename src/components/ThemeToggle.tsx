@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark";
 
@@ -27,20 +27,46 @@ function applyTheme(theme: Theme) {
   document.documentElement.style.colorScheme = theme;
 }
 
-export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(getPreferredTheme);
+function getThemeSnapshot(): Theme {
+  if (typeof window === "undefined") {
+    return "light";
+  }
 
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+  const currentTheme = document.documentElement.dataset.theme;
+
+  if (currentTheme === "light" || currentTheme === "dark") {
+    return currentTheme;
+  }
+
+  return getPreferredTheme();
+}
+
+function getServerThemeSnapshot(): Theme {
+  return "light";
+}
+
+function subscribeToThemeChanges(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("cwp-theme-change", callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("cwp-theme-change", callback);
+  };
+}
+
+export default function ThemeToggle() {
+  const theme = useSyncExternalStore(
+    subscribeToThemeChanges,
+    getThemeSnapshot,
+    getServerThemeSnapshot,
+  );
 
   function toggleTheme() {
-    setTheme((currentTheme) => {
-      const nextTheme = currentTheme === "dark" ? "light" : "dark";
-      window.localStorage.setItem(STORAGE_KEY, nextTheme);
-      applyTheme(nextTheme);
-      return nextTheme;
-    });
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    applyTheme(nextTheme);
+    window.dispatchEvent(new Event("cwp-theme-change"));
   }
 
   const isDark = theme === "dark";

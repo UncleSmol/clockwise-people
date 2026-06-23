@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import ThemeBootstrap from "@/components/ThemeBootstrap";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -22,27 +23,6 @@ export const metadata: Metadata = {
   manifest: "/assets/site.webmanifest",
 };
 
-const themeScript = `
-(() => {
-  try {
-    const key = "cwp.theme";
-    const storedTheme = window.localStorage.getItem(key);
-    const theme =
-      storedTheme === "light" || storedTheme === "dark"
-        ? storedTheme
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-  } catch {
-    document.documentElement.dataset.theme = "light";
-    document.documentElement.style.colorScheme = "light";
-  }
-})();
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -54,10 +34,10 @@ export default function RootLayout({
       className={`${plusJakartaSans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeBootstrap />
+        {children}
+      </body>
     </html>
   );
 }

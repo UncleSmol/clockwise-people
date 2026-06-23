@@ -101,6 +101,20 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   });
 
   const currentAppUser = appUsers?.[0] ?? null;
+  const directReportsResult = currentAppUser?.employee_id
+    ? await supabase
+        .from("employees")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", currentAppUser.company_id)
+        .eq("manager_employee_id", currentAppUser.employee_id)
+        .is("deleted_at", null)
+    : null;
+
+  if (directReportsResult?.error) {
+    throw new Error(directReportsResult.error.message);
+  }
+
+  const canManageDirectReports = Number(directReportsResult?.count ?? 0) > 0;
 
   return {
     appUserId: currentAppUser?.id ?? null,
@@ -117,6 +131,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
       roleKeys.has("owner") ||
       roleKeys.has("hr_admin") ||
       roleKeys.has("branch_manager"),
+    canManageDirectReports,
     canViewPayroll:
       roleKeys.has("owner") ||
       roleKeys.has("hr_admin") ||

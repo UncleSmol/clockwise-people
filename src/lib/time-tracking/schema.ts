@@ -30,6 +30,36 @@ export type TimeEntryRecord = {
   status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
 };
 
+export type TimesheetCorrectionStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "cancelled"
+  | "locked";
+
+export type TimesheetCorrectionRequest = {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  time_entry_id: string;
+  payroll_period_id: string | null;
+  work_date: string;
+  original_clock_in: string | null;
+  original_lunch_start: string | null;
+  original_lunch_end: string | null;
+  original_clock_out: string | null;
+  proposed_clock_in: string | null;
+  proposed_lunch_start: string | null;
+  proposed_lunch_end: string | null;
+  proposed_clock_out: string | null;
+  reason: string;
+  status: TimesheetCorrectionStatus;
+  submitted_at: string;
+  reviewed_at: string | null;
+  review_notes: string | null;
+};
+
 export type ClockEventRecord = {
   id: string;
   event_type: ClockEventType;
@@ -39,6 +69,7 @@ export type ClockEventRecord = {
 };
 
 export type EmployeeTimeState = {
+  currentWorkDate: string;
   employee: {
     id: string;
     full_name: string;
@@ -50,6 +81,7 @@ export type EmployeeTimeState = {
   todayEntry: TimeEntryRecord | null;
   recentEntries: TimeEntryRecord[];
   recentEvents: ClockEventRecord[];
+  correctionRequests: TimesheetCorrectionRequest[];
 };
 
 export type CompanyLiveTimeEntry = {
@@ -85,4 +117,18 @@ export type CompanyLiveTimeOverview = {
     totalEmployees: number;
   };
   entries: CompanyLiveTimeEntry[];
+};
+
+export type CompanyTimesheetCorrectionRequest = TimesheetCorrectionRequest & {
+  employeeNumber: string;
+  fullName: string;
+  knownAs: string | null;
+  branchName: string | null;
+};
+
+export type CompanySubmittedTimesheet = TimeEntryRecord & {
+  employeeNumber: string;
+  fullName: string;
+  knownAs: string | null;
+  branchName: string | null;
 };

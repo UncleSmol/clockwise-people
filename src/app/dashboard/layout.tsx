@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
+import { getUnseenAppUpdates } from "@/lib/app-updates/queries";
+import AppUpdateChangelog from "@/components/AppUpdateChangelog";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const [{ company }, access] = await Promise.all([
+  const [{ company }, access, unseenUpdates] = await Promise.all([
     getActiveCompany(),
     getCurrentUserAccess(),
+    getUnseenAppUpdates(),
   ]);
 
   return (
@@ -33,6 +36,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </div>
       </div>
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+      <AppUpdateChangelog updates={unseenUpdates} />
     </main>
   );
 }

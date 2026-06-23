@@ -10,8 +10,11 @@ import type {
   ClockEventRecord,
   CompanyLiveTimeEntry,
   CompanyLiveTimeOverview,
+  CompanySubmittedTimesheet,
+  CompanyTimesheetCorrectionRequest,
   EmployeeTimeState,
   TimeEntryRecord,
+  TimesheetCorrectionRequest,
 } from "./schema";
 
 type EmployeeRow = {
@@ -24,6 +27,34 @@ type EmployeeRow = {
   job_title: string | null;
   branches?: { name: string }[] | { name: string } | null;
   departments?: { name: string }[] | { name: string } | null;
+};
+
+type CorrectionRequestRow = TimesheetCorrectionRequest & {
+  employees?: {
+    employee_number: string;
+    full_name: string;
+    known_as: string | null;
+    branches?: { name: string }[] | { name: string } | null;
+  }[] | {
+    employee_number: string;
+    full_name: string;
+    known_as: string | null;
+    branches?: { name: string }[] | { name: string } | null;
+  } | null;
+};
+
+type SubmittedTimesheetRow = TimeEntryRecord & {
+  employees?: {
+    employee_number: string;
+    full_name: string;
+    known_as: string | null;
+    branches?: { name: string }[] | { name: string } | null;
+  }[] | {
+    employee_number: string;
+    full_name: string;
+    known_as: string | null;
+    branches?: { name: string }[] | { name: string } | null;
+  } | null;
 };
 
 function relationName(
@@ -58,17 +89,25 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
 
   if (!access.employeeId) {
     return {
+      currentWorkDate: currentDateInTimezone(company.timezone || "UTC"),
       employee: null,
       todayEntry: null,
       recentEntries: [],
       recentEvents: [],
+      correctionRequests: [],
     };
   }
 
   const { supabase } = await requireUser();
   const today = currentDateInTimezone(company.timezone || "UTC");
 
-  const [employeeResult, todayEntryResult, entriesResult, eventsResult] = await Promise.all([
+  const [
+    employeeResult,
+    todayEntryResult,
+    entriesResult,
+    eventsResult,
+    correctionRequestsResult,
+  ] = await Promise.all([
     supabase
       .from("employees")
       .select("id, full_name, known_as, branch_id, job_title, branches(name)")
@@ -99,6 +138,15 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .eq("employee_id", access.employeeId)
       .order("event_at", { ascending: false })
       .limit(8),
+    supabase
+      .from("timesheet_correction_requests")
+      .select(
+        "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes",
+      )
+      .eq("employee_id", access.employeeId)
+      .is("deleted_at", null)
+      .order("submitted_at", { ascending: false })
+      .limit(20),
   ]);
 
   if (employeeResult.error) {
@@ -117,10 +165,15 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     throw new Error(eventsResult.error.message);
   }
 
+  if (correctionRequestsResult.error) {
+    throw new Error(correctionRequestsResult.error.message);
+  }
+
   const employeeRow = employeeResult.data as unknown as EmployeeRow;
   const recentEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
 
   return {
+    currentWorkDate: today,
     employee: {
       id: employeeRow.id,
       full_name: employeeRow.full_name,
@@ -132,6 +185,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     todayEntry: (todayEntryResult.data as TimeEntryRecord | null) ?? null,
     recentEntries,
     recentEvents: (eventsResult.data ?? []) as ClockEventRecord[],
+    correctionRequests: (correctionRequestsResult.data ?? []) as TimesheetCorrectionRequest[],
   };
 });
 
@@ -226,4 +280,88 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     },
     workDate,
   };
+});
+
+export const getCompanyTimesheetCorrectionQueue = cache(async function getCompanyTimesheetCorrectionQueue(): Promise<CompanyTimesheetCorrectionRequest[]> {
+  const [{ company }, access, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+    requireUser(),
+  ]);
+
+  if (!access.canReviewBranchTime && !access.employeeId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("timesheet_correction_requests")
+    .select(
+      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, branches(name))",
+    )
+    .eq("company_id", company.id)
+    .eq("status", "submitted")
+    .is("deleted_at", null)
+    .order("submitted_at", { ascending: true })
+    .limit(25);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as unknown as CorrectionRequestRow[]).map((request) => {
+    const employee = Array.isArray(request.employees)
+      ? request.employees[0]
+      : request.employees;
+
+    return {
+      ...request,
+      branchName: relationName(employee?.branches),
+      employeeNumber: employee?.employee_number ?? "",
+      fullName: employee?.full_name ?? "Unknown employee",
+      knownAs: employee?.known_as ?? null,
+    };
+  });
+});
+
+export const getCompanySubmittedTimesheetQueue = cache(async function getCompanySubmittedTimesheetQueue(): Promise<CompanySubmittedTimesheet[]> {
+  const [{ company }, access, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+    requireUser(),
+  ]);
+
+  if (!access.canReviewBranchTime && !access.canManageDirectReports) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("time_entries")
+    .select(
+      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, branches(name))",
+    )
+    .eq("company_id", company.id)
+    .eq("status", "submitted")
+    .is("deleted_at", null)
+    .order("work_date", { ascending: true })
+    .limit(50);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as unknown as SubmittedTimesheetRow[]).map((entry) => {
+    const employee = Array.isArray(entry.employees)
+      ? entry.employees[0]
+      : entry.employees;
+    const { employees, ...timeEntry } = entry;
+    void employees;
+
+    return {
+      ...timeEntry,
+      branchName: relationName(employee?.branches),
+      employeeNumber: employee?.employee_number ?? "",
+      fullName: employee?.full_name ?? "Unknown employee",
+      knownAs: employee?.known_as ?? null,
+    };
+  });
 });

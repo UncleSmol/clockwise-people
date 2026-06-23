@@ -13,8 +13,10 @@ type BrandMarkProps = {
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
-function getBrandVariant() {
-  return Math.floor(Date.now() / THREE_DAYS_MS) % 2 === 0 ? "logo" : "text";
+type BrandVariant = "logo" | "text";
+
+function getBrandVariant(now = Date.now()): BrandVariant {
+  return Math.floor(now / THREE_DAYS_MS) % 2 === 0 ? "logo" : "text";
 }
 
 export default function BrandMark({
@@ -24,15 +26,22 @@ export default function BrandMark({
   imageSize = 40,
   priority = false,
 }: BrandMarkProps) {
-  const [variant, setVariant] = useState<"logo" | "text">("logo");
+  const [variant, setVariant] = useState<BrandVariant>(() => getBrandVariant());
 
   useEffect(() => {
-    const syncVariant = () => setVariant(getBrandVariant());
+    let timeout: number;
+
+    const syncVariant = () => {
+      const now = Date.now();
+      setVariant(getBrandVariant(now));
+
+      const nextChangeIn = THREE_DAYS_MS - (now % THREE_DAYS_MS);
+
+      timeout = window.setTimeout(syncVariant, nextChangeIn);
+    };
 
     syncVariant();
-    const interval = window.setInterval(syncVariant, 60 * 60 * 1000);
-
-    return () => window.clearInterval(interval);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   return (

@@ -205,6 +205,23 @@ button:disabled {
     linear-gradient(135deg, rgb(4 12 23 / 100%), rgb(9 34 57 / 98%) 58%, rgb(9 84 80 / 90%));
 }
 
+.mobile-nav-overlay {
+  background: var(--color-background);
+}
+
+.mobile-nav-panel,
+.mobile-nav-footer {
+  background: var(--color-surface);
+}
+
+.mobile-nav-header {
+  background: var(--color-surface-muted);
+}
+
+.mobile-nav-link {
+  background: var(--color-background);
+}
+
 .premium-eyebrow {
   color: var(--color-accent);
   font-size: 0.76rem;

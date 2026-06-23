@@ -131,25 +131,25 @@ export default function CompanyLiveWorkforce({
   }, [overview.companyId, router]);
 
   return (
-    <section className="premium-card grid gap-5 rounded-md p-4 sm:p-6">
-      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
+    <section className="premium-card grid gap-3 rounded-md p-4">
+      <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
         <div>
           <p className="premium-eyebrow">
             Live workforce
           </p>
-          <h2 className="mt-2 text-3xl font-semibold text-foreground">
+          <h2 className="mt-1 text-xl font-semibold text-foreground">
             Today&apos;s attendance
           </h2>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-xs text-muted">
             Backend data is refreshed when employees update time records.
           </p>
         </div>
-        <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-sm font-semibold text-foreground shadow-sm">
+        <span className="w-max rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm">
           {overview.workDate}
         </span>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-2 md:grid-cols-5">
         {[
           ["Working", overview.totals.activeEmployees],
           ["On lunch", overview.totals.onLunch],
@@ -157,38 +157,38 @@ export default function CompanyLiveWorkforce({
           ["Not started", overview.totals.notStarted],
           ["Needs review", overview.totals.needsReview],
         ].map(([label, value]) => (
-          <div key={label} className="premium-panel rounded-md p-4">
+          <div key={label} className="premium-panel rounded-md p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               {label}
             </p>
-            <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
+            <p className="mt-1 text-xl font-semibold text-foreground">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {visibleEntries.map((entry) => (
           <div
             key={entry.employeeId}
-            className="grid gap-3 rounded-md border border-border bg-background/80 p-4 shadow-sm lg:grid-cols-[1.2fr_120px_1fr_100px] lg:items-center"
+            className="grid gap-2 rounded-md border border-border bg-background/80 p-3 shadow-sm lg:grid-cols-[1.2fr_110px_1fr_90px] lg:items-center"
           >
             <div>
-              <p className="text-base font-semibold text-foreground">
+              <p className="text-sm font-semibold text-foreground">
                 {entry.knownAs ?? entry.fullName}
               </p>
-              <p className="mt-1 text-sm text-muted">
+              <p className="mt-1 text-xs text-muted">
                 {entry.employeeNumber} - {entry.branchName ?? "No branch"}
                 {entry.jobTitle ? ` - ${entry.jobTitle}` : ""}
               </p>
             </div>
 
             <span
-              className={`w-max rounded-full px-3 py-1 text-sm font-semibold ${statusClass(entry.status)}`}
+              className={`w-max rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(entry.status)}`}
             >
               {statusLabel(entry.status)}
             </span>
 
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
               <div>
                 <p className="text-xs text-muted">In</p>
                 <p className="font-semibold text-foreground">{formatTime(entry.clockIn)}</p>
@@ -213,7 +213,7 @@ export default function CompanyLiveWorkforce({
               </div>
             </div>
 
-            <p className="text-right text-sm font-semibold text-muted">
+            <p className="text-right text-xs font-semibold text-muted">
               {entry.departmentName ?? "General"}
             </p>
           </div>

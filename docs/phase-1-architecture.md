@@ -29,6 +29,17 @@ Phase 1 covers invite/provisioned auth, company setup, branch setup, department 
 - `public.accept_user_invitation()` creates/updates `public.users`, assigns the invited role, links `public.users.employee_id`, links `public.employees.user_id`, and marks the invitation accepted.
 - Manual employee/user linking is not part of normal application use.
 
+## Timesheet Correction Flow
+
+- Employees submit past time-entry corrections through `public.submit_timesheet_correction_request()`.
+- Correction requests are append-only employee submissions stored in `public.timesheet_correction_requests`.
+- Submitted correction requests are locked for employees; they cannot edit the request after submission.
+- Original `public.time_entries` records are not changed by employee correction UI.
+- Owner, HR admin, and scoped branch manager review is handled by `public.review_timesheet_correction_request()`.
+- Employees assigned as `manager_employee_id` can review requests for their direct reports.
+- Employees can save draft/rejected timesheets and submit selected timesheets in bulk.
+- See `docs/timesheet-corrections.md` for the full product and technical flow.
+
 ## Query Pattern
 
 - Pages request one route-level view model from `/lib/**/queries.ts`.

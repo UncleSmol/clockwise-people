@@ -230,7 +230,7 @@ export default function EmployeeForm({
               ))}
           </select>
           <span className="text-xs font-normal text-muted">
-            Optional. Managers can be assigned later when approvals are configured.
+            Optional. This manager can review the employee&apos;s timesheet requests.
           </span>
         </label>
 
