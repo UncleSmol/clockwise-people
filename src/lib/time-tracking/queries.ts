@@ -22,6 +22,7 @@ type EmployeeRow = {
   employee_number?: string;
   full_name: string;
   known_as: string | null;
+  avatar_url: string | null;
   branch_id: string;
   department_id?: string | null;
   job_title: string | null;
@@ -34,11 +35,13 @@ type CorrectionRequestRow = TimesheetCorrectionRequest & {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
     branches?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
     branches?: { name: string }[] | { name: string } | null;
   } | null;
 };
@@ -48,11 +51,13 @@ type SubmittedTimesheetRow = TimeEntryRecord & {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
     branches?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
     branches?: { name: string }[] | { name: string } | null;
   } | null;
 };
@@ -110,7 +115,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   ] = await Promise.all([
     supabase
       .from("employees")
-      .select("id, full_name, known_as, branch_id, job_title, branches(name)")
+      .select("id, full_name, known_as, avatar_url, branch_id, job_title, branches(name)")
       .eq("id", access.employeeId)
       .is("deleted_at", null)
       .single(),
@@ -178,6 +183,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       id: employeeRow.id,
       full_name: employeeRow.full_name,
       known_as: employeeRow.known_as,
+      avatar_url: employeeRow.avatar_url,
       branch_id: employeeRow.branch_id,
       branch_name: relationName(employeeRow.branches),
       job_title: employeeRow.job_title,
@@ -208,7 +214,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     supabase
       .from("employees")
       .select(
-        "id, employee_number, full_name, known_as, branch_id, department_id, job_title, branches(name), departments(name)",
+        "id, employee_number, full_name, known_as, avatar_url, branch_id, department_id, job_title, branches(name), departments(name)",
       )
       .eq("company_id", company.id)
       .eq("employment_status", "active")
@@ -253,6 +259,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
         employeeId: employee.id,
         employeeNumber: employee.employee_number ?? "",
         fullName: employee.full_name,
+        avatarUrl: employee.avatar_url,
         jobTitle: employee.job_title,
         knownAs: employee.known_as,
         lateArrival: Boolean(entry?.late_arrival),
@@ -296,7 +303,7 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
   const { data, error } = await supabase
     .from("timesheet_correction_requests")
     .select(
-      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, branches(name))",
+      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url, branches(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -319,6 +326,7 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
+      avatarUrl: employee?.avatar_url ?? null,
     };
   });
 });
@@ -337,7 +345,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, branches(name))",
+      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url, branches(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -362,6 +370,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
+      avatarUrl: employee?.avatar_url ?? null,
     };
   });
 });

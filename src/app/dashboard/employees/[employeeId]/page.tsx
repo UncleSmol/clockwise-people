@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
 import EmployeeAccountPanel from "@/components/employee-accounts/EmployeeAccountPanel";
 import EmployeeForm from "@/components/employees/EmployeeForm";
 import { deactivateEmployee } from "@/lib/employees/actions";
@@ -30,13 +31,24 @@ export default async function EmployeeDetailPage({
   return (
     <div className="grid gap-8">
       <header className="premium-hero rounded-md p-5 text-white sm:p-7">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
-          Employee detail
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">{employee.full_name}</h1>
-        <p className="mt-3 text-sm opacity-80">
-          {employee.employee_number} - {employee.branch_name ?? "No branch"}
-        </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <EmployeeAvatar
+            name={employee.known_as ?? employee.full_name}
+            src={employee.avatar_url}
+            className="size-16 rounded-lg border-white/25 bg-white/10 text-white"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
+              Employee detail
+            </p>
+            <h1 className="mt-2 truncate text-4xl font-semibold sm:text-5xl">
+              {employee.full_name}
+            </h1>
+            <p className="mt-3 text-sm opacity-80">
+              {employee.employee_number} - {employee.branch_name ?? "No branch"}
+            </p>
+          </div>
+        </div>
       </header>
 
       {resolvedSearchParams?.message && (

@@ -26,12 +26,12 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
   }
 
   return (
-    <div className="grid gap-8">
-      <header className="premium-hero rounded-md p-5 text-white sm:p-7">
+    <div className="grid gap-4">
+      <header className="premium-hero rounded-md p-4 text-white sm:p-5">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">Employee register</p>
-          <h1 className="mt-2 text-4xl font-semibold sm:text-5xl">Employees</h1>
-          <p className="mt-3 max-w-2xl text-sm opacity-80">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">Employee register</p>
+          <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">Employees</h1>
+          <p className="mt-2 max-w-2xl text-sm opacity-80">
             Register employees for {data.companyName}. The backend resolves tenant scope through the signed-in user.
           </p>
         </div>
@@ -43,10 +43,10 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
         </div>
       )}
 
-      <section className="premium-card rounded-md p-4 sm:p-6">
-        <div className="mb-5">
-          <h2 className="text-xl font-semibold text-foreground">Add employee</h2>
-          <p className="mt-1 text-sm text-muted">All employee records are saved with `company_id`.</p>
+      <section className="premium-card rounded-md p-4">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Add employee</h2>
+          <p className="mt-1 text-xs text-muted">All employee records are saved with `company_id`.</p>
         </div>
         {data.branches.length === 0 ? (
           <div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-4">
@@ -70,10 +70,10 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
         )}
       </section>
 
-      <section className="grid gap-4">
+      <section className="grid gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Employee list</h2>
-          <p className="mt-1 text-sm text-muted">{data.employees.length} active employee records</p>
+          <h2 className="text-lg font-semibold text-foreground">Employee list</h2>
+          <p className="mt-1 text-xs text-muted">{data.employees.length} active employee records. Tap a row to expand.</p>
         </div>
         {data.employees.length === 0 ? (
           <div className="premium-card rounded-md p-4 sm:p-6">

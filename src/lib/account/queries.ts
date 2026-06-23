@@ -15,6 +15,7 @@ type EmployeeAccountRow = {
   known_as: string | null;
   email: string | null;
   phone_number: string | null;
+  avatar_url: string | null;
   job_title: string | null;
   employment_type: string;
   employment_status: string;
@@ -67,7 +68,7 @@ export const getAccountProfile = cache(async function getAccountProfile() {
         supabase
           .from("employees")
           .select(
-            "id, employee_number, full_name, known_as, email, phone_number, job_title, employment_type, employment_status, start_date, manager_employee_id, payroll_identifier, compensation_type, monthly_salary, hourly_rate, branches(name, code, address), departments(name, code)",
+            "id, employee_number, full_name, known_as, email, phone_number, avatar_url, job_title, employment_type, employment_status, start_date, manager_employee_id, payroll_identifier, compensation_type, monthly_salary, hourly_rate, branches(name, code, address), departments(name, code)",
           )
           .eq("id", access.employeeId)
           .is("deleted_at", null)
@@ -110,6 +111,7 @@ export const getAccountProfile = cache(async function getAccountProfile() {
           knownAs: employee.known_as,
           email: employee.email,
           phoneNumber: employee.phone_number,
+          avatarUrl: employee.avatar_url,
           jobTitle: employee.job_title,
           employmentType: employee.employment_type,
           employmentStatus: employee.employment_status,

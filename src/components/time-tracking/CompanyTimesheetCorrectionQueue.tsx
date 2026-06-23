@@ -6,6 +6,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { useActionState } from "react";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewTimesheetCorrection } from "@/lib/time-tracking/actions";
 import type { CompanyTimesheetCorrectionRequest } from "@/lib/time-tracking/schema";
 
@@ -95,14 +96,21 @@ export default function CompanyTimesheetCorrectionQueue({
               className="grid gap-3 rounded-md border border-border bg-background p-3 shadow-sm"
             >
               <div className="grid gap-2 lg:grid-cols-[1fr_auto] lg:items-start">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {request.knownAs ?? request.fullName}
-                  </h3>
-                  <p className="mt-1 text-xs text-muted">
-                    {request.employeeNumber} - {request.branchName ?? "No branch"} -{" "}
-                    {formatDate(request.work_date)}
-                  </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <EmployeeAvatar
+                    name={request.knownAs ?? request.fullName}
+                    src={request.avatarUrl}
+                    className="size-9"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold text-foreground">
+                      {request.knownAs ?? request.fullName}
+                    </h3>
+                    <p className="mt-1 truncate text-xs text-muted">
+                      {request.employeeNumber} - {request.branchName ?? "No branch"} -{" "}
+                      {formatDate(request.work_date)}
+                    </p>
+                  </div>
                 </div>
                 <span className="w-max rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">
                   Submitted

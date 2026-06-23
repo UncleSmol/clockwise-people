@@ -2,6 +2,7 @@
 
 import { CheckCircle2, ClipboardCheck, XCircle } from "lucide-react";
 import { useActionState } from "react";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewSubmittedTimesheets } from "@/lib/time-tracking/actions";
 import type { CompanySubmittedTimesheet } from "@/lib/time-tracking/schema";
 
@@ -111,14 +112,21 @@ export default function CompanyTimesheetApprovalQueue({
                     value={timesheet.id}
                     className="size-4 accent-current"
                   />
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {timesheet.knownAs ?? timesheet.fullName}
-                    </p>
-                    <p className="mt-1 text-xs text-muted">
-                      {timesheet.employeeNumber} - {timesheet.branchName ?? "No branch"} -{" "}
-                      {formatDate(timesheet.work_date)}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <EmployeeAvatar
+                      name={timesheet.knownAs ?? timesheet.fullName}
+                      src={timesheet.avatarUrl}
+                      className="size-9"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">
+                        {timesheet.knownAs ?? timesheet.fullName}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-muted">
+                        {timesheet.employeeNumber} - {timesheet.branchName ?? "No branch"} -{" "}
+                        {formatDate(timesheet.work_date)}
+                      </p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                     <span>In: {formatTime(timesheet.clock_in)}</span>

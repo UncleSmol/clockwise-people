@@ -1,4 +1,6 @@
 import ChangePasswordForm from "@/components/account/ChangePasswordForm";
+import ProfileForm from "@/components/account/ProfileForm";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { getAccountProfile } from "@/lib/account/queries";
 
 function formatLabel(value: string | null | undefined) {
@@ -85,11 +87,18 @@ export default async function AccountPage() {
         <>
           <section className="premium-card rounded-md p-4 sm:p-6">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-              <div>
+              <div className="flex min-w-0 items-center gap-3">
+                <EmployeeAvatar
+                  name={employee.knownAs ?? employee.fullName}
+                  src={employee.avatarUrl}
+                  className="size-14 rounded-lg"
+                />
+                <div className="min-w-0">
                 <h2 className="text-xl font-semibold text-foreground">Employee details</h2>
                 <p className="mt-1 text-sm text-muted">
                   Personal and employment details available to this account.
                 </p>
+                </div>
               </div>
               <span className="rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold capitalize text-foreground">
                 {formatLabel(employee.employmentStatus)}
@@ -106,6 +115,16 @@ export default async function AccountPage() {
               <DetailItem label="Employment type" value={formatLabel(employee.employmentType)} />
               <DetailItem label="Start date" value={employee.startDate} />
             </div>
+          </section>
+
+          <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Edit profile</h2>
+              <p className="mt-1 text-sm text-muted">
+                Update the details people see around the app.
+              </p>
+            </div>
+            <ProfileForm employee={employee} />
           </section>
 
           <section className="grid gap-6 lg:grid-cols-2">

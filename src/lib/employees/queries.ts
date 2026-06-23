@@ -71,7 +71,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     supabase
       .from("employees")
       .select(
-        "id, company_id, employee_number, full_name, known_as, email, phone_number, branch_id, department_id, job_title, employment_type, employment_status, start_date, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
+        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, branch_id, department_id, job_title, employment_type, employment_status, start_date, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
       )
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -123,7 +123,7 @@ export async function getEmployeeDetail(employeeId: string) {
   const { data, error } = await supabase
     .from("employees")
     .select(
-      "id, company_id, employee_number, full_name, known_as, email, phone_number, branch_id, department_id, job_title, employment_type, employment_status, start_date, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
+      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, branch_id, department_id, job_title, employment_type, employment_status, start_date, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
     )
     .eq("company_id", company.id)
     .eq("id", employeeId)

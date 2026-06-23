@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   CompanyLiveTimeEntry,
@@ -172,14 +173,21 @@ export default function CompanyLiveWorkforce({
             key={entry.employeeId}
             className="grid gap-2 rounded-md border border-border bg-background/80 p-3 shadow-sm lg:grid-cols-[1.2fr_110px_1fr_90px] lg:items-center"
           >
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                {entry.knownAs ?? entry.fullName}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                {entry.employeeNumber} - {entry.branchName ?? "No branch"}
-                {entry.jobTitle ? ` - ${entry.jobTitle}` : ""}
-              </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <EmployeeAvatar
+                name={entry.knownAs ?? entry.fullName}
+                src={entry.avatarUrl}
+                className="size-9"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {entry.knownAs ?? entry.fullName}
+                </p>
+                <p className="mt-1 truncate text-xs text-muted">
+                  {entry.employeeNumber} - {entry.branchName ?? "No branch"}
+                  {entry.jobTitle ? ` - ${entry.jobTitle}` : ""}
+                </p>
+              </div>
             </div>
 
             <span

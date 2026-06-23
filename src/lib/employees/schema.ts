@@ -67,6 +67,7 @@ export type EmployeeRecord = {
   known_as: string | null;
   email: string | null;
   phone_number: string | null;
+  avatar_url: string | null;
   branch_id: string;
   department_id: string | null;
   job_title: string | null;

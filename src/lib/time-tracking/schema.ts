@@ -74,6 +74,7 @@ export type EmployeeTimeState = {
     id: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
     branch_id: string;
     branch_name: string | null;
     job_title: string | null;
@@ -89,6 +90,7 @@ export type CompanyLiveTimeEntry = {
   employeeNumber: string;
   fullName: string;
   knownAs: string | null;
+  avatarUrl: string | null;
   branchName: string | null;
   departmentName: string | null;
   jobTitle: string | null;
@@ -123,6 +125,7 @@ export type CompanyTimesheetCorrectionRequest = TimesheetCorrectionRequest & {
   employeeNumber: string;
   fullName: string;
   knownAs: string | null;
+  avatarUrl: string | null;
   branchName: string | null;
 };
 
@@ -130,5 +133,6 @@ export type CompanySubmittedTimesheet = TimeEntryRecord & {
   employeeNumber: string;
   fullName: string;
   knownAs: string | null;
+  avatarUrl: string | null;
   branchName: string | null;
 };
