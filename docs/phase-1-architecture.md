@@ -40,6 +40,15 @@ Phase 1 covers invite/provisioned auth, company setup, branch setup, department 
 - Employees can save draft/rejected timesheets and submit selected timesheets in bulk.
 - See `docs/timesheet-corrections.md` for the full product and technical flow.
 
+## Work Rules and Time Off
+
+- Company admins can create work schedules and time off rules from Company setup.
+- Work schedules use the existing `work_schedules` and `schedule_days` tables.
+- Time off rules use `leave_types`; employee assignments use `leave_balances`.
+- Employees submit leave through `public.submit_own_leave_request()`.
+- Managers review leave through `public.review_managed_leave_request()`.
+- See `docs/work-rules-and-time-off.md` for the full flow.
+
 ## Query Pattern
 
 - Pages request one route-level view model from `/lib/**/queries.ts`.

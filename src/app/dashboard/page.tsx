@@ -5,6 +5,8 @@ import CompanyTimesheetApprovalQueue from "@/components/time-tracking/CompanyTim
 import CompanyTimesheetCorrectionQueue from "@/components/time-tracking/CompanyTimesheetCorrectionQueue";
 import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
 import EmployeeTimesheetCorrections from "@/components/time-tracking/EmployeeTimesheetCorrections";
+import CompanyLeaveRequestQueue from "@/components/work-rules/CompanyLeaveRequestQueue";
+import EmployeeLeaveRequests from "@/components/work-rules/EmployeeLeaveRequests";
 import {
   getActiveCompany,
   getCompanySetup,
@@ -17,6 +19,10 @@ import {
   getCompanyTimesheetCorrectionQueue,
   getEmployeeTimeState,
 } from "@/lib/time-tracking/queries";
+import {
+  getCompanyLeaveRequestQueue,
+  getEmployeeLeaveState,
+} from "@/lib/work-rules/queries";
 
 export default async function DashboardPage() {
   const [{ company }, access] = await Promise.all([
@@ -30,7 +36,10 @@ export default async function DashboardPage() {
     access.canManageDirectReports;
 
   if (!isManagementView && access.employeeId) {
-    const timeState = await getEmployeeTimeState();
+    const [timeState, leaveState] = await Promise.all([
+      getEmployeeTimeState(),
+      getEmployeeLeaveState(),
+    ]);
     const displayName =
       timeState.employee?.known_as ?? timeState.employee?.full_name ?? "Employee";
 
@@ -79,6 +88,8 @@ export default async function DashboardPage() {
           entries={timeState.recentEntries}
         />
 
+        <EmployeeLeaveRequests state={leaveState} />
+
       </div>
     );
   }
@@ -89,12 +100,14 @@ export default async function DashboardPage() {
     liveTimeOverview,
     correctionQueue,
     submittedTimesheets,
+    leaveRequests,
   ] = await Promise.all([
     getCompanySetup(company.id),
     getEmployeePageData(),
     getCompanyLiveTimeOverview(),
     getCompanyTimesheetCorrectionQueue(),
     getCompanySubmittedTimesheetQueue(),
+    getCompanyLeaveRequestQueue(),
   ]);
 
   const hasBranches = branches.length > 0;
@@ -246,6 +259,8 @@ export default async function DashboardPage() {
           <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
 
           <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
+
+          <CompanyLeaveRequestQueue requests={leaveRequests} />
 
           <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
             <div className="premium-card rounded-md">

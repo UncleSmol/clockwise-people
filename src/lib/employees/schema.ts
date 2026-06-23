@@ -45,6 +45,7 @@ export const employeeFormSchema = z
     employment_type: z.enum(employmentTypes),
     employment_status: z.enum(employmentStatuses),
     start_date: z.iso.date("Start date is required"),
+    work_schedule_id: optionalUuid,
     manager_employee_id: optionalUuid,
     payroll_identifier: optionalText,
     monthly_salary: optionalMoney,
@@ -74,6 +75,7 @@ export type EmployeeRecord = {
   employment_type: (typeof employmentTypes)[number];
   employment_status: (typeof employmentStatuses)[number];
   start_date: string;
+  work_schedule_id: string | null;
   manager_employee_id: string | null;
   user_id: string | null;
   payroll_identifier: string | null;

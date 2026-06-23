@@ -12,6 +12,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     getCurrentUserAccess(),
     getUnseenAppUpdates(),
   ]);
+  const updateNoticeKey =
+    unseenUpdates.map((update) => update.id).sort().join(":") || "no-updates";
 
   return (
     <main className="premium-shell min-h-screen bg-background text-foreground">
@@ -39,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </div>
       </div>
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
-      <AppUpdateChangelog updates={unseenUpdates} />
+      <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
     </main>
   );
 }

@@ -66,6 +66,7 @@ export default async function EmployeesPage({ searchParams }: EmployeesPageProps
             branches={data.branches}
             departments={data.departments}
             managers={data.managers}
+            schedules={data.schedules}
           />
         )}
       </section>

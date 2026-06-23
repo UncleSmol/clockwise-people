@@ -5,6 +5,7 @@ import {
   deactivateDepartment,
 } from "@/lib/foundation/actions";
 import CompanyLogoForm from "@/components/company/CompanyLogoForm";
+import CompanyWorkRulesPanel from "@/components/work-rules/CompanyWorkRulesPanel";
 import {
   addressHints,
   departmentHints,
@@ -15,6 +16,7 @@ import {
   getCompanySetup,
   requireCompanyAdmin,
 } from "@/lib/foundation/queries";
+import { getCompanyWorkRulesData } from "@/lib/work-rules/queries";
 
 type CompanyPageProps = {
   searchParams?: Promise<{ message?: string }>;
@@ -25,7 +27,10 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
 
   const params = await searchParams;
   const { company } = await getActiveCompany();
-  const { branches, departments } = await getCompanySetup(company.id);
+  const [{ branches, departments }, workRulesData] = await Promise.all([
+    getCompanySetup(company.id),
+    getCompanyWorkRulesData(),
+  ]);
   const hasBranches = branches.length > 0;
 
   return (
@@ -69,6 +74,8 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
         </div>
         <CompanyLogoForm companyName={company.name} logoUrl={company.logo_url} />
       </section>
+
+      <CompanyWorkRulesPanel data={workRulesData} />
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="premium-card rounded-md p-4 sm:p-6">

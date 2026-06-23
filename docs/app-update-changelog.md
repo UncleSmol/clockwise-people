@@ -21,7 +21,7 @@ The dashboard calls:
 
 ## Frontend
 
-`DashboardLayout` loads unseen updates and renders `AppUpdateChangelog`.
+`DashboardLayout` loads unseen updates and renders `AppUpdateChangelog`. The changelog component is keyed by the unread update ids, so a reload or server refresh with unread updates mounts a fresh notice for that unread batch.
 
 The notice appears on the first dashboard load after new updates are published. It is not a blocking overlay. If a user has multiple unread updates, the app groups them into one notice and sends all unread update ids to `mark_app_updates_seen` when the user dismisses it. This prevents a returning user from receiving one popup per missed release.
 

@@ -19,6 +19,7 @@ type EmployeeFormProps = {
   branches: SelectOption[];
   departments: SelectOption[];
   managers: SelectOption[];
+  schedules: SelectOption[];
   employee?: EmployeeRecord;
 };
 
@@ -34,6 +35,7 @@ export default function EmployeeForm({
   branches,
   departments,
   managers,
+  schedules,
   employee,
 }: EmployeeFormProps) {
   const router = useRouter();
@@ -56,6 +58,7 @@ export default function EmployeeForm({
       employment_type: employee?.employment_type ?? "full_time",
       employment_status: employee?.employment_status ?? "active",
       start_date: employee?.start_date ?? "",
+      work_schedule_id: employee?.work_schedule_id ?? "",
       manager_employee_id: employee?.manager_employee_id ?? "",
       payroll_identifier: employee?.payroll_identifier ?? "",
       monthly_salary: fieldValue(employee?.monthly_salary),
@@ -214,6 +217,21 @@ export default function EmployeeForm({
           </select>
           <span className="text-xs font-normal text-muted">
             Inactive and terminated employees stay out of active register workflows.
+          </span>
+        </label>
+
+        <label className="grid gap-2 text-sm font-medium text-foreground">
+          Work rule
+          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("work_schedule_id")}>
+            <option value="">Use company default</option>
+            {schedules.map((schedule) => (
+              <option key={schedule.id} value={schedule.id}>
+                {schedule.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs font-normal text-muted">
+            Assigns working days and expected hours.
           </span>
         </label>
 

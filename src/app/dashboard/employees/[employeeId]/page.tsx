@@ -74,6 +74,7 @@ export default async function EmployeeDetailPage({
           branches={pageData.branches}
           departments={pageData.departments}
           managers={pageData.managers}
+          schedules={pageData.schedules}
           employee={employee}
         />
       </section>

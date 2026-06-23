@@ -82,6 +82,61 @@ function statusClass(status: TimesheetCorrectionRequest["status"]) {
   return "bg-surface-muted text-foreground";
 }
 
+function weekStartDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const dayOfWeek = date.getDay();
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function dateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function weekLabel(start: Date) {
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  const formatter = new Intl.DateTimeFormat("en-ZA", {
+    day: "numeric",
+    month: "short",
+  });
+
+  return `${formatter.format(start)} - ${formatter.format(end)}`;
+}
+
+function groupByWeek(entries: TimeEntryRecord[]) {
+  const groups = new Map<string, { entries: TimeEntryRecord[]; label: string }>();
+
+  entries.forEach((entry) => {
+    const start = weekStartDate(entry.work_date);
+    const key = dateKey(start);
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.entries.push(entry);
+      return;
+    }
+
+    groups.set(key, {
+      entries: [entry],
+      label: weekLabel(start),
+    });
+  });
+
+  return Array.from(groups.entries()).map(([key, group]) => ({
+    key,
+    ...group,
+  }));
+}
+
 export default function EmployeeTimesheetCorrections({
   correctionRequests,
   currentWorkDate,
@@ -119,6 +174,117 @@ export default function EmployeeTimesheetCorrections({
     : saveState.message
       ? saveState.ok
       : submitState.ok;
+  const shouldGroupWeeks = entries.length >= 7;
+  const weekGroups = useMemo(
+    () => groupByWeek(entries),
+    [entries],
+  );
+
+  const renderTimesheetEntry = (entry: TimeEntryRecord) => {
+    const editable = entry.status === "draft" || entry.status === "rejected";
+    const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
+
+    return (
+      <article
+        key={entry.id}
+        className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${
+          hasWarning
+            ? "border-danger/30 bg-danger/10"
+            : "border-success/30 bg-success/10"
+        }`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="flex items-center gap-2 font-semibold text-foreground">
+              {hasWarning ? (
+                <AlertTriangle className="size-4 text-danger" />
+              ) : (
+                <CheckCircle2 className="size-4 text-success" />
+              )}
+              {formatDate(entry.work_date)}
+            </p>
+            <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
+              {editable ? "Draft" : entry.status}
+            </p>
+          </div>
+          <span className="inline-flex w-max items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-foreground">
+            <Clock3 className="size-3.5" />
+            {formatHours(entry.paid_hours)}
+          </span>
+        </div>
+
+        {editable ? (
+          <form action={saveAction} className="grid gap-2">
+            <input type="hidden" name="time_entry_id" value={entry.id} />
+            <div className="grid gap-2 sm:grid-cols-4">
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold text-muted">In</span>
+                <input
+                  type="time"
+                  name="clock_in"
+                  defaultValue={inputTime(entry.clock_in)}
+                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold text-muted">Lunch start</span>
+                <input
+                  type="time"
+                  name="lunch_start"
+                  defaultValue={inputTime(entry.lunch_start)}
+                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold text-muted">Lunch end</span>
+                <input
+                  type="time"
+                  name="lunch_end"
+                  defaultValue={inputTime(entry.lunch_end)}
+                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold text-muted">Out</span>
+                <input
+                  type="time"
+                  name="clock_out"
+                  defaultValue={inputTime(entry.clock_out)}
+                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                />
+              </label>
+            </div>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold text-muted">Note</span>
+              <textarea
+                name="notes"
+                rows={2}
+                defaultValue={entry.notes ?? ""}
+                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                placeholder="Optional"
+              />
+            </label>
+            <div className="flex justify-end">
+              <button
+                disabled={savePending}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                <Save className="size-4" />
+                {savePending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-4">
+            <span>In: {formatTime(entry.clock_in)}</span>
+            <span>Lunch: {formatTimeRange(entry.lunch_start, entry.lunch_end)}</span>
+            <span>Out: {formatTime(entry.clock_out)}</span>
+            <span className="font-semibold">Submitted</span>
+          </div>
+        )}
+      </article>
+    );
+  };
 
   return (
     <section className="premium-card grid gap-3 rounded-md p-4">
@@ -231,111 +397,25 @@ export default function EmployeeTimesheetCorrections({
           ) : null}
 
           <div className="grid gap-2">
-            {entries.map((entry) => {
-              const editable = entry.status === "draft" || entry.status === "rejected";
-              const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
-
-              return (
-                <article
-                  key={entry.id}
-                  className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${
-                    hasWarning
-                      ? "border-danger/30 bg-danger/10"
-                      : "border-success/30 bg-success/10"
-                  }`}
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="flex items-center gap-2 font-semibold text-foreground">
-                        {hasWarning ? (
-                          <AlertTriangle className="size-4 text-danger" />
-                        ) : (
-                          <CheckCircle2 className="size-4 text-success" />
-                        )}
-                        {formatDate(entry.work_date)}
-                      </p>
-                      <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
-                        {editable ? "Draft" : entry.status}
-                      </p>
+            {shouldGroupWeeks
+              ? weekGroups.map((group) => (
+                  <details
+                    key={group.key}
+                    className="rounded-md border border-border bg-background"
+                    open={group.key === weekGroups[0]?.key}
+                  >
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-foreground">
+                      <span>{group.label}</span>
+                      <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs">
+                        {group.entries.length} records
+                      </span>
+                    </summary>
+                    <div className="grid gap-2 border-t border-border p-2">
+                      {group.entries.map(renderTimesheetEntry)}
                     </div>
-                    <span className="inline-flex w-max items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-foreground">
-                      <Clock3 className="size-3.5" />
-                      {formatHours(entry.paid_hours)}
-                    </span>
-                  </div>
-
-                  {editable ? (
-                    <form action={saveAction} className="grid gap-2">
-                      <input type="hidden" name="time_entry_id" value={entry.id} />
-                      <div className="grid gap-2 sm:grid-cols-4">
-                        <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">In</span>
-                          <input
-                            type="time"
-                            name="clock_in"
-                            defaultValue={inputTime(entry.clock_in)}
-                            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
-                        </label>
-                        <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Lunch start</span>
-                          <input
-                            type="time"
-                            name="lunch_start"
-                            defaultValue={inputTime(entry.lunch_start)}
-                            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
-                        </label>
-                        <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Lunch end</span>
-                          <input
-                            type="time"
-                            name="lunch_end"
-                            defaultValue={inputTime(entry.lunch_end)}
-                            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
-                        </label>
-                        <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Out</span>
-                          <input
-                            type="time"
-                            name="clock_out"
-                            defaultValue={inputTime(entry.clock_out)}
-                            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
-                        </label>
-                      </div>
-                      <label className="grid gap-1">
-                        <span className="text-xs font-semibold text-muted">Note</span>
-                        <textarea
-                          name="notes"
-                          rows={2}
-                          defaultValue={entry.notes ?? ""}
-                          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          placeholder="Optional"
-                        />
-                      </label>
-                      <div className="flex justify-end">
-                        <button
-                          disabled={savePending}
-                          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                        >
-                          <Save className="size-4" />
-                          {savePending ? "Saving..." : "Save"}
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="grid gap-2 sm:grid-cols-4">
-                      <span>In: {formatTime(entry.clock_in)}</span>
-                      <span>Lunch: {formatTimeRange(entry.lunch_start, entry.lunch_end)}</span>
-                      <span>Out: {formatTime(entry.clock_out)}</span>
-                      <span className="font-semibold">Submitted</span>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+                  </details>
+                ))
+              : entries.map(renderTimesheetEntry)}
           </div>
         </div>
       ) : (
