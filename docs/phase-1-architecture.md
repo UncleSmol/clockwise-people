@@ -45,7 +45,11 @@ Phase 1 covers invite/provisioned auth, company setup, branch setup, department 
 - Company admins can create work schedules and time off rules from Company setup.
 - Work schedules use the existing `work_schedules` and `schedule_days` tables.
 - Time off rules use `leave_types`; employee assignments use `leave_balances`.
-- Employees submit leave through `public.submit_own_leave_request()`.
+- Company admins can edit existing `leave_types` through `public.update_company_leave_type()`.
+- Employees preview leave hours through `public.calculate_own_leave_request_hours()`, including available balance and skipped public holidays.
+- Employees submit leave through `public.submit_own_leave_request()`, which recalculates hours server-side.
+- Leave requests greater than the employee's available leave balance are blocked by the UI and by the database function.
+- Public holidays use `company_public_holidays` and are excluded from leave hour totals.
 - Managers review leave through `public.review_managed_leave_request()`.
 - See `docs/work-rules-and-time-off.md` for the full flow.
 

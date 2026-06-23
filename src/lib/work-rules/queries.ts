@@ -12,6 +12,7 @@ import type {
   LeaveBalance,
   LeaveRequest,
   LeaveType,
+  PublicHoliday,
   WorkSchedule,
 } from "./schema";
 
@@ -38,8 +39,13 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
 
-  const [schedulesResult, leaveTypesResult, employeesResult, balancesResult] =
-    await Promise.all([
+  const [
+    schedulesResult,
+    leaveTypesResult,
+    employeesResult,
+    balancesResult,
+    holidaysResult,
+  ] = await Promise.all([
       supabase
         .from("work_schedules")
         .select(
@@ -66,12 +72,20 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         .from("leave_balances")
         .select("id, employee_id, leave_type_id, balance_hours, accrued_hours, taken_hours, leave_types(id, name, category, is_paid, requires_attachment, accrual_rules)")
         .eq("company_id", company.id),
-    ]);
+      supabase
+        .from("company_public_holidays")
+        .select("id, holiday_date, name, is_paid")
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .order("holiday_date", { ascending: false })
+        .limit(20),
+  ]);
 
   if (schedulesResult.error) throw new Error(schedulesResult.error.message);
   if (leaveTypesResult.error) throw new Error(leaveTypesResult.error.message);
   if (employeesResult.error) throw new Error(employeesResult.error.message);
   if (balancesResult.error) throw new Error(balancesResult.error.message);
+  if (holidaysResult.error) throw new Error(holidaysResult.error.message);
 
   return {
     employees: (employeesResult.data ?? []).map((employee) => ({
@@ -80,6 +94,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     })),
     leaveBalances: (balancesResult.data ?? []) as unknown as CompanyWorkRulesData["leaveBalances"],
     leaveTypes: (leaveTypesResult.data ?? []) as LeaveType[],
+    publicHolidays: (holidaysResult.data ?? []) as PublicHoliday[],
     schedules: (schedulesResult.data ?? []) as unknown as WorkSchedule[],
   };
 });

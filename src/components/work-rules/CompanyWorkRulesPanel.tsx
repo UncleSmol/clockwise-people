@@ -1,11 +1,13 @@
 "use client";
 
-import { BriefcaseBusiness, CalendarDays, Plus, UserCheck } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, Edit3, Plus, Save, UserCheck } from "lucide-react";
 import { useActionState } from "react";
 import {
   assignLeaveBalance,
   createLeaveType,
+  createPublicHoliday,
   createWorkSchedule,
+  updateLeaveType,
 } from "@/lib/work-rules/actions";
 import {
   leaveCategories,
@@ -44,16 +46,33 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
     createLeaveType,
     initialState,
   );
+  const [updateLeaveState, updateLeaveAction, updateLeavePending] = useActionState(
+    updateLeaveType,
+    initialState,
+  );
   const [assignState, assignAction, assignPending] = useActionState(
     assignLeaveBalance,
     initialState,
   );
-  const message = scheduleState.message || leaveState.message || assignState.message;
+  const [holidayState, holidayAction, holidayPending] = useActionState(
+    createPublicHoliday,
+    initialState,
+  );
+  const message =
+    scheduleState.message ||
+    leaveState.message ||
+    updateLeaveState.message ||
+    assignState.message ||
+    holidayState.message;
   const messageOk = scheduleState.message
     ? scheduleState.ok
     : leaveState.message
       ? leaveState.ok
-      : assignState.ok;
+      : updateLeaveState.message
+        ? updateLeaveState.ok
+        : assignState.message
+          ? assignState.ok
+          : holidayState.ok;
 
   return (
     <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
@@ -84,7 +103,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-4">
         <form action={scheduleAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
           <h3 className="flex items-center gap-2 font-semibold text-foreground">
             <CalendarDays className="size-4 text-accent" />
@@ -206,9 +225,37 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
             {assignPending ? "Saving..." : "Assign"}
           </button>
         </form>
+
+        <form action={holidayAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
+          <h3 className="flex items-center gap-2 font-semibold text-foreground">
+            <CalendarDays className="size-4 text-accent" />
+            Public holiday
+          </h3>
+          <input
+            name="name"
+            className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
+            placeholder="Freedom Day"
+          />
+          <input
+            name="holiday_date"
+            type="date"
+            className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
+          />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="is_paid" defaultChecked />
+            Paid public holiday
+          </label>
+          <button
+            disabled={holidayPending}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            <Plus className="size-4" />
+            {holidayPending ? "Saving..." : "Save holiday"}
+          </button>
+        </form>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="rounded-md border border-border bg-background p-3">
           <p className="text-sm font-semibold text-foreground">Work rules</p>
           <div className="mt-2 grid gap-2">
@@ -233,10 +280,85 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <p className="text-sm text-muted">No time off rules yet.</p>
             ) : (
               data.leaveTypes.map((leaveType) => (
-                <div key={leaveType.id} className="rounded-md bg-surface px-3 py-2 text-sm">
-                  <p className="font-semibold text-foreground">{leaveType.name}</p>
-                  <p className="text-xs capitalize text-muted">
-                    {labelize(leaveType.category)} - {leaveType.is_paid ? "Paid" : "Unpaid"}
+                <details key={leaveType.id} className="rounded-md bg-surface text-sm">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2">
+                    <span>
+                      <span className="block font-semibold text-foreground">{leaveType.name}</span>
+                      <span className="text-xs capitalize text-muted">
+                        {labelize(leaveType.category)} - {leaveType.is_paid ? "Paid" : "Unpaid"}
+                      </span>
+                    </span>
+                    <Edit3 className="size-4 text-muted" />
+                  </summary>
+                  <form action={updateLeaveAction} className="grid gap-2 border-t border-border px-3 py-3">
+                    <input type="hidden" name="leave_type_id" value={leaveType.id} />
+                    <input
+                      name="name"
+                      defaultValue={leaveType.name}
+                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                    />
+                    <select
+                      name="category"
+                      defaultValue={leaveType.category}
+                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm capitalize"
+                    >
+                      {leaveCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {labelize(category)}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      name="yearly_hours"
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      defaultValue={String(leaveType.accrual_rules.yearly_hours ?? "")}
+                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                      placeholder="Yearly hours"
+                    />
+                    <div className="grid gap-1 text-xs text-foreground">
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" name="is_paid" defaultChecked={leaveType.is_paid} />
+                        Paid leave
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          name="requires_attachment"
+                          defaultChecked={leaveType.requires_attachment}
+                        />
+                        Needs attachment
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" name="is_active" defaultChecked />
+                        Active
+                      </label>
+                    </div>
+                    <button
+                      disabled={updateLeavePending}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    >
+                      <Save className="size-4" />
+                      {updateLeavePending ? "Saving..." : "Save rule"}
+                    </button>
+                  </form>
+                </details>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-background p-3">
+          <p className="text-sm font-semibold text-foreground">Public holidays</p>
+          <div className="mt-2 grid gap-2">
+            {data.publicHolidays.length === 0 ? (
+              <p className="text-sm text-muted">No public holidays saved yet.</p>
+            ) : (
+              data.publicHolidays.map((holiday) => (
+                <div key={holiday.id} className="rounded-md bg-surface px-3 py-2 text-sm">
+                  <p className="font-semibold text-foreground">{holiday.name}</p>
+                  <p className="text-xs text-muted">
+                    {holiday.holiday_date} - {holiday.is_paid ? "Paid" : "Unpaid"}
                   </p>
                 </div>
               ))

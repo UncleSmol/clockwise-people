@@ -27,6 +27,11 @@ export const leaveTypeFormSchema = z.object({
   yearly_hours: z.string().trim().optional().or(z.literal("")),
 });
 
+export const updateLeaveTypeFormSchema = leaveTypeFormSchema.extend({
+  is_active: z.string().optional(),
+  leave_type_id: z.uuid("Choose a time off rule"),
+});
+
 export const leaveAssignmentFormSchema = z.object({
   balance_hours: z.string().trim().min(1, "Enter available hours"),
   employee_id: z.uuid("Choose an employee"),
@@ -53,7 +58,12 @@ export const leaveRequestFormSchema = z.object({
   leave_type_id: z.uuid("Choose a leave type"),
   reason: z.string().trim().optional().or(z.literal("")),
   start_date: z.iso.date("Start date is required"),
-  total_hours: z.string().trim().min(1, "Enter leave hours"),
+});
+
+export const publicHolidayFormSchema = z.object({
+  holiday_date: z.iso.date("Holiday date is required"),
+  is_paid: z.string().optional(),
+  name: z.string().trim().min(2, "Holiday name is required"),
 });
 
 export type ScheduleDay = {
@@ -108,10 +118,37 @@ export type LeaveRequest = {
   avatarUrl?: string | null;
 };
 
+export type PublicHoliday = {
+  id: string;
+  holiday_date: string;
+  is_paid: boolean;
+  name: string;
+};
+
+export type LeaveCalculationDay = {
+  date: string;
+  hours: number;
+  label?: string;
+  reason: "working_day" | "public_holiday" | "non_working_day";
+};
+
+export type LeaveCalculation = {
+  available_hours: number;
+  exceeds_balance: boolean;
+  leave_type_name: string;
+  non_working_days: number;
+  public_holidays: number;
+  remaining_hours: number;
+  total_hours: number;
+  working_days: number;
+  days: LeaveCalculationDay[];
+};
+
 export type CompanyWorkRulesData = {
   employees: { id: string; label: string }[];
   leaveBalances: Array<LeaveBalance & { employee_id: string; leave_type_id: string }>;
   leaveTypes: LeaveType[];
+  publicHolidays: PublicHoliday[];
   schedules: WorkSchedule[];
 };
 

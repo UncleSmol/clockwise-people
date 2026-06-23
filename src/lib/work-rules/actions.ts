@@ -7,10 +7,14 @@ import {
   leaveAssignmentFormSchema,
   leaveRequestFormSchema,
   leaveTypeFormSchema,
+  publicHolidayFormSchema,
+  updateLeaveTypeFormSchema,
   workScheduleFormSchema,
+  type LeaveCalculation,
 } from "./schema";
 
 type ActionState = {
+  calculation?: LeaveCalculation;
   ok: boolean;
   message: string;
 };
@@ -97,6 +101,44 @@ export async function createLeaveType(
   return { ok: true, message: "Time off rule created." };
 }
 
+export async function updateLeaveType(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = updateLeaveTypeFormSchema.safeParse({
+    category: String(formData.get("category") ?? ""),
+    is_active: String(formData.get("is_active") ?? ""),
+    is_paid: String(formData.get("is_paid") ?? ""),
+    leave_type_id: String(formData.get("leave_type_id") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    requires_attachment: String(formData.get("requires_attachment") ?? ""),
+    yearly_hours: String(formData.get("yearly_hours") ?? ""),
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: firstIssue(parsed.error) };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("update_company_leave_type", {
+    active_rule: parsed.data.is_active === "on",
+    leave_category: parsed.data.category,
+    leave_name: parsed.data.name,
+    needs_attachment: parsed.data.requires_attachment === "on",
+    paid_leave: parsed.data.is_paid === "on",
+    target_leave_type_id: parsed.data.leave_type_id,
+    yearly_hours: numberOrNull(parsed.data.yearly_hours),
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Time off rule updated." };
+}
+
 export async function assignLeaveBalance(
   _previousState: ActionState,
   formData: FormData,
@@ -127,6 +169,67 @@ export async function assignLeaveBalance(
   return { ok: true, message: "Time off balance assigned." };
 }
 
+export async function createPublicHoliday(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = publicHolidayFormSchema.safeParse({
+    holiday_date: String(formData.get("holiday_date") ?? ""),
+    is_paid: String(formData.get("is_paid") ?? ""),
+    name: String(formData.get("name") ?? ""),
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: firstIssue(parsed.error) };
+  }
+
+  const { company } = await getActiveCompany();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("create_company_public_holiday", {
+    holiday_name: parsed.data.name,
+    paid_holiday: parsed.data.is_paid === "on",
+    target_company_id: company.id,
+    target_holiday_date: parsed.data.holiday_date,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/company");
+  return { ok: true, message: "Public holiday saved." };
+}
+
+export async function calculateLeaveRequestHours(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const startDate = String(formData.get("start_date") ?? "").trim();
+  const endDate = String(formData.get("end_date") ?? "").trim();
+  const leaveTypeId = String(formData.get("leave_type_id") ?? "").trim();
+
+  if (!leaveTypeId || !startDate || !endDate) {
+    return { ok: false, message: "Choose time off type, start date, and end date first." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("calculate_own_leave_request_hours", {
+    request_end_date: endDate,
+    request_start_date: startDate,
+    target_leave_type_id: leaveTypeId,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  return {
+    calculation: data as LeaveCalculation,
+    ok: true,
+    message: "Hours calculated from your work rule.",
+  };
+}
+
 export async function submitLeaveRequest(
   _previousState: ActionState,
   formData: FormData,
@@ -137,7 +240,6 @@ export async function submitLeaveRequest(
     leave_type_id: String(formData.get("leave_type_id") ?? ""),
     reason: String(formData.get("reason") ?? ""),
     start_date: String(formData.get("start_date") ?? ""),
-    total_hours: String(formData.get("total_hours") ?? ""),
   });
 
   if (!parsed.success) {
@@ -150,7 +252,7 @@ export async function submitLeaveRequest(
     request_end_date: parsed.data.end_date,
     request_reason: parsed.data.reason || null,
     request_start_date: parsed.data.start_date,
-    request_total_hours: Number(parsed.data.total_hours),
+    request_total_hours: null,
     target_leave_type_id: parsed.data.leave_type_id,
   });
 
