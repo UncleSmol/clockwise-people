@@ -9,6 +9,7 @@ import {
   leaveTypeFormSchema,
   publicHolidayFormSchema,
   updateLeaveTypeFormSchema,
+  updateWorkScheduleFormSchema,
   workScheduleFormSchema,
   type LeaveCalculation,
 } from "./schema";
@@ -63,6 +64,47 @@ export async function createWorkSchedule(
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard/employees");
   return { ok: true, message: "Work rule created." };
+}
+
+export async function updateWorkSchedule(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = updateWorkScheduleFormSchema.safeParse({
+    daily_hours: String(formData.get("daily_hours") ?? ""),
+    end_time: String(formData.get("end_time") ?? ""),
+    is_active: String(formData.get("is_active") ?? ""),
+    lunch_minutes: String(formData.get("lunch_minutes") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    start_time: String(formData.get("start_time") ?? ""),
+    work_schedule_id: String(formData.get("work_schedule_id") ?? ""),
+    working_days: formData.getAll("working_days").map(String),
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: firstIssue(parsed.error) };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("update_company_work_schedule", {
+    active_rule: parsed.data.is_active === "on",
+    daily_hours: numberOrNull(parsed.data.daily_hours),
+    lunch_minutes: Number(parsed.data.lunch_minutes || 0),
+    schedule_name: parsed.data.name,
+    target_schedule_id: parsed.data.work_schedule_id,
+    work_end: parsed.data.end_time,
+    work_start: parsed.data.start_time,
+    working_days: parsed.data.working_days.map(Number),
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Work rule updated." };
 }
 
 export async function createLeaveType(

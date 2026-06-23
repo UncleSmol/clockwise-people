@@ -18,6 +18,11 @@ Company admins create work rules from **Company setup**. A work rule creates one
 configured start time, end time, lunch minutes, and paid hours. Non-working days
 are stored as inactive schedule days.
 
+Company admins can edit existing work rules from Company setup. Edits update the
+existing `work_schedules` row and upsert the seven `schedule_days` rows through
+`public.update_company_work_schedule(...)`, so employee assignments stay linked
+to the same rule. Changes are audited in `audit_logs`.
+
 Admins can assign a work rule to an employee from the employee form. The
 assignment is stored on `employees.work_schedule_id`, which is already used by
 time-entry calculations.

@@ -19,6 +19,11 @@ export const workScheduleFormSchema = z.object({
   working_days: z.array(z.string()).min(1, "Choose at least one working day"),
 });
 
+export const updateWorkScheduleFormSchema = workScheduleFormSchema.extend({
+  is_active: z.string().optional(),
+  work_schedule_id: z.uuid("Choose a work rule"),
+});
+
 export const leaveTypeFormSchema = z.object({
   category: z.enum(leaveCategories),
   is_paid: z.string().optional(),

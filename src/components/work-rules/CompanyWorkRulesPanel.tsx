@@ -8,10 +8,12 @@ import {
   createPublicHoliday,
   createWorkSchedule,
   updateLeaveType,
+  updateWorkSchedule,
 } from "@/lib/work-rules/actions";
 import {
   leaveCategories,
   type CompanyWorkRulesData,
+  type WorkSchedule,
 } from "@/lib/work-rules/schema";
 
 type CompanyWorkRulesPanelProps = {
@@ -37,11 +39,25 @@ function labelize(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function scheduleDay(schedule: WorkSchedule, day: number) {
+  return schedule.schedule_days?.find((item) => item.day_of_week === day) ?? null;
+}
+
+function firstWorkingDay(schedule: WorkSchedule) {
+  return schedule.schedule_days?.find((item) => item.is_working_day) ?? null;
+}
+
+function timeValue(value: string | null | undefined) {
+  return value ? value.slice(0, 5) : "";
+}
+
 export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelProps) {
   const [scheduleState, scheduleAction, schedulePending] = useActionState(
     createWorkSchedule,
     initialState,
   );
+  const [updateScheduleState, updateScheduleAction, updateSchedulePending] =
+    useActionState(updateWorkSchedule, initialState);
   const [leaveState, leaveAction, leavePending] = useActionState(
     createLeaveType,
     initialState,
@@ -60,19 +76,22 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
   );
   const message =
     scheduleState.message ||
+    updateScheduleState.message ||
     leaveState.message ||
     updateLeaveState.message ||
     assignState.message ||
     holidayState.message;
   const messageOk = scheduleState.message
     ? scheduleState.ok
-    : leaveState.message
-      ? leaveState.ok
-      : updateLeaveState.message
-        ? updateLeaveState.ok
-        : assignState.message
-          ? assignState.ok
-          : holidayState.ok;
+    : updateScheduleState.message
+      ? updateScheduleState.ok
+      : leaveState.message
+        ? leaveState.ok
+        : updateLeaveState.message
+          ? updateLeaveState.ok
+          : assignState.message
+            ? assignState.ok
+            : holidayState.ok;
 
   return (
     <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
@@ -263,12 +282,82 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <p className="text-sm text-muted">No work rules yet.</p>
             ) : (
               data.schedules.map((schedule) => (
-                <div key={schedule.id} className="rounded-md bg-surface px-3 py-2 text-sm">
-                  <p className="font-semibold text-foreground">{schedule.name}</p>
-                  <p className="text-xs text-muted">
-                    {Number(schedule.standard_daily_hours ?? 0).toFixed(2)} paid hours
-                  </p>
-                </div>
+                <details key={schedule.id} className="rounded-md bg-surface text-sm">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2">
+                    <span>
+                      <span className="block font-semibold text-foreground">{schedule.name}</span>
+                      <span className="text-xs text-muted">
+                        {Number(schedule.standard_daily_hours ?? 0).toFixed(2)} paid hours
+                      </span>
+                    </span>
+                    <Edit3 className="size-4 text-muted" />
+                  </summary>
+                  <form action={updateScheduleAction} className="grid gap-2 border-t border-border px-3 py-3">
+                    <input type="hidden" name="work_schedule_id" value={schedule.id} />
+                    <input
+                      name="name"
+                      defaultValue={schedule.name}
+                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        name="start_time"
+                        type="time"
+                        defaultValue={timeValue(firstWorkingDay(schedule)?.start_time)}
+                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                      />
+                      <input
+                        name="end_time"
+                        type="time"
+                        defaultValue={timeValue(firstWorkingDay(schedule)?.end_time)}
+                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        name="lunch_minutes"
+                        type="number"
+                        min="0"
+                        defaultValue={String(firstWorkingDay(schedule)?.lunch_minutes ?? 0)}
+                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                        placeholder="Lunch min"
+                      />
+                      <input
+                        name="daily_hours"
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        defaultValue={String(schedule.standard_daily_hours ?? "")}
+                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                        placeholder="Paid hours"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {days.map(([value, label]) => (
+                        <label key={value} className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-semibold">
+                          <input
+                            type="checkbox"
+                            name="working_days"
+                            value={value}
+                            defaultChecked={Boolean(scheduleDay(schedule, Number(value))?.is_working_day)}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-foreground">
+                      <input type="checkbox" name="is_active" defaultChecked />
+                      Active
+                    </label>
+                    <button
+                      disabled={updateSchedulePending}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    >
+                      <Save className="size-4" />
+                      {updateSchedulePending ? "Saving..." : "Save rule"}
+                    </button>
+                  </form>
+                </details>
               ))
             )}
           </div>
