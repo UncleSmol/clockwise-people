@@ -18,6 +18,24 @@ export const companySchema = z.object({
   payroll_cycle: z.string().trim().min(2, "Payroll cycle is required"),
 });
 
+export const companyLogoSchema = z.object({
+  logo_url: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => {
+      if (!value) return true;
+
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }, "Use a valid logo link that starts with http:// or https://"),
+});
+
 export const branchSchema = z.object({
   name: z.string().trim().min(2, "Branch name is required"),
   code: z.string().trim().optional().or(z.literal("")),
@@ -35,6 +53,7 @@ export type Company = {
   id: string;
   name: string;
   registration_number: string | null;
+  logo_url: string | null;
   country: string;
   timezone: string;
   payroll_cycle: string;

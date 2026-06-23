@@ -22,6 +22,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             className="flex min-w-0 items-center gap-3 rounded-md px-1 py-1 text-lg font-semibold text-primary"
           >
             <BrandMark
+              brandName={company.name}
+              logoUrl={company.logo_url}
               imageSize={36}
               imageClassName="size-9 rounded-md shadow-sm"
               textClassName="truncate text-lg font-semibold text-primary"
@@ -32,6 +34,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             canManageCompany={access.canManageCompany}
             canManageEmployees={access.canManageEmployees}
             companyName={company.name}
+            companyLogoUrl={company.logo_url}
           />
         </div>
       </div>

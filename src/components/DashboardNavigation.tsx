@@ -1,15 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/lib/auth/actions";
+import BrandMark from "@/components/BrandMark";
 import ThemeToggle from "@/components/ThemeToggle";
 
 type DashboardNavigationProps = {
   canManageCompany: boolean;
   canManageEmployees: boolean;
+  companyLogoUrl: string | null;
   companyName: string;
 };
 
@@ -29,6 +30,7 @@ function isActive(pathname: string, href: string) {
 export default function DashboardNavigation({
   canManageCompany,
   canManageEmployees,
+  companyLogoUrl,
   companyName,
 }: DashboardNavigationProps) {
   const pathname = usePathname();
@@ -141,13 +143,13 @@ export default function DashboardNavigation({
             {/* Header */}
             <div className="mobile-nav-header flex items-center justify-between gap-4 px-5 py-5 pr-20 text-foreground">
               <div className="flex min-w-0 items-center gap-3">
-                <Image
-                  src="/assets/clockwise-people-logo.png"
-                  alt="ClockWise People logo"
-                  width={36}
-                  height={36}
-                  className="size-9 shrink-0 rounded-md border border-border bg-surface p-1 shadow-sm"
-                  priority
+                <BrandMark
+                  alwaysShowLogo
+                  brandName={companyName}
+                  logoUrl={companyLogoUrl}
+                  imageSize={36}
+                  imageClassName="size-9 shrink-0 rounded-md border border-border bg-surface object-cover p-1 shadow-sm"
+                  textClassName="text-sm font-semibold text-primary"
                 />
                 <p className="truncate text-base font-semibold">{companyName}</p>
               </div>

@@ -4,10 +4,13 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 type BrandMarkProps = {
+  alwaysShowLogo?: boolean;
+  brandName?: string;
   className?: string;
   imageClassName?: string;
   textClassName?: string;
   imageSize?: number;
+  logoUrl?: string | null;
   priority?: boolean;
 };
 
@@ -20,13 +23,17 @@ function getBrandVariant(now = Date.now()): BrandVariant {
 }
 
 export default function BrandMark({
+  alwaysShowLogo = false,
+  brandName = "ClockWise People",
   className,
   imageClassName = "size-10 rounded-md",
   textClassName = "text-lg font-semibold text-primary",
   imageSize = 40,
+  logoUrl = null,
   priority = false,
 }: BrandMarkProps) {
   const [variant, setVariant] = useState<BrandVariant>(() => getBrandVariant());
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let timeout: number;
@@ -46,17 +53,27 @@ export default function BrandMark({
 
   return (
     <span className={className}>
-      {variant === "logo" ? (
+      {logoUrl && failedLogoUrl !== logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt={`${brandName} logo`}
+          className={imageClassName}
+          loading={priority ? "eager" : "lazy"}
+          referrerPolicy="no-referrer"
+          onError={() => setFailedLogoUrl(logoUrl)}
+        />
+      ) : alwaysShowLogo || variant === "logo" ? (
         <Image
           src="/assets/clockwise-people-logo.png"
-          alt="ClockWise People logo"
+          alt={`${brandName} logo`}
           width={imageSize}
           height={imageSize}
           className={imageClassName}
           priority={priority}
         />
       ) : (
-        <span className={textClassName}>ClockWise People</span>
+        <span className={textClassName}>{brandName}</span>
       )}
     </span>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Sparkles, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Sparkles, X } from "lucide-react";
 import { useActionState, useState } from "react";
 import { markAppUpdatesSeen } from "@/lib/app-updates/actions";
 import type { AppUpdate } from "@/lib/app-updates/schema";
@@ -43,10 +43,12 @@ export default function AppUpdateChangelog({
     return null;
   }
 
+  const updateCount = updates.length;
+
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-end bg-black/55 p-3 sm:place-items-center sm:p-6">
-      <section className="max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-md border border-border bg-surface text-foreground shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-surface px-4 py-3">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] flex justify-end p-3 sm:p-5">
+      <section className="pointer-events-auto max-h-[78dvh] w-full max-w-lg overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-border bg-surface px-4 py-3">
           <div className="flex min-w-0 gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
               <Sparkles className="size-5" />
@@ -55,9 +57,11 @@ export default function AppUpdateChangelog({
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
                 What&apos;s new
               </p>
-              <h2 className="mt-1 text-xl font-semibold">Latest updates</h2>
+              <h2 className="mt-1 text-lg font-semibold">Latest updates</h2>
               <p className="mt-1 text-sm text-muted">
-                A quick summary of what changed in ClockWise People.
+                {updateCount === 1
+                  ? "One unread update is ready."
+                  : `${updateCount} unread updates are grouped here.`}
               </p>
             </div>
           </div>
@@ -76,26 +80,37 @@ export default function AppUpdateChangelog({
           </form>
         </div>
 
-        <div className="grid gap-3 p-4">
+        <div className="max-h-[52dvh] overflow-y-auto p-3">
           {state.message ? (
-            <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
+            <p className="mb-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
               {state.message}
             </p>
           ) : null}
 
-          {updates.map((update) => (
-            <article key={update.id} className="rounded-md border border-border bg-background p-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground">{update.title}</h3>
-                  <p className="mt-1 text-sm text-muted">{update.summary}</p>
+          {updates.map((update, index) => (
+            <details
+              key={update.id}
+              className="group border-b border-border last:border-b-0"
+              open={index === 0}
+            >
+              <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-md px-2 py-3 hover:bg-surface-muted/35">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate font-semibold text-foreground">
+                      {update.title}
+                    </h3>
+                    <span className="w-max rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-foreground">
+                      {formatDate(update.published_at)}
+                    </span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted">
+                    {update.summary}
+                  </p>
                 </div>
-                <span className="w-max rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
-                  {formatDate(update.published_at)}
-                </span>
-              </div>
+                <ChevronDown className="mt-1 size-4 text-muted transition-transform group-open:rotate-180" />
+              </summary>
 
-              <ul className="mt-3 grid gap-2">
+              <ul className="grid gap-2 px-2 pb-3">
                 {update.changes.map((change) => (
                   <li key={change} className="flex gap-2 text-sm text-foreground">
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
@@ -103,19 +118,19 @@ export default function AppUpdateChangelog({
                   </li>
                 ))}
               </ul>
-            </article>
+            </details>
           ))}
         </div>
 
-        <form action={formAction} className="sticky bottom-0 border-t border-border bg-surface p-4">
+        <form action={formAction} className="border-t border-border bg-surface p-3">
           {updates.map((update) => (
             <input key={update.id} type="hidden" name="update_ids" value={update.id} />
           ))}
           <button
             disabled={pending}
-            className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
-            {pending ? "Saving..." : "Got it"}
+            {pending ? "Saving..." : `Got it, clear ${updateCount === 1 ? "update" : "updates"}`}
           </button>
         </form>
       </section>

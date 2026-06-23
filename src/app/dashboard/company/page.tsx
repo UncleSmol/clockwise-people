@@ -4,6 +4,7 @@ import {
   deactivateBranch,
   deactivateDepartment,
 } from "@/lib/foundation/actions";
+import CompanyLogoForm from "@/components/company/CompanyLogoForm";
 import {
   addressHints,
   departmentHints,
@@ -58,6 +59,16 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
           {params.message}
         </div>
       )}
+
+      <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
+        <div>
+          <h2 className="text-xl font-semibold text-foreground">Company logo</h2>
+          <p className="mt-1 text-sm text-muted">
+            Add a public logo link to use across the app.
+          </p>
+        </div>
+        <CompanyLogoForm companyName={company.name} logoUrl={company.logo_url} />
+      </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="premium-card rounded-md p-4 sm:p-6">

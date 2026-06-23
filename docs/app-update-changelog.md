@@ -1,6 +1,6 @@
 # App Update Changelog
 
-ClockWise People shows a changelog modal when a signed-in user has not seen newly published app updates.
+ClockWise People shows a compact changelog notice when a signed-in user has not seen newly published app updates.
 
 ## Backend
 
@@ -23,4 +23,8 @@ The dashboard calls:
 
 `DashboardLayout` loads unseen updates and renders `AppUpdateChangelog`.
 
-The modal appears on first dashboard load after a new update is published. Closing it records the update as seen, so it does not show again for that user unless another update is published.
+The notice appears on the first dashboard load after new updates are published. It is not a blocking overlay. If a user has multiple unread updates, the app groups them into one notice and sends all unread update ids to `mark_app_updates_seen` when the user dismisses it. This prevents a returning user from receiving one popup per missed release.
+
+## Current Production Notes
+
+The latest seeded production changelog is `2026.06.23-branding-changelog`. It covers profile picture links, company logo links, and the quieter grouped update notice.
