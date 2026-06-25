@@ -61,6 +61,14 @@ Phase 1 covers invite/provisioned auth, company setup, branch setup, department 
 - Related Phase 1 data is fetched in parallel where possible.
 - Mutations call `revalidatePath()` for the affected dashboard route.
 
+## Production Scale Readiness
+
+- The app remains stateless at the Next.js layer so Vercel can run multiple runtime instances without sticky sessions.
+- Supabase Auth cookies and backend session refresh support serving a user request from any healthy instance.
+- Employee numbers are allocated through `public.next_company_employee_number(company_id)` to avoid count-based collisions during concurrent employee creation.
+- `/health` is available for production uptime checks.
+- See `docs/production-scale-readiness.md` for the active scale-up plan and phase status.
+
 ## Client State
 
 - Local storage is only used for presentation preferences, such as table density.

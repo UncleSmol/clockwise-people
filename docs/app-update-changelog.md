@@ -23,8 +23,8 @@ The dashboard calls:
 
 `DashboardLayout` loads unseen updates and renders `AppUpdateChangelog`. The changelog component is keyed by the unread update ids, so a reload or server refresh with unread updates mounts a fresh notice for that unread batch.
 
-The notice appears on the first dashboard load after new updates are published. It is not a blocking overlay. If a user has multiple unread updates, the app groups them into one notice and sends all unread update ids to `mark_app_updates_seen` when the user dismisses it. This prevents a returning user from receiving one popup per missed release.
+The notice appears on the first dashboard load after new updates are published. It is a blocking modal, so users must clear unread updates before interacting with dashboard content. If a user has multiple unread updates, the app groups them into one notice and sends all unread update ids to `mark_app_updates_seen` when the user dismisses it. This prevents a returning user from receiving one popup per missed release.
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.23-branding-changelog`. It covers profile picture links, company logo links, and the quieter grouped update notice.
+The latest seeded production changelog is `2026.06.25-blocking-changelog`. It covers the blocking changelog modal behavior.

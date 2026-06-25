@@ -14,16 +14,15 @@ type ActionState = {
 async function nextEmployeeNumber(companyId: string) {
   const supabase = await createSupabaseServerClient();
 
-  const { count, error } = await supabase
-    .from("employees")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", companyId);
+  const { data, error } = await supabase.rpc("next_company_employee_number", {
+    target_company_id: companyId,
+  });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return `EMP-${String((count ?? 0) + 1).padStart(4, "0")}`;
+  return String(data);
 }
 
 function blankToNull(value: string | null | undefined) {

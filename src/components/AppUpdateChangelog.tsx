@@ -1,7 +1,7 @@
 "use client";
 
-import { CheckCircle2, ChevronDown, Sparkles, X } from "lucide-react";
-import { useActionState, useState } from "react";
+import { CheckCircle2, ChevronDown, Sparkles } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { markAppUpdatesSeen } from "@/lib/app-updates/actions";
 import type { AppUpdate } from "@/lib/app-updates/schema";
 
@@ -26,6 +26,8 @@ export default function AppUpdateChangelog({
   updates,
 }: AppUpdateChangelogProps) {
   const [open, setOpen] = useState(updates.length > 0);
+  const dialogRef = useRef<HTMLElement>(null);
+  const clearButtonRef = useRef<HTMLButtonElement>(null);
   const [state, formAction, pending] = useActionState(
     async (previousState: typeof initialState, formData: FormData) => {
       const result = await markAppUpdatesSeen(previousState, formData);
@@ -39,16 +41,61 @@ export default function AppUpdateChangelog({
     initialState,
   );
 
+  useEffect(() => {
+    if (open) {
+      clearButtonRef.current?.focus();
+    }
+  }, [open]);
+
   if (!open || updates.length === 0) {
     return null;
   }
 
   const updateCount = updates.length;
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusableElements = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input, select, textarea, details summary, [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    ).filter((element) => !element.hasAttribute("disabled"));
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements.at(-1);
+
+    if (!firstElement || !lastElement) {
+      event.preventDefault();
+      return;
+    }
+
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+      return;
+    }
+
+    if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] flex justify-end p-3 sm:p-5">
-      <section className="pointer-events-auto max-h-[78dvh] w-full max-w-lg overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border bg-surface px-4 py-3">
+    <div
+      className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-3 backdrop-blur-sm sm:p-5"
+      onKeyDown={handleKeyDown}
+    >
+      <section
+        aria-labelledby="app-update-title"
+        aria-modal="true"
+        ref={dialogRef}
+        role="dialog"
+        className="max-h-[88dvh] w-full max-w-xl overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-2xl"
+      >
+        <div className="border-b border-border bg-surface px-4 py-3">
           <div className="flex min-w-0 gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
               <Sparkles className="size-5" />
@@ -57,7 +104,9 @@ export default function AppUpdateChangelog({
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
                 What&apos;s new
               </p>
-              <h2 className="mt-1 text-lg font-semibold">Latest updates</h2>
+              <h2 id="app-update-title" className="mt-1 text-lg font-semibold">
+                Latest updates
+              </h2>
               <p className="mt-1 text-sm text-muted">
                 {updateCount === 1
                   ? "One unread update is ready."
@@ -65,19 +114,6 @@ export default function AppUpdateChangelog({
               </p>
             </div>
           </div>
-
-          <form action={formAction}>
-            {updates.map((update) => (
-              <input key={update.id} type="hidden" name="update_ids" value={update.id} />
-            ))}
-            <button
-              disabled={pending}
-              aria-label="Close updates"
-              className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground disabled:opacity-60"
-            >
-              <X className="size-4" />
-            </button>
-          </form>
         </div>
 
         <div className="max-h-[52dvh] overflow-y-auto p-3">
@@ -127,6 +163,7 @@ export default function AppUpdateChangelog({
             <input key={update.id} type="hidden" name="update_ids" value={update.id} />
           ))}
           <button
+            ref={clearButtonRef}
             disabled={pending}
             className="w-full rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
