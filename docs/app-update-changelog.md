@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.26-dashboard-notifications`. It covers the dashboard holidays and team movement panels, smart daily reminder prompts, install prompt, service worker registration, and actionable notification center.
+The latest seeded production changelog is `2026.06.26-nt-fill-up-holiday-hours`. It covers corrected public holiday paid hours, backend normal-time fill-up before overtime accumulation, and visible timesheet calculation notes.

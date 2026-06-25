@@ -226,6 +226,10 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     target_company_id: company.id,
     target_year: currentYear,
   });
+  await supabase.rpc("sync_company_public_holiday_time_entries", {
+    target_company_id: company.id,
+    target_year: currentYear,
+  });
 
   const [
     employeeResult,
@@ -348,6 +352,10 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const workDate = currentDateInTimezone(company.timezone || "UTC");
 
   await supabase.rpc("ensure_current_year_za_public_holidays", {
+    target_company_id: company.id,
+    target_year: Number(workDate.slice(0, 4)),
+  });
+  await supabase.rpc("sync_company_public_holiday_time_entries", {
     target_company_id: company.id,
     target_year: Number(workDate.slice(0, 4)),
   });
@@ -572,6 +580,10 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     target_company_id: company.id,
     target_year: currentYear,
   });
+  await supabase.rpc("sync_company_public_holiday_time_entries", {
+    target_company_id: company.id,
+    target_year: currentYear,
+  });
 
   const { data, error } = await supabase
     .from("time_entries")
@@ -630,6 +642,10 @@ export const getCompanyTimesheetCalendarHolidays = cache(async function getCompa
   const currentYear = Number(workDate.slice(0, 4));
 
   await supabase.rpc("ensure_current_year_za_public_holidays", {
+    target_company_id: company.id,
+    target_year: currentYear,
+  });
+  await supabase.rpc("sync_company_public_holiday_time_entries", {
     target_company_id: company.id,
     target_year: currentYear,
   });

@@ -376,11 +376,18 @@ export default function EmployeeTimesheetCorrections({
             </div>
           </form>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-4">
-            <span>In: {formatTime(entry.clock_in)}</span>
-            <span>Lunch: {formatTimeRange(entry.lunch_start, entry.lunch_end)}</span>
-            <span>Out: {formatTime(entry.clock_out)}</span>
-            <span className="font-semibold">Submitted</span>
+          <div className="grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-4">
+              <span>In: {formatTime(entry.clock_in)}</span>
+              <span>Lunch: {formatTimeRange(entry.lunch_start, entry.lunch_end)}</span>
+              <span>Out: {formatTime(entry.clock_out)}</span>
+              <span className="font-semibold">Submitted</span>
+            </div>
+            {entry.warning_notes ? (
+              <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+                {entry.warning_notes}
+              </p>
+            ) : null}
           </div>
         )}
       </article>
@@ -470,6 +477,8 @@ export default function EmployeeTimesheetCorrections({
             height="auto"
             firstDay={1}
             events={calendarEvents}
+            dayMaxEventRows={3}
+            dayMaxEvents={3}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             headerToolbar={{
@@ -477,6 +486,7 @@ export default function EmployeeTimesheetCorrections({
               center: "title",
               right: "",
             }}
+            moreLinkClick="popover"
           />
         </div>
       </div>
@@ -867,6 +877,15 @@ export default function EmployeeTimesheetCorrections({
                 <div className="rounded-md border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Notes</p>
                   <p className="mt-1 text-sm text-foreground">{detailEntry.notes}</p>
+                </div>
+              ) : null}
+
+              {detailEntry.warning_notes ? (
+                <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+                  <p className="text-xs text-warning">Calculation note</p>
+                  <p className="mt-1 text-sm font-medium text-warning">
+                    {detailEntry.warning_notes}
+                  </p>
                 </div>
               ) : null}
             </div>

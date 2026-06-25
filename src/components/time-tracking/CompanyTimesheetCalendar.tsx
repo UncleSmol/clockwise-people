@@ -234,7 +234,7 @@ export default function CompanyTimesheetCalendar({
         <div className="mb-3 grid gap-3 rounded-md border border-border bg-background p-3 lg:grid-cols-[1fr_1.2fr]">
           <form action={createAction} className="grid gap-2">
             <div>
-              <p className="font-semibold text-foreground">Create subordinate timesheet</p>
+              <p className="font-semibold text-foreground">Create employee timesheet</p>
               <p className="mt-1 text-xs text-muted">
                 Select a date on the calendar, choose an employee, then create a draft row.
               </p>
@@ -331,7 +331,8 @@ export default function CompanyTimesheetCalendar({
         {events.length > 0 ? (
           <div className="cw-timesheet-calendar">
             <FullCalendar
-              dayMaxEvents={4}
+              dayMaxEventRows={3}
+              dayMaxEvents={3}
               eventClassNames={(arg) => {
                 const entry = arg.event.extendedProps.entry as
                   | CompanyTimesheetCalendarEntry
@@ -351,7 +352,16 @@ export default function CompanyTimesheetCalendar({
               }}
               height="auto"
               initialView="dayGridMonth"
+              moreLinkClick="popover"
               plugins={[dayGridPlugin, interactionPlugin]}
+              views={{
+                dayGridMonth: {
+                  dayMaxEventRows: 3,
+                },
+                dayGridWeek: {
+                  dayMaxEventRows: 6,
+                },
+              }}
             />
           </div>
         ) : (
@@ -444,6 +454,15 @@ export default function CompanyTimesheetCalendar({
                   </p>
                 </div>
               </div>
+
+              {selectedEntry.warning_notes ? (
+                <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+                  <p className="text-xs text-warning">Calculation note</p>
+                  <p className="mt-1 text-sm font-medium text-warning">
+                    {selectedEntry.warning_notes}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="rounded-md border border-border bg-background">
                 <div className="border-b border-border px-3 py-3">

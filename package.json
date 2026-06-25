@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.26-dashboard-notifications",
+  "version": "2026.6.26-nt-fill-up-holiday-hours",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
