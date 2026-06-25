@@ -257,7 +257,7 @@ export default function CompanyGeolocationPanel({
                   <button
                     type="button"
                     onClick={() => selectWorkstation(workstation)}
-                    className="grid gap-1 text-left"
+                    className="grid cursor-pointer gap-1 text-left"
                   >
                     <span className="flex items-center gap-2 font-semibold text-foreground">
                       <MapPin className="size-4 text-accent" />

@@ -688,7 +688,7 @@ export default function EmployeeTimesheetCorrections({
 
                 {canRequestCorrection && !hasSubmittedCorrection ? (
                   <details className="rounded-md border border-border bg-surface">
-                    <summary className="px-3 py-2 font-semibold text-foreground">
+                    <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
                       Request correction
                     </summary>
                     <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
