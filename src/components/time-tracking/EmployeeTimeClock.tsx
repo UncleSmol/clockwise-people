@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import type { FormEvent } from "react";
+import { useActionState, useRef, useState } from "react";
 import {
   clockIn,
   clockOut,
@@ -125,8 +126,16 @@ function optimisticEntry(
 
 export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps) {
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
+  const [locationMessage, setLocationMessage] = useState("");
+  const [locating, setLocating] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const latitudeRef = useRef<HTMLInputElement>(null);
+  const longitudeRef = useRef<HTMLInputElement>(null);
+  const accuracyRef = useRef<HTMLInputElement>(null);
+  const capturedAtRef = useRef<HTMLInputElement>(null);
+  const locationReadyRef = useRef(false);
   const [state, formAction, pending] = useActionState(
-    async (previousState: ClockActionState) => {
+    async (previousState: ClockActionState, formData: FormData) => {
       const currentEntry = previousState.entry ?? optimistic ?? todayEntry;
       const currentAction = nextAction(currentEntry);
 
@@ -135,7 +144,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
       }
 
       setOptimistic(optimisticEntry(currentEntry, currentAction.label));
-      const result = await currentAction.action();
+      const result = await currentAction.action(formData);
       setOptimistic(null);
 
       return result;
@@ -144,6 +153,56 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
   );
   const displayEntry = state.entry ?? optimistic ?? todayEntry;
   const actionConfig = nextAction(displayEntry);
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    if (locationReadyRef.current) {
+      locationReadyRef.current = false;
+      return;
+    }
+
+    event.preventDefault();
+    setLocationMessage("");
+
+    if (!navigator.geolocation) {
+      setLocationMessage("Location is not available on this device. Clocking will continue without a location.");
+      locationReadyRef.current = true;
+      formRef.current?.requestSubmit();
+      return;
+    }
+
+    setLocating(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          maximumAge: 30000,
+          timeout: 12000,
+        });
+      });
+
+      if (latitudeRef.current) {
+        latitudeRef.current.value = String(position.coords.latitude);
+      }
+      if (longitudeRef.current) {
+        longitudeRef.current.value = String(position.coords.longitude);
+      }
+      if (accuracyRef.current) {
+        accuracyRef.current.value = String(position.coords.accuracy);
+      }
+      if (capturedAtRef.current) {
+        capturedAtRef.current.value = new Date(position.timestamp).toISOString();
+      }
+    } catch {
+      setLocationMessage("Location permission was denied or timed out. Clocking will continue and be marked as no location.");
+      if (latitudeRef.current) latitudeRef.current.value = "";
+      if (longitudeRef.current) longitudeRef.current.value = "";
+      if (accuracyRef.current) accuracyRef.current.value = "";
+      if (capturedAtRef.current) capturedAtRef.current.value = "";
+    } finally {
+      setLocating(false);
+      locationReadyRef.current = true;
+      formRef.current?.requestSubmit();
+    }
+  };
 
   const status = currentStatus(displayEntry);
   const buttonClass =
@@ -172,12 +231,16 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
           </p>
         </div>
         {actionConfig ? (
-          <form action={formAction}>
+          <form action={formAction} onSubmit={handleSubmit} ref={formRef}>
+            <input name="latitude" ref={latitudeRef} type="hidden" />
+            <input name="longitude" ref={longitudeRef} type="hidden" />
+            <input name="accuracy" ref={accuracyRef} type="hidden" />
+            <input name="captured_at" ref={capturedAtRef} type="hidden" />
             <button
-              disabled={pending}
+              disabled={pending || locating}
               className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
             >
-              {pending ? "Saving..." : actionConfig.label}
+              {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
             </button>
           </form>
         ) : (
@@ -199,6 +262,12 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
             {state.message}
           </div>
         )}
+
+        {locationMessage ? (
+          <div className="mb-4 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+            {locationMessage}
+          </div>
+        ) : null}
 
         <div className="grid gap-2 sm:grid-cols-3">
           <div className="premium-panel rounded-md p-3">

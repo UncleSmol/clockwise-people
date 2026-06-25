@@ -47,6 +47,38 @@ function statusClass(status: CompanyLiveTimeEntry["status"]) {
   return "bg-surface-muted text-foreground";
 }
 
+function geofenceLabel(entry: CompanyLiveTimeEntry) {
+  if (!entry.latestGeofenceStatus) return "No clock location";
+
+  const event = entry.latestGeofenceEventType?.replaceAll("_", " ") ?? "clock";
+  const distance =
+    entry.latestGeofenceDistanceMeters === null
+      ? ""
+      : ` · ${Math.round(entry.latestGeofenceDistanceMeters)}m`;
+
+  if (entry.latestGeofenceStatus === "in_range") {
+    return `${event}: in range${distance}`;
+  }
+  if (entry.latestGeofenceStatus === "out_of_range") {
+    return `${event}: out of range${distance}`;
+  }
+  if (entry.latestGeofenceStatus === "no_location") {
+    return `${event}: no location`;
+  }
+  if (entry.latestGeofenceStatus === "no_workstation") {
+    return `${event}: no workstation`;
+  }
+
+  return `${event}: location unknown`;
+}
+
+function geofenceClass(status: string | null) {
+  if (status === "in_range") return "border-success/30 bg-success/10 text-success";
+  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
+  return "border-border bg-surface-muted text-muted";
+}
+
 function activeDuration(entry: CompanyLiveTimeEntry, tick: number) {
   void tick;
 
@@ -171,7 +203,7 @@ export default function CompanyLiveWorkforce({
         {visibleEntries.map((entry) => (
           <div
             key={entry.employeeId}
-            className="grid gap-2 rounded-md border border-border bg-background/80 p-3 shadow-sm lg:grid-cols-[1.2fr_110px_1fr_90px] lg:items-center"
+            className="grid gap-2 rounded-md border border-border bg-background/80 p-3 shadow-sm xl:grid-cols-[1.2fr_110px_1fr_190px_90px] xl:items-center"
           >
             <div className="flex min-w-0 items-center gap-2">
               <EmployeeAvatar
@@ -219,6 +251,17 @@ export default function CompanyLiveWorkforce({
                   {formatHours(entry.overtimeHours)}
                 </p>
               </div>
+            </div>
+
+            <div>
+              <span
+                className={`inline-flex max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${geofenceClass(entry.latestGeofenceStatus)}`}
+              >
+                <span className="truncate">{geofenceLabel(entry)}</span>
+              </span>
+              {entry.workstationName ? (
+                <p className="mt-1 truncate text-xs text-muted">{entry.workstationName}</p>
+              ) : null}
             </div>
 
             <p className="text-right text-xs font-semibold text-muted">

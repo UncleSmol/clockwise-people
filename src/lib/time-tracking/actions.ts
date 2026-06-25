@@ -22,12 +22,26 @@ type TimeEntryActionState = {
 
 export async function recordClockEvent(
   eventType: ClockEventType,
+  formData?: FormData,
 ): Promise<ClockActionState> {
   const supabase = await createSupabaseServerClient();
+  const latitude = String(formData?.get("latitude") ?? "").trim();
+  const longitude = String(formData?.get("longitude") ?? "").trim();
+  const accuracy = String(formData?.get("accuracy") ?? "").trim();
+  const capturedAt = String(formData?.get("captured_at") ?? "").trim();
 
   const { data, error } = await supabase.rpc("record_employee_time_event", {
     requested_event: eventType,
     device_metadata: {
+      location:
+        latitude && longitude
+          ? {
+              accuracy: accuracy ? Number(accuracy) : null,
+              captured_at: capturedAt || null,
+              latitude: Number(latitude),
+              longitude: Number(longitude),
+            }
+          : null,
       source: "dashboard",
     },
   });
@@ -44,20 +58,20 @@ export async function recordClockEvent(
   };
 }
 
-export async function clockIn() {
-  return recordClockEvent("clock_in");
+export async function clockIn(formData?: FormData) {
+  return recordClockEvent("clock_in", formData);
 }
 
-export async function startLunch() {
-  return recordClockEvent("lunch_start");
+export async function startLunch(formData?: FormData) {
+  return recordClockEvent("lunch_start", formData);
 }
 
-export async function endLunch() {
-  return recordClockEvent("lunch_end");
+export async function endLunch(formData?: FormData) {
+  return recordClockEvent("lunch_end", formData);
 }
 
-export async function clockOut() {
-  return recordClockEvent("clock_out");
+export async function clockOut(formData?: FormData) {
+  return recordClockEvent("clock_out", formData);
 }
 
 function optionalTime(formData: FormData, key: string) {

@@ -112,6 +112,10 @@ export type CompanyLiveTimeEntry = {
   missingClocking: boolean;
   lateArrival: boolean;
   earlyDeparture: boolean;
+  latestGeofenceStatus: string | null;
+  latestGeofenceDistanceMeters: number | null;
+  latestGeofenceEventType: ClockEventType | null;
+  workstationName: string | null;
   status: "not_started" | "working" | "on_lunch" | "worked" | "needs_review";
 };
 

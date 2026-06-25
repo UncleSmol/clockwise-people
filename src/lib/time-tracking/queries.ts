@@ -8,6 +8,7 @@ import {
 } from "@/lib/foundation/queries";
 import type {
   ClockEventRecord,
+  ClockEventType,
   CompanyPublicHoliday,
   CompanyLiveTimeEntry,
   CompanyLiveTimeOverview,
@@ -64,6 +65,14 @@ type SubmittedTimesheetRow = TimeEntryRecord & {
   } | null;
 };
 
+type TimeClockGeofenceRow = {
+  employee_id: string;
+  event_type: ClockEventType;
+  geofence_status: string | null;
+  distance_meters: number | null;
+  company_workstations?: { name: string }[] | { name: string } | null;
+};
+
 function relationName(
   relation?: { name: string }[] | { name: string } | null,
 ) {
@@ -72,6 +81,20 @@ function relationName(
   }
 
   return relation?.name ?? null;
+}
+
+function isMissingGeofenceSchema(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+
+  return (
+    error.code === "PGRST200" ||
+    error.code === "PGRST204" ||
+    error.code === "42P01" ||
+    error.code === "42703" ||
+    error.message?.includes("company_workstations") ||
+    error.message?.includes("geofence_status") ||
+    error.message?.includes("schema cache")
+  );
 }
 
 function currentDateInTimezone(timezone: string) {
@@ -240,7 +263,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     target_year: Number(workDate.slice(0, 4)),
   });
 
-  const [employeesResult, entriesResult] = await Promise.all([
+  const [employeesResult, entriesResult, geofenceEventsResult] = await Promise.all([
     supabase
       .from("employees")
       .select(
@@ -258,6 +281,13 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
       .eq("company_id", company.id)
       .eq("work_date", workDate)
       .is("deleted_at", null),
+    supabase
+      .from("time_clock_events")
+      .select("employee_id, event_type, geofence_status, distance_meters, company_workstations(name)")
+      .eq("company_id", company.id)
+      .eq("local_work_date", workDate)
+      .order("event_at", { ascending: false })
+      .limit(1000),
   ]);
 
   if (employeesResult.error) {
@@ -268,16 +298,31 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     throw new Error(entriesResult.error.message);
   }
 
+  if (geofenceEventsResult.error && !isMissingGeofenceSchema(geofenceEventsResult.error)) {
+    throw new Error(geofenceEventsResult.error.message);
+  }
+
   const entriesByEmployee = new Map(
     ((entriesResult.data ?? []) as TimeEntryRecord[]).map((entry) => [
       entry.employee_id,
       entry,
     ]),
   );
+  const geofenceByEmployee = new Map<string, TimeClockGeofenceRow>();
+  if (!geofenceEventsResult.error) {
+    ((geofenceEventsResult.data ?? []) as unknown as TimeClockGeofenceRow[]).forEach(
+      (event) => {
+        if (!geofenceByEmployee.has(event.employee_id)) {
+          geofenceByEmployee.set(event.employee_id, event);
+        }
+      },
+    );
+  }
 
   const entries = ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(
     (employee) => {
       const entry = entriesByEmployee.get(employee.id) ?? null;
+      const geofence = geofenceByEmployee.get(employee.id) ?? null;
       const status = liveStatus(entry);
 
       return {
@@ -293,12 +338,18 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
         jobTitle: employee.job_title,
         knownAs: employee.known_as,
         lateArrival: Boolean(entry?.late_arrival),
+        latestGeofenceDistanceMeters: geofence?.distance_meters
+          ? Number(geofence.distance_meters)
+          : null,
+        latestGeofenceEventType: geofence?.event_type ?? null,
+        latestGeofenceStatus: geofence?.geofence_status ?? null,
         lunchEnd: entry?.lunch_end ?? null,
         lunchStart: entry?.lunch_start ?? null,
         missingClocking: Boolean(entry?.missing_clocking),
         overtimeHours: Number(entry?.overtime_hours ?? 0),
         paidHours: Number(entry?.paid_hours ?? 0),
         status,
+        workstationName: relationName(geofence?.company_workstations),
         workDate: entry?.work_date ?? null,
       };
     },

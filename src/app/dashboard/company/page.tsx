@@ -5,6 +5,7 @@ import {
   deactivateDepartment,
 } from "@/lib/foundation/actions";
 import CompanyLogoForm from "@/components/company/CompanyLogoForm";
+import CompanyGeolocationPanel from "@/components/geolocation/CompanyGeolocationPanel";
 import CompanyWorkRulesPanel from "@/components/work-rules/CompanyWorkRulesPanel";
 import {
   addressHints,
@@ -17,6 +18,7 @@ import {
   requireCompanyAdmin,
 } from "@/lib/foundation/queries";
 import { getCompanyWorkRulesData } from "@/lib/work-rules/queries";
+import { getCompanyGeolocationData } from "@/lib/geolocation/queries";
 
 type CompanyPageProps = {
   searchParams?: Promise<{ message?: string }>;
@@ -27,9 +29,10 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
 
   const params = await searchParams;
   const { company } = await getActiveCompany();
-  const [{ branches, departments }, workRulesData] = await Promise.all([
+  const [{ branches, departments }, workRulesData, geolocationData] = await Promise.all([
     getCompanySetup(company.id),
     getCompanyWorkRulesData(),
+    getCompanyGeolocationData(),
   ]);
   const hasBranches = branches.length > 0;
 
@@ -76,6 +79,8 @@ export default async function CompanyPage({ searchParams }: CompanyPageProps) {
       </section>
 
       <CompanyWorkRulesPanel data={workRulesData} />
+
+      <CompanyGeolocationPanel branches={branches} data={geolocationData} />
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="premium-card rounded-md p-4 sm:p-6">
