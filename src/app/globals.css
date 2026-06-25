@@ -322,3 +322,7 @@ button:disabled {
   background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
   color: var(--color-accent);
 }
+
+.cw-timesheet-calendar .cw-company-timesheet-event-warning {
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}

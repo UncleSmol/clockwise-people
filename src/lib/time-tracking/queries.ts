@@ -12,6 +12,7 @@ import type {
   CompanyLiveTimeEntry,
   CompanyLiveTimeOverview,
   CompanySubmittedTimesheet,
+  CompanyTimesheetCalendarEntry,
   CompanyTimesheetCorrectionRequest,
   EmployeeTimeState,
   TimeEntryRecord,
@@ -400,6 +401,58 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
       avatarUrl: employee?.avatar_url ?? null,
+    };
+  });
+});
+
+export const getCompanyTimesheetCalendarEntries = cache(async function getCompanyTimesheetCalendarEntries(): Promise<CompanyTimesheetCalendarEntry[]> {
+  const [{ company }, access, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+    requireUser(),
+  ]);
+
+  if (!access.canReviewBranchTime && !access.canManageDirectReports) {
+    return [];
+  }
+
+  const workDate = currentDateInTimezone(company.timezone || "UTC");
+  const currentYear = Number(workDate.slice(0, 4));
+
+  await supabase.rpc("ensure_current_year_za_public_holidays", {
+    target_company_id: company.id,
+    target_year: currentYear,
+  });
+
+  const { data, error } = await supabase
+    .from("time_entries")
+    .select(
+      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, branches(name))",
+    )
+    .eq("company_id", company.id)
+    .is("deleted_at", null)
+    .gte("work_date", `${currentYear}-01-01`)
+    .lte("work_date", `${currentYear}-12-31`)
+    .order("work_date", { ascending: false })
+    .limit(1500);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as unknown as SubmittedTimesheetRow[]).map((entry) => {
+    const employee = Array.isArray(entry.employees)
+      ? entry.employees[0]
+      : entry.employees;
+    const { employees, ...timeEntry } = entry;
+    void employees;
+
+    return {
+      ...timeEntry,
+      branchName: relationName(employee?.branches),
+      employeeNumber: employee?.employee_number ?? "",
+      fullName: employee?.full_name ?? "Unknown employee",
+      knownAs: employee?.known_as ?? null,
     };
   });
 });

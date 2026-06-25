@@ -1,114 +1,19 @@
 import Link from "next/link";
-import EmployeeAvatar from "@/components/EmployeeAvatar";
-import CompanyLiveWorkforce from "@/components/time-tracking/CompanyLiveWorkforce";
-import CompanyTimesheetApprovalQueue from "@/components/time-tracking/CompanyTimesheetApprovalQueue";
-import CompanyTimesheetCorrectionQueue from "@/components/time-tracking/CompanyTimesheetCorrectionQueue";
-import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
-import EmployeeTimesheetCorrections from "@/components/time-tracking/EmployeeTimesheetCorrections";
-import CompanyLeaveRequestQueue from "@/components/work-rules/CompanyLeaveRequestQueue";
-import EmployeeLeaveRequests from "@/components/work-rules/EmployeeLeaveRequests";
 import {
   getActiveCompany,
   getCompanySetup,
-  getCurrentUserAccess,
 } from "@/lib/foundation/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
-import {
-  getCompanyLiveTimeOverview,
-  getCompanySubmittedTimesheetQueue,
-  getCompanyTimesheetCorrectionQueue,
-  getEmployeeTimeState,
-} from "@/lib/time-tracking/queries";
-import {
-  getCompanyLeaveRequestQueue,
-  getEmployeeLeaveState,
-} from "@/lib/work-rules/queries";
 
 export default async function DashboardPage() {
-  const [{ company }, access] = await Promise.all([
-    getActiveCompany(),
-    getCurrentUserAccess(),
-  ]);
-
-  const isManagementView =
-    access.canManageEmployees ||
-    access.canReviewBranchTime ||
-    access.canManageDirectReports;
-
-  if (!isManagementView && access.employeeId) {
-    const [timeState, leaveState] = await Promise.all([
-      getEmployeeTimeState(),
-      getEmployeeLeaveState(),
-    ]);
-    const displayName =
-      timeState.employee?.known_as ?? timeState.employee?.full_name ?? "Employee";
-
-    return (
-      <div className="grid gap-4">
-        <header className="premium-hero grid gap-3 rounded-md p-4 text-white sm:p-5 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div className="flex min-w-0 items-center gap-3">
-            <EmployeeAvatar
-              name={displayName}
-              src={timeState.employee?.avatar_url}
-              className="size-14 rounded-lg border-white/25 bg-white/10 text-white"
-            />
-            <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
-              Employee dashboard
-            </p>
-            <h1 className="mt-1 truncate text-2xl font-semibold sm:text-3xl">
-              {displayName}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm opacity-80">
-              {timeState.employee?.branch_name
-                ? `${timeState.employee.branch_name}${timeState.employee.job_title ? ` - ${timeState.employee.job_title}` : ""}`
-                : "Your time records are scoped to your own employee profile."}
-            </p>
-            </div>
-          </div>
-          <div className="rounded-md border border-white/15 bg-white/10 px-3 py-2 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-              Current day
-            </p>
-            <p className="mt-1 text-sm font-semibold">
-              {new Intl.DateTimeFormat("en-ZA", {
-                day: "numeric",
-                month: "long",
-                weekday: "long",
-              }).format(new Date())}
-            </p>
-          </div>
-        </header>
-
-        <EmployeeTimeClock todayEntry={timeState.todayEntry} />
-
-        <EmployeeTimesheetCorrections
-          correctionRequests={timeState.correctionRequests}
-          currentWorkDate={timeState.currentWorkDate}
-          entries={timeState.recentEntries}
-          publicHolidays={timeState.publicHolidays}
-        />
-
-        <EmployeeLeaveRequests state={leaveState} />
-
-      </div>
-    );
-  }
+  const { company } = await getActiveCompany();
 
   const [
     { branches, departments },
     employeesData,
-    liveTimeOverview,
-    correctionQueue,
-    submittedTimesheets,
-    leaveRequests,
   ] = await Promise.all([
     getCompanySetup(company.id),
     getEmployeePageData(),
-    getCompanyLiveTimeOverview(),
-    getCompanyTimesheetCorrectionQueue(),
-    getCompanySubmittedTimesheetQueue(),
-    getCompanyLeaveRequestQueue(),
   ]);
 
   const hasBranches = branches.length > 0;
@@ -255,14 +160,6 @@ export default async function DashboardPage() {
             ))}
           </section>
 
-          <CompanyLiveWorkforce overview={liveTimeOverview} />
-
-          <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
-
-          <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
-
-          <CompanyLeaveRequestQueue requests={leaveRequests} />
-
           <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
             <div className="premium-card rounded-md">
               <div className="border-b border-border px-4 py-3">
@@ -290,6 +187,18 @@ export default async function DashboardPage() {
                 Quick actions
               </p>
               <div className="mt-3 grid gap-2">
+                <Link
+                  href="/dashboard/time"
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"
+                >
+                  Open time tracking
+                </Link>
+                <Link
+                  href="/dashboard/leave"
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"
+                >
+                  Open leave requests
+                </Link>
                 <Link
                   href="/dashboard/employees"
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"

@@ -19,6 +19,11 @@ type EmployeeRow = EmployeeRecord & {
   departments?: { name: string }[] | { name: string } | null;
 };
 
+type WorkScheduleAssignmentRow = {
+  employee_id: string;
+  work_schedule_id: string;
+};
+
 function relationName(
   relation?: { name: string }[] | { name: string } | null,
 ) {
@@ -39,6 +44,26 @@ function normalizeEmployee(row: EmployeeRow): EmployeeRecord {
   };
 }
 
+function attachWorkScheduleIds(
+  employees: EmployeeRecord[],
+  assignments: WorkScheduleAssignmentRow[],
+) {
+  const schedulesByEmployee = new Map<string, string[]>();
+
+  assignments.forEach((assignment) => {
+    const current = schedulesByEmployee.get(assignment.employee_id) ?? [];
+    current.push(assignment.work_schedule_id);
+    schedulesByEmployee.set(assignment.employee_id, current);
+  });
+
+  return employees.map((employee) => ({
+    ...employee,
+    work_schedule_ids: schedulesByEmployee.get(employee.id) ?? (
+      employee.work_schedule_id ? [employee.work_schedule_id] : []
+    ),
+  }));
+}
+
 export async function getEmployeePageData(): Promise<EmployeePageData> {
   if (!hasSupabaseConfig()) {
     return {
@@ -55,7 +80,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
 
-  const [branchesResult, departmentsResult, schedulesResult, employeesResult] = await Promise.all([
+  const [branchesResult, departmentsResult, schedulesResult, employeesResult, assignmentsResult] = await Promise.all([
     supabase
       .from("branches")
       .select("id, name")
@@ -85,6 +110,13 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       .eq("company_id", company.id)
       .is("deleted_at", null)
       .order("full_name"),
+    supabase
+      .from("employee_work_schedule_assignments")
+      .select("employee_id, work_schedule_id")
+      .eq("company_id", company.id)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("priority", { ascending: true }),
   ]);
 
   if (branchesResult.error) {
@@ -103,8 +135,13 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     throw new Error(schedulesResult.error.message);
   }
 
-  const employees = ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(
-    normalizeEmployee,
+  if (assignmentsResult.error) {
+    throw new Error(assignmentsResult.error.message);
+  }
+
+  const employees = attachWorkScheduleIds(
+    ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(normalizeEmployee),
+    (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   );
 
   return {
@@ -137,18 +174,35 @@ export async function getEmployeeDetail(employeeId: string) {
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
 
-  const { data, error } = await supabase
+  const [{ data, error }, assignmentsResult] = await Promise.all([
+    supabase
     .from("employees")
     .select(
       "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, branch_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
     )
     .eq("company_id", company.id)
     .eq("id", employeeId)
-    .single();
+    .single(),
+    supabase
+      .from("employee_work_schedule_assignments")
+      .select("employee_id, work_schedule_id")
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("priority", { ascending: true }),
+  ]);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return normalizeEmployee(data as unknown as EmployeeRow);
+  if (assignmentsResult.error) {
+    throw new Error(assignmentsResult.error.message);
+  }
+
+  return attachWorkScheduleIds(
+    [normalizeEmployee(data as unknown as EmployeeRow)],
+    (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
+  )[0];
 }

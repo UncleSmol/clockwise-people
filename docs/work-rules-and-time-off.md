@@ -23,9 +23,11 @@ existing `work_schedules` row and upsert the seven `schedule_days` rows through
 `public.update_company_work_schedule(...)`, so employee assignments stay linked
 to the same rule. Changes are audited in `audit_logs`.
 
-Admins can assign a work rule to an employee from the employee form. The
-assignment is stored on `employees.work_schedule_id`, which is already used by
-time-entry calculations.
+Admins can assign one or more work rules to an employee from the employee form.
+Assignments are stored in `employee_work_schedule_assignments`; the legacy
+`employees.work_schedule_id` keeps the first selected rule for compatibility.
+Leave calculations use the assigned rules to decide whether each selected date
+is a working day and how many hours should be deducted.
 
 ## Time Off Rules
 
@@ -58,13 +60,14 @@ selected dates. When the request is submitted,
 `public.submit_own_leave_request(...)` recalculates the hours again on the
 server and stores that calculated total.
 
-Leave hour calculation uses the employee's assigned `work_schedule_id` to decide
-which days are working days. If the employee has no direct schedule, the latest
-active company schedule is used. Normal Monday to Friday leave days deduct
-exactly 8 hours per working day. Saturdays use the configured Saturday hours
-from the employee or company work rule, because Saturday shifts are often
-shorter. If there is no schedule, the fallback is Monday to Friday at 8 hours
-per day.
+Leave hour calculation uses the employee's assigned work-rule assignments to
+decide which days are working days. If the employee is assigned multiple rules,
+the calculation looks for an active rule that marks the selected weekday as a
+working day and deducts that rule's configured paid hours. Saturdays, Sundays,
+or any other day that is not part of the employee's assigned rule are skipped.
+If no multi-rule assignments exist yet, the calculation falls back to the legacy
+`employees.work_schedule_id`, then the latest active company schedule. If there
+is no schedule at all, the fallback is Monday to Friday at 8 hours per day.
 
 Public holidays are stored in `company_public_holidays`. Any selected date that
 matches a company public holiday is excluded from the requested leave hours.

@@ -33,6 +33,12 @@ function moneyToNumber(value: string | undefined) {
   return value?.trim() ? Number(value) : null;
 }
 
+function scheduleIds(values: { work_schedule_id?: string; work_schedule_ids?: string[] }) {
+  const ids = values.work_schedule_ids?.filter(Boolean) ?? [];
+  if (ids.length > 0) return ids;
+  return values.work_schedule_id ? [values.work_schedule_id] : [];
+}
+
 export async function createEmployee(
   input: EmployeeFormInput,
 ): Promise<ActionState> {
@@ -47,7 +53,8 @@ export async function createEmployee(
   const values = parsed.data;
   const hourlyRate = moneyToNumber(values.hourly_rate);
 
-  const { error } = await supabase.from("employees").insert({
+  const selectedScheduleIds = scheduleIds(values);
+  const { data: employee, error } = await supabase.from("employees").insert({
     company_id: company.id,
     employee_number: await nextEmployeeNumber(company.id),
     full_name: values.full_name,
@@ -60,16 +67,25 @@ export async function createEmployee(
     employment_type: values.employment_type,
     employment_status: values.employment_status,
     start_date: values.start_date,
-    work_schedule_id: blankToNull(values.work_schedule_id),
+    work_schedule_id: selectedScheduleIds[0] ?? null,
     manager_employee_id: blankToNull(values.manager_employee_id),
     payroll_identifier: blankToNull(values.payroll_identifier),
     monthly_salary: moneyToNumber(values.monthly_salary),
     hourly_rate: hourlyRate,
     compensation_type: hourlyRate ? "hourly" : "monthly",
-  });
+  }).select("id").single();
 
   if (error) {
     return { ok: false, message: error.message };
+  }
+
+  const { error: scheduleError } = await supabase.rpc("set_employee_work_schedule_assignments", {
+    target_employee_id: employee.id,
+    target_work_schedule_ids: selectedScheduleIds,
+  });
+
+  if (scheduleError) {
+    return { ok: false, message: scheduleError.message };
   }
 
   revalidatePath("/dashboard/employees");
@@ -90,6 +106,7 @@ export async function updateEmployee(
   const supabase = await createSupabaseServerClient();
   const values = parsed.data;
   const hourlyRate = moneyToNumber(values.hourly_rate);
+  const selectedScheduleIds = scheduleIds(values);
 
   const { error } = await supabase
     .from("employees")
@@ -104,7 +121,7 @@ export async function updateEmployee(
       employment_type: values.employment_type,
       employment_status: values.employment_status,
       start_date: values.start_date,
-      work_schedule_id: blankToNull(values.work_schedule_id),
+      work_schedule_id: selectedScheduleIds[0] ?? null,
       manager_employee_id: blankToNull(values.manager_employee_id),
       payroll_identifier: blankToNull(values.payroll_identifier),
       monthly_salary: moneyToNumber(values.monthly_salary),
@@ -116,6 +133,15 @@ export async function updateEmployee(
 
   if (error) {
     return { ok: false, message: error.message };
+  }
+
+  const { error: scheduleError } = await supabase.rpc("set_employee_work_schedule_assignments", {
+    target_employee_id: employeeId,
+    target_work_schedule_ids: selectedScheduleIds,
+  });
+
+  if (scheduleError) {
+    return { ok: false, message: scheduleError.message };
   }
 
   revalidatePath("/dashboard/employees");

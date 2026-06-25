@@ -16,6 +16,8 @@ type DashboardNavigationProps = {
 
 const baseLinks = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard/time", label: "Time" },
+  { href: "/dashboard/leave", label: "Leave" },
   { href: "/dashboard/account", label: "Account" },
 ];
 
@@ -49,9 +51,11 @@ export default function DashboardNavigation({
 
   const links = [
     baseLinks[0],
+    baseLinks[1],
+    baseLinks[2],
     ...(canManageCompany ? [{ href: "/dashboard/company", label: "Company" }] : []),
     ...(canManageEmployees ? [{ href: "/dashboard/employees", label: "Employees" }] : []),
-    baseLinks[1],
+    baseLinks[3],
   ];
 
   return (

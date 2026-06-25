@@ -144,3 +144,10 @@ export type CompanySubmittedTimesheet = TimeEntryRecord & {
   avatarUrl: string | null;
   branchName: string | null;
 };
+
+export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
+  employeeNumber: string;
+  fullName: string;
+  knownAs: string | null;
+  branchName: string | null;
+};

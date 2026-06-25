@@ -59,6 +59,9 @@ export default function EmployeeForm({
       employment_status: employee?.employment_status ?? "active",
       start_date: employee?.start_date ?? "",
       work_schedule_id: employee?.work_schedule_id ?? "",
+      work_schedule_ids: employee?.work_schedule_ids ?? (
+        employee?.work_schedule_id ? [employee.work_schedule_id] : []
+      ),
       manager_employee_id: employee?.manager_employee_id ?? "",
       payroll_identifier: employee?.payroll_identifier ?? "",
       monthly_salary: fieldValue(employee?.monthly_salary),
@@ -220,20 +223,34 @@ export default function EmployeeForm({
           </span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
+        <fieldset className="grid gap-2 text-sm font-medium text-foreground">
           Work rule
-          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("work_schedule_id")}>
-            <option value="">Use company default</option>
+          <input type="hidden" value="" {...register("work_schedule_id")} />
+          <div className="grid max-h-44 gap-2 overflow-y-auto rounded-md border border-border bg-surface p-2">
+            {schedules.length === 0 ? (
+              <p className="px-2 py-1 text-xs font-normal text-muted">
+                No work rules available. The company default will be used.
+              </p>
+            ) : null}
             {schedules.map((schedule) => (
-              <option key={schedule.id} value={schedule.id}>
-                {schedule.label}
-              </option>
+              <label
+                key={schedule.id}
+                className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-sm font-semibold text-foreground"
+              >
+                <input
+                  type="checkbox"
+                  value={schedule.id}
+                  className="size-4 accent-current"
+                  {...register("work_schedule_ids")}
+                />
+                <span>{schedule.label}</span>
+              </label>
             ))}
-          </select>
+          </div>
           <span className="text-xs font-normal text-muted">
-            Assigns working days and expected hours.
+            Assign one or more rules. Leave days only deduct hours from matched working days.
           </span>
-        </label>
+        </fieldset>
 
         <label className="grid gap-2 text-sm font-medium text-foreground">
           Manager
