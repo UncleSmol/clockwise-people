@@ -456,3 +456,38 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     };
   });
 });
+
+export const getCompanyTimesheetCalendarHolidays = cache(async function getCompanyTimesheetCalendarHolidays(): Promise<CompanyPublicHoliday[]> {
+  const [{ company }, access, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+    requireUser(),
+  ]);
+
+  if (!access.canReviewBranchTime && !access.canManageDirectReports) {
+    return [];
+  }
+
+  const workDate = currentDateInTimezone(company.timezone || "UTC");
+  const currentYear = Number(workDate.slice(0, 4));
+
+  await supabase.rpc("ensure_current_year_za_public_holidays", {
+    target_company_id: company.id,
+    target_year: currentYear,
+  });
+
+  const { data, error } = await supabase
+    .from("company_public_holidays")
+    .select("id, holiday_date, name, is_paid")
+    .eq("company_id", company.id)
+    .is("deleted_at", null)
+    .gte("holiday_date", `${currentYear}-01-01`)
+    .lte("holiday_date", `${currentYear}-12-31`)
+    .order("holiday_date", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as CompanyPublicHoliday[];
+});

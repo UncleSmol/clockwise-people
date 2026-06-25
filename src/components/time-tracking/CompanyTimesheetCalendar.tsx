@@ -5,10 +5,14 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import type { EventContentArg, EventInput } from "@fullcalendar/core";
 import { AlertTriangle, CalendarDays, Clock3 } from "lucide-react";
 import { useMemo } from "react";
-import type { CompanyTimesheetCalendarEntry } from "@/lib/time-tracking/schema";
+import type {
+  CompanyPublicHoliday,
+  CompanyTimesheetCalendarEntry,
+} from "@/lib/time-tracking/schema";
 
 type CompanyTimesheetCalendarProps = {
   entries: CompanyTimesheetCalendarEntry[];
+  publicHolidays: CompanyPublicHoliday[];
 };
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
@@ -16,15 +20,25 @@ function displayName(entry: CompanyTimesheetCalendarEntry) {
 }
 
 function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
-  if (status === "approved") return "border-success/40 bg-success/10 text-success";
-  if (status === "submitted") return "border-warning/40 bg-warning/10 text-warning";
-  if (status === "rejected") return "border-danger/40 bg-danger/10 text-danger";
-  if (status === "locked") return "border-primary/40 bg-primary/10 text-primary";
-  return "border-border bg-surface-muted text-foreground";
+  if (status === "draft") return ["cw-company-timesheet-event", "cw-calendar-draft"];
+  if (status === "approved") return ["cw-company-timesheet-event", "cw-calendar-approved"];
+  if (status === "rejected") return ["cw-company-timesheet-event", "cw-calendar-rejected"];
+  if (status === "locked") return ["cw-company-timesheet-event", "cw-calendar-locked"];
+  return ["cw-company-timesheet-event", "cw-calendar-submitted"];
 }
 
 function renderEventContent(eventInfo: EventContentArg) {
-  const entry = eventInfo.event.extendedProps.entry as CompanyTimesheetCalendarEntry;
+  const entry = eventInfo.event.extendedProps.entry as
+    | CompanyTimesheetCalendarEntry
+    | undefined;
+
+  if (!entry) {
+    return (
+      <div className="truncate text-[11px] font-semibold leading-4">
+        {eventInfo.event.title}
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-w-0 gap-0.5 text-[11px] leading-4">
@@ -41,10 +55,18 @@ function renderEventContent(eventInfo: EventContentArg) {
 
 export default function CompanyTimesheetCalendar({
   entries,
+  publicHolidays,
 }: CompanyTimesheetCalendarProps) {
   const events = useMemo<EventInput[]>(
-    () =>
-      entries.map((entry) => ({
+    () => {
+      const holidayEvents = publicHolidays.map((holiday) => ({
+        id: `holiday-${holiday.id}`,
+        title: holiday.name,
+        start: holiday.holiday_date,
+        allDay: true,
+        classNames: ["cw-calendar-holiday"],
+      }));
+      const timesheetEvents = entries.map((entry) => ({
         id: entry.id,
         title: displayName(entry),
         start: entry.work_date,
@@ -56,8 +78,11 @@ export default function CompanyTimesheetCalendar({
             : "",
         ],
         extendedProps: { entry },
-      })),
-    [entries],
+      }));
+
+      return [...holidayEvents, ...timesheetEvents];
+    },
+    [entries, publicHolidays],
   );
 
   const totals = useMemo(
@@ -114,15 +139,39 @@ export default function CompanyTimesheetCalendar({
       </div>
 
       <div className="px-3 py-3 sm:px-4">
-        {entries.length > 0 ? (
+        <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
+            <span className="size-2 rounded-full bg-accent" />
+            Public holiday
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-warning">
+            <span className="size-2 rounded-full bg-warning" />
+            Draft
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">
+            <span className="size-2 rounded-full bg-primary" />
+            Submitted
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-success">
+            <span className="size-2 rounded-full bg-success" />
+            Approved
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
+            <span className="size-2 rounded-full bg-danger" />
+            Rejected
+          </span>
+        </div>
+        {events.length > 0 ? (
           <div className="cw-timesheet-calendar">
             <FullCalendar
               dayMaxEvents={4}
-              eventClassNames={(arg) =>
-                statusClass(
-                  (arg.event.extendedProps.entry as CompanyTimesheetCalendarEntry).status,
-                )
-              }
+              eventClassNames={(arg) => {
+                const entry = arg.event.extendedProps.entry as
+                  | CompanyTimesheetCalendarEntry
+                  | undefined;
+
+                return entry ? statusClass(entry.status) : ["cw-calendar-holiday"];
+              }}
               eventContent={renderEventContent}
               events={events}
               firstDay={1}

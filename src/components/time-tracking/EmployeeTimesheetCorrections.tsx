@@ -93,6 +93,15 @@ function statusClass(status: TimesheetCorrectionRequest["status"]) {
   return "bg-surface-muted text-foreground";
 }
 
+function timesheetCalendarClass(entry: TimeEntryRecord, isHoliday: boolean) {
+  if (isHoliday) return "cw-calendar-holiday-booked";
+  if (entry.status === "draft") return "cw-calendar-draft";
+  if (entry.status === "approved") return "cw-calendar-approved";
+  if (entry.status === "rejected") return "cw-calendar-rejected";
+  if (entry.status === "locked") return "cw-calendar-locked";
+  return "cw-calendar-submitted";
+}
+
 function weekStartDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
@@ -197,23 +206,16 @@ export default function EmployeeTimesheetCorrections({
   );
   const calendarEvents = useMemo<EventInput[]>(() => {
     const timesheetEvents = entries.map((entry) => {
-      const editable = entry.status === "draft" || entry.status === "rejected";
-      const isHoliday = entry.notes?.startsWith("Public holiday:");
+      const isHoliday = Boolean(entry.notes?.startsWith("Public holiday:"));
 
       return {
         id: entry.id,
         title: isHoliday
           ? "Public holiday"
-          : `${editable ? "Draft" : entry.status} - ${formatHours(entry.paid_hours)}`,
+          : `${entry.status} - ${formatHours(entry.paid_hours)}`,
         start: entry.work_date,
         allDay: true,
-        classNames: [
-          isHoliday
-            ? "cw-calendar-holiday-booked"
-            : editable
-              ? "cw-calendar-draft"
-              : "cw-calendar-submitted",
-        ],
+        classNames: [timesheetCalendarClass(entry, isHoliday)],
       };
     });
     const entryDates = new Set(entries.map((entry) => entry.work_date));
@@ -416,6 +418,28 @@ export default function EmployeeTimesheetCorrections({
               </button>
             </form>
           ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
+            <span className="size-2 rounded-full bg-accent" />
+            Public holiday
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-warning">
+            <span className="size-2 rounded-full bg-warning" />
+            Draft
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">
+            <span className="size-2 rounded-full bg-primary" />
+            Submitted
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-success">
+            <span className="size-2 rounded-full bg-success" />
+            Approved
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
+            <span className="size-2 rounded-full bg-danger" />
+            Rejected
+          </span>
         </div>
         {selectedDate && selectedEntry ? (
           <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">

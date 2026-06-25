@@ -10,6 +10,7 @@ import {
   getCompanyLiveTimeOverview,
   getCompanySubmittedTimesheetQueue,
   getCompanyTimesheetCalendarEntries,
+  getCompanyTimesheetCalendarHolidays,
   getCompanyTimesheetCorrectionQueue,
   getEmployeeTimeState,
 } from "@/lib/time-tracking/queries";
@@ -25,12 +26,14 @@ export default async function TimePage() {
     timeState,
     liveTimeOverview,
     calendarEntries,
+    calendarHolidays,
     correctionQueue,
     submittedTimesheets,
   ] = await Promise.all([
     access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
     canReviewTime ? getCompanyLiveTimeOverview() : Promise.resolve(null),
     canReviewTime ? getCompanyTimesheetCalendarEntries() : Promise.resolve([]),
+    canReviewTime ? getCompanyTimesheetCalendarHolidays() : Promise.resolve([]),
     canReviewTime ? getCompanyTimesheetCorrectionQueue() : Promise.resolve([]),
     canReviewTime ? getCompanySubmittedTimesheetQueue() : Promise.resolve([]),
   ]);
@@ -90,7 +93,10 @@ export default async function TimePage() {
 
       {canReviewTime && liveTimeOverview ? (
         <>
-          <CompanyTimesheetCalendar entries={calendarEntries} />
+          <CompanyTimesheetCalendar
+            entries={calendarEntries}
+            publicHolidays={calendarHolidays}
+          />
 
           <CompanyLiveWorkforce overview={liveTimeOverview} />
 

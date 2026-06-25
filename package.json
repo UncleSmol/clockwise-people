@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.25-time-leave-nav",
+  "version": "2026.6.25-calendar-status-colors",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

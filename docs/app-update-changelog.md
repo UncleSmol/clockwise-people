@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.25-time-leave-nav`. It covers the dedicated Time and Leave dashboard pages, direct navbar links, and the company timesheet calendar for managers.
+The latest seeded production changelog is `2026.06.25-calendar-status-colors`. It covers clearer calendar legends and distinct colors for public holidays, draft, submitted, approved, and rejected timesheets.

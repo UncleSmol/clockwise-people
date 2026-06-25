@@ -300,6 +300,7 @@ button:disabled {
 }
 
 .cw-timesheet-calendar .fc-event {
+  border: 1px solid transparent;
   border-radius: 0.25rem;
   font-size: 0.7rem;
   font-weight: 700;
@@ -308,17 +309,38 @@ button:disabled {
 }
 
 .cw-timesheet-calendar .cw-calendar-draft {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
   background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
   color: var(--color-warning);
 }
 
 .cw-timesheet-calendar .cw-calendar-submitted {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+  color: var(--color-primary);
+}
+
+.cw-timesheet-calendar .cw-calendar-approved {
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
   background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
   color: var(--color-success);
 }
 
+.cw-timesheet-calendar .cw-calendar-rejected {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-surface));
+  color: var(--color-danger);
+}
+
+.cw-timesheet-calendar .cw-calendar-locked {
+  border-color: color-mix(in srgb, var(--color-muted) 40%, transparent);
+  background: color-mix(in srgb, var(--color-muted) 12%, var(--color-surface));
+  color: var(--color-muted);
+}
+
 .cw-timesheet-calendar .cw-calendar-holiday,
 .cw-timesheet-calendar .cw-calendar-holiday-booked {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
   background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
   color: var(--color-accent);
 }
