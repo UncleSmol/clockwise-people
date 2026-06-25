@@ -7,6 +7,8 @@ import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
 import EmployeeTimesheetCorrections from "@/components/time-tracking/EmployeeTimesheetCorrections";
 import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
 import {
+  getCompanyCalendarEmployeeOptions,
+  getCompanyCalendarLeaveRequests,
   getCompanyLiveTimeOverview,
   getCompanySubmittedTimesheetQueue,
   getCompanyTimesheetCalendarEntries,
@@ -26,14 +28,18 @@ export default async function TimePage() {
     timeState,
     liveTimeOverview,
     calendarEntries,
+    calendarEmployees,
     calendarHolidays,
+    calendarLeaveRequests,
     correctionQueue,
     submittedTimesheets,
   ] = await Promise.all([
     access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
     canReviewTime ? getCompanyLiveTimeOverview() : Promise.resolve(null),
     canReviewTime ? getCompanyTimesheetCalendarEntries() : Promise.resolve([]),
+    canReviewTime ? getCompanyCalendarEmployeeOptions() : Promise.resolve([]),
     canReviewTime ? getCompanyTimesheetCalendarHolidays() : Promise.resolve([]),
+    canReviewTime ? getCompanyCalendarLeaveRequests() : Promise.resolve([]),
     canReviewTime ? getCompanyTimesheetCorrectionQueue() : Promise.resolve([]),
     canReviewTime ? getCompanySubmittedTimesheetQueue() : Promise.resolve([]),
   ]);
@@ -94,7 +100,9 @@ export default async function TimePage() {
       {canReviewTime && liveTimeOverview ? (
         <>
           <CompanyTimesheetCalendar
+            employees={calendarEmployees}
             entries={calendarEntries}
+            leaveRequests={calendarLeaveRequests}
             publicHolidays={calendarHolidays}
           />
 

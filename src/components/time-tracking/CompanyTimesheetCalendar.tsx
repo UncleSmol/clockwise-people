@@ -2,6 +2,7 @@
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import type { EventClickArg, EventContentArg, EventInput } from "@fullcalendar/core";
 import {
   AlertTriangle,
@@ -12,15 +13,28 @@ import {
   Timer,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
+import {
+  createManagedDraftTimeEntry,
+  loadManagedLeaveRequestsToTimesheets,
+} from "@/lib/time-tracking/actions";
 import type {
+  CompanyCalendarEmployeeOption,
+  CompanyCalendarLeaveRequest,
   CompanyPublicHoliday,
   CompanyTimesheetCalendarEntry,
 } from "@/lib/time-tracking/schema";
 
 type CompanyTimesheetCalendarProps = {
+  employees: CompanyCalendarEmployeeOption[];
   entries: CompanyTimesheetCalendarEntry[];
+  leaveRequests: CompanyCalendarLeaveRequest[];
   publicHolidays: CompanyPublicHoliday[];
+};
+
+const initialActionState = {
+  ok: true,
+  message: "",
 };
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
@@ -94,10 +108,21 @@ function renderEventContent(eventInfo: EventContentArg) {
 }
 
 export default function CompanyTimesheetCalendar({
+  employees,
   entries,
+  leaveRequests,
   publicHolidays,
 }: CompanyTimesheetCalendarProps) {
   const [selectedEntry, setSelectedEntry] = useState<CompanyTimesheetCalendarEntry | null>(null);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [createState, createAction, createPending] = useActionState(
+    createManagedDraftTimeEntry,
+    initialActionState,
+  );
+  const [loadLeaveState, loadLeaveAction, loadLeavePending] = useActionState(
+    loadManagedLeaveRequestsToTimesheets,
+    initialActionState,
+  );
   const events = useMemo<EventInput[]>(
     () => {
       const holidayEvents = publicHolidays.map((holiday) => ({
@@ -146,6 +171,11 @@ export default function CompanyTimesheetCalendar({
       setSelectedEntry(entry);
     }
   };
+  const handleDateClick = (arg: DateClickArg) => {
+    setSelectedDate(arg.dateStr);
+  };
+  const actionMessage = createState.message || loadLeaveState.message;
+  const actionMessageOk = createState.message ? createState.ok : loadLeaveState.ok;
 
   return (
     <section className="premium-card rounded-md">
@@ -189,6 +219,93 @@ export default function CompanyTimesheetCalendar({
       </div>
 
       <div className="px-3 py-3 sm:px-4">
+        {actionMessage ? (
+          <div
+            className={`mb-3 rounded-md border px-3 py-2 text-sm font-medium ${
+              actionMessageOk
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-danger/30 bg-danger/10 text-danger"
+            }`}
+          >
+            {actionMessage}
+          </div>
+        ) : null}
+
+        <div className="mb-3 grid gap-3 rounded-md border border-border bg-background p-3 lg:grid-cols-[1fr_1.2fr]">
+          <form action={createAction} className="grid gap-2">
+            <div>
+              <p className="font-semibold text-foreground">Create subordinate timesheet</p>
+              <p className="mt-1 text-xs text-muted">
+                Select a date on the calendar, choose an employee, then create a draft row.
+              </p>
+            </div>
+            <input name="work_date" type="hidden" value={selectedDate} />
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <select
+                name="employee_id"
+                required
+                className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-ring focus:ring-2"
+              >
+                <option value="">Choose employee</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={!selectedDate || createPending}
+                className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {createPending ? "Creating..." : selectedDate ? `Create ${selectedDate}` : "Pick date"}
+              </button>
+            </div>
+          </form>
+
+          <form action={loadLeaveAction} className="grid gap-2">
+            <div>
+              <p className="font-semibold text-foreground">Load approved time off</p>
+              <p className="mt-1 text-xs text-muted">
+                Tick one approved request or multiple requests before loading.
+              </p>
+            </div>
+            <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
+              {leaveRequests.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-muted">No approved time off requests to load.</p>
+              ) : (
+                leaveRequests.map((request) => (
+                  <label
+                    key={request.id}
+                    className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                  >
+                    <input
+                      className="mt-1 size-4 accent-current"
+                      name="leave_request_ids"
+                      type="checkbox"
+                      value={request.id}
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">
+                        {request.employeeName} ({request.employeeNumber})
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
+                        {formatHours(request.total_hours)}
+                      </span>
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+            <button
+              disabled={leaveRequests.length === 0 || loadLeavePending}
+              className="justify-self-end rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {loadLeavePending ? "Loading..." : "Load selected time off"}
+            </button>
+          </form>
+        </div>
+
         <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
             <span className="size-2 rounded-full bg-accent" />
@@ -224,6 +341,7 @@ export default function CompanyTimesheetCalendar({
               }}
               eventContent={renderEventContent}
               eventClick={handleEventClick}
+              dateClick={handleDateClick}
               events={events}
               firstDay={1}
               headerToolbar={{
@@ -233,7 +351,7 @@ export default function CompanyTimesheetCalendar({
               }}
               height="auto"
               initialView="dayGridMonth"
-              plugins={[dayGridPlugin]}
+              plugins={[dayGridPlugin, interactionPlugin]}
             />
           </div>
         ) : (
@@ -255,7 +373,7 @@ export default function CompanyTimesheetCalendar({
                   {displayName(selectedEntry)}
                 </h3>
                 <p className="mt-1 text-sm text-muted">
-                  {selectedEntry.employeeNumber} · {selectedEntry.branchName ?? "No branch"} ·{" "}
+                  {selectedEntry.employeeNumber} - {selectedEntry.branchName ?? "No branch"} -{" "}
                   {selectedEntry.work_date}
                 </p>
               </div>
@@ -352,7 +470,7 @@ export default function CompanyTimesheetCalendar({
                           <p className="truncate">
                             {event.workstationName ?? "No workstation"}
                             {event.distance_meters !== null
-                              ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                              ? ` - ${Math.round(event.distance_meters)}m from workstation`
                               : ""}
                           </p>
                           <p className="mt-1 truncate">
@@ -360,7 +478,7 @@ export default function CompanyTimesheetCalendar({
                               ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
                               : "No coordinates captured"}
                             {event.accuracy_meters !== null
-                              ? ` · ±${Math.round(event.accuracy_meters)}m`
+                              ? ` - +/-${Math.round(event.accuracy_meters)}m`
                               : ""}
                           </p>
                         </div>
@@ -382,3 +500,4 @@ export default function CompanyTimesheetCalendar({
     </section>
   );
 }
+

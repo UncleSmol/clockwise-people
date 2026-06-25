@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.25-compliance-location-clock`. It covers dashboard quick clocking with required browser location and the new Documents compliance area.
+The latest seeded production changelog is `2026.06.25-manager-calendar-actions`. It covers employee calendar timesheet detail modals, manager-created subordinate draft timesheets, and manager loading of approved time off requests into timesheets individually or in bulk.

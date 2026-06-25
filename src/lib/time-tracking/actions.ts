@@ -20,6 +20,19 @@ type TimeEntryActionState = {
   message: string;
 };
 
+const managerCalendarMigrationMessage =
+  "Manager calendar actions are not active yet. Apply the Supabase migration, then retry.";
+
+function isMissingManagerCalendarRpc(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42883" ||
+    error.code === "PGRST202" ||
+    error.message?.includes("schema cache") ||
+    error.message?.includes("create_managed_draft_time_entry_for_date") ||
+    error.message?.includes("load_managed_leave_request_time_entries")
+  );
+}
+
 export async function recordClockEvent(
   eventType: ClockEventType,
   formData?: FormData,
@@ -205,6 +218,68 @@ export async function createPastDraftTimeEntry(
 
   revalidatePath("/dashboard");
   return { ok: true, message: "Draft timesheet added." };
+}
+
+export async function createManagedDraftTimeEntry(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const employeeId = String(formData.get("employee_id") ?? "").trim();
+  const workDate = String(formData.get("work_date") ?? "").trim();
+
+  if (!employeeId || !workDate) {
+    return { ok: false, message: "Choose an employee and date." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("create_managed_draft_time_entry_for_date", {
+    target_employee_id: employeeId,
+    target_work_date: workDate,
+  });
+
+  if (error) {
+    if (isMissingManagerCalendarRpc(error)) {
+      return { ok: false, message: managerCalendarMigrationMessage };
+    }
+
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/time");
+  return { ok: true, message: "Managed draft timesheet added." };
+}
+
+export async function loadManagedLeaveRequestsToTimesheets(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const leaveRequestIds = formData
+    .getAll("leave_request_ids")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  if (leaveRequestIds.length === 0) {
+    return { ok: false, message: "Choose at least one approved time off request." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("load_managed_leave_request_time_entries", {
+    target_leave_request_ids: leaveRequestIds,
+  });
+
+  if (error) {
+    if (isMissingManagerCalendarRpc(error)) {
+      return { ok: false, message: managerCalendarMigrationMessage };
+    }
+
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/time");
+  return {
+    ok: true,
+    message: `${Number(data ?? 0)} time off timesheet row${Number(data ?? 0) === 1 ? "" : "s"} loaded.`,
+  };
 }
 
 export async function deleteDraftTimeEntry(

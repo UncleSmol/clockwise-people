@@ -3,7 +3,7 @@
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
-import type { EventInput } from "@fullcalendar/core";
+import type { EventClickArg, EventInput } from "@fullcalendar/core";
 import {
   AlertTriangle,
   CalendarDays,
@@ -16,6 +16,7 @@ import {
   Save,
   Send,
   Trash2,
+  X,
 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import {
@@ -165,6 +166,7 @@ export default function EmployeeTimesheetCorrections({
 }: EmployeeTimesheetCorrectionsProps) {
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
   const [selectedDate, setSelectedDate] = useState("");
+  const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
   const [createState, createAction, createPending] = useActionState(
     createPastDraftTimeEntry,
     initialState,
@@ -216,6 +218,7 @@ export default function EmployeeTimesheetCorrections({
         start: entry.work_date,
         allDay: true,
         classNames: [timesheetCalendarClass(entry, isHoliday)],
+        extendedProps: { entry },
       };
     });
     const entryDates = new Set(entries.map((entry) => entry.work_date));
@@ -262,6 +265,12 @@ export default function EmployeeTimesheetCorrections({
     !selectedIsHoliday;
   const handleDateClick = (arg: DateClickArg) => {
     setSelectedDate(arg.dateStr);
+  };
+  const handleEventClick = (arg: EventClickArg) => {
+    const entry = arg.event.extendedProps.entry as TimeEntryRecord | undefined;
+    if (entry) {
+      setDetailEntry(entry);
+    }
   };
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
@@ -462,6 +471,7 @@ export default function EmployeeTimesheetCorrections({
             firstDay={1}
             events={calendarEvents}
             dateClick={handleDateClick}
+            eventClick={handleEventClick}
             headerToolbar={{
               left: "prev,next today",
               center: "title",
@@ -772,6 +782,97 @@ export default function EmployeeTimesheetCorrections({
           })}
         </div>
       )}
+
+      {detailEntry ? (
+        <div className="fixed inset-x-0 bottom-0 top-[76px] z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center">
+          <div className="flex max-h-[calc(100dvh-104px)] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                  Timesheet
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  {formatDate(detailEntry.work_date)}
+                </h3>
+                <p className="mt-1 text-sm capitalize text-muted">{detailEntry.status}</p>
+              </div>
+              <button
+                aria-label="Close timesheet details"
+                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                onClick={() => setDetailEntry(null)}
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Clock in</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatTime(detailEntry.clock_in)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Lunch</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatTimeRange(detailEntry.lunch_start, detailEntry.lunch_end)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Clock out</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatTime(detailEntry.clock_out)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Paid</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatHours(detailEntry.paid_hours)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">NT</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatHours(detailEntry.normal_hours)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">OT</p>
+                  <p className="mt-1 font-semibold text-warning">
+                    {formatHours(detailEntry.overtime_hours)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Lunch break</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatHours(detailEntry.lunch_hours)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Warnings</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {detailEntry.missing_clocking || detailEntry.late_arrival || detailEntry.early_departure
+                      ? "Needs review"
+                      : "Clear"}
+                  </p>
+                </div>
+              </div>
+
+              {detailEntry.notes ? (
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Notes</p>
+                  <p className="mt-1 text-sm text-foreground">{detailEntry.notes}</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

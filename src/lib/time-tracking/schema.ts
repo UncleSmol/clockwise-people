@@ -168,3 +168,20 @@ export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
   paidTimeOffHours: number;
   locationEvents: TimeClockLocationEvent[];
 };
+
+export type CompanyCalendarEmployeeOption = {
+  id: string;
+  label: string;
+};
+
+export type CompanyCalendarLeaveRequest = {
+  id: string;
+  employee_id: string;
+  employeeName: string;
+  employeeNumber: string;
+  leaveTypeName: string;
+  start_date: string;
+  end_date: string;
+  total_hours: number | string;
+  status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
+};

@@ -9,6 +9,8 @@ import {
 import type {
   ClockEventRecord,
   ClockEventType,
+  CompanyCalendarEmployeeOption,
+  CompanyCalendarLeaveRequest,
   CompanyPublicHoliday,
   CompanyLiveTimeEntry,
   CompanyLiveTimeOverview,
@@ -64,6 +66,25 @@ type SubmittedTimesheetRow = TimeEntryRecord & {
     avatar_url: string | null;
     branches?: { name: string }[] | { name: string } | null;
   } | null;
+};
+
+type CalendarLeaveRequestRow = {
+  id: string;
+  employee_id: string;
+  start_date: string;
+  end_date: string;
+  total_hours: number | string;
+  status: CompanyCalendarLeaveRequest["status"];
+  employees?: {
+    employee_number: string;
+    full_name: string;
+    known_as: string | null;
+  }[] | {
+    employee_number: string;
+    full_name: string;
+    known_as: string | null;
+  } | null;
+  leave_types?: { name: string }[] | { name: string } | null;
 };
 
 type TimeClockGeofenceRow = {
@@ -627,4 +648,79 @@ export const getCompanyTimesheetCalendarHolidays = cache(async function getCompa
   }
 
   return (data ?? []) as CompanyPublicHoliday[];
+});
+
+export const getCompanyCalendarEmployeeOptions = cache(async function getCompanyCalendarEmployeeOptions(): Promise<CompanyCalendarEmployeeOption[]> {
+  const [{ company }, access, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+    requireUser(),
+  ]);
+
+  if (!access.canReviewBranchTime && !access.canManageDirectReports) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id, employee_number, full_name, known_as")
+    .eq("company_id", company.id)
+    .eq("employment_status", "active")
+    .is("deleted_at", null)
+    .order("full_name");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((employee) => ({
+    id: employee.id,
+    label: `${employee.known_as ?? employee.full_name} (${employee.employee_number})`,
+  }));
+});
+
+export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCalendarLeaveRequests(): Promise<CompanyCalendarLeaveRequest[]> {
+  const [{ company }, access, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+    requireUser(),
+  ]);
+
+  if (!access.canReviewBranchTime && !access.canManageDirectReports) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as), leave_types(name)")
+    .eq("company_id", company.id)
+    .eq("status", "approved")
+    .is("deleted_at", null)
+    .order("start_date", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as unknown as CalendarLeaveRequestRow[]).map((request) => {
+    const employee = Array.isArray(request.employees)
+      ? request.employees[0]
+      : request.employees;
+    const leaveType = Array.isArray(request.leave_types)
+      ? request.leave_types[0]
+      : request.leave_types;
+
+    return {
+      employee_id: request.employee_id,
+      employeeName: employee?.known_as ?? employee?.full_name ?? "Unknown employee",
+      employeeNumber: employee?.employee_number ?? "",
+      end_date: request.end_date,
+      id: request.id,
+      leaveTypeName: leaveType?.name ?? "Time off",
+      start_date: request.start_date,
+      status: request.status,
+      total_hours: request.total_hours,
+    };
+  });
 });
