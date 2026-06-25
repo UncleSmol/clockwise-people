@@ -259,7 +259,7 @@ export async function loadManagedLeaveRequestsToTimesheets(
     .filter(Boolean);
 
   if (leaveRequestIds.length === 0) {
-    return { ok: false, message: "Choose at least one approved time off request." };
+    return { ok: false, message: "Choose at least one approved leave request." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -278,7 +278,7 @@ export async function loadManagedLeaveRequestsToTimesheets(
   revalidatePath("/dashboard/time");
   return {
     ok: true,
-    message: `${Number(data ?? 0)} time off timesheet row${Number(data ?? 0) === 1 ? "" : "s"} loaded.`,
+    message: `${Number(data ?? 0)} leave timesheet row${Number(data ?? 0) === 1 ? "" : "s"} loaded.`,
   };
 }
 

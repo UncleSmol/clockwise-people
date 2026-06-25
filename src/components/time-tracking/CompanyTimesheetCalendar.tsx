@@ -264,14 +264,14 @@ export default function CompanyTimesheetCalendar({
 
           <form action={loadLeaveAction} className="grid gap-2">
             <div>
-              <p className="font-semibold text-foreground">Load approved time off</p>
+              <p className="font-semibold text-foreground">Load approved leave</p>
               <p className="mt-1 text-xs text-muted">
                 Tick one approved request or multiple requests before loading.
               </p>
             </div>
             <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
               {leaveRequests.length === 0 ? (
-                <p className="px-3 py-3 text-sm text-muted">No approved time off requests to load.</p>
+                <p className="px-3 py-3 text-sm text-muted">No approved leave requests to load.</p>
               ) : (
                 leaveRequests.map((request) => (
                   <label
@@ -301,7 +301,7 @@ export default function CompanyTimesheetCalendar({
               disabled={leaveRequests.length === 0 || loadLeavePending}
               className="justify-self-end rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
-              {loadLeavePending ? "Loading..." : "Load selected time off"}
+              {loadLeavePending ? "Loading..." : "Load selected leave"}
             </button>
           </form>
         </div>
@@ -442,7 +442,7 @@ export default function CompanyTimesheetCalendar({
                   </p>
                 </div>
                 <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Paid time off</p>
+                  <p className="text-xs text-muted">Paid leave</p>
                   <p className="mt-1 font-semibold text-accent">
                     {formatHours(selectedEntry.paidTimeOffHours)}
                   </p>

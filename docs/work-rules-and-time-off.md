@@ -31,14 +31,14 @@ is a working day and how many hours should be deducted.
 
 ## Time Off Rules
 
-Company admins create time off rules as `leave_types`. A rule stores:
+Company admins create leave rules as `leave_types`. A rule stores:
 
 - category
 - paid or unpaid flag
 - attachment requirement
 - yearly hours in `accrual_rules`
 
-Company admins can edit existing time off rules from Company setup. Edits update
+Company admins can edit existing leave rules from Company setup. Edits update
 the existing `leave_types` row, so employee balances stay linked to the same
 rule. Changes are written through `public.update_company_leave_type(...)` and
 audited in `audit_logs`.
@@ -48,7 +48,7 @@ row. This gives the employee visible available hours for that leave type.
 
 ## Requests
 
-Employees submit time off through `public.submit_own_leave_request(...)`.
+Employees submit leave through `public.submit_own_leave_request(...)`.
 Submitted requests are stored in `leave_requests` and mirrored into
 `approval_requests` as `leave_request` approvals.
 
@@ -73,7 +73,7 @@ Public holidays are stored in `company_public_holidays`. Any selected date that
 matches a company public holiday is excluded from the requested leave hours.
 Non-working days are also excluded.
 
-Employees can only request time off from the balance they have for the selected
+Employees can only request leave from the balance they have for the selected
 leave type. If the calculated hours are greater than the available balance, the
 UI shows a warning and the backend rejects the request as well.
 

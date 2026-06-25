@@ -733,7 +733,7 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
       employeeNumber: employee?.employee_number ?? "",
       end_date: request.end_date,
       id: request.id,
-      leaveTypeName: leaveType?.name ?? "Time off",
+      leaveTypeName: leaveType?.name ?? "Leave",
       start_date: request.start_date,
       status: request.status,
       total_hours: request.total_hours,

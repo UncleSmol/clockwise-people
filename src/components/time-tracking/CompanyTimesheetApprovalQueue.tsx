@@ -177,7 +177,7 @@ export default function CompanyTimesheetApprovalQueue({
                       </p>
                     </div>
                     <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
-                      <p className="text-xs text-muted">Paid time off</p>
+                      <p className="text-xs text-muted">Paid leave</p>
                       <p className="mt-1 font-semibold text-accent">
                         {formatHours(timesheet.paidTimeOffHours)}
                       </p>

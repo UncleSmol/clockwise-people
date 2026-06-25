@@ -24,7 +24,7 @@ export default async function LeavePage() {
           Leave
         </p>
         <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">
-          {company.name} time off
+          {company.name} leave
         </h1>
         <p className="mt-2 max-w-2xl text-sm opacity-80">
           Submit leave, review balances, and approve employee leave requests.

@@ -99,10 +99,10 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
         <div>
           <p className="premium-eyebrow">Rules</p>
           <h2 className="mt-1 text-xl font-semibold text-foreground">
-            Work and time off rules
+            Work and leave rules
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Set working days, expected hours, and employee time off balances.
+            Set working days, expected hours, and employee leave balances.
           </p>
         </div>
         <span className="w-max rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
@@ -166,7 +166,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
         <form action={leaveAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
           <h3 className="flex items-center gap-2 font-semibold text-foreground">
             <BriefcaseBusiness className="size-4 text-accent" />
-            Time off rule
+            Leave rule
           </h3>
           <input
             name="name"
@@ -203,7 +203,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             <Plus className="size-4" />
-            {leavePending ? "Saving..." : "Add time off rule"}
+            {leavePending ? "Saving..." : "Add leave rule"}
           </button>
         </form>
 
@@ -221,7 +221,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
             ))}
           </select>
           <select name="leave_type_id" className="h-10 rounded-md border border-border bg-surface px-3 text-sm">
-            <option value="">Time off rule</option>
+            <option value="">Leave rule</option>
             {data.leaveTypes.map((leaveType) => (
               <option key={leaveType.id} value={leaveType.id}>
                 {leaveType.name}
@@ -363,10 +363,10 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           </div>
         </div>
         <div className="rounded-md border border-border bg-background p-3">
-          <p className="text-sm font-semibold text-foreground">Time off rules</p>
+          <p className="text-sm font-semibold text-foreground">Leave rules</p>
           <div className="mt-2 grid gap-2">
             {data.leaveTypes.length === 0 ? (
-              <p className="text-sm text-muted">No time off rules yet.</p>
+              <p className="text-sm text-muted">No leave rules yet.</p>
             ) : (
               data.leaveTypes.map((leaveType) => (
                 <details key={leaveType.id} className="rounded-md bg-surface text-sm">

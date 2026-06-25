@@ -140,7 +140,7 @@ export async function createLeaveType(
 
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Time off rule created." };
+  return { ok: true, message: "Leave rule created." };
 }
 
 export async function updateLeaveType(
@@ -178,7 +178,7 @@ export async function updateLeaveType(
 
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Time off rule updated." };
+  return { ok: true, message: "Leave rule updated." };
 }
 
 export async function assignLeaveBalance(
@@ -208,7 +208,7 @@ export async function assignLeaveBalance(
 
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Time off balance assigned." };
+  return { ok: true, message: "Leave balance assigned." };
 }
 
 export async function createPublicHoliday(
@@ -251,7 +251,7 @@ export async function calculateLeaveRequestHours(
   const leaveTypeId = String(formData.get("leave_type_id") ?? "").trim();
 
   if (!leaveTypeId || !startDate || !endDate) {
-    return { ok: false, message: "Choose time off type, start date, and end date first." };
+    return { ok: false, message: "Choose leave type, start date, and end date first." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -303,7 +303,7 @@ export async function submitLeaveRequest(
   }
 
   revalidatePath("/dashboard");
-  return { ok: true, message: "Time off request sent." };
+  return { ok: true, message: "Leave request sent." };
 }
 
 export async function reviewLeaveRequest(
@@ -336,6 +336,6 @@ export async function reviewLeaveRequest(
   revalidatePath("/dashboard");
   return {
     ok: true,
-    message: `Time off request ${decision === "approve" ? "approved" : "rejected"}.`,
+    message: `Leave request ${decision === "approve" ? "approved" : "rejected"}.`,
   };
 }

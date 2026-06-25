@@ -34,7 +34,7 @@ export const leaveTypeFormSchema = z.object({
 
 export const updateLeaveTypeFormSchema = leaveTypeFormSchema.extend({
   is_active: z.string().optional(),
-  leave_type_id: z.uuid("Choose a time off rule"),
+  leave_type_id: z.uuid("Choose a leave rule"),
 });
 
 export const leaveAssignmentFormSchema = z.object({

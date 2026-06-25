@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.26-nt-fill-up-holiday-hours",
+  "version": "2026.6.26-leave-language-consistency",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

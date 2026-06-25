@@ -31,7 +31,7 @@ function leaveTypeName(balance: LeaveBalance) {
   const relation = Array.isArray(balance.leave_types)
     ? balance.leave_types[0]
     : balance.leave_types;
-  return relation?.name ?? "Time off";
+  return relation?.name ?? "Leave";
 }
 
 function statusClass(status: string) {
@@ -59,7 +59,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
     async (previousState: LeaveRequestActionState, formData: FormData) => {
       const result = await submitLeaveRequest(previousState, formData);
 
-      if (result.ok && result.message === "Time off request sent.") {
+      if (result.ok && result.message === "Leave request sent.") {
         setLeaveTypeId("");
         setStartDate("");
         setEndDate("");
@@ -86,7 +86,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <CalendarPlus className="size-5 text-accent" />
-          Time off
+          Leave
         </h2>
         <p className="mt-1 text-xs text-muted">
           Request leave or check your recent requests.
@@ -132,7 +132,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
             onChange={(event) => setLeaveTypeId(event.target.value)}
             className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
           >
-            <option value="">Time off type</option>
+            <option value="">Leave type</option>
             {state.leaveTypes.map((leaveType) => (
               <option key={leaveType.id} value={leaveType.id}>
                 {leaveType.name}
@@ -247,7 +247,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
         {state.requests.map((request) => (
           <div key={request.id} className="grid gap-2 rounded-md border border-border bg-background p-3 text-sm sm:grid-cols-[1fr_auto]">
             <div>
-              <p className="font-semibold text-foreground">{request.leaveTypeName ?? "Time off"}</p>
+              <p className="font-semibold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
               <p className="mt-1 text-xs text-muted">
                 {request.start_date} to {request.end_date} - {Number(request.total_hours).toFixed(2)}h
               </p>

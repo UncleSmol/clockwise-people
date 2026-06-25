@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.26-nt-fill-up-holiday-hours`. It covers corrected public holiday paid hours, backend normal-time fill-up before overtime accumulation, and visible timesheet calculation notes.
+The latest seeded production changelog is `2026.06.26-leave-language-consistency`. It covers consistent leave wording across leave requests, rules, notifications, and timesheet leave loading.

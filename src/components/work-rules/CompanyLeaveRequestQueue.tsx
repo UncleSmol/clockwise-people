@@ -30,7 +30,7 @@ export default function CompanyLeaveRequestQueue({
           <p className="premium-eyebrow">Management review</p>
           <h2 className="mt-1 flex items-center gap-2 text-xl font-semibold text-foreground">
             <Umbrella className="size-5 text-accent" />
-            Time off requests
+            Leave requests
           </h2>
           <p className="mt-1 text-xs text-muted">
             Approve or reject leave requests from employees you manage.
@@ -55,7 +55,7 @@ export default function CompanyLeaveRequestQueue({
 
       {requests.length === 0 ? (
         <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-          No time off requests need review.
+          No leave requests need review.
         </p>
       ) : (
         <div className="grid gap-2">
@@ -72,7 +72,7 @@ export default function CompanyLeaveRequestQueue({
                     {request.knownAs ?? request.fullName}
                   </p>
                   <p className="mt-1 truncate text-xs text-muted">
-                    {request.employeeNumber} - {request.leaveTypeName ?? "Time off"} -{" "}
+                    {request.employeeNumber} - {request.leaveTypeName ?? "Leave"} -{" "}
                     {request.start_date} to {request.end_date}
                   </p>
                 </div>
