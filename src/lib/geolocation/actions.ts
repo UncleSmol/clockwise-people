@@ -18,6 +18,22 @@ function numberValue(formData: FormData, key: string) {
   return value ? Number(value) : NaN;
 }
 
+function isMissingGeolocationRpc(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+
+  return (
+    error.code === "42883" ||
+    error.code === "PGRST202" ||
+    error.message?.includes("upsert_company_workstation") ||
+    error.message?.includes("deactivate_company_workstation") ||
+    error.message?.includes("assign_employee_workstation") ||
+    error.message?.includes("schema cache")
+  );
+}
+
+const migrationMessage =
+  "Geolocation database migration is not active yet. Apply the Supabase production migrations, then retry.";
+
 export async function saveCompanyWorkstation(
   _previousState: ActionState,
   formData: FormData,
@@ -55,6 +71,10 @@ export async function saveCompanyWorkstation(
   });
 
   if (error) {
+    if (isMissingGeolocationRpc(error)) {
+      return { ok: false, message: migrationMessage };
+    }
+
     return { ok: false, message: error.message };
   }
 
@@ -75,6 +95,10 @@ export async function deactivateCompanyWorkstation(formData: FormData) {
   });
 
   if (error) {
+    if (isMissingGeolocationRpc(error)) {
+      throw new Error(migrationMessage);
+    }
+
     throw new Error(error.message);
   }
 
@@ -98,6 +122,10 @@ export async function assignEmployeeWorkstation(
   });
 
   if (error) {
+    if (isMissingGeolocationRpc(error)) {
+      return { ok: false, message: migrationMessage };
+    }
+
     return { ok: false, message: error.message };
   }
 
