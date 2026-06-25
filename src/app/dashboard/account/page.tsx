@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ChangePasswordForm from "@/components/account/ChangePasswordForm";
 import CompanyProfileForm from "@/components/account/CompanyProfileForm";
 import ProfileForm from "@/components/account/ProfileForm";
@@ -93,6 +94,35 @@ export default async function AccountPage() {
             </p>
           </div>
           <CompanyProfileForm company={profile.account.company} />
+        </section>
+      ) : null}
+
+      {profile.account.canManageCompany || profile.account.canManageEmployees ? (
+        <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Admin tools</h2>
+            <p className="mt-1 text-sm text-muted">
+              Manage company setup and employee records from your account area.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {profile.account.canManageCompany ? (
+              <Link
+                href="/dashboard/company"
+                className="rounded-md border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground hover:border-accent"
+              >
+                Company setup
+              </Link>
+            ) : null}
+            {profile.account.canManageEmployees ? (
+              <Link
+                href="/dashboard/employees"
+                className="rounded-md border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground hover:border-accent"
+              >
+                Employees
+              </Link>
+            ) : null}
+          </div>
         </section>
       ) : null}
 

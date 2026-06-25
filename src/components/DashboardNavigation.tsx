@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/lib/auth/actions";
 import BrandMark from "@/components/BrandMark";
+import NotificationMenu from "@/components/NotificationMenu";
 import ThemeToggle from "@/components/ThemeToggle";
+import type { DashboardNotification } from "@/lib/dashboard/schema";
 
 type DashboardNavigationProps = {
-  canManageCompany: boolean;
-  canManageEmployees: boolean;
   companyLogoUrl: string | null;
   companyName: string;
+  notifications: DashboardNotification[];
 };
 
 const baseLinks = [
@@ -31,10 +32,9 @@ function isActive(pathname: string, href: string) {
 }
 
 export default function DashboardNavigation({
-  canManageCompany,
-  canManageEmployees,
   companyLogoUrl,
   companyName,
+  notifications,
 }: DashboardNavigationProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -50,15 +50,7 @@ export default function DashboardNavigation({
     };
   }, [open]);
 
-  const links = [
-    baseLinks[0],
-    baseLinks[1],
-    baseLinks[2],
-    baseLinks[3],
-    ...(canManageCompany ? [{ href: "/dashboard/company", label: "Company" }] : []),
-    ...(canManageEmployees ? [{ href: "/dashboard/employees", label: "Employees" }] : []),
-    baseLinks[4],
-  ];
+  const links = baseLinks;
 
   return (
     <div className="flex items-center gap-2">
@@ -81,6 +73,7 @@ export default function DashboardNavigation({
         ))}
 
         <ThemeToggle />
+        <NotificationMenu notifications={notifications} />
 
         <form action={signOut}>
           <button className="rounded-full px-3 py-2 font-semibold text-foreground hover:text-primary">
@@ -184,6 +177,11 @@ export default function DashboardNavigation({
 
             {/* Footer */}
             <div className="mobile-nav-footer mt-auto grid gap-4 border-t border-border px-5 py-5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-foreground">Notifications</span>
+                <NotificationMenu notifications={notifications} />
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-semibold text-foreground">Theme</span>
                 <ThemeToggle />

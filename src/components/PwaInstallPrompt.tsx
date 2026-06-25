@@ -9,9 +9,11 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 function isStandalone() {
+  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
+
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
-    ("standalone" in window.navigator && Boolean(window.navigator.standalone))
+    Boolean(navigatorWithStandalone.standalone)
   );
 }
 
@@ -26,25 +28,45 @@ export default function PwaInstallPrompt() {
   }, []);
 
   useEffect(() => {
-    if (isStandalone() || localStorage.getItem("clockwise-install-dismissed") === "true") {
+    const markInstalled = () => {
+      localStorage.setItem("clockwise-install-installed", "true");
+      localStorage.setItem("clockwise-install-dismissed", "true");
+      setInstallEvent(null);
+      setVisible(false);
+    };
+
+    if (isStandalone()) {
+      markInstalled();
+      return;
+    }
+
+    if (
+      localStorage.getItem("clockwise-install-installed") === "true" ||
+      localStorage.getItem("clockwise-install-dismissed") === "true"
+    ) {
       return;
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
+      if (isStandalone() || localStorage.getItem("clockwise-install-installed") === "true") {
+        return;
+      }
+
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
       setVisible(true);
     };
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    const handleAppInstalled = () => {
+      markInstalled();
+    };
 
-    const fallbackTimer = window.setTimeout(() => {
-      if (!isStandalone()) setVisible(true);
-    }, 1200);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
-      window.clearTimeout(fallbackTimer);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
 
@@ -57,6 +79,7 @@ export default function PwaInstallPrompt() {
     const choice = await installEvent.userChoice;
 
     if (choice.outcome === "accepted") {
+      localStorage.setItem("clockwise-install-installed", "true");
       localStorage.setItem("clockwise-install-dismissed", "true");
       setVisible(false);
     }

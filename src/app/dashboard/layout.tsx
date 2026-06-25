@@ -1,18 +1,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
+import { getActiveCompany } from "@/lib/foundation/queries";
 import { getUnseenAppUpdates } from "@/lib/app-updates/queries";
+import { getDashboardNotifications } from "@/lib/dashboard/queries";
 import AppUpdateChangelog from "@/components/AppUpdateChangelog";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const [{ company }, access, unseenUpdates] = await Promise.all([
+  const [{ company }, unseenUpdates] = await Promise.all([
     getActiveCompany(),
-    getCurrentUserAccess(),
     getUnseenAppUpdates(),
   ]);
+  const notifications = await getDashboardNotifications();
   const updateNoticeKey =
     unseenUpdates.map((update) => update.id).sort().join(":") || "no-updates";
 
@@ -34,10 +35,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             />
           </Link>
           <DashboardNavigation
-            canManageCompany={access.canManageCompany}
-            canManageEmployees={access.canManageEmployees}
             companyName={company.name}
             companyLogoUrl={company.logo_url}
+            notifications={notifications}
           />
         </div>
       </div>

@@ -101,6 +101,7 @@ export const getAccountProfile = cache(async function getAccountProfile() {
       email: user.email ?? null,
       roles: access.roles as AppRole[],
       canManageCompany: access.canManageCompany,
+      canManageEmployees: access.canManageEmployees,
       company,
       companyName: company.name,
       companyTimezone: company.timezone,

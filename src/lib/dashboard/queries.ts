@@ -10,6 +10,7 @@ import { getEmployeeTimeState } from "@/lib/time-tracking/queries";
 import type {
   DashboardExperienceData,
   DashboardHoliday,
+  DashboardNotification,
   DashboardReminderSchedule,
   DashboardTeamMovement,
 } from "./schema";
@@ -234,4 +235,37 @@ export const getDashboardExperienceData = cache(async function getDashboardExper
     reminderSchedule,
     teamMovements,
   };
+});
+
+export const getDashboardNotifications = cache(async function getDashboardNotifications(): Promise<DashboardNotification[]> {
+  const [{ company }, { supabase }] = await Promise.all([
+    getActiveCompany(),
+    requireUser(),
+  ]);
+
+  const { data, error } = await supabase
+    .from("app_notifications")
+    .select("id, category, title, body, target_href, read_at, created_at")
+    .eq("company_id", company.id)
+    .is("read_at", null)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    if (error.message.includes("app_notifications")) {
+      return [];
+    }
+
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as NotificationRow[]).map((notification) => ({
+    body: notification.body,
+    category: notification.category,
+    createdAt: notification.created_at,
+    id: notification.id,
+    readAt: notification.read_at,
+    targetHref: notification.target_href,
+    title: notification.title,
+  }));
 });

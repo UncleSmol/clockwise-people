@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.26-leave-language-consistency",
+  "version": "2026.6.26-account-admin-nav-notifications",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
