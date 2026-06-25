@@ -163,6 +163,52 @@ export async function saveDraftTimeEntry(
   return { ok: true, message: "Timesheet saved." };
 }
 
+export async function createPastDraftTimeEntry(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const workDate = String(formData.get("work_date") ?? "").trim();
+
+  if (!workDate) {
+    return { ok: false, message: "Choose a past day to add." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("create_own_draft_time_entry_for_date", {
+    target_work_date: workDate,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Draft timesheet added." };
+}
+
+export async function deleteDraftTimeEntry(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+
+  if (!timeEntryId) {
+    return { ok: false, message: "Choose a draft timesheet to delete." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("delete_own_draft_time_entry", {
+    target_time_entry_id: timeEntryId,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Draft timesheet deleted." };
+}
+
 export async function submitSelectedTimesheets(
   _previousState: TimeEntryActionState,
   formData: FormData,

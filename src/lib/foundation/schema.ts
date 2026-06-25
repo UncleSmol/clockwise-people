@@ -54,6 +54,18 @@ export type Company = {
   name: string;
   registration_number: string | null;
   logo_url: string | null;
+  trading_name: string | null;
+  tax_number: string | null;
+  vat_number: string | null;
+  industry: string | null;
+  website_url: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
   country: string;
   timezone: string;
   payroll_cycle: string;

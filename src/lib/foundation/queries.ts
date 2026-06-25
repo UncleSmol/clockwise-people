@@ -35,7 +35,9 @@ export const getUserCompanies = cache(async function getUserCompanies() {
   const { supabase } = await requireUser();
   const { data, error } = await supabase
     .from("companies")
-    .select("id, name, registration_number, logo_url, country, timezone, payroll_cycle")
+    .select(
+      "id, name, registration_number, logo_url, trading_name, tax_number, vat_number, industry, website_url, contact_email, contact_phone, address_line_1, address_line_2, city, province, postal_code, country, timezone, payroll_cycle",
+    )
     .eq("is_active", true)
     .is("deleted_at", null)
     .order("name");

@@ -30,6 +30,13 @@ export type TimeEntryRecord = {
   status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
 };
 
+export type CompanyPublicHoliday = {
+  id: string;
+  holiday_date: string;
+  name: string;
+  is_paid: boolean;
+};
+
 export type TimesheetCorrectionStatus =
   | "draft"
   | "submitted"
@@ -83,6 +90,7 @@ export type EmployeeTimeState = {
   recentEntries: TimeEntryRecord[];
   recentEvents: ClockEventRecord[];
   correctionRequests: TimesheetCorrectionRequest[];
+  publicHolidays: CompanyPublicHoliday[];
 };
 
 export type CompanyLiveTimeEntry = {

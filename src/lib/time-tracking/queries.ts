@@ -8,6 +8,7 @@ import {
 } from "@/lib/foundation/queries";
 import type {
   ClockEventRecord,
+  CompanyPublicHoliday,
   CompanyLiveTimeEntry,
   CompanyLiveTimeOverview,
   CompanySubmittedTimesheet,
@@ -100,11 +101,18 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       recentEntries: [],
       recentEvents: [],
       correctionRequests: [],
+      publicHolidays: [],
     };
   }
 
   const { supabase } = await requireUser();
   const today = currentDateInTimezone(company.timezone || "UTC");
+  const currentYear = Number(today.slice(0, 4));
+
+  await supabase.rpc("ensure_current_year_za_public_holidays", {
+    target_company_id: company.id,
+    target_year: currentYear,
+  });
 
   const [
     employeeResult,
@@ -112,6 +120,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     entriesResult,
     eventsResult,
     correctionRequestsResult,
+    holidaysResult,
   ] = await Promise.all([
     supabase
       .from("employees")
@@ -135,8 +144,10 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       )
       .eq("employee_id", access.employeeId)
       .is("deleted_at", null)
+      .gte("work_date", `${currentYear}-01-01`)
+      .lte("work_date", `${currentYear}-12-31`)
       .order("work_date", { ascending: false })
-      .limit(14),
+      .limit(400),
     supabase
       .from("time_clock_events")
       .select("id, event_type, event_at, local_work_date, local_event_time")
@@ -152,6 +163,14 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .is("deleted_at", null)
       .order("submitted_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("company_public_holidays")
+      .select("id, holiday_date, name, is_paid")
+      .eq("company_id", company.id)
+      .is("deleted_at", null)
+      .gte("holiday_date", `${currentYear}-01-01`)
+      .lte("holiday_date", `${currentYear}-12-31`)
+      .order("holiday_date", { ascending: true }),
   ]);
 
   if (employeeResult.error) {
@@ -174,6 +193,10 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     throw new Error(correctionRequestsResult.error.message);
   }
 
+  if (holidaysResult.error) {
+    throw new Error(holidaysResult.error.message);
+  }
+
   const employeeRow = employeeResult.data as unknown as EmployeeRow;
   const recentEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
 
@@ -192,6 +215,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     recentEntries,
     recentEvents: (eventsResult.data ?? []) as ClockEventRecord[],
     correctionRequests: (correctionRequestsResult.data ?? []) as TimesheetCorrectionRequest[],
+    publicHolidays: (holidaysResult.data ?? []) as CompanyPublicHoliday[],
   };
 });
 
@@ -209,6 +233,11 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
   const workDate = currentDateInTimezone(company.timezone || "UTC");
+
+  await supabase.rpc("ensure_current_year_za_public_holidays", {
+    target_company_id: company.id,
+    target_year: Number(workDate.slice(0, 4)),
+  });
 
   const [employeesResult, entriesResult] = await Promise.all([
     supabase

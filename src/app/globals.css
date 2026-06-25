@@ -229,3 +229,96 @@ button:disabled {
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
+
+.cw-timesheet-calendar {
+  --fc-border-color: var(--color-border);
+  --fc-button-bg-color: var(--color-primary);
+  --fc-button-border-color: var(--color-primary);
+  --fc-button-hover-bg-color: var(--color-primary);
+  --fc-button-hover-border-color: var(--color-primary);
+  --fc-button-active-bg-color: var(--color-accent);
+  --fc-button-active-border-color: var(--color-accent);
+  --fc-event-border-color: transparent;
+  --fc-page-bg-color: transparent;
+  --fc-small-font-size: 0.75rem;
+  color: var(--color-foreground);
+}
+
+.cw-timesheet-calendar .fc {
+  font-family: inherit;
+}
+
+.cw-timesheet-calendar .fc-toolbar {
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cw-timesheet-calendar .fc-toolbar-title {
+  color: var(--color-foreground);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.cw-timesheet-calendar .fc-button {
+  border-radius: 0.375rem;
+  box-shadow: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.375rem 0.625rem;
+  text-transform: capitalize;
+}
+
+.cw-timesheet-calendar .fc-scrollgrid,
+.cw-timesheet-calendar .fc-theme-standard td,
+.cw-timesheet-calendar .fc-theme-standard th {
+  border-color: var(--color-border);
+}
+
+.cw-timesheet-calendar .fc-col-header-cell {
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.375rem 0;
+  text-transform: uppercase;
+}
+
+.cw-timesheet-calendar .fc-daygrid-day {
+  background: var(--color-background);
+}
+
+.cw-timesheet-calendar .fc-day-today {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.cw-timesheet-calendar .fc-daygrid-day-number {
+  color: var(--color-foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.375rem;
+}
+
+.cw-timesheet-calendar .fc-event {
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.125rem 0.25rem;
+}
+
+.cw-timesheet-calendar .cw-calendar-draft {
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
+  color: var(--color-warning);
+}
+
+.cw-timesheet-calendar .cw-calendar-submitted {
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+  color: var(--color-success);
+}
+
+.cw-timesheet-calendar .cw-calendar-holiday,
+.cw-timesheet-calendar .cw-calendar-holiday-booked {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+  color: var(--color-accent);
+}

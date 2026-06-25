@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.25-blocking-changelog",
+  "version": "2026.6.25-company-profile-overtime",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

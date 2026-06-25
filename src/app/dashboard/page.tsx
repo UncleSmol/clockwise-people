@@ -86,6 +86,7 @@ export default async function DashboardPage() {
           correctionRequests={timeState.correctionRequests}
           currentWorkDate={timeState.currentWorkDate}
           entries={timeState.recentEntries}
+          publicHolidays={timeState.publicHolidays}
         />
 
         <EmployeeLeaveRequests state={leaveState} />

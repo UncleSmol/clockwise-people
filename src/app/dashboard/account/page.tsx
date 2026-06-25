@@ -1,4 +1,5 @@
 import ChangePasswordForm from "@/components/account/ChangePasswordForm";
+import CompanyProfileForm from "@/components/account/CompanyProfileForm";
 import ProfileForm from "@/components/account/ProfileForm";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { getAccountProfile } from "@/lib/account/queries";
@@ -82,6 +83,18 @@ export default async function AccountPage() {
           </p>
         </div>
       </section>
+
+      {profile.account.canManageCompany ? (
+        <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Company profile</h2>
+            <p className="mt-1 text-sm text-muted">
+              Maintain registration, contact, and profile details for this workspace.
+            </p>
+          </div>
+          <CompanyProfileForm company={profile.account.company} />
+        </section>
+      ) : null}
 
       {employee && (
         <>

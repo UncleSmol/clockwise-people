@@ -1,22 +1,32 @@
 "use client";
 
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
+import type { EventInput } from "@fullcalendar/core";
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   ClipboardCheck,
   Edit3,
   FileQuestion,
+  Plus,
   Save,
   Send,
+  Trash2,
 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import {
+  createPastDraftTimeEntry,
+  deleteDraftTimeEntry,
   saveDraftTimeEntry,
   submitSelectedTimesheets,
   submitTimesheetCorrection,
 } from "@/lib/time-tracking/actions";
 import type {
+  CompanyPublicHoliday,
   TimeEntryRecord,
   TimesheetCorrectionRequest,
 } from "@/lib/time-tracking/schema";
@@ -25,6 +35,7 @@ type EmployeeTimesheetCorrectionsProps = {
   correctionRequests: TimesheetCorrectionRequest[];
   currentWorkDate: string;
   entries: TimeEntryRecord[];
+  publicHolidays: CompanyPublicHoliday[];
 };
 
 type CorrectionActionState = {
@@ -141,8 +152,18 @@ export default function EmployeeTimesheetCorrections({
   correctionRequests,
   currentWorkDate,
   entries,
+  publicHolidays,
 }: EmployeeTimesheetCorrectionsProps) {
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [createState, createAction, createPending] = useActionState(
+    createPastDraftTimeEntry,
+    initialState,
+  );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deleteDraftTimeEntry,
+    initialState,
+  );
   const [correctionState, correctionAction, correctionPending] = useActionState(
     submitTimesheetCorrection,
     initialState,
@@ -166,19 +187,80 @@ export default function EmployeeTimesheetCorrections({
 
     return requests;
   }, [correctionRequests]);
+  const entriesByDate = useMemo(
+    () => new Map(entries.map((entry) => [entry.work_date, entry])),
+    [entries],
+  );
+  const holidayDates = useMemo(
+    () => new Set(publicHolidays.map((holiday) => holiday.holiday_date)),
+    [publicHolidays],
+  );
+  const calendarEvents = useMemo<EventInput[]>(() => {
+    const timesheetEvents = entries.map((entry) => {
+      const editable = entry.status === "draft" || entry.status === "rejected";
+      const isHoliday = entry.notes?.startsWith("Public holiday:");
+
+      return {
+        id: entry.id,
+        title: isHoliday
+          ? "Public holiday"
+          : `${editable ? "Draft" : entry.status} - ${formatHours(entry.paid_hours)}`,
+        start: entry.work_date,
+        allDay: true,
+        classNames: [
+          isHoliday
+            ? "cw-calendar-holiday-booked"
+            : editable
+              ? "cw-calendar-draft"
+              : "cw-calendar-submitted",
+        ],
+      };
+    });
+    const entryDates = new Set(entries.map((entry) => entry.work_date));
+    const holidayEvents = publicHolidays
+      .filter((holiday) => !entryDates.has(holiday.holiday_date))
+      .map((holiday) => ({
+        id: `holiday-${holiday.id}`,
+        title: holiday.name,
+        start: holiday.holiday_date,
+        allDay: true,
+        classNames: ["cw-calendar-holiday"],
+      }));
+
+    return [...holidayEvents, ...timesheetEvents];
+  }, [entries, publicHolidays]);
   const editableEntries = entries.filter((entry) => entry.status === "draft" || entry.status === "rejected");
   const submittedEntries = entries.filter((entry) => entry.status !== "draft" && entry.status !== "rejected");
-  const message = correctionState.message || saveState.message || submitState.message;
-  const messageOk = correctionState.message
-    ? correctionState.ok
-    : saveState.message
-      ? saveState.ok
-      : submitState.ok;
+  const message =
+    createState.message ||
+    deleteState.message ||
+    correctionState.message ||
+    saveState.message ||
+    submitState.message;
+  const messageOk = createState.message
+    ? createState.ok
+    : deleteState.message
+      ? deleteState.ok
+      : correctionState.message
+        ? correctionState.ok
+        : saveState.message
+          ? saveState.ok
+          : submitState.ok;
   const shouldGroupWeeks = entries.length >= 7;
   const weekGroups = useMemo(
     () => groupByWeek(entries),
     [entries],
   );
+  const selectedEntry = selectedDate ? entriesByDate.get(selectedDate) : null;
+  const selectedIsHoliday = selectedDate ? holidayDates.has(selectedDate) : false;
+  const selectedCanAdd =
+    Boolean(selectedDate) &&
+    selectedDate < currentWorkDate &&
+    !selectedEntry &&
+    !selectedIsHoliday;
+  const handleDateClick = (arg: DateClickArg) => {
+    setSelectedDate(arg.dateStr);
+  };
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
     const editable = entry.status === "draft" || entry.status === "rejected";
@@ -266,6 +348,14 @@ export default function EmployeeTimesheetCorrections({
             </label>
             <div className="flex justify-end">
               <button
+                formAction={deleteAction}
+                disabled={deletePending}
+                className="mr-auto inline-flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+              >
+                <Trash2 className="size-4" />
+                {deletePending ? "Deleting..." : "Delete"}
+              </button>
+              <button
                 disabled={savePending}
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
@@ -292,12 +382,69 @@ export default function EmployeeTimesheetCorrections({
         <div>
           <h2 className="text-lg font-semibold text-foreground">Timesheets</h2>
           <p className="mt-1 text-xs text-muted">
-            Check your time, fix drafts, then submit when ready.
+            Use the calendar to add past days, fix drafts, then submit when ready.
           </p>
         </div>
         <span className="w-max rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
           {entries.length} records
         </span>
+      </div>
+
+      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="inline-flex items-center gap-2 font-semibold text-foreground">
+              <CalendarDays className="size-4 text-accent" />
+              Calendar
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Select a past work day to create a draft timesheet. Public holidays are booked automatically.
+            </p>
+          </div>
+          {selectedDate ? (
+            <form action={createAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input type="hidden" name="work_date" value={selectedDate} />
+              <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
+                {formatDate(selectedDate)}
+              </span>
+              <button
+                disabled={!selectedCanAdd || createPending}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                <Plus className="size-4" />
+                {createPending ? "Adding..." : "Add draft"}
+              </button>
+            </form>
+          ) : null}
+        </div>
+        {selectedDate && selectedEntry ? (
+          <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
+            This day already has a {selectedEntry.status} timesheet.
+          </p>
+        ) : selectedDate && selectedIsHoliday ? (
+          <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+            This day is a company public holiday and is handled automatically.
+          </p>
+        ) : selectedDate && selectedDate >= currentWorkDate ? (
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+            Employees can only add past timesheets from the calendar.
+          </p>
+        ) : null}
+        <div className="cw-timesheet-calendar">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            height="auto"
+            firstDay={1}
+            events={calendarEvents}
+            dateClick={handleDateClick}
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "",
+            }}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
