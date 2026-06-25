@@ -1,6 +1,13 @@
 "use client";
 
-import { CheckCircle2, ClipboardCheck, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ClipboardCheck,
+  LocateFixed,
+  MapPin,
+  Timer,
+  XCircle,
+} from "lucide-react";
 import { useActionState } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewSubmittedTimesheets } from "@/lib/time-tracking/actions";
@@ -44,6 +51,21 @@ function formatTime(value: string | null) {
 
 function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
+}
+
+function geofenceLabel(status: string | null) {
+  if (status === "in_range") return "In range";
+  if (status === "out_of_range") return "Out of range";
+  if (status === "no_location") return "No location";
+  if (status === "no_workstation") return "No workstation";
+  return "Unknown";
+}
+
+function geofenceClass(status: string | null) {
+  if (status === "in_range") return "border-success/30 bg-success/10 text-success";
+  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
+  return "border-border bg-surface-muted text-muted";
 }
 
 export default function CompanyTimesheetApprovalQueue({
@@ -98,46 +120,125 @@ export default function CompanyTimesheetApprovalQueue({
                 timesheet.early_departure;
 
               return (
-                <label
+                <article
                   key={timesheet.id}
-                  className={`grid gap-2 rounded-md border p-3 text-sm shadow-sm lg:grid-cols-[24px_1fr_1.4fr_80px] lg:items-center ${
+                  className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${
                     hasWarning
                       ? "border-warning/40 bg-warning/10"
                       : "border-success/30 bg-success/10"
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    name="time_entry_ids"
-                    value={timesheet.id}
-                    className="size-4 accent-current"
-                  />
-                  <div className="flex min-w-0 items-center gap-2">
-                    <EmployeeAvatar
-                      name={timesheet.knownAs ?? timesheet.fullName}
-                      src={timesheet.avatarUrl}
-                      className="size-9"
+                  <div className="grid gap-3 lg:grid-cols-[24px_1fr_1.2fr] lg:items-center">
+                    <input
+                      type="checkbox"
+                      name="time_entry_ids"
+                      value={timesheet.id}
+                      aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
+                      className="size-4 accent-current"
                     />
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-foreground">
-                        {timesheet.knownAs ?? timesheet.fullName}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <EmployeeAvatar
+                        name={timesheet.knownAs ?? timesheet.fullName}
+                        src={timesheet.avatarUrl}
+                        className="size-9"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">
+                          {timesheet.knownAs ?? timesheet.fullName}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-muted">
+                          {timesheet.employeeNumber} - {timesheet.branchName ?? "No branch"} -{" "}
+                          {formatDate(timesheet.work_date)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                      <span>In: {formatTime(timesheet.clock_in)}</span>
+                      <span>Lunch: {formatTime(timesheet.lunch_start)} - {formatTime(timesheet.lunch_end)}</span>
+                      <span>Out: {formatTime(timesheet.clock_out)}</span>
+                      <span>{hasWarning ? "Check" : "Good"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-4">
+                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                      <p className="flex items-center gap-1.5 text-xs text-muted">
+                        <Timer className="size-3.5" />
+                        NT
                       </p>
-                      <p className="mt-1 truncate text-xs text-muted">
-                        {timesheet.employeeNumber} - {timesheet.branchName ?? "No branch"} -{" "}
-                        {formatDate(timesheet.work_date)}
+                      <p className="mt-1 font-semibold text-foreground">
+                        {formatHours(timesheet.normal_hours)}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                      <p className="text-xs text-muted">OT</p>
+                      <p className="mt-1 font-semibold text-warning">
+                        {formatHours(timesheet.overtime_hours)}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                      <p className="text-xs text-muted">Paid time off</p>
+                      <p className="mt-1 font-semibold text-accent">
+                        {formatHours(timesheet.paidTimeOffHours)}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                      <p className="text-xs text-muted">Lunch break</p>
+                      <p className="mt-1 font-semibold text-foreground">
+                        {formatHours(timesheet.lunch_hours)}
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                    <span>In: {formatTime(timesheet.clock_in)}</span>
-                    <span>Lunch: {formatTime(timesheet.lunch_start)} - {formatTime(timesheet.lunch_end)}</span>
-                    <span>Out: {formatTime(timesheet.clock_out)}</span>
-                    <span>{hasWarning ? "Check" : "Good"}</span>
-                  </div>
-                  <p className="font-semibold text-foreground">
-                    {formatHours(timesheet.paid_hours)}
-                  </p>
-                </label>
+
+                  <details className="rounded-md border border-border/70 bg-surface/80">
+                    <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold text-foreground">
+                      <MapPin className="size-4 text-accent" />
+                      Location history ({timesheet.locationEvents.length})
+                    </summary>
+                    <div className="divide-y divide-border border-t border-border">
+                      {timesheet.locationEvents.length === 0 ? (
+                        <p className="px-3 py-3 text-xs text-muted">
+                          No location events were captured for this shift.
+                        </p>
+                      ) : (
+                        timesheet.locationEvents.map((event) => (
+                          <div key={event.id} className="grid gap-2 px-3 py-2 sm:grid-cols-[130px_1fr_auto] sm:items-center">
+                            <div>
+                              <p className="font-semibold capitalize text-foreground">
+                                {event.event_type.replaceAll("_", " ")}
+                              </p>
+                              <p className="mt-1 text-xs text-muted">
+                                {formatTime(event.local_event_time)}
+                              </p>
+                            </div>
+                            <div className="min-w-0 text-xs text-muted">
+                              <p className="truncate">
+                                {event.workstationName ?? "No workstation"}
+                                {event.distance_meters !== null
+                                  ? ` - ${Math.round(event.distance_meters)}m away`
+                                  : ""}
+                              </p>
+                              <p className="mt-1 truncate">
+                                {event.latitude !== null && event.longitude !== null
+                                  ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                                  : "No coordinates"}
+                                {event.accuracy_meters !== null
+                                  ? ` - +/-${Math.round(event.accuracy_meters)}m`
+                                  : ""}
+                              </p>
+                            </div>
+                            <span
+                              className={`inline-flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${geofenceClass(event.geofence_status)}`}
+                            >
+                              <LocateFixed className="size-3.5" />
+                              {geofenceLabel(event.geofence_status)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </details>
+                </article>
               );
             })}
           </div>

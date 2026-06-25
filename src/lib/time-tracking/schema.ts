@@ -75,6 +75,15 @@ export type ClockEventRecord = {
   local_event_time: string;
 };
 
+export type TimeClockLocationEvent = ClockEventRecord & {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy_meters: number | null;
+  workstationName: string | null;
+  distance_meters: number | null;
+  geofence_status: string | null;
+};
+
 export type EmployeeTimeState = {
   currentWorkDate: string;
   employee: {
@@ -147,6 +156,8 @@ export type CompanySubmittedTimesheet = TimeEntryRecord & {
   knownAs: string | null;
   avatarUrl: string | null;
   branchName: string | null;
+  paidTimeOffHours: number;
+  locationEvents: TimeClockLocationEvent[];
 };
 
 export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
@@ -154,4 +165,6 @@ export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
   fullName: string;
   knownAs: string | null;
   branchName: string | null;
+  paidTimeOffHours: number;
+  locationEvents: TimeClockLocationEvent[];
 };

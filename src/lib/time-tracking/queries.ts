@@ -16,6 +16,7 @@ import type {
   CompanyTimesheetCalendarEntry,
   CompanyTimesheetCorrectionRequest,
   EmployeeTimeState,
+  TimeClockLocationEvent,
   TimeEntryRecord,
   TimesheetCorrectionRequest,
 } from "./schema";
@@ -73,6 +74,21 @@ type TimeClockGeofenceRow = {
   company_workstations?: { name: string }[] | { name: string } | null;
 };
 
+type TimeClockLocationEventRow = {
+  id: string;
+  time_entry_id: string;
+  event_type: ClockEventType;
+  event_at: string;
+  local_work_date: string;
+  local_event_time: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy_meters: number | null;
+  distance_meters: number | null;
+  geofence_status: string | null;
+  company_workstations?: { name: string }[] | { name: string } | null;
+};
+
 function relationName(
   relation?: { name: string }[] | { name: string } | null,
 ) {
@@ -95,6 +111,58 @@ function isMissingGeofenceSchema(error: { code?: string; message?: string } | nu
     error.message?.includes("geofence_status") ||
     error.message?.includes("schema cache")
   );
+}
+
+function paidTimeOffHours(entry: TimeEntryRecord) {
+  return entry.notes?.startsWith("Public holiday:") ? Number(entry.paid_hours ?? 0) : 0;
+}
+
+async function getLocationEventsByTimeEntry(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  companyId: string,
+  timeEntryIds: string[],
+) {
+  if (timeEntryIds.length === 0) {
+    return new Map<string, TimeClockLocationEvent[]>();
+  }
+
+  const { data, error } = await supabase
+    .from("time_clock_events")
+    .select(
+      "id, time_entry_id, event_type, event_at, local_work_date, local_event_time, latitude, longitude, accuracy_meters, distance_meters, geofence_status, company_workstations(name)",
+    )
+    .eq("company_id", companyId)
+    .in("time_entry_id", timeEntryIds)
+    .order("event_at", { ascending: true });
+
+  if (error) {
+    if (isMissingGeofenceSchema(error)) {
+      return new Map<string, TimeClockLocationEvent[]>();
+    }
+
+    throw new Error(error.message);
+  }
+
+  const eventsByEntry = new Map<string, TimeClockLocationEvent[]>();
+  ((data ?? []) as unknown as TimeClockLocationEventRow[]).forEach((event) => {
+    const current = eventsByEntry.get(event.time_entry_id) ?? [];
+    current.push({
+      accuracy_meters: event.accuracy_meters === null ? null : Number(event.accuracy_meters),
+      distance_meters: event.distance_meters === null ? null : Number(event.distance_meters),
+      event_at: event.event_at,
+      event_type: event.event_type,
+      geofence_status: event.geofence_status,
+      id: event.id,
+      latitude: event.latitude === null ? null : Number(event.latitude),
+      local_event_time: event.local_event_time,
+      local_work_date: event.local_work_date,
+      longitude: event.longitude === null ? null : Number(event.longitude),
+      workstationName: relationName(event.company_workstations),
+    });
+    eventsByEntry.set(event.time_entry_id, current);
+  });
+
+  return eventsByEntry;
 }
 
 function currentDateInTimezone(timezone: string) {
@@ -438,7 +506,14 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as SubmittedTimesheetRow[]).map((entry) => {
+  const rows = (data ?? []) as unknown as SubmittedTimesheetRow[];
+  const locationEventsByEntry = await getLocationEventsByTimeEntry(
+    supabase,
+    company.id,
+    rows.map((entry) => entry.id),
+  );
+
+  return rows.map((entry) => {
     const employee = Array.isArray(entry.employees)
       ? entry.employees[0]
       : entry.employees;
@@ -452,6 +527,8 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
       avatarUrl: employee?.avatar_url ?? null,
+      locationEvents: locationEventsByEntry.get(entry.id) ?? [],
+      paidTimeOffHours: paidTimeOffHours(timeEntry),
     };
   });
 });
@@ -491,7 +568,14 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as SubmittedTimesheetRow[]).map((entry) => {
+  const rows = (data ?? []) as unknown as SubmittedTimesheetRow[];
+  const locationEventsByEntry = await getLocationEventsByTimeEntry(
+    supabase,
+    company.id,
+    rows.map((entry) => entry.id),
+  );
+
+  return rows.map((entry) => {
     const employee = Array.isArray(entry.employees)
       ? entry.employees[0]
       : entry.employees;
@@ -504,6 +588,8 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
+      locationEvents: locationEventsByEntry.get(entry.id) ?? [],
+      paidTimeOffHours: paidTimeOffHours(timeEntry),
     };
   });
 });

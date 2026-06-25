@@ -2,9 +2,17 @@
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import type { EventContentArg, EventInput } from "@fullcalendar/core";
-import { AlertTriangle, CalendarDays, Clock3 } from "lucide-react";
-import { useMemo } from "react";
+import type { EventClickArg, EventContentArg, EventInput } from "@fullcalendar/core";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Clock3,
+  LocateFixed,
+  MapPin,
+  Timer,
+  X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import type {
   CompanyPublicHoliday,
   CompanyTimesheetCalendarEntry,
@@ -17,6 +25,38 @@ type CompanyTimesheetCalendarProps = {
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
   return entry.knownAs ?? entry.fullName;
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "--";
+
+  const [hours = "0", minutes = "0"] = value.split(":");
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+
+  return new Intl.DateTimeFormat("en-ZA", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatHours(value: number | string | null | undefined) {
+  return `${Number(value ?? 0).toFixed(2)}h`;
+}
+
+function geofenceLabel(status: string | null) {
+  if (status === "in_range") return "In range";
+  if (status === "out_of_range") return "Out of range";
+  if (status === "no_location") return "No location";
+  if (status === "no_workstation") return "No workstation";
+  return "Unknown";
+}
+
+function geofenceClass(status: string | null) {
+  if (status === "in_range") return "border-success/30 bg-success/10 text-success";
+  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
+  return "border-border bg-surface-muted text-muted";
 }
 
 function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
@@ -57,6 +97,7 @@ export default function CompanyTimesheetCalendar({
   entries,
   publicHolidays,
 }: CompanyTimesheetCalendarProps) {
+  const [selectedEntry, setSelectedEntry] = useState<CompanyTimesheetCalendarEntry | null>(null);
   const events = useMemo<EventInput[]>(
     () => {
       const holidayEvents = publicHolidays.map((holiday) => ({
@@ -96,6 +137,15 @@ export default function CompanyTimesheetCalendar({
     }),
     [entries],
   );
+  const handleEventClick = (arg: EventClickArg) => {
+    const entry = arg.event.extendedProps.entry as
+      | CompanyTimesheetCalendarEntry
+      | undefined;
+
+    if (entry) {
+      setSelectedEntry(entry);
+    }
+  };
 
   return (
     <section className="premium-card rounded-md">
@@ -173,6 +223,7 @@ export default function CompanyTimesheetCalendar({
                 return entry ? statusClass(entry.status) : ["cw-calendar-holiday"];
               }}
               eventContent={renderEventContent}
+              eventClick={handleEventClick}
               events={events}
               firstDay={1}
               headerToolbar={{
@@ -191,6 +242,143 @@ export default function CompanyTimesheetCalendar({
           </div>
         )}
       </div>
+
+      {selectedEntry ? (
+        <div className="fixed inset-0 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-md border border-border bg-surface shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                  Timesheet
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  {displayName(selectedEntry)}
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  {selectedEntry.employeeNumber} · {selectedEntry.branchName ?? "No branch"} ·{" "}
+                  {selectedEntry.work_date}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEntry(null)}
+                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                aria-label="Close timesheet details"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="grid gap-4 px-4 py-4">
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Clock in</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatTime(selectedEntry.clock_in)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Lunch</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatTime(selectedEntry.lunch_start)} - {formatTime(selectedEntry.lunch_end)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Clock out</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatTime(selectedEntry.clock_out)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Status</p>
+                  <p className="mt-1 font-semibold capitalize text-foreground">
+                    {selectedEntry.status}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="flex items-center gap-2 text-xs text-muted">
+                    <Timer className="size-3.5" />
+                    NT
+                  </p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatHours(selectedEntry.normal_hours)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">OT</p>
+                  <p className="mt-1 font-semibold text-warning">
+                    {formatHours(selectedEntry.overtime_hours)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Paid time off</p>
+                  <p className="mt-1 font-semibold text-accent">
+                    {formatHours(selectedEntry.paidTimeOffHours)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Lunch break</p>
+                  <p className="mt-1 font-semibold text-foreground">
+                    {formatHours(selectedEntry.lunch_hours)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-border bg-background">
+                <div className="border-b border-border px-3 py-3">
+                  <p className="flex items-center gap-2 font-semibold text-foreground">
+                    <MapPin className="size-4 text-accent" />
+                    Location history
+                  </p>
+                </div>
+                <div className="divide-y divide-border">
+                  {selectedEntry.locationEvents.length === 0 ? (
+                    <p className="px-3 py-4 text-sm text-muted">
+                      No location events were captured for this shift.
+                    </p>
+                  ) : (
+                    selectedEntry.locationEvents.map((event) => (
+                      <div key={event.id} className="grid gap-2 px-3 py-3 sm:grid-cols-[150px_1fr_auto] sm:items-center">
+                        <div>
+                          <p className="text-sm font-semibold capitalize text-foreground">
+                            {event.event_type.replaceAll("_", " ")}
+                          </p>
+                          <p className="mt-1 text-xs text-muted">{formatTime(event.local_event_time)}</p>
+                        </div>
+                        <div className="min-w-0 text-xs text-muted">
+                          <p className="truncate">
+                            {event.workstationName ?? "No workstation"}
+                            {event.distance_meters !== null
+                              ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                              : ""}
+                          </p>
+                          <p className="mt-1 truncate">
+                            {event.latitude !== null && event.longitude !== null
+                              ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                              : "No coordinates captured"}
+                            {event.accuracy_meters !== null
+                              ? ` · ±${Math.round(event.accuracy_meters)}m`
+                              : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${geofenceClass(event.geofence_status)}`}
+                        >
+                          <LocateFixed className="size-3.5" />
+                          {geofenceLabel(event.geofence_status)}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

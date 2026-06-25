@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.25-geolocation-workstations`. It covers mapped company workstations, employee workstation assignments, and geofence status capture on clock events.
+The latest seeded production changelog is `2026.06.25-manager-timesheet-review`. It covers clickable manager calendar timesheets, detailed approval breakdowns, and shift location history in timesheet review.
