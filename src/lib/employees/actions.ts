@@ -39,6 +39,17 @@ function scheduleIds(values: { work_schedule_id?: string; work_schedule_ids?: st
   return values.work_schedule_id ? [values.work_schedule_id] : [];
 }
 
+function isMissingAssignmentRpc(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+
+  return (
+    error.code === "42883" ||
+    error.code === "PGRST202" ||
+    error.message?.includes("set_employee_work_schedule_assignments") ||
+    error.message?.includes("schema cache")
+  );
+}
+
 export async function createEmployee(
   input: EmployeeFormInput,
 ): Promise<ActionState> {
@@ -84,7 +95,7 @@ export async function createEmployee(
     target_work_schedule_ids: selectedScheduleIds,
   });
 
-  if (scheduleError) {
+  if (scheduleError && !isMissingAssignmentRpc(scheduleError)) {
     return { ok: false, message: scheduleError.message };
   }
 
@@ -140,7 +151,7 @@ export async function updateEmployee(
     target_work_schedule_ids: selectedScheduleIds,
   });
 
-  if (scheduleError) {
+  if (scheduleError && !isMissingAssignmentRpc(scheduleError)) {
     return { ok: false, message: scheduleError.message };
   }
 

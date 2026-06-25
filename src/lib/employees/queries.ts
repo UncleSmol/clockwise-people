@@ -24,6 +24,17 @@ type WorkScheduleAssignmentRow = {
   work_schedule_id: string;
 };
 
+function isMissingAssignmentSchema(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    error.message?.includes("employee_work_schedule_assignments") ||
+    error.message?.includes("schema cache")
+  );
+}
+
 function relationName(
   relation?: { name: string }[] | { name: string } | null,
 ) {
@@ -135,13 +146,15 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     throw new Error(schedulesResult.error.message);
   }
 
-  if (assignmentsResult.error) {
+  if (assignmentsResult.error && !isMissingAssignmentSchema(assignmentsResult.error)) {
     throw new Error(assignmentsResult.error.message);
   }
 
   const employees = attachWorkScheduleIds(
     ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(normalizeEmployee),
-    (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
+    assignmentsResult.error
+      ? []
+      : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   );
 
   return {
@@ -197,12 +210,14 @@ export async function getEmployeeDetail(employeeId: string) {
     throw new Error(error.message);
   }
 
-  if (assignmentsResult.error) {
+  if (assignmentsResult.error && !isMissingAssignmentSchema(assignmentsResult.error)) {
     throw new Error(assignmentsResult.error.message);
   }
 
   return attachWorkScheduleIds(
     [normalizeEmployee(data as unknown as EmployeeRow)],
-    (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
+    assignmentsResult.error
+      ? []
+      : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   )[0];
 }
