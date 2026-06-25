@@ -232,12 +232,13 @@ button:disabled {
 
 .cw-timesheet-calendar {
   --fc-border-color: var(--color-border);
-  --fc-button-bg-color: var(--color-primary);
-  --fc-button-border-color: var(--color-primary);
-  --fc-button-hover-bg-color: var(--color-primary);
-  --fc-button-hover-border-color: var(--color-primary);
+  --fc-button-bg-color: var(--color-surface);
+  --fc-button-border-color: var(--color-border);
+  --fc-button-hover-bg-color: var(--color-surface-muted);
+  --fc-button-hover-border-color: var(--color-accent);
   --fc-button-active-bg-color: var(--color-accent);
   --fc-button-active-border-color: var(--color-accent);
+  --fc-button-text-color: var(--color-foreground);
   --fc-event-border-color: transparent;
   --fc-page-bg-color: transparent;
   --fc-small-font-size: 0.75rem;
@@ -263,10 +264,30 @@ button:disabled {
 .cw-timesheet-calendar .fc-button {
   border-radius: 0.375rem;
   box-shadow: none;
+  color: var(--color-foreground);
   font-size: 0.75rem;
   font-weight: 700;
   padding: 0.375rem 0.625rem;
   text-transform: capitalize;
+}
+
+.cw-timesheet-calendar .fc-button:hover,
+.cw-timesheet-calendar .fc-button:focus {
+  color: var(--color-foreground);
+}
+
+.cw-timesheet-calendar .fc-button-primary:not(:disabled).fc-button-active,
+.cw-timesheet-calendar .fc-button-primary:not(:disabled):active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-background);
+}
+
+.cw-timesheet-calendar .fc-button:disabled {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+  color: var(--color-muted);
+  opacity: 0.75;
 }
 
 .cw-timesheet-calendar .fc-scrollgrid,
