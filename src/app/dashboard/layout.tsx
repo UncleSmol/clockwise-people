@@ -5,6 +5,7 @@ import { getUnseenAppUpdates } from "@/lib/app-updates/queries";
 import AppUpdateChangelog from "@/components/AppUpdateChangelog";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
+import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const [{ company }, access, unseenUpdates] = await Promise.all([
@@ -42,6 +43,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       </div>
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
       <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
+      <PwaInstallPrompt />
     </main>
   );
 }

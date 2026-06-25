@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# private policy source documents
+/*Policy*.pdf
+
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.25-manager-calendar-actions`. It covers employee calendar timesheet detail modals, manager-created subordinate draft timesheets, and manager loading of approved time off requests into timesheets individually or in bulk.
+The latest seeded production changelog is `2026.06.26-dashboard-notifications`. It covers the dashboard holidays and team movement panels, smart daily reminder prompts, install prompt, service worker registration, and actionable notification center.

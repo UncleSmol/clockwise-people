@@ -1,10 +1,12 @@
 import Link from "next/link";
+import DashboardExperience from "@/components/dashboard/DashboardExperience";
 import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
 import {
   getActiveCompany,
   getCompanySetup,
   getCurrentUserAccess,
 } from "@/lib/foundation/queries";
+import { getDashboardExperienceData } from "@/lib/dashboard/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
 import { getEmployeeTimeState } from "@/lib/time-tracking/queries";
 
@@ -21,10 +23,12 @@ export default async function DashboardPage() {
     { branches, departments },
     employeesData,
     employeeTimeState,
+    dashboardExperience,
   ] = await Promise.all([
     getCompanySetup(company.id),
     getEmployeePageData(),
     access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
+    getDashboardExperienceData(),
   ]);
 
   const hasBranches = branches.length > 0;
@@ -179,6 +183,8 @@ export default async function DashboardPage() {
           <EmployeeTimeClock todayEntry={employeeTimeState.todayEntry} />
         </section>
       ) : null}
+
+      <DashboardExperience data={dashboardExperience} />
 
       {foundationComplete ? (
         <>
