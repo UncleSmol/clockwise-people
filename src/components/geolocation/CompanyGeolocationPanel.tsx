@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { MapPin, Navigation, Radar, Save, Trash2, Users } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import {
@@ -12,7 +13,15 @@ import type {
   CompanyWorkstation,
 } from "@/lib/geolocation/schema";
 import type { Branch } from "@/lib/foundation/schema";
-import WorkstationMap from "./WorkstationMap";
+
+const WorkstationMap = dynamic(() => import("./WorkstationMap"), {
+  loading: () => (
+    <div className="grid h-[360px] place-items-center rounded-md border border-border bg-background text-sm font-semibold text-muted">
+      Loading map...
+    </div>
+  ),
+  ssr: false,
+});
 
 type CompanyGeolocationPanelProps = {
   branches: Branch[];
