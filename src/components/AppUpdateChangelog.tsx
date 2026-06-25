@@ -85,7 +85,7 @@ export default function AppUpdateChangelog({
 
   return (
     <div
-      className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-3 backdrop-blur-sm sm:p-5"
+      className="fixed inset-x-0 bottom-0 top-[76px] z-[80] grid place-items-center bg-black/55 p-3 backdrop-blur-sm sm:p-5"
       onKeyDown={handleKeyDown}
     >
       <section
@@ -93,9 +93,9 @@ export default function AppUpdateChangelog({
         aria-modal="true"
         ref={dialogRef}
         role="dialog"
-        className="max-h-[88dvh] w-full max-w-xl overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-2xl"
+        className="flex max-h-[calc(100dvh-104px)] w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-2xl"
       >
-        <div className="border-b border-border bg-surface px-4 py-3">
+        <div className="shrink-0 border-b border-border bg-surface px-4 py-3">
           <div className="flex min-w-0 gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
               <Sparkles className="size-5" />
@@ -116,7 +116,7 @@ export default function AppUpdateChangelog({
           </div>
         </div>
 
-        <div className="max-h-[52dvh] overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {state.message ? (
             <p className="mb-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
               {state.message}
@@ -158,7 +158,7 @@ export default function AppUpdateChangelog({
           ))}
         </div>
 
-        <form action={formAction} className="border-t border-border bg-surface p-3">
+        <form action={formAction} className="shrink-0 border-t border-border bg-surface p-3">
           {updates.map((update) => (
             <input key={update.id} type="hidden" name="update_ids" value={update.id} />
           ))}

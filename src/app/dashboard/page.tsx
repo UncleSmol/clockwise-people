@@ -2,11 +2,18 @@ import Link from "next/link";
 import {
   getActiveCompany,
   getCompanySetup,
+  getCurrentUserAccess,
 } from "@/lib/foundation/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
 
 export default async function DashboardPage() {
-  const { company } = await getActiveCompany();
+  const [{ company }, access] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+  ]);
+  const canManageFoundation = access.canManageCompany || access.canManageEmployees;
+  const canReviewWorkforce = access.canReviewBranchTime || access.canManageDirectReports;
+  const showManagementActions = canManageFoundation || canReviewWorkforce;
 
   const [
     { branches, departments },
@@ -22,26 +29,33 @@ export default async function DashboardPage() {
   const completedSteps = [true, hasBranches, hasEmployees].filter(Boolean).length;
   const setupProgress = Math.round((completedSteps / 3) * 100);
   const foundationComplete = setupProgress === 100;
-  const nextAction = !hasBranches
+  const nextAction = !showManagementActions
     ? {
-        title: "Add your first branch",
-        body: "Employees must belong to a branch, so branch setup comes before employee registration.",
-        href: "/dashboard/company",
-        label: "Go to company setup",
+        title: "Open your workspace",
+        body: "Use your dedicated pages for time tracking and leave requests.",
+        href: "/dashboard/time",
+        label: "Open time tracking",
       }
-    : !hasEmployees
+    : !hasBranches
       ? {
-          title: "Register your first employee",
-          body: "Once employees are in place, schedules can be added next for accurate time calculations.",
-          href: "/dashboard/employees",
-          label: "Add employees",
+          title: "Add your first branch",
+          body: "Employees must belong to a branch, so branch setup comes before employee registration.",
+          href: "/dashboard/company",
+          label: "Go to company setup",
         }
-      : {
-          title: "Foundation is ready",
-          body: "Your company has the minimum setup needed for the next phase: work schedules.",
-          href: "/dashboard/employees",
-          label: "Review employees",
-        };
+      : !hasEmployees
+        ? {
+            title: "Register your first employee",
+            body: "Once employees are in place, schedules can be added next for accurate time calculations.",
+            href: "/dashboard/employees",
+            label: "Add employees",
+          }
+        : {
+            title: "Foundation is ready",
+            body: "Your company has the minimum setup needed for the next phase: work schedules.",
+            href: "/dashboard/employees",
+            label: "Review employees",
+          };
 
   const stats = [
     {
@@ -199,18 +213,22 @@ export default async function DashboardPage() {
                 >
                   Open leave requests
                 </Link>
-                <Link
-                  href="/dashboard/employees"
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"
-                >
-                  Manage employees
-                </Link>
-                <Link
-                  href="/dashboard/company"
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"
-                >
-                  Manage branches and departments
-                </Link>
+                {access.canManageEmployees ? (
+                  <Link
+                    href="/dashboard/employees"
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"
+                  >
+                    Manage employees
+                  </Link>
+                ) : null}
+                {access.canManageCompany ? (
+                  <Link
+                    href="/dashboard/company"
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground hover:border-accent"
+                  >
+                    Manage branches and departments
+                  </Link>
+                ) : null}
               </div>
             </aside>
           </section>

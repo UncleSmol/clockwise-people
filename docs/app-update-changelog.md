@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.25-manager-timesheet-review`. It covers clickable manager calendar timesheets, detailed approval breakdowns, and shift location history in timesheet review.
+The latest seeded production changelog is `2026.06.25-modal-role-fixes`. It covers modal placement below the navbar and removal of manager-only quick actions from employee dashboard views.

@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.25-manager-timesheet-review",
+  "version": "2026.6.25-modal-role-fixes",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
