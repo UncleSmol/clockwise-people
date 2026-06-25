@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.25-modal-role-fixes`. It covers modal placement below the navbar and removal of manager-only quick actions from employee dashboard views.
+The latest seeded production changelog is `2026.06.25-compliance-location-clock`. It covers dashboard quick clocking with required browser location and the new Documents compliance area.

@@ -18,6 +18,7 @@ const baseLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/time", label: "Time" },
   { href: "/dashboard/leave", label: "Leave" },
+  { href: "/dashboard/documents", label: "Documents" },
   { href: "/dashboard/account", label: "Account" },
 ];
 
@@ -53,9 +54,10 @@ export default function DashboardNavigation({
     baseLinks[0],
     baseLinks[1],
     baseLinks[2],
+    baseLinks[3],
     ...(canManageCompany ? [{ href: "/dashboard/company", label: "Company" }] : []),
     ...(canManageEmployees ? [{ href: "/dashboard/employees", label: "Employees" }] : []),
-    baseLinks[3],
+    baseLinks[4],
   ];
 
   return (

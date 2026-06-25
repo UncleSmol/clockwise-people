@@ -30,6 +30,13 @@ export async function recordClockEvent(
   const accuracy = String(formData?.get("accuracy") ?? "").trim();
   const capturedAt = String(formData?.get("captured_at") ?? "").trim();
 
+  if (!latitude || !longitude) {
+    return {
+      ok: false,
+      message: "Location is required for clocking. Enable location permission and try again.",
+    };
+  }
+
   const { data, error } = await supabase.rpc("record_employee_time_event", {
     requested_event: eventType,
     device_metadata: {

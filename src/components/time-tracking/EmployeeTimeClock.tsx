@@ -127,6 +127,12 @@ function optimisticEntry(
 export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps) {
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
   const [locationMessage, setLocationMessage] = useState("");
+  const [locationDetails, setLocationDetails] = useState<{
+    accuracy: number;
+    capturedAt: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [locating, setLocating] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const latitudeRef = useRef<HTMLInputElement>(null);
@@ -163,9 +169,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
     setLocationMessage("");
 
     if (!navigator.geolocation) {
-      setLocationMessage("Location is not available on this device. Clocking will continue without a location.");
-      locationReadyRef.current = true;
-      formRef.current?.requestSubmit();
+      setLocationMessage("Location is required for clocking, but this device or browser does not provide location access.");
       return;
     }
 
@@ -191,17 +195,26 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
       if (capturedAtRef.current) {
         capturedAtRef.current.value = new Date(position.timestamp).toISOString();
       }
+      setLocationDetails({
+        accuracy: position.coords.accuracy,
+        capturedAt: new Date(position.timestamp).toISOString(),
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
     } catch {
-      setLocationMessage("Location permission was denied or timed out. Clocking will continue and be marked as no location.");
+      setLocationMessage("Location is required for clocking. Enable location permission and try again.");
       if (latitudeRef.current) latitudeRef.current.value = "";
       if (longitudeRef.current) longitudeRef.current.value = "";
       if (accuracyRef.current) accuracyRef.current.value = "";
       if (capturedAtRef.current) capturedAtRef.current.value = "";
+      setLocating(false);
+      return;
     } finally {
       setLocating(false);
-      locationReadyRef.current = true;
-      formRef.current?.requestSubmit();
     }
+
+    locationReadyRef.current = true;
+    formRef.current?.requestSubmit();
   };
 
   const status = currentStatus(displayEntry);
@@ -268,6 +281,23 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
             {locationMessage}
           </div>
         ) : null}
+
+        <div className="mb-4 rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <p className="font-semibold text-foreground">Clocking location</p>
+          <p className="mt-1 text-xs text-muted">
+            Location is required for every clocking event and is used to validate workstation radius.
+          </p>
+          {locationDetails ? (
+            <p className="mt-2 text-xs font-semibold text-foreground">
+              {locationDetails.latitude.toFixed(6)}, {locationDetails.longitude.toFixed(6)}
+              {" · "}±{Math.round(locationDetails.accuracy)}m
+            </p>
+          ) : (
+            <p className="mt-2 text-xs font-semibold text-warning">
+              Location will be requested when you clock.
+            </p>
+          )}
+        </div>
 
         <div className="grid gap-2 sm:grid-cols-3">
           <div className="premium-panel rounded-md p-3">

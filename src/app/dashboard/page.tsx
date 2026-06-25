@@ -1,10 +1,12 @@
 import Link from "next/link";
+import EmployeeTimeClock from "@/components/time-tracking/EmployeeTimeClock";
 import {
   getActiveCompany,
   getCompanySetup,
   getCurrentUserAccess,
 } from "@/lib/foundation/queries";
 import { getEmployeePageData } from "@/lib/employees/queries";
+import { getEmployeeTimeState } from "@/lib/time-tracking/queries";
 
 export default async function DashboardPage() {
   const [{ company }, access] = await Promise.all([
@@ -18,9 +20,11 @@ export default async function DashboardPage() {
   const [
     { branches, departments },
     employeesData,
+    employeeTimeState,
   ] = await Promise.all([
     getCompanySetup(company.id),
     getEmployeePageData(),
+    access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
   ]);
 
   const hasBranches = branches.length > 0;
@@ -161,6 +165,20 @@ export default async function DashboardPage() {
           </div>
         ) : null}
       </header>
+
+      {employeeTimeState ? (
+        <section className="grid gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              Quick clock
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-foreground">
+              Clock from your dashboard
+            </h2>
+          </div>
+          <EmployeeTimeClock todayEntry={employeeTimeState.todayEntry} />
+        </section>
+      ) : null}
 
       {foundationComplete ? (
         <>
