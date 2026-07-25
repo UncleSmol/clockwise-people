@@ -67,7 +67,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
 
   const { data: appUsers, error: userError } = await supabase
     .from("users")
-    .select("id, company_id, employee_id")
+    .select("id, company_id, employee_id, is_super_admin")
     .eq("auth_user_id", user.id)
     .eq("status", "active")
     .is("deleted_at", null);
@@ -82,6 +82,8 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   if (companyIds.length === 0) {
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
+
+  const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
 
   const { data: roles, error: rolesError } = await supabase
     .from("user_roles")
@@ -122,19 +124,22 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     appUserId: currentAppUser?.id ?? null,
     employeeId: currentAppUser?.employee_id ?? null,
     roles: Array.from(roleKeys),
-    isOwner: roleKeys.has("owner"),
-    isHrAdmin: roleKeys.has("hr_admin"),
-    isBranchManager: roleKeys.has("branch_manager"),
-    isPayrollViewer: roleKeys.has("payroll_viewer"),
+    isSuperAdmin,
+    isOwner: isSuperAdmin || roleKeys.has("owner"),
+    isHrAdmin: isSuperAdmin || roleKeys.has("hr_admin"),
+    isBranchManager: isSuperAdmin || roleKeys.has("branch_manager"),
+    isPayrollViewer: isSuperAdmin || roleKeys.has("payroll_viewer"),
     isEmployee: roleKeys.has("employee"),
-    canManageCompany: roleKeys.has("owner") || roleKeys.has("hr_admin"),
-    canManageEmployees: roleKeys.has("owner") || roleKeys.has("hr_admin"),
+    canManageCompany: isSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin"),
+    canManageEmployees: isSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin"),
     canReviewBranchTime:
+      isSuperAdmin ||
       roleKeys.has("owner") ||
       roleKeys.has("hr_admin") ||
       roleKeys.has("branch_manager"),
-    canManageDirectReports,
+    canManageDirectReports: isSuperAdmin || canManageDirectReports,
     canViewPayroll:
+      isSuperAdmin ||
       roleKeys.has("owner") ||
       roleKeys.has("hr_admin") ||
       roleKeys.has("payroll_viewer"),
