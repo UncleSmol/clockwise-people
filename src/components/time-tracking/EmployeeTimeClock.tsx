@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   clockIn,
   clockOut,
@@ -12,6 +12,7 @@ import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
 
 type EmployeeTimeClockProps = {
   todayEntry: TimeEntryRecord | null;
+  variant?: "card" | "compact" | "strip";
 };
 
 type ClockActionState = {
@@ -87,6 +88,18 @@ function localDateValue() {
   return `${year}-${month}-${day}`;
 }
 
+function formatCoordinate(value: number) {
+  return value.toFixed(5);
+}
+
+function formatLocationLabel(details: {
+  accuracy: number;
+  latitude: number;
+  longitude: number;
+}) {
+  return `${formatCoordinate(details.latitude)}, ${formatCoordinate(details.longitude)} (+/-${Math.round(details.accuracy)}m)`;
+}
+
 function optimisticEntry(
   entry: TimeEntryRecord | null,
   eventLabel: string,
@@ -124,7 +137,10 @@ function optimisticEntry(
   return next;
 }
 
-export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps) {
+export default function EmployeeTimeClock({
+  todayEntry,
+  variant = "card",
+}: EmployeeTimeClockProps) {
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
   const [locationMessage, setLocationMessage] = useState("");
   const [locationDetails, setLocationDetails] = useState<{
@@ -140,6 +156,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
   const accuracyRef = useRef<HTMLInputElement>(null);
   const capturedAtRef = useRef<HTMLInputElement>(null);
   const locationReadyRef = useRef(false);
+  const hasLoadedInitialLocationRef = useRef(false);
   const [state, formAction, pending] = useActionState(
     async (previousState: ClockActionState, formData: FormData) => {
       const currentEntry = previousState.entry ?? optimistic ?? todayEntry;
@@ -159,6 +176,39 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
   );
   const displayEntry = state.entry ?? optimistic ?? todayEntry;
   const actionConfig = nextAction(displayEntry);
+
+  useEffect(() => {
+    if (hasLoadedInitialLocationRef.current || typeof navigator === "undefined") {
+      return;
+    }
+
+    hasLoadedInitialLocationRef.current = true;
+
+    if (!navigator.geolocation) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationDetails({
+          accuracy: position.coords.accuracy,
+          capturedAt: new Date(position.timestamp).toISOString(),
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationMessage("");
+      },
+      () => {
+        setLocationMessage("Allow location access to view your current position before clocking.");
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 30000,
+        timeout: 12000,
+      },
+    );
+  }, []);
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     if (locationReadyRef.current) {
       locationReadyRef.current = false;
@@ -230,10 +280,70 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
     { label: "Lunch end", value: displayEntry?.lunch_end },
     { label: "Clock out", value: displayEntry?.clock_out },
   ];
+  const locationSummary = locationDetails
+    ? `Current location: ${formatLocationLabel(locationDetails)}`
+    : locationMessage ||
+      (typeof navigator !== "undefined" && !navigator.geolocation
+        ? "Location is unavailable on this device."
+        : "Checking current location...");
+
+  if (variant === "strip") {
+    const statusDot =
+      status === "Not clocked in" ? "bg-muted" :
+      status === "Working" ? "bg-accent" :
+      status === "On lunch" ? "bg-warning" :
+      status === "Shift complete" ? "bg-success" :
+      "bg-muted";
+
+    return (
+      <section className="card flex items-center gap-4 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className={`inline-block size-2.5 rounded-full ${statusDot}`} />
+          <div>
+            <p className="text-sm font-semibold text-foreground">{status}</p>
+            <p className="text-xs text-muted">
+              {displayEntry?.work_date ?? "No time record started yet"}
+            </p>
+          </div>
+        </div>
+
+        <span className="ml-auto text-sm font-bold tabular-nums text-foreground">
+          {formatHours(displayEntry?.paid_hours)}
+        </span>
+
+        {actionConfig ? (
+          <form action={formAction} onSubmit={handleSubmit} ref={formRef}>
+            <input name="latitude" ref={latitudeRef} type="hidden" />
+            <input name="longitude" ref={longitudeRef} type="hidden" />
+            <input name="accuracy" ref={accuracyRef} type="hidden" />
+            <input name="captured_at" ref={capturedAtRef} type="hidden" />
+            <button
+              disabled={pending || locating}
+              className={`btn ${actionConfig.tone === "danger" ? "btn-danger" : actionConfig.tone === "secondary" ? "btn-outline" : "btn-accent"}`}
+            >
+              {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
+            </button>
+          </form>
+        ) : (
+          <span className="badge badge-success">Complete</span>
+        )}
+
+        {locationMessage ? (
+          <p className="text-xs text-danger">{locationMessage}</p>
+        ) : null}
+
+        {state.message ? (
+          <p className={`text-xs ${state.ok ? "text-success" : "text-danger"}`}>
+            {state.message}
+          </p>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
-    <div className="premium-card overflow-hidden rounded-md">
-      <div className="premium-hero grid gap-3 p-4 text-white sm:p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+    <div className="card overflow-hidden">
+      <div className="bg-primary text-primary-foreground grid gap-3 p-4 sm:p-5 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
             Today&apos;s shift
@@ -300,7 +410,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
         </div>
 
         <div className="grid gap-2 sm:grid-cols-3">
-          <div className="premium-panel rounded-md p-3">
+          <div className="card p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Paid time
             </p>
@@ -308,7 +418,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
               {formatHours(displayEntry?.paid_hours)}
             </p>
           </div>
-          <div className="premium-panel rounded-md p-3">
+          <div className="card p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Lunch
             </p>
@@ -316,7 +426,7 @@ export default function EmployeeTimeClock({ todayEntry }: EmployeeTimeClockProps
               {formatHours(displayEntry?.lunch_hours)}
             </p>
           </div>
-          <div className="premium-panel rounded-md p-3">
+          <div className="card p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Overtime
             </p>

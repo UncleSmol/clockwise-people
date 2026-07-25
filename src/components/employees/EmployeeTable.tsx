@@ -39,7 +39,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
   if (employees.length === 0) {
     return (
-      <div className="premium-card rounded-md px-6 py-10 text-center">
+      <div className="card px-6 py-10 text-center">
         <p className="text-lg font-semibold text-foreground">No employees registered</p>
         <p className="mt-2 text-sm text-muted">
           Add the first employee to start building the company register.
@@ -49,7 +49,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
   }
 
   return (
-    <div className="premium-card overflow-hidden rounded-md">
+    <div className="card overflow-hidden">
       <div className="border-b border-border bg-surface px-3 py-3">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
@@ -117,7 +117,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                 </div>
 
                 <Link
-                  href={`/dashboard/employees/${employee.id}`}
+                  href={`/dashboard?panel=people&employeeId=${employee.id}`}
                   className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground"
                 >
                   View

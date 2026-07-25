@@ -18,19 +18,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     unseenUpdates.map((update) => update.id).sort().join(":") || "no-updates";
 
   return (
-    <main className="premium-shell min-h-screen bg-background text-foreground">
-      <div className="sticky top-0 z-30 border-b border-border/70 bg-surface/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           <Link
             href="/dashboard"
-            className="flex min-w-0 items-center gap-3 rounded-md px-1 py-1 text-lg font-semibold text-primary"
+            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1"
           >
             <BrandMark
               brandName={company.name}
               logoUrl={company.logo_url}
-              imageSize={36}
-              imageClassName="size-9 rounded-md shadow-sm"
-              textClassName="truncate text-lg font-semibold text-primary"
+              imageSize={28}
+              imageClassName="size-7 rounded"
+              textClassName="truncate text-sm font-bold text-foreground"
               priority
             />
           </Link>
@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           />
         </div>
       </div>
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+      {children}
       <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
       <PwaInstallPrompt />
     </main>

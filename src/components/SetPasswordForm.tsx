@@ -35,19 +35,19 @@ export default function SetPasswordForm() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace("/auth/create-company");
     router.refresh();
   }
 
   return (
     <form action={onSubmit} className="mt-6 grid gap-4">
       {error && (
-        <div className="rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
+        <div className="rounded-lg border border-danger/20 bg-danger/8 px-4 py-3 text-sm font-medium text-danger">
           {error}
         </div>
       )}
 
-      <label className="grid gap-2 text-sm font-medium text-foreground">
+      <label className="grid gap-1.5 text-sm font-medium text-foreground">
         New password
         <input
           name="password"
@@ -55,11 +55,10 @@ export default function SetPasswordForm() {
           minLength={8}
           required
           autoComplete="new-password"
-          className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
         />
       </label>
 
-      <label className="grid gap-2 text-sm font-medium text-foreground">
+      <label className="grid gap-1.5 text-sm font-medium text-foreground">
         Confirm password
         <input
           name="confirm_password"
@@ -67,14 +66,13 @@ export default function SetPasswordForm() {
           minLength={8}
           required
           autoComplete="new-password"
-          className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
         />
       </label>
 
       <button
         type="submit"
         disabled={saving}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        className="btn btn-accent w-full text-center"
       >
         {saving ? "Saving..." : "Save password"}
       </button>

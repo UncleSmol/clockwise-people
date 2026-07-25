@@ -55,10 +55,10 @@ export default function CompanyTimesheetCorrectionQueue({
   );
 
   return (
-    <section className="premium-card grid gap-3 rounded-md p-4">
+    <section className="card grid gap-3 p-4">
       <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
         <div>
-          <p className="premium-eyebrow">Management review</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Management review</p>
           <h2 className="mt-1 flex items-center gap-2 text-xl font-semibold text-foreground">
             <ClipboardList className="size-5 text-accent" />
             Timesheet requests

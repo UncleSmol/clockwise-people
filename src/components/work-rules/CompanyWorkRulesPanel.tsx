@@ -94,10 +94,10 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
             : holidayState.ok;
 
   return (
-    <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
+    <section className="card grid gap-4 p-4 sm:p-6">
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
         <div>
-          <p className="premium-eyebrow">Rules</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Rules</p>
           <h2 className="mt-1 text-xl font-semibold text-foreground">
             Work and leave rules
           </h2>

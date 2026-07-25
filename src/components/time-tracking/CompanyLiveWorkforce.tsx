@@ -164,10 +164,10 @@ export default function CompanyLiveWorkforce({
   }, [overview.companyId, router]);
 
   return (
-    <section className="premium-card grid gap-3 rounded-md p-4">
+    <section className="card grid gap-3 p-4">
       <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
         <div>
-          <p className="premium-eyebrow">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
             Live workforce
           </p>
           <h2 className="mt-1 text-xl font-semibold text-foreground">
@@ -190,7 +190,7 @@ export default function CompanyLiveWorkforce({
           ["Not started", overview.totals.notStarted],
           ["Needs review", overview.totals.needsReview],
         ].map(([label, value]) => (
-          <div key={label} className="premium-panel rounded-md p-3">
+          <div key={label} className="card p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               {label}
             </p>

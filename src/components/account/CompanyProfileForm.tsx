@@ -39,7 +39,7 @@ function Field({
       <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
         {label}
       </span>
-      <span className="flex items-center gap-2 rounded-md border border-border bg-background px-3">
+      <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
         {icon ? <span className="text-muted">{icon}</span> : null}
         <input
           autoComplete={autoComplete}
@@ -67,10 +67,10 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
 
       {state.message ? (
         <p
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={`rounded-lg border px-3 py-2 text-sm font-medium ${
             state.ok
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-danger/30 bg-danger/10 text-danger"
+              ? "border-success/20 bg-success/8 text-success"
+              : "border-danger/20 bg-danger/8 text-danger"
           }`}
         >
           {state.message}
@@ -195,7 +195,7 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
       <div className="flex justify-end">
         <button
           disabled={pending}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="btn btn-primary inline-flex items-center gap-2"
         >
           <Save className="size-4" />
           {pending ? "Saving..." : "Save company profile"}

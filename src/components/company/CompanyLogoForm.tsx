@@ -51,10 +51,10 @@ export default function CompanyLogoForm({
 
       {state.message ? (
         <p
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={`rounded-lg border px-3 py-2 text-sm font-medium ${
             state.ok
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-danger/30 bg-danger/10 text-danger"
+              ? "border-success/20 bg-success/8 text-success"
+              : "border-danger/20 bg-danger/8 text-danger"
           }`}
         >
           {state.message}
@@ -70,7 +70,6 @@ export default function CompanyLogoForm({
           name="logo_url"
           value={currentLogoUrl}
           onChange={(event) => setCurrentLogoUrl(event.target.value)}
-          className="h-10 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none ring-ring focus:ring-2"
           placeholder="https://..."
         />
       </label>
@@ -79,7 +78,7 @@ export default function CompanyLogoForm({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="btn btn-primary inline-flex items-center gap-2"
         >
           <Save className="size-4" />
           {pending ? "Saving..." : "Save logo"}

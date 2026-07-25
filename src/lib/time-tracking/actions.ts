@@ -282,6 +282,69 @@ export async function loadManagedLeaveRequestsToTimesheets(
   };
 }
 
+export async function updateManagedDraftTimeEntry(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+  const employeeId = String(formData.get("employee_id") ?? "").trim();
+
+  if (!timeEntryId || !employeeId) {
+    return { ok: false, message: "Missing time entry or employee." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("update_managed_draft_time_entry", {
+    target_time_entry_id: timeEntryId,
+    target_employee_id: employeeId,
+    proposed_clock_in: optionalTime(formData, "clock_in"),
+    proposed_lunch_start: optionalTime(formData, "lunch_start"),
+    proposed_lunch_end: optionalTime(formData, "lunch_end"),
+    proposed_clock_out: optionalTime(formData, "clock_out"),
+    entry_notes: String(formData.get("notes") ?? "").trim() || null,
+  });
+
+  if (error) {
+    if (isMissingManagerCalendarRpc(error)) {
+      return { ok: false, message: managerCalendarMigrationMessage };
+    }
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Timesheet updated." };
+}
+
+export async function deleteManagedDraftTimeEntry(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+  const employeeId = String(formData.get("employee_id") ?? "").trim();
+
+  if (!timeEntryId || !employeeId) {
+    return { ok: false, message: "Missing time entry or employee." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("delete_managed_draft_time_entry", {
+    target_time_entry_id: timeEntryId,
+    target_employee_id: employeeId,
+  });
+
+  if (error) {
+    if (isMissingManagerCalendarRpc(error)) {
+      return { ok: false, message: managerCalendarMigrationMessage };
+    }
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Draft timesheet deleted." };
+}
+
 export async function deleteDraftTimeEntry(
   _previousState: TimeEntryActionState,
   formData: FormData,

@@ -196,7 +196,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
               <p className="font-semibold text-foreground">{popup.title}</p>
               <p className="mt-1 text-sm text-muted">{popup.body}</p>
               <button
-                className="mt-3 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                className="btn btn-primary mt-3"
                 onClick={() => setPopup(null)}
                 type="button"
               >
@@ -208,7 +208,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="premium-card rounded-md">
+        <div className="card">
           <div className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
               <CalendarDays className="size-4" />
@@ -235,7 +235,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
           </div>
         </div>
 
-        <div className="premium-card rounded-md">
+        <div className="card">
           <div className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
               <TimerReset className="size-4" />
@@ -276,7 +276,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
                 <button
                   type="button"
                   onClick={() => showDeviceNotification("Notifications enabled", "ClockWise reminders can appear on this device.", "notification-test")}
-                  className="justify-self-start rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
+                  className="btn btn-outline justify-self-start"
                 >
                   Enable device notifications
                 </button>
@@ -291,7 +291,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <div className="premium-card rounded-md">
+        <div className="card">
           <div className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
               <Radio className="size-4" />
@@ -325,7 +325,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
           </div>
         </div>
 
-        <div className="premium-card rounded-md">
+        <div className="card">
           <div className="border-b border-border px-4 py-3">
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
               <Bell className="size-4" />
@@ -352,7 +352,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
                   </div>
                   <button
                     disabled={pending}
-                    className="justify-self-start rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    className="btn btn-primary justify-self-start"
                   >
                     {notification.targetHref ? "Open and clear" : "Clear"}
                   </button>

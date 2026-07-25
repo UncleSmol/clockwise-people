@@ -69,27 +69,30 @@ export default function ThemeToggle() {
     window.dispatchEvent(new Event("cwp-theme-change"));
   }
 
-  const isDark = theme === "dark";
-
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      aria-label={`Switch to ${isDark ? "light" : "dark"} theme`}
-      aria-pressed={isDark}
-      className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:border-accent focus:outline-none focus:ring-2 focus:ring-ring"
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      className="icon-btn text-muted hover:text-foreground"
     >
-      <span
-        aria-hidden="true"
-        className="relative inline-flex h-5 w-9 items-center rounded-full bg-surface-muted p-0.5"
-      >
-        <span
-          className={`block size-4 rounded-full bg-accent transition-transform ${
-            isDark ? "translate-x-4" : "translate-x-0"
-          }`}
-        />
-      </span>
-      <span className="hidden sm:inline">{isDark ? "Dark" : "Light"}</span>
+      {theme === "dark" ? (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.93 4.93 1.41 1.41" />
+          <path d="m17.66 17.66 1.41 1.41" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.34 17.66-1.41 1.41" />
+          <path d="m19.07 4.93-1.41 1.41" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
     </button>
   );
 }

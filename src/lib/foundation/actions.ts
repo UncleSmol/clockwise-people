@@ -26,7 +26,7 @@ export async function createBranch(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect(`/dashboard/company?message=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid branch data.")}`);
+    redirect(`/dashboard?panel=company&message=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid branch data.")}`);
   }
 
   const supabase = await createSupabaseServerClient();
@@ -39,11 +39,12 @@ export async function createBranch(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/dashboard/company?message=${encodeURIComponent(error.message)}`);
+    redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/dashboard/company");
-  redirect("/dashboard/company");
+  revalidatePath("/dashboard");
+  redirect("/dashboard?panel=company");
 }
 
 export async function updateCompanyLogo(
@@ -87,7 +88,7 @@ export async function createDepartment(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect(`/dashboard/company?message=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid department data.")}`);
+    redirect(`/dashboard?panel=company&message=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid department data.")}`);
   }
 
   const supabase = await createSupabaseServerClient();
@@ -99,11 +100,12 @@ export async function createDepartment(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/dashboard/company?message=${encodeURIComponent(error.message)}`);
+    redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/dashboard/company");
-  redirect("/dashboard/company");
+  revalidatePath("/dashboard");
+  redirect("/dashboard?panel=company");
 }
 
 export async function deactivateBranch(formData: FormData) {
@@ -118,11 +120,12 @@ export async function deactivateBranch(formData: FormData) {
     .eq("id", branchId);
 
   if (error) {
-    redirect(`/dashboard/company?message=${encodeURIComponent(error.message)}`);
+    redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/dashboard/company");
-  redirect("/dashboard/company");
+  revalidatePath("/dashboard");
+  redirect("/dashboard?panel=company");
 }
 
 export async function deactivateDepartment(formData: FormData) {
@@ -137,9 +140,10 @@ export async function deactivateDepartment(formData: FormData) {
     .eq("id", departmentId);
 
   if (error) {
-    redirect(`/dashboard/company?message=${encodeURIComponent(error.message)}`);
+    redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/dashboard/company");
-  redirect("/dashboard/company");
+  revalidatePath("/dashboard");
+  redirect("/dashboard?panel=company");
 }

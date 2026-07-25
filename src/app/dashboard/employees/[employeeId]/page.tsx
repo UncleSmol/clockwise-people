@@ -1,10 +1,4 @@
-import { notFound } from "next/navigation";
-import EmployeeAvatar from "@/components/EmployeeAvatar";
-import EmployeeAccountPanel from "@/components/employee-accounts/EmployeeAccountPanel";
-import EmployeeForm from "@/components/employees/EmployeeForm";
-import { deactivateEmployee } from "@/lib/employees/actions";
-import { getEmployeeDetail, getEmployeePageData } from "@/lib/employees/queries";
-import { requireEmployeeAdmin } from "@/lib/foundation/queries";
+import { redirect } from "next/navigation";
 
 type EmployeeDetailPageProps = {
   params: Promise<{ employeeId: string }>;
@@ -15,81 +9,17 @@ export default async function EmployeeDetailPage({
   params,
   searchParams,
 }: EmployeeDetailPageProps) {
-  await requireEmployeeAdmin();
-
   const { employeeId } = await params;
   const resolvedSearchParams = await searchParams;
-  const pageData = await getEmployeePageData();
-  const employee = await getEmployeeDetail(employeeId);
+  const search = new URLSearchParams({ panel: "people", employeeId });
 
-  if (!employee) {
-    notFound();
+  if (resolvedSearchParams?.message) {
+    search.set("message", resolvedSearchParams.message);
   }
 
-  const deactivate = deactivateEmployee.bind(null, employee.id);
+  if (typeof (resolvedSearchParams as { manualInviteUrl?: string } | undefined)?.manualInviteUrl === "string") {
+    search.set("manualInviteUrl", (resolvedSearchParams as { manualInviteUrl?: string }).manualInviteUrl ?? "");
+  }
 
-  return (
-    <div className="grid gap-8">
-      <header className="premium-hero rounded-md p-5 text-white sm:p-7">
-        <div className="flex min-w-0 items-center gap-3">
-          <EmployeeAvatar
-            name={employee.known_as ?? employee.full_name}
-            src={employee.avatar_url}
-            className="size-16 rounded-lg border-white/25 bg-white/10 text-white"
-          />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] opacity-70">
-              Employee detail
-            </p>
-            <h1 className="mt-2 truncate text-4xl font-semibold sm:text-5xl">
-              {employee.full_name}
-            </h1>
-            <p className="mt-3 text-sm opacity-80">
-              {employee.employee_number} - {employee.branch_name ?? "No branch"}
-            </p>
-          </div>
-        </div>
-      </header>
-
-      {resolvedSearchParams?.message && (
-        <div className="rounded-md border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground">
-          {resolvedSearchParams.message}
-        </div>
-      )}
-
-      <EmployeeAccountPanel
-        employeeId={employee.id}
-        email={employee.email}
-        hasAccount={Boolean(employee.user_id)}
-      />
-
-      <section className="premium-card grid gap-4 rounded-md p-4 sm:p-6">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">Edit employee</h2>
-          <p className="mt-1 text-sm text-muted">
-            Updates are scoped by company and employee id on the backend.
-          </p>
-        </div>
-        <EmployeeForm
-          branches={pageData.branches}
-          departments={pageData.departments}
-          managers={pageData.managers}
-          schedules={pageData.schedules}
-          employee={employee}
-        />
-      </section>
-
-      <section className="rounded-md border border-danger/30 bg-danger/10 p-4 sm:p-6">
-        <h2 className="text-xl font-semibold text-danger">Deactivate employee</h2>
-        <p className="mt-2 max-w-2xl text-sm text-danger">
-          This performs a soft delete by marking the employee inactive and setting deleted_at.
-        </p>
-        <form action={deactivate} className="mt-4">
-          <button className="rounded-md bg-danger px-4 py-2 text-sm font-semibold text-white">
-            Deactivate employee
-          </button>
-        </form>
-      </section>
-    </div>
-  );
+  redirect(`/dashboard?${search.toString()}`);
 }

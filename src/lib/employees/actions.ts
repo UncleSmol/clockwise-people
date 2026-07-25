@@ -178,5 +178,6 @@ export async function deactivateEmployee(employeeId: string) {
   }
 
   revalidatePath("/dashboard/employees");
-  redirect("/dashboard/employees");
+  revalidatePath("/dashboard");
+  redirect("/dashboard?panel=people");
 }

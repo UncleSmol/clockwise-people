@@ -96,8 +96,11 @@ async function removeStaleUnlinkedAuthUser(
   }
 }
 
+export type EmployeeAccountRoleKey = "owner" | "hr_admin" | "branch_manager" | "payroll_viewer" | "employee";
+
 export async function createEmployeeAccount(
   employeeId: string,
+  roleKey: EmployeeAccountRoleKey,
   previousState: CreateEmployeeAccountState,
 ): Promise<CreateEmployeeAccountState> {
   void previousState;
@@ -156,6 +159,7 @@ export async function createEmployeeAccount(
     target_employee_id: employee.id,
     target_auth_user_id: authResult.user.id,
     provisioned_by_auth_user_id: user.id,
+    target_role_key: roleKey,
   });
 
   if (provisionError) {

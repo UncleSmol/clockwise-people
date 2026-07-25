@@ -49,6 +49,8 @@ const initialState: CorrectionActionState = {
   message: "",
 };
 
+type CalendarWindow = "day" | "week" | "payroll" | "month";
+
 function formatDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("en-ZA", {
@@ -113,6 +115,23 @@ function weekStartDate(value: string) {
   return date;
 }
 
+function parseDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addDays(value: string, days: number) {
+  const date = parseDate(value);
+  date.setDate(date.getDate() + days);
+  return dateKey(date);
+}
+
+function viewButtonClass(active: boolean) {
+  return active
+    ? "bg-primary text-primary-foreground"
+    : "border border-border bg-background text-foreground";
+}
+
 function dateKey(date: Date) {
   return [
     date.getFullYear(),
@@ -165,8 +184,10 @@ export default function EmployeeTimesheetCorrections({
   publicHolidays,
 }: EmployeeTimesheetCorrectionsProps) {
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
+  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
+  const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);
   const [createState, createAction, createPending] = useActionState(
     createPastDraftTimeEntry,
     initialState,
@@ -209,6 +230,7 @@ export default function EmployeeTimesheetCorrections({
   const calendarEvents = useMemo<EventInput[]>(() => {
     const timesheetEvents = entries.map((entry) => {
       const isHoliday = Boolean(entry.notes?.startsWith("Public holiday:"));
+      const needsAttention = entry.missing_clocking || entry.late_arrival || entry.early_departure;
 
       return {
         id: entry.id,
@@ -217,7 +239,10 @@ export default function EmployeeTimesheetCorrections({
           : `${entry.status} - ${formatHours(entry.paid_hours)}`,
         start: entry.work_date,
         allDay: true,
-        classNames: [timesheetCalendarClass(entry, isHoliday)],
+        classNames: [
+          timesheetCalendarClass(entry, isHoliday),
+          needsAttention ? "cw-calendar-attention" : "",
+        ],
         extendedProps: { entry },
       };
     });
@@ -265,13 +290,20 @@ export default function EmployeeTimesheetCorrections({
     !selectedIsHoliday;
   const handleDateClick = (arg: DateClickArg) => {
     setSelectedDate(arg.dateStr);
+    setCalendarFocusDate(arg.dateStr);
   };
   const handleEventClick = (arg: EventClickArg) => {
     const entry = arg.event.extendedProps.entry as TimeEntryRecord | undefined;
     if (entry) {
+      setCalendarFocusDate(entry.work_date);
       setDetailEntry(entry);
     }
   };
+  const payrollRangeLabel = useMemo(() => {
+    const payrollStart = dateKey(weekStartDate(calendarFocusDate));
+    const payrollEnd = addDays(payrollStart, 13);
+    return `${formatDate(payrollStart)} - ${formatDate(payrollEnd)}`;
+  }, [calendarFocusDate]);
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
     const editable = entry.status === "draft" || entry.status === "rejected";
@@ -395,7 +427,7 @@ export default function EmployeeTimesheetCorrections({
   };
 
   return (
-    <section className="premium-card grid gap-3 rounded-md p-4">
+    <section className="card grid gap-3 p-4">
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Timesheets</h2>
@@ -419,22 +451,29 @@ export default function EmployeeTimesheetCorrections({
               Select a past work day to create a draft timesheet. Public holidays are booked automatically.
             </p>
           </div>
-          {selectedDate ? (
-            <form action={createAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input type="hidden" name="work_date" value={selectedDate} />
-              <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
-                {formatDate(selectedDate)}
-              </span>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["day", "Daily"],
+              ["week", "Weekly"],
+              ["payroll", "Payroll period"],
+              ["month", "Monthly"],
+            ] as const).map(([value, label]) => (
               <button
-                disabled={!selectedCanAdd || createPending}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                key={value}
+                type="button"
+                onClick={() => setCalendarWindow(value)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${viewButtonClass(calendarWindow === value)}`}
               >
-                <Plus className="size-4" />
-                {createPending ? "Adding..." : "Add draft"}
+                {label}
               </button>
-            </form>
-          ) : null}
+            ))}
+          </div>
         </div>
+        {calendarWindow === "payroll" ? (
+          <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-semibold text-foreground">
+            Payroll period anchored to the selected week: {payrollRangeLabel}
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2 text-xs font-semibold">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
             <span className="size-2 rounded-full bg-accent" />
@@ -457,23 +496,20 @@ export default function EmployeeTimesheetCorrections({
             Rejected
           </span>
         </div>
-        {selectedDate && selectedEntry ? (
-          <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-muted">
-            This day already has a {selectedEntry.status} timesheet.
-          </p>
-        ) : selectedDate && selectedIsHoliday ? (
-          <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
-            This day is a company public holiday and is handled automatically.
-          </p>
-        ) : selectedDate && selectedDate >= currentWorkDate ? (
-          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
-            Employees can only add past timesheets from the calendar.
-          </p>
-        ) : null}
         <div className="cw-timesheet-calendar">
           <FullCalendar
+            key={`${calendarWindow}-${calendarFocusDate}`}
             plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
+            initialDate={calendarFocusDate}
+            initialView={
+              calendarWindow === "day"
+                ? "dayGridDay"
+                : calendarWindow === "week"
+                  ? "dayGridWeek"
+                  : calendarWindow === "payroll"
+                    ? "dayGridPayroll"
+                    : "dayGridMonth"
+            }
             height="auto"
             firstDay={1}
             events={calendarEvents}
@@ -487,6 +523,13 @@ export default function EmployeeTimesheetCorrections({
               right: "",
             }}
             moreLinkClick="popover"
+            views={{
+              dayGridPayroll: {
+                buttonText: "Payroll",
+                duration: { days: 14 },
+                type: "dayGrid",
+              },
+            }}
           />
         </div>
       </div>
@@ -794,8 +837,8 @@ export default function EmployeeTimesheetCorrections({
       )}
 
       {detailEntry ? (
-        <div className="fixed inset-x-0 bottom-0 top-[76px] z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center">
-          <div className="flex max-h-[calc(100dvh-104px)] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+        <div className="fixed inset-x-0 bottom-4 top-19 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center sm:p-5">
+          <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
@@ -888,6 +931,76 @@ export default function EmployeeTimesheetCorrections({
                   </p>
                 </div>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedDate && !detailEntry ? (
+        <div className="fixed inset-x-0 bottom-4 top-19 z-40 grid place-items-end bg-black/30 p-3 sm:place-items-center sm:p-5">
+          <div className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                  Date actions
+                </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  {formatDate(selectedDate)}
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  Choose an action for this day without leaving the calendar.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDate("")}
+                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                aria-label="Close date actions"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
+              {selectedEntry ? (
+                <>
+                  <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-muted">
+                    This day already has a {selectedEntry.status} timesheet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetailEntry(selectedEntry);
+                      setSelectedDate("");
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    <Clock3 className="size-4" />
+                    Open timesheet
+                  </button>
+                </>
+              ) : selectedIsHoliday ? (
+                <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+                  This day is a company public holiday and is handled automatically.
+                </p>
+              ) : selectedDate >= currentWorkDate ? (
+                <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+                  Employees can only add past timesheets from the calendar.
+                </p>
+              ) : (
+                <form action={createAction} className="grid gap-3">
+                  <input type="hidden" name="work_date" value={selectedDate} />
+                  <p className="text-sm text-muted">
+                    Create a draft timesheet for this work day. You can refine the times before submission.
+                  </p>
+                  <button
+                    disabled={!selectedCanAdd || createPending}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    <Plus className="size-4" />
+                    {createPending ? "Adding..." : "Add draft"}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>

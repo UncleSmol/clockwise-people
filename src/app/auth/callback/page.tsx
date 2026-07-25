@@ -7,16 +7,18 @@ export default function AuthCallbackPage() {
     <Suspense
       fallback={
         <main className="grid min-h-screen place-items-center bg-background px-6 text-foreground">
-          <section className="w-full max-w-md rounded-md border border-border bg-surface p-6 text-center shadow-sm">
+          <section className="w-full max-w-sm">
             <BrandMark
-              className="flex justify-center"
-              imageSize={56}
-              imageClassName="size-14 rounded-md"
-              textClassName="text-sm font-semibold uppercase tracking-[0.18em] text-accent"
+              className="mb-6 flex justify-center"
+              imageSize={48}
+              imageClassName="size-12 rounded-lg"
+              textClassName="text-lg font-bold text-primary"
               priority
             />
-            <h1 className="mt-3 text-2xl font-semibold text-foreground">Please wait</h1>
-            <p className="mt-2 text-sm text-muted">Completing secure sign in...</p>
+            <div className="card p-6 text-center">
+              <h1 className="text-xl font-bold text-foreground">Please wait</h1>
+              <p className="mt-1 text-sm text-muted">Completing secure sign in...</p>
+            </div>
           </section>
         </main>
       }

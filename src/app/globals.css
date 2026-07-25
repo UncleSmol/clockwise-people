@@ -3,21 +3,24 @@
 :root {
   color-scheme: light;
 
-  --color-background: #eef3f7;
-  --color-surface: #fbfcfd;
-  --color-surface-muted: #e7edf3;
-  --color-foreground: #07182d;
-  --color-muted: #5a6879;
-  --color-primary: #07182d;
+  --color-background: #f5f5f4;
+  --color-surface: #ffffff;
+  --color-surface-muted: #e7e5e4;
+  --color-foreground: #0c0c0d;
+  --color-muted: #787774;
+  --color-primary: #0c0c0d;
   --color-primary-foreground: #ffffff;
-  --color-accent: #067a6d;
-  --color-success: #087f5b;
-  --color-warning: #b87810;
-  --color-danger: #b6462c;
-  --color-border: #d6dee7;
-  --color-ring: #067a6d;
-  --shadow-soft: 0 20px 60px rgb(7 24 45 / 10%);
-  --shadow-tight: 0 10px 30px rgb(7 24 45 / 8%);
+  --color-accent: #6c5ce7;
+  --color-accent-foreground: #ffffff;
+  --color-accent-light: #a78bfa;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-border: #e3e2e0;
+  --color-ring: #6c5ce7;
+  --shadow-soft: 0 4px 24px rgb(12 12 13 / 6%);
+  --shadow-tight: 0 2px 12px rgb(12 12 13 / 5%);
+  --shadow-lg: 0 12px 48px rgb(12 12 13 / 10%);
 
   --background: var(--color-background);
   --foreground: var(--color-foreground);
@@ -26,21 +29,24 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --color-background: #06111f;
-  --color-surface: #0c1d31;
-  --color-surface-muted: #172d47;
-  --color-foreground: #f7fbff;
-  --color-muted: #b7c3d2;
-  --color-primary: #ffffff;
-  --color-primary-foreground: #07182d;
-  --color-accent: #37d2c1;
-  --color-success: #39d299;
-  --color-warning: #f5bd4f;
-  --color-danger: #f07b5b;
-  --color-border: #243f5c;
-  --color-ring: #37d2c1;
-  --shadow-soft: 0 24px 70px rgb(0 0 0 / 34%);
-  --shadow-tight: 0 14px 38px rgb(0 0 0 / 28%);
+  --color-background: #0a0a0b;
+  --color-surface: #141416;
+  --color-surface-muted: #1f1f23;
+  --color-foreground: #f5f5f4;
+  --color-muted: #a1a09e;
+  --color-primary: #f5f5f4;
+  --color-primary-foreground: #0c0c0d;
+  --color-accent: #8b7cf7;
+  --color-accent-foreground: #0c0c0d;
+  --color-accent-light: #6c5ce7;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-border: #2a2a2e;
+  --color-ring: #8b7cf7;
+  --shadow-soft: 0 4px 24px rgb(0 0 0 / 24%);
+  --shadow-tight: 0 2px 12px rgb(0 0 0 / 20%);
+  --shadow-lg: 0 12px 48px rgb(0 0 0 / 32%);
 }
 
 @theme inline {
@@ -52,45 +58,30 @@
   --color-primary: var(--color-primary);
   --color-primary-foreground: var(--color-primary-foreground);
   --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-accent-foreground);
+  --color-accent-light: var(--color-accent-light);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
   --color-border: var(--color-border);
   --color-ring: var(--color-ring);
   --font-sans: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
-  --font-mono: "Courier New", Courier, monospace;
+  --font-mono: "SF Mono", "Cascadia Code", "Courier New", monospace;
 }
 
 * {
   box-sizing: border-box;
-  scrollbar-width: none;
-}
-
-*::-webkit-scrollbar {
-  display: none;
 }
 
 html {
   background: var(--background);
-  -ms-overflow-style: none;
 }
 
 body {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 72%) 0, rgb(255 255 255 / 0%) 280px),
-    radial-gradient(circle at top left, rgb(6 122 109 / 10%), transparent 38rem),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
   margin: 0;
-  -ms-overflow-style: none;
-}
-
-[data-theme="dark"] body {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 4%) 0, rgb(255 255 255 / 0%) 260px),
-    radial-gradient(circle at top left, rgb(55 210 193 / 11%), transparent 38rem),
-    var(--background);
 }
 
 a,
@@ -99,17 +90,11 @@ input,
 select,
 textarea {
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
-}
-
-input,
-select,
-textarea {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%);
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
 }
 
 button:not(:disabled),
@@ -120,114 +105,176 @@ a[href],
 
 button:disabled {
   cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input,
+select,
+textarea {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-foreground);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  outline: none;
+  padding: 0.5rem 0.75rem;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-ring) 20%, transparent);
 }
 
 @media (hover: hover) {
-  button:not(:disabled):hover,
-  a[href].rounded-md:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgb(11 31 58 / 10%);
-  }
-
-  [data-theme="dark"] button:not(:disabled):hover,
-  [data-theme="dark"] a[href].rounded-md:hover {
-    box-shadow: 0 8px 20px rgb(0 0 0 / 22%);
-  }
-
   input:hover,
   select:hover,
   textarea:hover {
-    border-color: var(--color-accent);
+    border-color: var(--color-ring);
   }
 }
 
-.premium-shell {
-  position: relative;
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23787774' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.25rem;
 }
 
-.premium-shell::before {
-  background:
-    linear-gradient(90deg, rgb(7 24 45 / 7%) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(7 24 45 / 5%) 1px, transparent 1px);
-  background-size: 52px 52px;
-  content: "";
-  inset: 0;
-  mask-image: linear-gradient(to bottom, black, transparent 64%);
-  opacity: 0.4;
-  pointer-events: none;
-  position: fixed;
-  z-index: 0;
-}
-
-[data-theme="dark"] .premium-shell::before {
-  background:
-    linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(255 255 255 / 4%) 1px, transparent 1px);
-}
-
-.premium-panel {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 72%), rgb(255 255 255 / 52%)),
-    var(--color-surface);
-  border: 1px solid rgb(214 222 231 / 86%);
-  box-shadow: var(--shadow-tight);
-}
-
-[data-theme="dark"] .premium-panel {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 2%)),
-    var(--color-surface);
-  border-color: rgb(80 112 145 / 46%);
-}
-
-.premium-card {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 58%), rgb(255 255 255 / 36%)),
-    var(--color-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-tight);
-}
-
-[data-theme="dark"] .premium-card {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 5%), rgb(255 255 255 / 2%)),
-    var(--color-surface);
-}
-
-.premium-hero {
-  background:
-    linear-gradient(135deg, rgb(7 24 45 / 100%), rgb(11 50 75 / 96%) 58%, rgb(6 122 109 / 92%));
-  box-shadow: var(--shadow-soft);
-}
-
-[data-theme="dark"] .premium-hero {
-  background:
-    linear-gradient(135deg, rgb(4 12 23 / 100%), rgb(9 34 57 / 98%) 58%, rgb(9 84 80 / 90%));
-}
-
-.mobile-nav-overlay {
-  background: var(--color-background);
-}
-
-.mobile-nav-panel,
-.mobile-nav-footer {
+.card {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-tight);
 }
 
-.mobile-nav-header {
+.card-header {
+  border-bottom: 1px solid var(--color-border);
+  padding: 1rem 1.25rem;
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+.badge {
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+}
+
+.badge-accent {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.badge-success {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-warning);
+}
+
+.badge-danger {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.badge-muted {
+  background: var(--color-surface-muted);
+  color: var(--color-muted);
+}
+
+.btn {
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.5rem 1rem;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.btn-primary:hover {
+  opacity: 0.85;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-foreground);
+}
+
+.btn-ghost:hover {
   background: var(--color-surface-muted);
 }
 
-.mobile-nav-link {
-  background: var(--color-background);
+.btn-accent {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
 }
 
-.premium-eyebrow {
-  color: var(--color-accent);
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.btn-accent:hover {
+  opacity: 0.85;
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  opacity: 0.85;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+}
+
+.btn-outline:hover {
+  background: var(--color-surface-muted);
+}
+
+.icon-btn {
+  align-items: center;
+  border-radius: 9999px;
+  display: inline-flex;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-muted);
+}
+
+.page-shell {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 80rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .page-shell {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 
 .cw-timesheet-calendar {
@@ -235,13 +282,14 @@ button:disabled {
   --fc-button-bg-color: var(--color-surface);
   --fc-button-border-color: var(--color-border);
   --fc-button-hover-bg-color: var(--color-surface-muted);
-  --fc-button-hover-border-color: var(--color-accent);
+  --fc-button-hover-border-color: var(--color-ring);
   --fc-button-active-bg-color: var(--color-accent);
   --fc-button-active-border-color: var(--color-accent);
   --fc-button-text-color: var(--color-foreground);
   --fc-event-border-color: transparent;
   --fc-page-bg-color: transparent;
   --fc-small-font-size: 0.75rem;
+  --fc-today-bg-color: color-mix(in srgb, var(--color-accent) 6%, transparent);
   color: var(--color-foreground);
 }
 
@@ -251,7 +299,7 @@ button:disabled {
 
 .cw-timesheet-calendar .fc-toolbar {
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 
@@ -262,12 +310,12 @@ button:disabled {
 }
 
 .cw-timesheet-calendar .fc-button {
-  border-radius: 0.375rem;
+  border-radius: 9999px;
   box-shadow: none;
   color: var(--color-foreground);
   font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.375rem 0.625rem;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
   text-transform: capitalize;
 }
 
@@ -280,7 +328,7 @@ button:disabled {
 .cw-timesheet-calendar .fc-button-primary:not(:disabled):active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: var(--color-background);
+  color: var(--color-accent-foreground);
 }
 
 .cw-timesheet-calendar .fc-button:disabled {
@@ -299,7 +347,7 @@ button:disabled {
 .cw-timesheet-calendar .fc-col-header-cell {
   background: var(--color-surface);
   color: var(--color-muted);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   padding: 0.375rem 0;
   text-transform: uppercase;
@@ -307,29 +355,35 @@ button:disabled {
 
 .cw-timesheet-calendar .fc-daygrid-day {
   background: var(--color-background);
-  min-height: 6.75rem;
+  min-height: 6.5rem;
 }
 
 .cw-timesheet-calendar .fc-day-today {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  background: var(--fc-today-bg-color);
 }
 
 .cw-timesheet-calendar .fc-daygrid-day-number {
   color: var(--color-foreground);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.375rem;
 }
 
 .cw-timesheet-calendar .fc-event {
   border: 1px solid transparent;
   border-radius: 0.25rem;
   cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.6875rem;
+  font-weight: 600;
   line-height: 1.2;
   margin-top: 0.125rem;
   padding: 0.125rem 0.25rem;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.cw-timesheet-calendar .fc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
 }
 
 .cw-timesheet-calendar .fc-daygrid-day-events {
@@ -343,8 +397,8 @@ button:disabled {
   border-radius: 0.25rem;
   color: var(--color-foreground);
   display: block;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.6875rem;
+  font-weight: 700;
   margin-top: 0.125rem;
   padding: 0.125rem 0.25rem;
   text-align: center;
@@ -353,64 +407,76 @@ button:disabled {
 .cw-timesheet-calendar .fc-popover {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  box-shadow: var(--shadow-tight);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-soft);
   color: var(--color-foreground);
 }
 
 .cw-timesheet-calendar .fc-popover-header {
   background: var(--color-surface-muted);
+  border-radius: 0.75rem 0.75rem 0 0;
   color: var(--color-foreground);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .cw-timesheet-calendar .fc-daygrid-day {
   cursor: pointer;
 }
 
-.cw-timesheet-calendar .fc-event:hover {
-  filter: brightness(1.04);
-}
-
 .cw-timesheet-calendar .cw-calendar-draft {
   border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
-  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
   color: var(--color-warning);
 }
 
 .cw-timesheet-calendar .cw-calendar-submitted {
-  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
   color: var(--color-primary);
 }
 
 .cw-timesheet-calendar .cw-calendar-approved {
   border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
-  background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface));
   color: var(--color-success);
 }
 
 .cw-timesheet-calendar .cw-calendar-rejected {
   border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
-  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
   color: var(--color-danger);
 }
 
 .cw-timesheet-calendar .cw-calendar-locked {
-  border-color: color-mix(in srgb, var(--color-muted) 40%, transparent);
-  background: color-mix(in srgb, var(--color-muted) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-muted) 30%, transparent);
+  background: color-mix(in srgb, var(--color-muted) 8%, var(--color-surface));
   color: var(--color-muted);
 }
 
 .cw-timesheet-calendar .cw-calendar-holiday,
 .cw-timesheet-calendar .cw-calendar-holiday-booked {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
   color: var(--color-accent);
 }
 
 .cw-timesheet-calendar .cw-company-timesheet-event-warning {
   box-shadow: inset 3px 0 0 var(--color-danger);
+}
+
+.cw-timesheet-calendar .cw-calendar-attention,
+.cw-timesheet-calendar .cw-company-timesheet-event-warning {
+  animation: cw-calendar-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes cw-calendar-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
 }
 
 @media (max-width: 640px) {
@@ -430,7 +496,7 @@ button:disabled {
   }
 
   .cw-timesheet-calendar .fc-toolbar-title {
-    font-size: 0.95rem;
+    font-size: 0.875rem;
     text-align: center;
   }
 
@@ -440,22 +506,22 @@ button:disabled {
   }
 
   .cw-timesheet-calendar .fc-col-header-cell {
-    font-size: 0.66rem;
+    font-size: 0.625rem;
     padding: 0.25rem 0;
   }
 
   .cw-timesheet-calendar .fc-daygrid-day {
-    min-height: 5.75rem;
+    min-height: 5.5rem;
   }
 
   .cw-timesheet-calendar .fc-daygrid-day-number {
-    font-size: 0.72rem;
-    padding: 0.25rem;
+    font-size: 0.6875rem;
+    padding: 0.2rem;
   }
 
   .cw-timesheet-calendar .fc-event {
     border-radius: 0.2rem;
-    font-size: 0.64rem;
+    font-size: 0.625rem;
     line-height: 1.15;
     padding: 0.1rem 0.18rem;
   }

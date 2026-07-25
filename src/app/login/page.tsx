@@ -10,52 +10,54 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 py-10">
-      <section className="w-full max-w-md rounded-md border border-border bg-surface p-6 shadow-sm">
+      <section className="w-full max-w-sm">
         <BrandMark
-          className="mb-6 flex"
-          imageSize={56}
-          imageClassName="size-14 rounded-md"
-          textClassName="text-xl font-semibold text-primary"
+          className="mb-6 flex justify-center"
+          imageSize={48}
+          imageClassName="size-12 rounded-lg"
+          textClassName="text-lg font-bold text-primary"
           priority
         />
-        <h1 className="text-2xl font-semibold text-foreground">Sign in</h1>
-        <p className="mt-2 text-sm text-muted">
-          Sign in to continue to your workspace.
-        </p>
+        <div className="card p-6">
+          <h1 className="text-xl font-bold text-foreground">Sign in</h1>
+          <p className="mt-1 text-sm text-muted">
+            Sign in to continue to your workspace.
+          </p>
 
-        {params?.message && (
-          <div className="mt-4 rounded-md border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
-            {params.message}
-          </div>
-        )}
+          {params?.message && (
+            <div className="mt-4 rounded-lg border border-danger/20 bg-danger/8 px-4 py-3 text-sm font-medium text-danger">
+              {params.message}
+            </div>
+          )}
 
-        <form action={signIn} className="mt-6 grid gap-4">
-          <label className="grid gap-2 text-sm font-medium text-foreground">
-            Email
-            <input
-              name="email"
-              type="email"
-              required
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            />
-          </label>
-          <label className="grid gap-2 text-sm font-medium text-foreground">
-            Password
-            <input
-              name="password"
-              type="password"
-              required
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            />
-          </label>
-          <button className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
-            Sign in
-          </button>
-        </form>
+          <form action={signIn} className="mt-6 grid gap-4">
+            <label className="grid gap-1.5 text-sm font-medium text-foreground">
+              Email
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="name@company.co.za"
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium text-foreground">
+              Password
+              <input
+                name="password"
+                type="password"
+                required
+                placeholder="Enter your password"
+              />
+            </label>
+            <button className="btn btn-accent w-full text-center">
+              Sign in
+            </button>
+          </form>
 
-        <p className="mt-5 text-sm text-muted">
-          Need help? Contact your workspace administrator.
-        </p>
+          <p className="mt-5 text-center text-sm text-muted">
+            Need help? Contact your workspace administrator.
+          </p>
+        </div>
       </section>
     </main>
   );

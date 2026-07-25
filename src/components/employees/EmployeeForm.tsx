@@ -80,7 +80,7 @@ export default function EmployeeForm({
         return;
       }
 
-      router.push("/dashboard/employees");
+      router.push("/dashboard?panel=people");
       router.refresh();
     });
   });

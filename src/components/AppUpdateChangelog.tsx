@@ -85,7 +85,7 @@ export default function AppUpdateChangelog({
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-[76px] z-[80] grid place-items-center bg-black/55 p-3 backdrop-blur-sm sm:p-5"
+      className="fixed inset-0 z-80 grid place-items-center bg-black/50 p-3 sm:p-5"
       onKeyDown={handleKeyDown}
     >
       <section
@@ -93,21 +93,21 @@ export default function AppUpdateChangelog({
         aria-modal="true"
         ref={dialogRef}
         role="dialog"
-        className="flex max-h-[calc(100dvh-104px)] w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-2xl"
+        className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
       >
-        <div className="shrink-0 border-b border-border bg-surface px-4 py-3">
+        <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex min-w-0 gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
               <Sparkles className="size-5" />
             </span>
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
                 What&apos;s new
               </p>
-              <h2 id="app-update-title" className="mt-1 text-lg font-semibold">
+              <h2 id="app-update-title" className="mt-1 text-lg font-bold text-foreground">
                 Latest updates
               </h2>
-              <p className="mt-1 text-sm text-muted">
+              <p className="mt-0.5 text-sm text-muted">
                 {updateCount === 1
                   ? "One unread update is ready."
                   : `${updateCount} unread updates are grouped here.`}
@@ -116,9 +116,9 @@ export default function AppUpdateChangelog({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {state.message ? (
-            <p className="mb-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
+            <p className="mb-3 rounded-lg border border-danger/20 bg-danger/8 px-3 py-2 text-sm font-medium text-danger">
               {state.message}
             </p>
           ) : null}
@@ -129,13 +129,13 @@ export default function AppUpdateChangelog({
               className="group border-b border-border last:border-b-0"
               open={index === 0}
             >
-              <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-md px-2 py-3 hover:bg-surface-muted/35">
+              <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-lg px-2 py-3 hover:bg-surface-muted">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="truncate font-semibold text-foreground">
                       {update.title}
                     </h3>
-                    <span className="w-max rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-foreground">
+                    <span className="badge badge-muted">
                       {formatDate(update.published_at)}
                     </span>
                   </div>
@@ -158,14 +158,14 @@ export default function AppUpdateChangelog({
           ))}
         </div>
 
-        <form action={formAction} className="shrink-0 border-t border-border bg-surface p-3">
+        <form action={formAction} className="shrink-0 border-t border-border px-5 py-4">
           {updates.map((update) => (
             <input key={update.id} type="hidden" name="update_ids" value={update.id} />
           ))}
           <button
             ref={clearButtonRef}
             disabled={pending}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="btn btn-accent w-full text-center"
           >
             {pending ? "Saving..." : `Got it, clear ${updateCount === 1 ? "update" : "updates"}`}
           </button>

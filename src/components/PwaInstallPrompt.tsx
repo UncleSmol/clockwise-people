@@ -91,9 +91,9 @@ export default function PwaInstallPrompt() {
   };
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-xl rounded-md border border-border bg-surface p-3 shadow-2xl">
+    <div className="card fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-xl p-3 shadow-lg">
       <div className="flex items-start gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
+        <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
           <Download className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -105,14 +105,14 @@ export default function PwaInstallPrompt() {
             <button
               type="button"
               onClick={install}
-              className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+              className="btn btn-accent"
             >
               Install
             </button>
             <button
               type="button"
               onClick={dismiss}
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
+              className="btn btn-outline"
             >
               Not now
             </button>
@@ -120,7 +120,7 @@ export default function PwaInstallPrompt() {
         </div>
         <button
           aria-label="Close install prompt"
-          className="grid size-8 place-items-center rounded-md border border-border bg-background text-foreground"
+          className="icon-btn text-muted hover:text-foreground"
           onClick={dismiss}
           type="button"
         >

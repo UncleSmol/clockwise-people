@@ -82,7 +82,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
   const visibleOk = formState.message ? formState.ok : calculationState.ok;
 
   return (
-    <section className="premium-card grid gap-3 rounded-md p-4">
+    <section className="card grid gap-3 p-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <CalendarPlus className="size-5 text-accent" />

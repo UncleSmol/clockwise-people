@@ -17,6 +17,16 @@ function appBaseUrl() {
   return new URL(rawUrl).origin;
 }
 
+function employeeDashboardUrl(employeeId: string, params?: Record<string, string>) {
+  const search = new URLSearchParams({ panel: "people", employeeId });
+
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    search.set(key, value);
+  });
+
+  return `/dashboard?${search.toString()}`;
+}
+
 async function findAuthUserIdByEmail(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   email: string,
@@ -81,7 +91,9 @@ async function removeUnlinkedAuthInviteUser(
   }
 }
 
-async function createPendingEmployeeInvitation(employeeId: string) {
+export type InviteRoleKey = "owner" | "hr_admin" | "branch_manager" | "payroll_viewer" | "employee";
+
+async function createPendingEmployeeInvitation(employeeId: string, roleKey: InviteRoleKey = "employee") {
   const { company } = await getActiveCompany();
   const { supabase, user } = await requireUser();
 
@@ -94,15 +106,15 @@ async function createPendingEmployeeInvitation(employeeId: string) {
     .single();
 
   if (employeeError || !employee) {
-    redirect(`/dashboard/employees/${employeeId}?message=Employee record could not be found.`);
+    redirect(employeeDashboardUrl(employeeId, { message: "Employee record could not be found." }));
   }
 
   if (!employee.email) {
-    redirect(`/dashboard/employees/${employeeId}?message=Add an employee email address before sending an invite.`);
+    redirect(employeeDashboardUrl(employeeId, { message: "Add an employee email address before sending an invite." }));
   }
 
   if (employee.user_id) {
-    redirect(`/dashboard/employees/${employeeId}?message=This employee already has account access.`);
+    redirect(employeeDashboardUrl(employeeId, { message: "This employee already has account access." }));
   }
 
   const { data: inviter, error: inviterError } = await supabase
@@ -113,7 +125,7 @@ async function createPendingEmployeeInvitation(employeeId: string) {
     .single();
 
   if (inviterError || !inviter) {
-    redirect(`/dashboard/employees/${employeeId}?message=Unable to verify inviter permissions.`);
+    redirect(employeeDashboardUrl(employeeId, { message: "Unable to verify inviter permissions." }));
   }
 
   const admin = createSupabaseAdminClient();
@@ -122,7 +134,7 @@ async function createPendingEmployeeInvitation(employeeId: string) {
     await removeUnlinkedAuthInviteUser(admin, employee.email);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to prepare a fresh invite.";
-    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(message)}`);
+    redirect(employeeDashboardUrl(employeeId, { message }));
   }
 
   await supabase
@@ -141,22 +153,22 @@ async function createPendingEmployeeInvitation(employeeId: string) {
       company_id: company.id,
       employee_id: employee.id,
       email: employee.email,
-      role_key: "employee",
+      role_key: roleKey,
       invited_by: inviter.id,
     })
     .select("id")
     .single();
 
   if (invitationError || !invitation) {
-    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(invitationError?.message ?? "Unable to create invite.")}`);
+    redirect(employeeDashboardUrl(employeeId, { message: invitationError?.message ?? "Unable to create invite." }));
   }
 
   return { admin, company, employee, invitation, supabase };
 }
 
-export async function sendEmployeeInvite(employeeId: string) {
+export async function sendEmployeeInvite(employeeId: string, roleKey: InviteRoleKey = "employee") {
   const { admin, company, employee, invitation, supabase } =
-    await createPendingEmployeeInvitation(employeeId);
+    await createPendingEmployeeInvitation(employeeId, roleKey);
 
   const redirectTo = `${appBaseUrl()}/auth/callback?inviteId=${invitation.id}`;
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
@@ -181,16 +193,17 @@ export async function sendEmployeeInvite(employeeId: string) {
       .eq("company_id", company.id)
       .eq("id", invitation.id);
 
-    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(inviteError.message)}`);
+    redirect(employeeDashboardUrl(employeeId, { message: inviteError.message }));
   }
 
   revalidatePath(`/dashboard/employees/${employeeId}`);
-  redirect(`/dashboard/employees/${employeeId}?message=Invite sent.`);
+  revalidatePath("/dashboard");
+  redirect(employeeDashboardUrl(employeeId, { message: "Invite sent." }));
 }
 
-export async function createEmployeeInviteLink(employeeId: string) {
+export async function createEmployeeInviteLink(employeeId: string, roleKey: InviteRoleKey = "employee") {
   const { admin, company, employee, invitation, supabase } =
-    await createPendingEmployeeInvitation(employeeId);
+    await createPendingEmployeeInvitation(employeeId, roleKey);
 
   const redirectTo = `${appBaseUrl()}/auth/callback?inviteId=${invitation.id}`;
   const { data, error: linkError } = await admin.auth.admin.generateLink({
@@ -216,13 +229,15 @@ export async function createEmployeeInviteLink(employeeId: string) {
       .eq("company_id", company.id)
       .eq("id", invitation.id);
 
-    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(linkError?.message ?? "Unable to create invite link.")}`);
+    redirect(employeeDashboardUrl(employeeId, { message: linkError?.message ?? "Unable to create invite link." }));
   }
 
   revalidatePath(`/dashboard/employees/${employeeId}`);
-  redirect(
-    `/dashboard/employees/${employeeId}?message=Invite link created.&manualInviteUrl=${encodeURIComponent(data.properties.action_link)}`,
-  );
+  revalidatePath("/dashboard");
+  redirect(employeeDashboardUrl(employeeId, {
+    manualInviteUrl: data.properties.action_link,
+    message: "Invite link created.",
+  }));
 }
 
 export async function cancelEmployeeInvite(invitationId: string, employeeId: string) {
@@ -241,9 +256,10 @@ export async function cancelEmployeeInvite(invitationId: string, employeeId: str
     .eq("status", "pending");
 
   if (error) {
-    redirect(`/dashboard/employees/${employeeId}?message=${encodeURIComponent(error.message)}`);
+    redirect(employeeDashboardUrl(employeeId, { message: error.message }));
   }
 
   revalidatePath(`/dashboard/employees/${employeeId}`);
-  redirect(`/dashboard/employees/${employeeId}?message=Invite cancelled.`);
+  revalidatePath("/dashboard");
+  redirect(employeeDashboardUrl(employeeId, { message: "Invite cancelled." }));
 }

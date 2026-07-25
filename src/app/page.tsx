@@ -7,18 +7,18 @@ export default function Home() {
       <div className="text-center">
         <BrandMark
           className="mb-6 flex justify-center"
-          imageSize={144}
-          imageClassName="size-28 rounded-2xl shadow-sm sm:size-36"
-          textClassName="font-sans text-5xl font-semibold tracking-normal text-primary sm:text-7xl"
+          imageSize={120}
+          imageClassName="size-28 rounded-2xl sm:size-32"
+          textClassName="font-sans text-4xl font-bold tracking-tight text-primary sm:text-6xl"
           priority
         />
-        <p className="mt-4 text-lg font-medium text-muted sm:text-2xl">
+        <p className="mt-3 text-base font-medium text-muted sm:text-lg">
           Track Time. Manage People. Prepare Payroll.
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link
             href="/login"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            className="btn btn-accent"
           >
             Sign in
           </Link>

@@ -54,7 +54,7 @@ export default function ComplianceDocuments() {
   return (
     <section className="grid gap-4">
       {policies.map((policy) => (
-        <article key={policy.title} className="premium-card rounded-md p-4 sm:p-5">
+        <article key={policy.title} className="card p-4 sm:p-5">
           <h2 className="text-lg font-semibold text-foreground">{policy.title}</h2>
           <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted">
             {policy.body.map((item) => (

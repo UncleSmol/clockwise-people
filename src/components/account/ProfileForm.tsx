@@ -49,10 +49,10 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
 
       {state.message ? (
         <p
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={`rounded-lg border px-3 py-2 text-sm font-medium ${
             state.ok
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-danger/30 bg-danger/10 text-danger"
+              ? "border-success/20 bg-success/8 text-success"
+              : "border-danger/20 bg-danger/8 text-danger"
           }`}
         >
           {state.message}
@@ -68,7 +68,6 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
           <input
             name="known_as"
             defaultValue={employee.knownAs ?? ""}
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none ring-ring focus:ring-2"
             placeholder="Name people use"
           />
         </label>
@@ -82,7 +81,6 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
             name="email"
             type="email"
             defaultValue={employee.email ?? ""}
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none ring-ring focus:ring-2"
             placeholder="name@company.com"
           />
         </label>
@@ -95,7 +93,6 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
           <input
             name="phone_number"
             defaultValue={employee.phoneNumber ?? ""}
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none ring-ring focus:ring-2"
             placeholder="Phone number"
           />
         </label>
@@ -109,7 +106,6 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
             name="avatar_url"
             value={avatarUrl}
             onChange={(event) => setAvatarUrl(event.target.value)}
-            className="h-10 rounded-md border border-border bg-background px-3 text-sm font-normal outline-none ring-ring focus:ring-2"
             placeholder="https://..."
           />
         </label>
@@ -119,7 +115,7 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          className="btn btn-primary inline-flex items-center gap-2"
         >
           <Save className="size-4" />
           {pending ? "Saving..." : "Save profile"}

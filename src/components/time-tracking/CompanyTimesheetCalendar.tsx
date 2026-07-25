@@ -10,13 +10,17 @@ import {
   Clock3,
   LocateFixed,
   MapPin,
+  Pencil,
   Timer,
+  Trash2,
   X,
 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import {
   createManagedDraftTimeEntry,
+  deleteManagedDraftTimeEntry,
   loadManagedLeaveRequestsToTimesheets,
+  updateManagedDraftTimeEntry,
 } from "@/lib/time-tracking/actions";
 import type {
   CompanyCalendarEmployeeOption,
@@ -36,6 +40,14 @@ const initialActionState = {
   ok: true,
   message: "",
 };
+
+type CalendarWindow = "day" | "week" | "payroll" | "month";
+
+function viewButtonClass(active: boolean) {
+  return active
+    ? "bg-primary text-primary-foreground"
+    : "border border-border bg-background text-foreground";
+}
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
   return entry.knownAs ?? entry.fullName;
@@ -81,6 +93,18 @@ function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
   return ["cw-company-timesheet-event", "cw-calendar-submitted"];
 }
 
+function statusBadgeClass(status: CompanyTimesheetCalendarEntry["status"]) {
+  if (status === "draft") return "border-warning/30 bg-warning/10 text-warning";
+  if (status === "approved") return "border-success/30 bg-success/10 text-success";
+  if (status === "rejected") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "locked") return "border-muted/30 bg-muted/10 text-muted";
+  return "border-primary/30 bg-primary/10 text-primary";
+}
+
+function canEdit(status: CompanyTimesheetCalendarEntry["status"]) {
+  return status === "draft" || status === "rejected";
+}
+
 function renderEventContent(eventInfo: EventContentArg) {
   const entry = eventInfo.event.extendedProps.entry as
     | CompanyTimesheetCalendarEntry
@@ -107,6 +131,32 @@ function renderEventContent(eventInfo: EventContentArg) {
   );
 }
 
+function TimeInput({
+  name,
+  value,
+  editable,
+  onChange,
+}: {
+  name: string;
+  value: string | null;
+  editable: boolean;
+  onChange: (name: string, value: string) => void;
+}) {
+  if (!editable) {
+    return <span className="mt-1 font-semibold text-foreground">{formatTime(value)}</span>;
+  }
+
+  return (
+    <input
+      type="time"
+      name={name}
+      defaultValue={value ?? ""}
+      onChange={(e) => onChange(name, e.target.value)}
+      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
+    />
+  );
+}
+
 export default function CompanyTimesheetCalendar({
   employees,
   entries,
@@ -115,6 +165,19 @@ export default function CompanyTimesheetCalendar({
 }: CompanyTimesheetCalendarProps) {
   const [selectedEntry, setSelectedEntry] = useState<CompanyTimesheetCalendarEntry | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
+  const [showDateActions, setShowDateActions] = useState(false);
+  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+  const [calendarFocusDate, setCalendarFocusDate] = useState(() => {
+    const today = new Date();
+    return [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, "0"),
+      String(today.getDate()).padStart(2, "0"),
+    ].join("-");
+  });
+  const [editing, setEditing] = useState(false);
+  const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
+
   const [createState, createAction, createPending] = useActionState(
     createManagedDraftTimeEntry,
     initialActionState,
@@ -123,6 +186,15 @@ export default function CompanyTimesheetCalendar({
     loadManagedLeaveRequestsToTimesheets,
     initialActionState,
   );
+  const [updateState, updateAction, updatePending] = useActionState(
+    updateManagedDraftTimeEntry,
+    initialActionState,
+  );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deleteManagedDraftTimeEntry,
+    initialActionState,
+  );
+
   const events = useMemo<EventInput[]>(
     () => {
       const holidayEvents = publicHolidays.map((holiday) => ({
@@ -162,23 +234,71 @@ export default function CompanyTimesheetCalendar({
     }),
     [entries],
   );
+
+  const existingEntriesForDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return entries.filter((e) => e.work_date === selectedDate);
+  }, [entries, selectedDate]);
+
+  const leaveRequestsForDate = useMemo(() => {
+    if (!selectedDate) return leaveRequests;
+    return leaveRequests.filter((r) => selectedDate >= r.start_date && selectedDate <= r.end_date);
+  }, [leaveRequests, selectedDate]);
+
   const handleEventClick = (arg: EventClickArg) => {
     const entry = arg.event.extendedProps.entry as
       | CompanyTimesheetCalendarEntry
       | undefined;
 
     if (entry) {
+      setCalendarFocusDate(entry.work_date);
       setSelectedEntry(entry);
+      setEditing(false);
+      setEditedTimes({});
     }
   };
+
   const handleDateClick = (arg: DateClickArg) => {
     setSelectedDate(arg.dateStr);
+    setCalendarFocusDate(arg.dateStr);
+    setShowDateActions(true);
   };
-  const actionMessage = createState.message || loadLeaveState.message;
-  const actionMessageOk = createState.message ? createState.ok : loadLeaveState.ok;
+
+  const closeDateActions = () => {
+    setShowDateActions(false);
+    setSelectedDate("");
+  };
+
+  const closeEntryModal = () => {
+    setSelectedEntry(null);
+    setEditing(false);
+    setEditedTimes({});
+  };
+
+  const startEditing = () => {
+    if (!selectedEntry) return;
+    setEditing(true);
+    setEditedTimes({
+      clock_in: selectedEntry.clock_in ?? "",
+      lunch_start: selectedEntry.lunch_start ?? "",
+      lunch_end: selectedEntry.lunch_end ?? "",
+      clock_out: selectedEntry.clock_out ?? "",
+      notes: selectedEntry.notes ?? "",
+    });
+  };
+
+  const handleTimeChange = (name: string, value: string) => {
+    setEditedTimes((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const globalMessage = createState.message || loadLeaveState.message || updateState.message || deleteState.message;
+  const globalOk = updateState.message ? updateState.ok
+    : deleteState.message ? deleteState.ok
+    : createState.message ? createState.ok
+    : loadLeaveState.ok;
 
   return (
-    <section className="premium-card rounded-md">
+    <section className="card">
       <div className="grid gap-3 border-b border-border px-4 py-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
@@ -186,10 +306,10 @@ export default function CompanyTimesheetCalendar({
           </p>
           <h2 className="mt-1 text-lg font-semibold text-foreground">Timesheet calendar</h2>
           <p className="mt-1 text-sm text-muted">
-            Company clockings and timesheet status for the current year.
+            Click a date to create timesheets or load leave. Click an existing entry to view or edit.
           </p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-4 lg:w-[520px]">
+        <div className="grid gap-2 sm:grid-cols-4 lg:w-130">
           <div className="rounded-md border border-border bg-background px-3 py-2">
             <div className="flex items-center gap-2 text-xs text-muted">
               <CalendarDays className="size-4" />
@@ -219,91 +339,34 @@ export default function CompanyTimesheetCalendar({
       </div>
 
       <div className="px-3 py-3 sm:px-4">
-        {actionMessage ? (
+        {globalMessage ? (
           <div
             className={`mb-3 rounded-md border px-3 py-2 text-sm font-medium ${
-              actionMessageOk
+              globalOk
                 ? "border-success/30 bg-success/10 text-success"
                 : "border-danger/30 bg-danger/10 text-danger"
             }`}
           >
-            {actionMessage}
+            {globalMessage}
           </div>
         ) : null}
 
-        <div className="mb-3 grid gap-3 rounded-md border border-border bg-background p-3 lg:grid-cols-[1fr_1.2fr]">
-          <form action={createAction} className="grid gap-2">
-            <div>
-              <p className="font-semibold text-foreground">Create employee timesheet</p>
-              <p className="mt-1 text-xs text-muted">
-                Select a date on the calendar, choose an employee, then create a draft row.
-              </p>
-            </div>
-            <input name="work_date" type="hidden" value={selectedDate} />
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-              <select
-                name="employee_id"
-                required
-                className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-ring focus:ring-2"
-              >
-                <option value="">Choose employee</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                disabled={!selectedDate || createPending}
-                className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                {createPending ? "Creating..." : selectedDate ? `Create ${selectedDate}` : "Pick date"}
-              </button>
-            </div>
-          </form>
-
-          <form action={loadLeaveAction} className="grid gap-2">
-            <div>
-              <p className="font-semibold text-foreground">Load approved leave</p>
-              <p className="mt-1 text-xs text-muted">
-                Tick one approved request or multiple requests before loading.
-              </p>
-            </div>
-            <div className="max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
-              {leaveRequests.length === 0 ? (
-                <p className="px-3 py-3 text-sm text-muted">No approved leave requests to load.</p>
-              ) : (
-                leaveRequests.map((request) => (
-                  <label
-                    key={request.id}
-                    className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
-                  >
-                    <input
-                      className="mt-1 size-4 accent-current"
-                      name="leave_request_ids"
-                      type="checkbox"
-                      value={request.id}
-                    />
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-foreground">
-                        {request.employeeName} ({request.employeeNumber})
-                      </span>
-                      <span className="block text-xs text-muted">
-                        {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
-                        {formatHours(request.total_hours)}
-                      </span>
-                    </span>
-                  </label>
-                ))
-              )}
-            </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {([
+            ["day", "Daily"],
+            ["week", "Weekly"],
+            ["payroll", "Payroll period"],
+            ["month", "Monthly"],
+          ] as const).map(([value, label]) => (
             <button
-              disabled={leaveRequests.length === 0 || loadLeavePending}
-              className="justify-self-end rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              key={value}
+              type="button"
+              onClick={() => setCalendarWindow(value)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${viewButtonClass(calendarWindow === value)}`}
             >
-              {loadLeavePending ? "Loading..." : "Load selected leave"}
+              {label}
             </button>
-          </form>
+          ))}
         </div>
 
         <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold">
@@ -328,9 +391,11 @@ export default function CompanyTimesheetCalendar({
             Rejected
           </span>
         </div>
-        {events.length > 0 ? (
+
+        {events.length > 0 || publicHolidays.length > 0 ? (
           <div className="cw-timesheet-calendar">
             <FullCalendar
+              key={`${calendarWindow}-${calendarFocusDate}`}
               dayMaxEventRows={3}
               dayMaxEvents={3}
               eventClassNames={(arg) => {
@@ -345,16 +410,30 @@ export default function CompanyTimesheetCalendar({
               dateClick={handleDateClick}
               events={events}
               firstDay={1}
+              initialDate={calendarFocusDate}
               headerToolbar={{
                 center: "title",
                 left: "prev,next today",
-                right: "dayGridMonth,dayGridWeek",
+                right: "",
               }}
               height="auto"
-              initialView="dayGridMonth"
+              initialView={
+                calendarWindow === "day"
+                  ? "dayGridDay"
+                  : calendarWindow === "week"
+                    ? "dayGridWeek"
+                    : calendarWindow === "payroll"
+                      ? "dayGridPayroll"
+                      : "dayGridMonth"
+              }
               moreLinkClick="popover"
               plugins={[dayGridPlugin, interactionPlugin]}
               views={{
+                dayGridPayroll: {
+                  buttonText: "Payroll",
+                  duration: { days: 14 },
+                  type: "dayGrid",
+                },
                 dayGridMonth: {
                   dayMaxEventRows: 3,
                 },
@@ -371,14 +450,170 @@ export default function CompanyTimesheetCalendar({
         )}
       </div>
 
-      {selectedEntry ? (
-        <div className="fixed inset-x-0 bottom-0 top-[76px] z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center">
-          <div className="flex max-h-[calc(100dvh-104px)] w-full max-w-3xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+      {/* Date action modal */}
+      {showDateActions ? (
+        <div className="fixed inset-x-0 bottom-4 top-19 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center sm:p-5">
+          <div className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
             <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                  Timesheet
+                  Calendar action
                 </p>
+                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                  {selectedDate}
+                </h3>
+                <p className="mt-1 text-sm text-muted">
+                  Create a new timesheet entry or load approved leave for this date.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDateActions}
+                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                aria-label="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
+              {/* Create draft section */}
+              <form action={createAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
+                <div>
+                  <p className="font-semibold text-foreground">Create draft entry</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Add a manual draft timesheet row for an employee on this date.
+                  </p>
+                </div>
+                <input name="work_date" type="hidden" value={selectedDate} />
+                {existingEntriesForDate.length > 0 ? (
+                  <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+                    {existingEntriesForDate.length} employee(s) already have entries on this date.
+                  </div>
+                ) : null}
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <select
+                    name="employee_id"
+                    required
+                    className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                  >
+                    <option value="">Choose employee</option>
+                    {employees.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    disabled={createPending}
+                    className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    {createPending ? "Creating..." : "Create draft"}
+                  </button>
+                </div>
+              </form>
+
+              {/* Load approved leave section */}
+              <form action={loadLeaveAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
+                <div>
+                  <p className="font-semibold text-foreground">Load approved leave</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Tick approved leave requests to load them into timesheet rows.
+                  </p>
+                </div>
+                {leaveRequestsForDate.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-center text-xs text-muted">
+                    {leaveRequests.length === 0
+                      ? "No approved leave requests available."
+                      : "No approved leave requests cover this date."}
+                  </div>
+                ) : (
+                  <>
+                    <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-surface">
+                      {leaveRequestsForDate.map((request) => (
+                        <label
+                          key={request.id}
+                          className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                        >
+                          <input
+                            className="mt-1 size-4 accent-current"
+                            name="leave_request_ids"
+                            type="checkbox"
+                            value={request.id}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-semibold text-foreground">
+                              {request.employeeName} ({request.employeeNumber})
+                            </span>
+                            <span className="block text-xs text-muted">
+                              {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
+                              {formatHours(request.total_hours)}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {leaveRequests.length > leaveRequestsForDate.length ? (
+                      <details className="text-xs text-muted">
+                        <summary className="cursor-pointer font-semibold">
+                          Show all {leaveRequests.length} requests
+                        </summary>
+                        <div className="mt-2 max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
+                          {leaveRequests.map((request) => (
+                            <label
+                              key={request.id}
+                              className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                            >
+                              <input
+                                className="mt-1 size-4 accent-current"
+                                name="leave_request_ids"
+                                type="checkbox"
+                                value={request.id}
+                              />
+                              <span className="min-w-0">
+                                <span className="block font-semibold text-foreground">
+                                  {request.employeeName} ({request.employeeNumber})
+                                </span>
+                                <span className="block text-xs text-muted">
+                                  {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
+                                  {formatHours(request.total_hours)}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    ) : null}
+                    <button
+                      disabled={loadLeavePending}
+                      className="justify-self-end rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      {loadLeavePending ? "Loading..." : "Load selected leave"}
+                    </button>
+                  </>
+                )}
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Entry detail/edit modal */}
+      {selectedEntry ? (
+        <div className="fixed inset-x-0 bottom-4 top-19 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center sm:p-5">
+          <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+            <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                    Timesheet
+                  </p>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize ${statusBadgeClass(selectedEntry.status)}`}
+                  >
+                    {selectedEntry.status}
+                  </span>
+                </div>
                 <h3 className="mt-1 text-xl font-semibold text-foreground">
                   {displayName(selectedEntry)}
                 </h3>
@@ -387,44 +622,117 @@ export default function CompanyTimesheetCalendar({
                   {selectedEntry.work_date}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedEntry(null)}
-                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
-                aria-label="Close timesheet details"
-              >
-                <X className="size-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {canEdit(selectedEntry.status) && !editing ? (
+                  <button
+                    type="button"
+                    onClick={startEditing}
+                    className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground hover:bg-accent/10 hover:text-accent"
+                    aria-label="Edit timesheet"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={closeEntryModal}
+                  className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                  aria-label="Close timesheet details"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
             </div>
 
             <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
+              {/* Editable time fields */}
               <div className="grid gap-2 sm:grid-cols-4">
                 <div className="rounded-md border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Clock in</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatTime(selectedEntry.clock_in)}
-                  </p>
+                  {editing ? (
+                    <input
+                      type="time"
+                      name="clock_in"
+                      defaultValue={selectedEntry.clock_in ?? ""}
+                      onChange={(e) => handleTimeChange("clock_in", e.target.value)}
+                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                    />
+                  ) : (
+                    <p className="mt-1 font-semibold text-foreground">
+                      {formatTime(selectedEntry.clock_in)}
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Lunch</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatTime(selectedEntry.lunch_start)} - {formatTime(selectedEntry.lunch_end)}
-                  </p>
+                  <p className="text-xs text-muted">Lunch start</p>
+                  {editing ? (
+                    <input
+                      type="time"
+                      name="lunch_start"
+                      defaultValue={selectedEntry.lunch_start ?? ""}
+                      onChange={(e) => handleTimeChange("lunch_start", e.target.value)}
+                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                    />
+                  ) : (
+                    <p className="mt-1 font-semibold text-foreground">
+                      {formatTime(selectedEntry.lunch_start)}
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Lunch end</p>
+                  {editing ? (
+                    <input
+                      type="time"
+                      name="lunch_end"
+                      defaultValue={selectedEntry.lunch_end ?? ""}
+                      onChange={(e) => handleTimeChange("lunch_end", e.target.value)}
+                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                    />
+                  ) : (
+                    <p className="mt-1 font-semibold text-foreground">
+                      {formatTime(selectedEntry.lunch_end)}
+                    </p>
+                  )}
                 </div>
                 <div className="rounded-md border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Clock out</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatTime(selectedEntry.clock_out)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Status</p>
-                  <p className="mt-1 font-semibold capitalize text-foreground">
-                    {selectedEntry.status}
-                  </p>
+                  {editing ? (
+                    <input
+                      type="time"
+                      name="clock_out"
+                      defaultValue={selectedEntry.clock_out ?? ""}
+                      onChange={(e) => handleTimeChange("clock_out", e.target.value)}
+                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                    />
+                  ) : (
+                    <p className="mt-1 font-semibold text-foreground">
+                      {formatTime(selectedEntry.clock_out)}
+                    </p>
+                  )}
                 </div>
               </div>
 
+              {/* Notes field (editable) */}
+              {editing ? (
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Notes</p>
+                  <textarea
+                    name="notes"
+                    defaultValue={selectedEntry.notes ?? ""}
+                    onChange={(e) => handleTimeChange("notes", e.target.value)}
+                    rows={2}
+                    className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
+                  />
+                </div>
+              ) : selectedEntry.notes ? (
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Notes</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{selectedEntry.notes}</p>
+                </div>
+              ) : null}
+
+              {/* Hours stats */}
               <div className="grid gap-2 sm:grid-cols-4">
                 <div className="rounded-md border border-border bg-background px-3 py-2">
                   <p className="flex items-center gap-2 text-xs text-muted">
@@ -464,6 +772,7 @@ export default function CompanyTimesheetCalendar({
                 </div>
               ) : null}
 
+              {/* Location history (read-only) */}
               <div className="rounded-md border border-border bg-background">
                 <div className="border-b border-border px-3 py-3">
                   <p className="flex items-center gap-2 font-semibold text-foreground">
@@ -512,6 +821,59 @@ export default function CompanyTimesheetCalendar({
                   )}
                 </div>
               </div>
+
+              {/* Edit action bar */}
+              {editing && canEdit(selectedEntry.status) ? (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-3">
+                  <form
+                    action={deleteAction}
+                    onSubmit={() => {
+                      setTimeout(closeEntryModal, 100);
+                    }}
+                  >
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <button
+                      disabled={deletePending}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-50"
+                    >
+                      <Trash2 className="size-4" />
+                      {deletePending ? "Deleting..." : "Delete draft"}
+                    </button>
+                  </form>
+                  <form
+                    action={updateAction}
+                    onSubmit={() => {
+                      setTimeout(closeEntryModal, 100);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <input type="hidden" name="clock_in" value={editedTimes.clock_in ?? ""} />
+                    <input type="hidden" name="lunch_start" value={editedTimes.lunch_start ?? ""} />
+                    <input type="hidden" name="lunch_end" value={editedTimes.lunch_end ?? ""} />
+                    <input type="hidden" name="clock_out" value={editedTimes.clock_out ?? ""} />
+                    <input type="hidden" name="notes" value={editedTimes.notes ?? ""} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(false);
+                        setEditedTimes({});
+                      }}
+                      className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={updatePending}
+                      className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      {updatePending ? "Saving..." : "Save changes"}
+                    </button>
+                  </form>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -519,4 +881,3 @@ export default function CompanyTimesheetCalendar({
     </section>
   );
 }
-

@@ -83,7 +83,7 @@ export default function CompanyGeolocationPanel({
   }
 
   return (
-    <section className="premium-card grid gap-5 rounded-md p-4 sm:p-6">
+    <section className="card grid gap-5 p-4 sm:p-6">
       <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
