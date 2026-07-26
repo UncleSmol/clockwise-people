@@ -6,7 +6,7 @@ import {
   getCurrentUserAccess,
   requireUser,
 } from "@/lib/foundation/queries";
-import type { AppRole } from "@/lib/foundation/schema";
+import type { AppRole, CompanySettings } from "@/lib/foundation/schema";
 
 type EmployeeAccountRow = {
   id: string;
@@ -25,11 +25,6 @@ type EmployeeAccountRow = {
   compensation_type: string;
   monthly_salary: number | string | null;
   hourly_rate: number | string | null;
-  branches?: { name: string; code: string | null; address: string | null }[] | {
-    name: string;
-    code: string | null;
-    address: string | null;
-  } | null;
   departments?: { name: string; code: string | null }[] | {
     name: string;
     code: string | null;
@@ -92,7 +87,6 @@ export const getAccountProfile = cache(async function getAccountProfile() {
   }
 
   const employee = employeeResult?.data as unknown as EmployeeAccountRow | null;
-  const branch = firstRelation(employee?.branches);
   const department = firstRelation(employee?.departments);
   const timeRows = (timeResult?.data ?? []) as TimeSummaryRow[];
 
@@ -124,7 +118,6 @@ export const getAccountProfile = cache(async function getAccountProfile() {
           compensationType: employee.compensation_type,
           monthlySalary: employee.monthly_salary,
           hourlyRate: employee.hourly_rate,
-          branch,
           department,
         }
       : null,
@@ -143,4 +136,21 @@ export const getAccountProfile = cache(async function getAccountProfile() {
       ).length,
     },
   };
+});
+
+export const getCompanySettings = cache(async function getCompanySettings(): Promise<CompanySettings | null> {
+  const { company } = await getActiveCompany();
+  const { supabase } = await requireUser();
+
+  const { data, error } = await supabase
+    .from("company_settings")
+    .select("*")
+    .eq("company_id", company.id)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as CompanySettings | null;
 });

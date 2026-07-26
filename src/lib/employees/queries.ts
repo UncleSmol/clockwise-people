@@ -85,7 +85,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       departments: [],
       managers: [],
       schedules: [],
-      standardMonthlyHours: 173.33,
+      standardMonthlyHours: 0,
       employees: [],
     };
   }
@@ -157,6 +157,10 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     throw new Error(settingsResult.error.message);
   }
 
+  if (settingsResult.data == null) {
+    throw new Error("Company settings not found — standard_monthly_hours is required.");
+  }
+
   if (assignmentsResult.error && !isMissingAssignmentSchema(assignmentsResult.error)) {
     throw new Error(assignmentsResult.error.message);
   }
@@ -167,8 +171,6 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       ? []
       : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   );
-
-  const rawHours = settingsResult.data?.standard_monthly_hours;
 
   return {
     isConfigured: true,
@@ -185,7 +187,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       id: schedule.id,
       label: schedule.name,
     })),
-    standardMonthlyHours: rawHours != null ? Number(rawHours) : 173.33,
+    standardMonthlyHours: Number(settingsResult.data.standard_monthly_hours),
     managers: employees
       .filter((employee) => employee.employment_status !== "terminated")
       .map((employee) => ({ id: employee.id, label: employee.full_name })),

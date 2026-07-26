@@ -3,8 +3,7 @@ import dynamic from "next/dynamic";
 import { ChevronDown } from "lucide-react";
 import ComplianceDocuments from "@/components/compliance/ComplianceDocuments";
 import CalendarWorkspace from "@/components/dashboard/CalendarWorkspace";
-import { getAccountProfile } from "@/lib/account/queries";
-
+import { getAccountProfile, getCompanySettings } from "@/lib/account/queries";
 import { deactivateEmployee } from "@/lib/employees/actions";
 import { getEmployeeDetail, getEmployeePageData } from "@/lib/employees/queries";
 import { getActiveCompany, getCompanySetup, getCurrentUserAccess } from "@/lib/foundation/queries";
@@ -140,6 +139,12 @@ const EmployeeLeaveRequests = dynamic(
     loading: () => <LoadingPanel label="leave workspace" />,
   },
 );
+const CompanyRulesForm = dynamic(
+  () => import("@/components/account/CompanyRulesForm"),
+  {
+    loading: () => <LoadingPanel label="company rules" />,
+  },
+);
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
@@ -175,6 +180,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     geolocationData,
     employeesData,
     selectedEmployee,
+    companySettings,
   ] = await Promise.all([
     access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
     canManageCompany
@@ -196,6 +202,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     canManageEmployees && selectedEmployeeId
       ? getEmployeeDetail(selectedEmployeeId)
       : Promise.resolve(null),
+    canManageCompany ? getCompanySettings() : Promise.resolve(null),
   ]);
 
   const currentDateLabel = new Intl.DateTimeFormat("en-ZA", {
@@ -452,6 +459,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <ChangePasswordForm />
           </section>
+          {companySettings ? <CompanyRulesForm settings={companySettings} /> : null}
         </div>
       ),
     });

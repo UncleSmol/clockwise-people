@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getActiveCompany } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ChangePasswordState = {
@@ -233,4 +234,52 @@ export async function updateCompanyProfile(
   revalidatePath("/dashboard/company");
 
   return { ok: true, message: "Company profile updated." };
+}
+
+export async function updateCompanyRules(
+  _previousState: UpdateCompanyProfileState,
+  formData: FormData,
+): Promise<UpdateCompanyProfileState> {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { ok: false, message: "Your session could not be verified." };
+  }
+
+  const category = String(formData.get("category") ?? "").trim();
+
+  if (!category || !["overtime_rules", "toil_rules", "leave_rules", "approval_rules"].includes(category)) {
+    return { ok: false, message: "Invalid rule category." };
+  }
+
+  const raw = String(formData.get("rules") ?? "").trim();
+
+  if (!raw) {
+    return { ok: false, message: "Rules JSON is required." };
+  }
+
+  let parsed: Record<string, unknown>;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, message: "Rules must be valid JSON." };
+  }
+
+  const { company } = await getActiveCompany();
+
+  const { error } = await supabase
+    .from("company_settings")
+    .update({ [category]: parsed })
+    .eq("company_id", company.id);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/account");
+
+  return { ok: true, message: `${category.replaceAll("_", " ")} updated.` };
 }

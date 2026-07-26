@@ -64,6 +64,18 @@ export type Company = {
   payroll_cycle: string;
 };
 
+export type CompanySettings = {
+  id: string;
+  company_id: string;
+  standard_monthly_hours: number;
+  standard_daily_hours: number;
+  default_lunch_minutes: number;
+  overtime_rules: Record<string, unknown>;
+  toil_rules: Record<string, unknown>;
+  leave_rules: Record<string, unknown>;
+  approval_rules: Record<string, unknown>;
+};
+
 export type Department = {
   id: string;
   company_id: string;

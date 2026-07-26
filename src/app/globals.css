@@ -84,6 +84,34 @@ body {
   margin: 0;
 }
 
+/* Hide scrollbars globally — floating indicators replace them */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Floating scroll-shadow indicator pinned to the bottom of scrollable containers.
+   Add class "scroll-shadow" to any overflow-y-auto container that should hint
+   at scrollable content below the visible fold. */
+.scroll-shadow {
+  position: relative;
+}
+.scroll-shadow::after {
+  content: '';
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: block;
+  height: 1.5rem;
+  background: linear-gradient(to bottom, transparent, var(--background));
+  pointer-events: none;
+  margin-top: -1.5rem;
+}
+
 a,
 button,
 input,
