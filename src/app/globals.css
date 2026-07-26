@@ -277,6 +277,15 @@ select {
   }
 }
 
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 200ms ease-out;
+}
+
 .cw-timesheet-calendar {
   --fc-border-color: var(--color-border);
   --fc-button-bg-color: var(--color-surface);
@@ -424,39 +433,39 @@ select {
 }
 
 .cw-timesheet-calendar .cw-calendar-draft {
-  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
-  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 20%, var(--color-surface));
   color: var(--color-warning);
 }
 
 .cw-timesheet-calendar .cw-calendar-submitted {
-  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
-  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 20%, var(--color-surface));
   color: var(--color-primary);
 }
 
 .cw-timesheet-calendar .cw-calendar-approved {
-  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
-  background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
+  background: color-mix(in srgb, var(--color-success) 20%, var(--color-surface));
   color: var(--color-success);
 }
 
 .cw-timesheet-calendar .cw-calendar-rejected {
-  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
-  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 20%, var(--color-surface));
   color: var(--color-danger);
 }
 
 .cw-timesheet-calendar .cw-calendar-locked {
-  border-color: color-mix(in srgb, var(--color-muted) 30%, transparent);
-  background: color-mix(in srgb, var(--color-muted) 8%, var(--color-surface));
-  color: var(--color-muted);
+  border-color: color-mix(in srgb, var(--color-muted) 40%, transparent);
+  background: color-mix(in srgb, var(--color-muted) 18%, var(--color-surface));
+  color: var(--color-foreground);
 }
 
 .cw-timesheet-calendar .cw-calendar-holiday,
 .cw-timesheet-calendar .cw-calendar-holiday-booked {
-  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
   color: var(--color-accent);
 }
 

@@ -837,8 +837,8 @@ export default function EmployeeTimesheetCorrections({
       )}
 
       {detailEntry ? (
-        <div className="fixed inset-x-0 bottom-4 top-19 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center sm:p-5">
-          <div className="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
+          <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
@@ -937,8 +937,8 @@ export default function EmployeeTimesheetCorrections({
       ) : null}
 
       {selectedDate && !detailEntry ? (
-        <div className="fixed inset-x-0 bottom-4 top-19 z-40 grid place-items-end bg-black/30 p-3 sm:place-items-center sm:p-5">
-          <div className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/30">
+          <div className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">

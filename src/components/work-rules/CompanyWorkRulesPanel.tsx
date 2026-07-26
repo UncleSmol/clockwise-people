@@ -1,6 +1,7 @@
 "use client";
 
-import { BriefcaseBusiness, CalendarDays, Edit3, Plus, Save, UserCheck } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, ChevronDown, Plus, Save, UserCheck } from "lucide-react";
+import { FaCalendarAlt, FaUmbrellaBeach, FaSun } from "react-icons/fa";
 import { useActionState } from "react";
 import {
   assignLeaveBalance,
@@ -122,7 +123,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <form action={scheduleAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
           <h3 className="flex items-center gap-2 font-semibold text-foreground">
             <CalendarDays className="size-4 text-accent" />
@@ -274,185 +275,220 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
         </form>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-md border border-border bg-background p-3">
-          <p className="text-sm font-semibold text-foreground">Work rules</p>
-          <div className="mt-2 grid gap-2">
-            {data.schedules.length === 0 ? (
-              <p className="text-sm text-muted">No work rules yet.</p>
-            ) : (
-              data.schedules.map((schedule) => (
-                <details key={schedule.id} className="rounded-md bg-surface text-sm">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2">
-                    <span>
-                      <span className="block font-semibold text-foreground">{schedule.name}</span>
-                      <span className="text-xs text-muted">
-                        {Number(schedule.standard_daily_hours ?? 0).toFixed(2)} paid hours
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-md border border-border bg-background p-2">
+          <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
+            <FaCalendarAlt className="size-3 sm:inline" />
+            <span className="hidden sm:inline">Work rules</span>
+            <span className="ml-auto text-muted">{data.schedules.length}</span>
+          </p>
+          {data.schedules.length === 0 ? (
+            <p className="px-1 text-xs text-muted">No work rules yet.</p>
+          ) : (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md px-1 text-xs font-semibold text-muted hover:text-foreground">
+                <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+                {data.schedules.length} work rule{data.schedules.length === 1 ? "" : "s"}
+              </summary>
+              <div className="mt-1 grid gap-1">
+                {data.schedules.map((schedule) => (
+                  <details key={schedule.id} className="rounded-md bg-surface text-xs">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 px-2 py-1.5">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <FaCalendarAlt className="shrink-0 text-muted" />
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-foreground">{schedule.name}</span>
+                        </span>
                       </span>
-                    </span>
-                    <Edit3 className="size-4 text-muted" />
-                  </summary>
-                  <form action={updateScheduleAction} className="grid gap-2 border-t border-border px-3 py-3">
-                    <input type="hidden" name="work_schedule_id" value={schedule.id} />
-                    <input
-                      name="name"
-                      defaultValue={schedule.name}
-                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
+                      <span className="shrink-0 text-muted">{Number(schedule.standard_daily_hours ?? 0).toFixed(2)}h</span>
+                    </summary>
+                    <form action={updateScheduleAction} className="grid gap-1.5 border-t border-border px-2 py-2">
+                      <input type="hidden" name="work_schedule_id" value={schedule.id} />
                       <input
-                        name="start_time"
-                        type="time"
-                        defaultValue={timeValue(firstWorkingDay(schedule)?.start_time)}
-                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
+                        name="name"
+                        defaultValue={schedule.name}
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
                       />
-                      <input
-                        name="end_time"
-                        type="time"
-                        defaultValue={timeValue(firstWorkingDay(schedule)?.end_time)}
-                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        name="lunch_minutes"
-                        type="number"
-                        min="0"
-                        defaultValue={String(firstWorkingDay(schedule)?.lunch_minutes ?? 0)}
-                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
-                        placeholder="Lunch min"
-                      />
-                      <input
-                        name="daily_hours"
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        defaultValue={String(schedule.standard_daily_hours ?? "")}
-                        className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
-                        placeholder="Paid hours"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {days.map(([value, label]) => (
-                        <label key={value} className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-semibold">
-                          <input
-                            type="checkbox"
-                            name="working_days"
-                            value={value}
-                            defaultChecked={Boolean(scheduleDay(schedule, Number(value))?.is_working_day)}
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-foreground">
-                      <input type="checkbox" name="is_active" defaultChecked />
-                      Active
-                    </label>
-                    <button
-                      disabled={updateSchedulePending}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                    >
-                      <Save className="size-4" />
-                      {updateSchedulePending ? "Saving..." : "Save rule"}
-                    </button>
-                  </form>
-                </details>
-              ))
-            )}
-          </div>
-        </div>
-        <div className="rounded-md border border-border bg-background p-3">
-          <p className="text-sm font-semibold text-foreground">Leave rules</p>
-          <div className="mt-2 grid gap-2">
-            {data.leaveTypes.length === 0 ? (
-              <p className="text-sm text-muted">No leave rules yet.</p>
-            ) : (
-              data.leaveTypes.map((leaveType) => (
-                <details key={leaveType.id} className="rounded-md bg-surface text-sm">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2">
-                    <span>
-                      <span className="block font-semibold text-foreground">{leaveType.name}</span>
-                      <span className="text-xs capitalize text-muted">
-                        {labelize(leaveType.category)} - {leaveType.is_paid ? "Paid" : "Unpaid"}
-                      </span>
-                    </span>
-                    <Edit3 className="size-4 text-muted" />
-                  </summary>
-                  <form action={updateLeaveAction} className="grid gap-2 border-t border-border px-3 py-3">
-                    <input type="hidden" name="leave_type_id" value={leaveType.id} />
-                    <input
-                      name="name"
-                      defaultValue={leaveType.name}
-                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
-                    />
-                    <select
-                      name="category"
-                      defaultValue={leaveType.category}
-                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm capitalize"
-                    >
-                      {leaveCategories.map((category) => (
-                        <option key={category} value={category}>
-                          {labelize(category)}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      name="yearly_hours"
-                      type="number"
-                      min="0"
-                      step="0.25"
-                      defaultValue={String(leaveType.accrual_rules.yearly_hours ?? "")}
-                      className="h-9 rounded-md border border-border bg-background px-2.5 text-sm"
-                      placeholder="Yearly hours"
-                    />
-                    <div className="grid gap-1 text-xs text-foreground">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" name="is_paid" defaultChecked={leaveType.is_paid} />
-                        Paid leave
-                      </label>
-                      <label className="flex items-center gap-2">
+                      <div className="grid grid-cols-2 gap-1.5">
                         <input
-                          type="checkbox"
-                          name="requires_attachment"
-                          defaultChecked={leaveType.requires_attachment}
+                          name="start_time"
+                          type="time"
+                          defaultValue={timeValue(firstWorkingDay(schedule)?.start_time)}
+                          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
                         />
-                        Needs attachment
-                      </label>
-                      <label className="flex items-center gap-2">
+                        <input
+                          name="end_time"
+                          type="time"
+                          defaultValue={timeValue(firstWorkingDay(schedule)?.end_time)}
+                          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          name="lunch_minutes"
+                          type="number"
+                          min="0"
+                          defaultValue={String(firstWorkingDay(schedule)?.lunch_minutes ?? 0)}
+                          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                          placeholder="Lunch min"
+                        />
+                        <input
+                          name="daily_hours"
+                          type="number"
+                          min="0"
+                          step="0.25"
+                          defaultValue={String(schedule.standard_daily_hours ?? "")}
+                          className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                          placeholder="Paid hours"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {days.map(([value, label]) => (
+                          <label key={value} className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5 text-xs font-semibold">
+                            <input
+                              type="checkbox"
+                              name="working_days"
+                              value={value}
+                              defaultChecked={Boolean(scheduleDay(schedule, Number(value))?.is_working_day)}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-1.5 text-xs text-foreground">
                         <input type="checkbox" name="is_active" defaultChecked />
                         Active
                       </label>
-                    </div>
-                    <button
-                      disabled={updateLeavePending}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                    >
-                      <Save className="size-4" />
-                      {updateLeavePending ? "Saving..." : "Save rule"}
-                    </button>
-                  </form>
-                </details>
-              ))
-            )}
-          </div>
+                      <button
+                        disabled={updateSchedulePending}
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                      >
+                        <Save className="size-3.5" />
+                        {updateSchedulePending ? "Saving..." : "Save rule"}
+                      </button>
+                    </form>
+                  </details>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
-        <div className="rounded-md border border-border bg-background p-3">
-          <p className="text-sm font-semibold text-foreground">Public holidays</p>
-          <div className="mt-2 grid gap-2">
-            {data.publicHolidays.length === 0 ? (
-              <p className="text-sm text-muted">No public holidays saved yet.</p>
-            ) : (
-              data.publicHolidays.map((holiday) => (
-                <div key={holiday.id} className="rounded-md bg-surface px-3 py-2 text-sm">
-                  <p className="font-semibold text-foreground">{holiday.name}</p>
-                  <p className="text-xs text-muted">
-                    {holiday.holiday_date} - {holiday.is_paid ? "Paid" : "Unpaid"}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
+        <div className="rounded-md border border-border bg-background p-2">
+          <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
+            <FaUmbrellaBeach className="size-3 sm:inline" />
+            <span className="hidden sm:inline">Leave rules</span>
+            <span className="ml-auto text-muted">{data.leaveTypes.length}</span>
+          </p>
+          {data.leaveTypes.length === 0 ? (
+            <p className="px-1 text-xs text-muted">No leave rules yet.</p>
+          ) : (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md px-1 text-xs font-semibold text-muted hover:text-foreground">
+                <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+                {data.leaveTypes.length} leave rule{data.leaveTypes.length === 1 ? "" : "s"}
+              </summary>
+              <div className="mt-1 grid gap-1">
+                {data.leaveTypes.map((leaveType) => (
+                  <details key={leaveType.id} className="rounded-md bg-surface text-xs">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 px-2 py-1.5">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <FaUmbrellaBeach className="shrink-0 text-muted" />
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold text-foreground">{leaveType.name}</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs capitalize text-muted">
+                        {leaveType.is_paid ? "Paid" : "Unpaid"}
+                      </span>
+                    </summary>
+                    <form action={updateLeaveAction} className="grid gap-1.5 border-t border-border px-2 py-2">
+                      <input type="hidden" name="leave_type_id" value={leaveType.id} />
+                      <input
+                        name="name"
+                        defaultValue={leaveType.name}
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                      />
+                      <select
+                        name="category"
+                        defaultValue={leaveType.category}
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs capitalize"
+                      >
+                        {leaveCategories.map((category) => (
+                          <option key={category} value={category}>
+                            {labelize(category)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        name="yearly_hours"
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        defaultValue={String(leaveType.accrual_rules.yearly_hours ?? "")}
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                        placeholder="Yearly hours"
+                      />
+                      <div className="grid gap-1 text-xs text-foreground">
+                        <label className="flex items-center gap-1.5">
+                          <input type="checkbox" name="is_paid" defaultChecked={leaveType.is_paid} />
+                          Paid leave
+                        </label>
+                        <label className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            name="requires_attachment"
+                            defaultChecked={leaveType.requires_attachment}
+                          />
+                          Needs attachment
+                        </label>
+                        <label className="flex items-center gap-1.5">
+                          <input type="checkbox" name="is_active" defaultChecked />
+                          Active
+                        </label>
+                      </div>
+                      <button
+                        disabled={updateLeavePending}
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                      >
+                        <Save className="size-3.5" />
+                        {updateLeavePending ? "Saving..." : "Save rule"}
+                      </button>
+                    </form>
+                  </details>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+        <div className="rounded-md border border-border bg-background p-2">
+          <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
+            <FaSun className="size-3 sm:inline" />
+            <span className="hidden sm:inline">Public holidays</span>
+            <span className="ml-auto text-muted">{data.publicHolidays.length}</span>
+          </p>
+          {data.publicHolidays.length === 0 ? (
+            <p className="px-1 text-xs text-muted">No public holidays saved yet.</p>
+          ) : (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-1 rounded-md px-1 text-xs font-semibold text-muted hover:text-foreground">
+                <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
+                {data.publicHolidays.length} public holiday{data.publicHolidays.length === 1 ? "" : "s"}
+              </summary>
+              <div className="mt-1 grid gap-1">
+                {data.publicHolidays.map((holiday) => (
+                  <div key={holiday.id} className="grid gap-0.5 rounded-md bg-surface px-2 py-1.5 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <FaSun className="shrink-0 text-muted" />
+                      <span className="truncate font-semibold text-foreground">{holiday.name}</span>
+                    </span>
+                    <span className="ml-5 text-muted">
+                      {holiday.holiday_date}{holiday.is_paid ? "" : " - Unpaid"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
     </section>

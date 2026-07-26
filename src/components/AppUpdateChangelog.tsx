@@ -85,7 +85,7 @@ export default function AppUpdateChangelog({
 
   return (
     <div
-      className="fixed inset-0 z-80 grid place-items-center bg-black/50 p-3 sm:p-5"
+      className="fixed inset-0 z-80 flex justify-end bg-black/50"
       onKeyDown={handleKeyDown}
     >
       <section
@@ -93,7 +93,7 @@ export default function AppUpdateChangelog({
         aria-modal="true"
         ref={dialogRef}
         role="dialog"
-        className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
+        className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-border bg-surface shadow-lg animate-slide-in-right"
       >
         <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex min-w-0 gap-3">

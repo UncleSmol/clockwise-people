@@ -133,7 +133,7 @@ const EmployeeLeaveRequests = dynamic(
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
-  const [{ company }, access] = await Promise.all([
+  const [{ companies, company }, access] = await Promise.all([
     getActiveCompany(),
     getCurrentUserAccess(),
   ]);
@@ -393,6 +393,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <CalendarWorkspace
       companyName={company.name}
+      companies={companies}
+      isSuperAdmin={access.isSuperAdmin}
       currentDateLabel={currentDateLabel}
         employeeClock={
           <EmployeeTimeClock todayEntry={employeeTimeState?.todayEntry ?? null} variant="strip" />

@@ -121,7 +121,7 @@ function renderEventContent(eventInfo: EventContentArg) {
   return (
     <div className="grid min-w-0 gap-0.5 text-[11px] leading-4">
       <span className="truncate font-semibold">{displayName(entry)}</span>
-      <span className="truncate text-muted">
+      <span className="truncate opacity-75">
         {Number(entry.paid_hours ?? 0).toFixed(2)}h
         {Number(entry.overtime_hours ?? 0) > 0
           ? ` + ${Number(entry.overtime_hours).toFixed(2)}h OT`
@@ -452,8 +452,8 @@ export default function CompanyTimesheetCalendar({
 
       {/* Date action modal */}
       {showDateActions ? (
-        <div className="fixed inset-x-0 bottom-4 top-19 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center sm:p-5">
-          <div className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
+          <div className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
             <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
@@ -600,8 +600,8 @@ export default function CompanyTimesheetCalendar({
 
       {/* Entry detail/edit modal */}
       {selectedEntry ? (
-        <div className="fixed inset-x-0 bottom-4 top-19 z-50 grid place-items-end bg-black/45 p-3 sm:place-items-center sm:p-5">
-          <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
+          <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
             <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

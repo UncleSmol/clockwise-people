@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { MapPin, Navigation, Radar, Save, Trash2, Users } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { MapPin, Navigation, Radar, Save, Search, Trash2, Users } from "lucide-react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import {
   assignEmployeeWorkstation,
   deactivateCompanyWorkstation,
@@ -66,6 +66,30 @@ export default function CompanyGeolocationPanel({
     assignEmployeeWorkstation,
     initialState,
   );
+  const [geocoding, setGeocoding] = useState(false);
+  const addressRef = useRef<HTMLInputElement>(null);
+
+  async function searchAddress() {
+    const value = addressRef.current?.value.trim();
+    if (!value) return;
+    setGeocoding(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=1`,
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        setPosition({
+          latitude: Number(data[0].lat),
+          longitude: Number(data[0].lon),
+        });
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setGeocoding(false);
+    }
+  }
 
   function selectWorkstation(workstation: CompanyWorkstation) {
     setSelectedWorkstationId(workstation.id);
@@ -95,7 +119,7 @@ export default function CompanyGeolocationPanel({
             the employee location and whether it was inside the assigned radius.
           </p>
         </div>
-        <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning lg:max-w-sm">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 lg:max-w-56">
           Browser geolocation is captured when employees clock while using the app. It is not
           background GPS tracking when the browser is closed.
         </div>
@@ -117,28 +141,28 @@ export default function CompanyGeolocationPanel({
         </p>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid gap-3">
+      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+        <div className="grid min-w-0 gap-3">
           <WorkstationMap
             latitude={position.latitude}
             longitude={position.longitude}
             onChange={(latitude, longitude) => setPosition({ latitude, longitude })}
             radiusMeters={radiusMeters}
           />
-          <div className="grid gap-2 rounded-md border border-border bg-background p-3 text-sm sm:grid-cols-3">
-            <div>
+          <div className="grid gap-3 rounded-md border border-border bg-background p-3 text-sm sm:grid-cols-3">
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 Latitude
               </p>
-              <p className="mt-1 font-semibold text-foreground">
+              <p className="mt-1 truncate font-semibold text-foreground">
                 {formatCoordinate(position.latitude)}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 Longitude
               </p>
-              <p className="mt-1 font-semibold text-foreground">
+              <p className="mt-1 truncate font-semibold text-foreground">
                 {formatCoordinate(position.longitude)}
               </p>
             </div>
@@ -151,7 +175,7 @@ export default function CompanyGeolocationPanel({
           </div>
         </div>
 
-        <form action={saveAction} className="grid gap-3 rounded-md border border-border bg-background p-4">
+        <form action={saveAction} className="grid h-max gap-3 rounded-md border border-border bg-background p-4">
           <input name="workstation_id" type="hidden" value={selectedWorkstationId} />
           <input name="latitude" type="hidden" value={position.latitude} />
           <input name="longitude" type="hidden" value={position.longitude} />
@@ -202,13 +226,26 @@ export default function CompanyGeolocationPanel({
 
           <label className="grid gap-1 text-sm font-medium text-foreground">
             Address
-            <input
-              key={selectedWorkstation?.id ?? "new-address"}
-              name="address"
-              defaultValue={selectedWorkstation?.address ?? ""}
-              placeholder="Optional display address"
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            />
+            <div className="flex gap-2">
+              <input
+                key={selectedWorkstation?.id ?? "new-address"}
+                ref={addressRef}
+                name="address"
+                defaultValue={selectedWorkstation?.address ?? ""}
+                placeholder="Search address then pin the location"
+                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchAddress(); } }}
+              />
+              <button
+                type="button"
+                disabled={geocoding}
+                onClick={searchAddress}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+              >
+                <Search className="size-3.5" />
+                {geocoding ? "..." : "Search"}
+              </button>
+            </div>
           </label>
 
           <label className="grid gap-2 text-sm font-medium text-foreground">
@@ -238,8 +275,8 @@ export default function CompanyGeolocationPanel({
         </form>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
-        <div className="rounded-md border border-border bg-background">
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+        <div className="min-w-0 rounded-md border border-border bg-background">
           <div className="border-b border-border px-4 py-3">
             <h3 className="font-semibold text-foreground">Active workstations</h3>
           </div>

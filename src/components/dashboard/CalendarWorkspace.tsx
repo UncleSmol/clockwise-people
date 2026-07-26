@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
   Building2,
   CalendarRange,
   ClipboardCheck,
   Clock3,
+  GripVertical,
   LayoutGrid,
   Settings2,
   ShieldCheck,
@@ -24,6 +26,8 @@ type WorkspacePanel = {
 
 type CalendarWorkspaceProps = {
   companyName: string;
+  companies: { id: string; name: string }[];
+  isSuperAdmin: boolean;
   currentDateLabel: string;
   employeeCalendar: ReactNode;
   employeeClock: ReactNode;
@@ -47,6 +51,8 @@ function panelIcon(label: string) {
 
 export default function CalendarWorkspace({
   companyName,
+  companies,
+  isSuperAdmin,
   currentDateLabel,
   employeeCalendar,
   employeeClock,
@@ -55,6 +61,7 @@ export default function CalendarWorkspace({
   managerCalendar,
   panels,
 }: CalendarWorkspaceProps) {
+  const router = useRouter();
   const [activePanelKey, setActivePanelKey] = useState<string | null>(initialActivePanelKey);
   const [showServices, setShowServices] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<"me" | "team">(
@@ -65,6 +72,10 @@ export default function CalendarWorkspace({
     () => panels.find((panel) => panel.key === activePanelKey) ?? null,
     [activePanelKey, panels],
   );
+  const [panelWidthPercent, setPanelWidthPercent] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? 90 : 80,
+  );
+  const resizingRef = useRef(false);
 
   useEffect(() => {
     if (!activePanel) return;
@@ -75,15 +86,63 @@ export default function CalendarWorkspace({
     };
   }, [activePanel]);
 
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    resizingRef.current = true;
+    document.body.style.cursor = "ew-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (ev: PointerEvent) => {
+      if (!resizingRef.current) return;
+      const vw = window.innerWidth;
+      const pct = ((vw - ev.clientX) / vw) * 100;
+      const maxPct = vw < 768 ? 90 : 80;
+      setPanelWidthPercent(Math.min(maxPct, Math.max(40, pct)));
+    };
+
+    const handlePointerUp = () => {
+      resizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+  }, []);
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col gap-0">
       <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
         <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-lg font-bold text-foreground">{companyName}</h1>
-              <p className="text-xs text-muted">{currentDateLabel}</p>
-            </div>
+<div>
+  {isSuperAdmin ? (
+    <select
+      value={companyName}
+      onChange={(e) => {
+        const target = e.target as HTMLSelectElement;
+        const selected = target.options[target.selectedIndex];
+        const companyId = selected.dataset.companyId;
+        if (companyId) {
+          document.cookie = `active_company_id=${companyId}; path=/; max-age=31536000`;
+          router.refresh();
+        }
+      }}
+      className="text-lg font-bold text-foreground bg-transparent border-none outline-none cursor-pointer appearance-none"
+    >
+      {companies.map((c) => (
+        <option key={c.id} value={c.name} data-company-id={c.id}>
+          {c.name}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <h1 className="text-lg font-bold text-foreground">{companyName}</h1>
+  )}
+  <p className="text-xs text-muted">{currentDateLabel}</p>
+</div>
           </div>
           <div className="flex items-center gap-2">
             {isManager && managerCalendar ? (
@@ -162,23 +221,32 @@ export default function CalendarWorkspace({
       </div>
 
       {activePanel ? (
-        <div className="fixed inset-0 z-50 bg-black/50 p-3 sm:p-6">
-          <div className="mx-auto flex h-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
+          <div
+            className="flex h-full flex-col overflow-hidden border-l border-border bg-surface shadow-lg animate-slide-in-right"
+            style={{ width: `${panelWidthPercent}vw` }}
+          >
+            <div
+              className="flex shrink-0 cursor-ew-resize items-center justify-center border-b border-border bg-surface-muted px-1 py-0.5 hover:bg-accent/20"
+              onPointerDown={handleResizeStart}
+            >
+              <GripVertical className="size-3 text-muted" />
+            </div>
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-              <div>
-                <h3 className="text-lg font-bold text-foreground">{activePanel.label}</h3>
-                <p className="mt-0.5 text-sm text-muted">{activePanel.description}</p>
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-bold text-foreground">{activePanel.label}</h3>
+                <p className="mt-0.5 truncate text-sm text-muted">{activePanel.description}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setActivePanelKey(null)}
-                className="icon-btn text-muted hover:text-foreground"
+                className="icon-btn shrink-0 text-muted hover:text-foreground"
                 aria-label="Close panel"
               >
                 <X className="size-4" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-5">
               {activePanel.content}
             </div>
           </div>

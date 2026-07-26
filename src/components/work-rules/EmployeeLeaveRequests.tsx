@@ -113,8 +113,8 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               <p className="text-sm text-muted">No balances assigned yet.</p>
             ) : (
               state.balances.map((balance) => (
-                <div key={balance.id} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
-                  <span className="font-semibold text-foreground">{leaveTypeName(balance)}</span>
+                <div key={balance.id} className="flex items-center justify-between gap-2 rounded-md bg-surface px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate font-semibold text-foreground">{leaveTypeName(balance)}</span>
                   <span className="rounded-full bg-surface-muted px-2 py-1 text-xs font-semibold">
                     {Number(balance.balance_hours).toFixed(2)}h
                   </span>
@@ -246,8 +246,8 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
       <div className="grid gap-2">
         {state.requests.map((request) => (
           <div key={request.id} className="grid gap-2 rounded-md border border-border bg-background p-3 text-sm sm:grid-cols-[1fr_auto]">
-            <div>
-              <p className="font-semibold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
               <p className="mt-1 text-xs text-muted">
                 {request.start_date} to {request.end_date} - {Number(request.total_hours).toFixed(2)}h
               </p>

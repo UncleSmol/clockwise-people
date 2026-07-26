@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,16 +51,31 @@ export const getUserCompanies = cache(async function getUserCompanies() {
 });
 
 export const getActiveCompany = cache(async function getActiveCompany() {
+  const { supabase, user } = await requireUser();
   const companies = await getUserCompanies();
 
   if (companies.length === 0) {
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
 
-  return {
-    companies,
-    company: companies[0],
-  };
+  const { data: appUser } = await supabase
+    .from("users")
+    .select("is_super_admin")
+    .eq("auth_user_id", user.id)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .single();
+
+  if (appUser?.is_super_admin) {
+    const cookieStore = await cookies();
+    const preferredId = cookieStore.get("active_company_id")?.value;
+    if (preferredId) {
+      const preferred = companies.find((c) => c.id === preferredId);
+      if (preferred) return { companies, company: preferred };
+    }
+  }
+
+  return { companies, company: companies[0] };
 });
 
 export const getCurrentUserAccess = cache(async function getCurrentUserAccess() {
