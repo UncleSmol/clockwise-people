@@ -2,6 +2,7 @@
 
 import {
   ClipboardList,
+  FileText,
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
@@ -148,18 +149,19 @@ export default function CompanyTimesheetCorrectionQueue({
 
               <form action={formAction} className="grid gap-2">
                 <input type="hidden" name="correction_id" value={request.id} />
-                <textarea
-                  name="review_notes"
-                  rows={2}
-                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                  placeholder="Optional review note"
-                />
+                <label className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Review note</span>
+                  <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                    <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                    <textarea name="review_notes" rows={2} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Optional review note" />
+                  </span>
+                </label>
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
                     name="decision"
                     value="reject"
                     disabled={pending}
-                    className="inline-flex items-center justify-center gap-2 rounded-md border border-danger/40 bg-surface px-4 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-danger/40 bg-surface px-4 py-2 text-sm font-semibold text-danger disabled:opacity-60"
                   >
                     <ThumbsDown className="size-4" />
                     Reject
@@ -168,7 +170,7 @@ export default function CompanyTimesheetCorrectionQueue({
                     name="decision"
                     value="approve"
                     disabled={pending}
-                    className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-60"
                   >
                     <ThumbsUp className="size-4" />
                     Approve

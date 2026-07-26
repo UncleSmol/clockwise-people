@@ -39,7 +39,7 @@ export const employeeFormSchema = z
     known_as: optionalText,
     email: z.email("Enter a valid email address").optional().or(z.literal("")),
     phone_number: optionalText,
-    branch_id: z.uuid("Select a branch"),
+    workstation_id: optionalUuid,
     department_id: optionalUuid,
     job_title: optionalText,
     employment_type: z.enum(employmentTypes),
@@ -64,28 +64,27 @@ export type SelectOption = {
 export type EmployeeRecord = {
   id: string;
   company_id: string;
-  employee_number: string;
+  employee_number: number;
   full_name: string;
   known_as: string | null;
   email: string | null;
   phone_number: string | null;
   avatar_url: string | null;
-  branch_id: string;
+  workstation_id: string;
   department_id: string | null;
   job_title: string | null;
-  employment_type: (typeof employmentTypes)[number];
-  employment_status: (typeof employmentStatuses)[number];
+  employment_type: string;
+  employment_status: string;
   start_date: string;
   work_schedule_id: string | null;
-  work_schedule_ids?: string[];
   manager_employee_id: string | null;
   user_id: string | null;
   payroll_identifier: string | null;
   monthly_salary: number | null;
   hourly_rate: number | null;
-  compensation_type: "hourly" | "monthly";
+  compensation_type: string | null;
   deleted_at: string | null;
-  branch_name?: string | null;
-  department_name?: string | null;
-  manager?: { full_name: string } | null;
+  workstation_name: string | null;
+  department_name: string | null;
+  work_schedule_ids: string[];
 };

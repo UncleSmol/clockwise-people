@@ -4,18 +4,22 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import type { EventClickArg, EventContentArg, EventInput } from "@fullcalendar/core";
+import type { DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
   CalendarDays,
+  Clock,
   Clock3,
+  FileText,
   LocateFixed,
   MapPin,
   Pencil,
   Timer,
   Trash2,
+  User,
   X,
 } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import {
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
@@ -147,13 +151,16 @@ function TimeInput({
   }
 
   return (
-    <input
-      type="time"
-      name={name}
-      defaultValue={value ?? ""}
-      onChange={(e) => onChange(name, e.target.value)}
-      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
-    />
+    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+      <Clock className="size-4 shrink-0 text-muted" />
+      <input
+        type="time"
+        name={name}
+        defaultValue={value ?? ""}
+        onChange={(e) => onChange(name, e.target.value)}
+        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+      />
+    </span>
   );
 }
 
@@ -177,6 +184,31 @@ export default function CompanyTimesheetCalendar({
   });
   const [editing, setEditing] = useState(false);
   const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
+  const [tooltip, setTooltip] = useState<{
+    content: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [dayTooltip, setDayTooltip] = useState<{
+    content: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const dayEventsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const h of publicHolidays) {
+      const prev = map.get(h.holiday_date) ?? [];
+      prev.push(h.name);
+      map.set(h.holiday_date, prev);
+    }
+    for (const e of entries) {
+      const prev = map.get(e.work_date) ?? [];
+      prev.push(displayName(e));
+      map.set(e.work_date, prev);
+    }
+    return map;
+  }, [entries, publicHolidays]);
 
   const [createState, createAction, createPending] = useActionState(
     createManagedDraftTimeEntry,
@@ -393,56 +425,124 @@ export default function CompanyTimesheetCalendar({
         </div>
 
         {events.length > 0 || publicHolidays.length > 0 ? (
-          <div className="cw-timesheet-calendar">
-            <FullCalendar
-              key={`${calendarWindow}-${calendarFocusDate}`}
-              dayMaxEventRows={3}
-              dayMaxEvents={3}
-              eventClassNames={(arg) => {
-                const entry = arg.event.extendedProps.entry as
-                  | CompanyTimesheetCalendarEntry
-                  | undefined;
+          <>
+            <div ref={calendarRef} className="cw-timesheet-calendar">
+              <FullCalendar
+                key={`${calendarWindow}-${calendarFocusDate}`}
+                dayMaxEventRows={3}
+                dayMaxEvents={2}
+                eventClassNames={(arg) => {
+                  const entry = arg.event.extendedProps.entry as
+                    | CompanyTimesheetCalendarEntry
+                    | undefined;
 
-                return entry ? statusClass(entry.status) : ["cw-calendar-holiday"];
-              }}
-              eventContent={renderEventContent}
-              eventClick={handleEventClick}
-              dateClick={handleDateClick}
-              events={events}
-              firstDay={1}
-              initialDate={calendarFocusDate}
-              headerToolbar={{
-                center: "title",
-                left: "prev,next today",
-                right: "",
-              }}
-              height="auto"
-              initialView={
-                calendarWindow === "day"
-                  ? "dayGridDay"
-                  : calendarWindow === "week"
-                    ? "dayGridWeek"
-                    : calendarWindow === "payroll"
-                      ? "dayGridPayroll"
-                      : "dayGridMonth"
-              }
-              moreLinkClick="popover"
-              plugins={[dayGridPlugin, interactionPlugin]}
-              views={{
-                dayGridPayroll: {
-                  buttonText: "Payroll",
-                  duration: { days: 14 },
-                  type: "dayGrid",
-                },
-                dayGridMonth: {
-                  dayMaxEventRows: 3,
-                },
-                dayGridWeek: {
-                  dayMaxEventRows: 6,
-                },
-              }}
-            />
-          </div>
+                  return entry ? statusClass(entry.status) : ["cw-calendar-holiday"];
+                }}
+                eventContent={renderEventContent}
+                eventClick={handleEventClick}
+                dateClick={handleDateClick}
+                eventMouseEnter={(info) => {
+                  setDayTooltip(null);
+                  const rect = info.el.getBoundingClientRect();
+                  const calRect = calendarRef.current?.getBoundingClientRect();
+                  const entry = info.event.extendedProps.entry as CompanyTimesheetCalendarEntry | undefined;
+                  if (entry) {
+                    const lines = [
+                      displayName(entry),
+                      entry.clock_in || entry.clock_out
+                        ? `${formatTime(entry.clock_in)} \u2192 ${formatTime(entry.clock_out)}`
+                        : "",
+                      `${formatHours(entry.paid_hours)}${entry.overtime_hours > 0 ? ` + ${formatHours(entry.overtime_hours)} OT` : ""}`,
+                      entry.status,
+                      entry.branchName ? entry.branchName : "",
+                      entry.warning_notes || entry.notes || "",
+                    ].filter(Boolean).join(" · ");
+                    let x = rect.left + rect.width / 2;
+                    let y = rect.top - 8;
+                    if (calRect) {
+                      x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                      y = Math.max(calRect.top + 4, y);
+                    }
+                    setTooltip({ content: lines, x, y });
+                  } else {
+                    let x = rect.left + rect.width / 2;
+                    let y = rect.top - 8;
+                    if (calRect) {
+                      x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                      y = Math.max(calRect.top + 4, y);
+                    }
+                    setTooltip({ content: info.event.title, x, y });
+                  }
+                }}
+                eventMouseLeave={() => setTooltip(null)}
+                dayCellDidMount={(arg: DayCellMountArg) => {
+                  const dateStr = arg.dateStr;
+                  const eventsForDay = dayEventsMap.get(dateStr);
+                  if (!eventsForDay) return;
+                  arg.el.addEventListener("mouseenter", (e: MouseEvent) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest(".fc-event")) return;
+                    const calRect = calendarRef.current?.getBoundingClientRect();
+                    if (!calRect) return;
+                    const cellRect = arg.el.getBoundingClientRect();
+                    let x = cellRect.left + cellRect.width / 2;
+                    let y = cellRect.top - 4;
+                    x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                    y = Math.max(calRect.top + 4, y);
+                    setDayTooltip({
+                      content: eventsForDay.join(" · "),
+                      x,
+                      y,
+                    });
+                  });
+                  arg.el.addEventListener("mouseleave", () => {
+                    setDayTooltip(null);
+                  });
+                }}
+                events={events}
+                firstDay={1}
+                initialDate={calendarFocusDate}
+                headerToolbar={{
+                  center: "title",
+                  left: "prev,next today",
+                  right: "",
+                }}
+                height="auto"
+                initialView={
+                  calendarWindow === "day"
+                    ? "dayGridDay"
+                    : calendarWindow === "week"
+                      ? "dayGridWeek"
+                      : calendarWindow === "payroll"
+                        ? "dayGridPayroll"
+                        : "dayGridMonth"
+                }
+                moreLinkClick="popover"
+                plugins={[dayGridPlugin, interactionPlugin]}
+                views={{
+                  dayGridPayroll: {
+                    buttonText: "Payroll",
+                    duration: { days: 14 },
+                    type: "dayGrid",
+                  },
+                  dayGridMonth: {
+                    dayMaxEventRows: 3,
+                  },
+                  dayGridWeek: {
+                    dayMaxEventRows: 6,
+                  },
+                }}
+              />
+            </div>
+            {(tooltip ?? dayTooltip) ? (
+              <div
+                className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
+                style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
+              >
+                {(tooltip ?? dayTooltip)!.content}
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="rounded-md border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted">
             No company timesheets have been recorded for the current year yet.
@@ -457,13 +557,15 @@ export default function CompanyTimesheetCalendar({
             <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                  Calendar action
+                  {selectedDate}
                 </p>
                 <h3 className="mt-1 text-xl font-semibold text-foreground">
-                  {selectedDate}
+                  {existingEntriesForDate.length} {existingEntriesForDate.length === 1 ? "entry" : "entries"}
                 </h3>
                 <p className="mt-1 text-sm text-muted">
-                  Create a new timesheet entry or load approved leave for this date.
+                  {existingEntriesForDate.length > 0
+                    ? "Click an entry to view or edit its details."
+                    : "No entries for this date yet."}
                 </p>
               </div>
               <button
@@ -478,7 +580,7 @@ export default function CompanyTimesheetCalendar({
 
             <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
               {/* Create draft section */}
-              <form action={createAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
+              <form action={createAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
                 <div>
                   <p className="font-semibold text-foreground">Create draft entry</p>
                   <p className="mt-1 text-xs text-muted">
@@ -487,26 +589,48 @@ export default function CompanyTimesheetCalendar({
                 </div>
                 <input name="work_date" type="hidden" value={selectedDate} />
                 {existingEntriesForDate.length > 0 ? (
-                  <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
-                    {existingEntriesForDate.length} employee(s) already have entries on this date.
+                  <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-surface">
+                    {existingEntriesForDate.map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => { setSelectedEntry(entry); setSelectedDate(""); setShowDateActions(false); }}
+                        className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-surface-muted"
+                      >
+                        <span className={statusBadgeClass(entry.status)}>
+                          {entry.status}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold text-foreground">
+                            {displayName(entry)}
+                          </span>
+                          <span className="block text-xs text-muted">
+                            {formatTime(entry.clock_in)} \u2192 {formatTime(entry.clock_out)} · {formatHours(entry.paid_hours)}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 ) : null}
                 <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <select
-                    name="employee_id"
-                    required
-                    className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                  >
-                    <option value="">Choose employee</option>
-                    {employees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.label}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                    <User className="size-4 shrink-0 text-muted" />
+                    <select
+                      name="employee_id"
+                      required
+                      className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                    >
+                      <option value="">Choose employee</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.label}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
                   <button
                     disabled={createPending}
-                    className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                   >
                     {createPending ? "Creating..." : "Create draft"}
                   </button>
@@ -514,7 +638,7 @@ export default function CompanyTimesheetCalendar({
               </form>
 
               {/* Load approved leave section */}
-              <form action={loadLeaveAction} className="grid gap-3 rounded-md border border-border bg-background p-3">
+              <form action={loadLeaveAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
                 <div>
                   <p className="font-semibold text-foreground">Load approved leave</p>
                   <p className="mt-1 text-xs text-muted">
@@ -586,7 +710,7 @@ export default function CompanyTimesheetCalendar({
                     ) : null}
                     <button
                       disabled={loadLeavePending}
-                      className="justify-self-end rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                      className="justify-self-end rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                     >
                       {loadLeavePending ? "Loading..." : "Load selected leave"}
                     </button>
@@ -647,64 +771,76 @@ export default function CompanyTimesheetCalendar({
             <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
               {/* Editable time fields */}
               <div className="grid gap-2 sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background px-3 py-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Clock in</p>
                   {editing ? (
-                    <input
-                      type="time"
-                      name="clock_in"
-                      defaultValue={selectedEntry.clock_in ?? ""}
-                      onChange={(e) => handleTimeChange("clock_in", e.target.value)}
-                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                    />
+                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                      <Clock className="size-4 shrink-0 text-muted" />
+                      <input
+                        type="time"
+                        name="clock_in"
+                        defaultValue={selectedEntry.clock_in ?? ""}
+                        onChange={(e) => handleTimeChange("clock_in", e.target.value)}
+                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                      />
+                    </span>
                   ) : (
                     <p className="mt-1 font-semibold text-foreground">
                       {formatTime(selectedEntry.clock_in)}
                     </p>
                   )}
                 </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Lunch start</p>
                   {editing ? (
-                    <input
-                      type="time"
-                      name="lunch_start"
-                      defaultValue={selectedEntry.lunch_start ?? ""}
-                      onChange={(e) => handleTimeChange("lunch_start", e.target.value)}
-                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                    />
+                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                      <Clock className="size-4 shrink-0 text-muted" />
+                      <input
+                        type="time"
+                        name="lunch_start"
+                        defaultValue={selectedEntry.lunch_start ?? ""}
+                        onChange={(e) => handleTimeChange("lunch_start", e.target.value)}
+                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                      />
+                    </span>
                   ) : (
                     <p className="mt-1 font-semibold text-foreground">
                       {formatTime(selectedEntry.lunch_start)}
                     </p>
                   )}
                 </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Lunch end</p>
                   {editing ? (
-                    <input
-                      type="time"
-                      name="lunch_end"
-                      defaultValue={selectedEntry.lunch_end ?? ""}
-                      onChange={(e) => handleTimeChange("lunch_end", e.target.value)}
-                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                    />
+                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                      <Clock className="size-4 shrink-0 text-muted" />
+                      <input
+                        type="time"
+                        name="lunch_end"
+                        defaultValue={selectedEntry.lunch_end ?? ""}
+                        onChange={(e) => handleTimeChange("lunch_end", e.target.value)}
+                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                      />
+                    </span>
                   ) : (
                     <p className="mt-1 font-semibold text-foreground">
                       {formatTime(selectedEntry.lunch_end)}
                     </p>
                   )}
                 </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Clock out</p>
                   {editing ? (
-                    <input
-                      type="time"
-                      name="clock_out"
-                      defaultValue={selectedEntry.clock_out ?? ""}
-                      onChange={(e) => handleTimeChange("clock_out", e.target.value)}
-                      className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                    />
+                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                      <Clock className="size-4 shrink-0 text-muted" />
+                      <input
+                        type="time"
+                        name="clock_out"
+                        defaultValue={selectedEntry.clock_out ?? ""}
+                        onChange={(e) => handleTimeChange("clock_out", e.target.value)}
+                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                      />
+                    </span>
                   ) : (
                     <p className="mt-1 font-semibold text-foreground">
                       {formatTime(selectedEntry.clock_out)}
@@ -715,15 +851,18 @@ export default function CompanyTimesheetCalendar({
 
               {/* Notes field (editable) */}
               {editing ? (
-                <div className="rounded-md border border-border bg-background px-3 py-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs text-muted">Notes</p>
-                  <textarea
-                    name="notes"
-                    defaultValue={selectedEntry.notes ?? ""}
-                    onChange={(e) => handleTimeChange("notes", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                  />
+                  <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                    <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                    <textarea
+                      name="notes"
+                      defaultValue={selectedEntry.notes ?? ""}
+                      onChange={(e) => handleTimeChange("notes", e.target.value)}
+                      rows={2}
+                      className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
+                    />
+                  </span>
                 </div>
               ) : selectedEntry.notes ? (
                 <div className="rounded-md border border-border bg-background px-3 py-2">
@@ -835,7 +974,7 @@ export default function CompanyTimesheetCalendar({
                     <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
                     <button
                       disabled={deletePending}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-50"
                     >
                       <Trash2 className="size-4" />
                       {deletePending ? "Deleting..." : "Delete draft"}
@@ -861,13 +1000,13 @@ export default function CompanyTimesheetCalendar({
                         setEditing(false);
                         setEditedTimes({});
                       }}
-                      className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
                     >
                       Cancel
                     </button>
                     <button
                       disabled={updatePending}
-                      className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                      className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                     >
                       {updatePending ? "Saving..." : "Save changes"}
                     </button>

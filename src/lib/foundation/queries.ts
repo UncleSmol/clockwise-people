@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { AppRole, Branch, Company, Department } from "./schema";
+import type { CompanyWorkstation } from "@/lib/geolocation/schema";
+import type { AppRole, Company, Department } from "./schema";
 
 type UserRoleRow = {
   roles?: { key: AppRole }[] | { key: AppRole } | null;
@@ -184,23 +185,24 @@ export async function requireEmployeeAdmin() {
 
 export const getCompanySetup = cache(async function getCompanySetup(companyId: string) {
   const { supabase } = await requireUser();
-  const [branchesResult, departmentsResult] = await Promise.all([
+  const [workstationsResult, departmentsResult] = await Promise.all([
     supabase
-      .from("branches")
-      .select("id, company_id, name, code, address, timezone, is_active")
+      .from("company_workstations")
+      .select("id, company_id, name, branch_id, address, latitude, longitude, radius_meters, is_active")
       .eq("company_id", companyId)
       .is("deleted_at", null)
+      .eq("is_active", true)
       .order("name"),
     supabase
       .from("departments")
-      .select("id, company_id, branch_id, name, code, is_active, branches(name)")
+      .select("id, company_id, workstation_id, name, code, is_active, company_workstations(name)")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("name"),
   ]);
 
-  if (branchesResult.error) {
-    throw new Error(branchesResult.error.message);
+  if (workstationsResult.error) {
+    throw new Error(workstationsResult.error.message);
   }
 
   if (departmentsResult.error) {
@@ -208,7 +210,7 @@ export const getCompanySetup = cache(async function getCompanySetup(companyId: s
   }
 
   return {
-    branches: (branchesResult.data ?? []) as Branch[],
+    workstations: (workstationsResult.data ?? []) as unknown as CompanyWorkstation[],
     departments: (departmentsResult.data ?? []) as unknown as Department[],
   };
 });

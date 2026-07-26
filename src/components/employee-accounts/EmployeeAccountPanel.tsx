@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Shield } from "lucide-react";
 import { createEmployeeAccount } from "@/lib/employee-accounts/actions";
 import { sendEmployeeInvite, createEmployeeInviteLink } from "@/lib/invitations/actions";
 
@@ -75,22 +76,28 @@ export default function EmployeeAccountPanel({
 
         {!hasAccount && email && (
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={roleKey}
-              onChange={(e) => setRoleKey(e.target.value as "owner" | "hr_admin" | "branch_manager" | "payroll_viewer" | "employee")}
-              className="rounded-md border border-border bg-surface px-2 py-2 text-sm text-foreground outline-none ring-ring focus:ring-2"
-              aria-label="Account role"
-            >
-              {ROLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Role</span>
+              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                <Shield className="size-4 shrink-0 text-muted" />
+                <select
+                  value={roleKey}
+                  onChange={(e) => setRoleKey(e.target.value as "owner" | "hr_admin" | "branch_manager" | "payroll_viewer" | "employee")}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                  aria-label="Account role"
+                >
+                  {ROLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </label>
             <form action={createEmployeeInviteLink.bind(null, employeeId, roleKey)}>
               <button
                 type="submit"
-                className="btn btn-ghost text-sm"
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-muted"
               >
                 Copy invite link
               </button>

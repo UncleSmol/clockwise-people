@@ -7,7 +7,7 @@ import type { EmployeeRecord, SelectOption } from "./schema";
 export type EmployeePageData = {
   isConfigured: boolean;
   companyName: string | null;
-  branches: SelectOption[];
+  workstations: SelectOption[];
   departments: SelectOption[];
   managers: SelectOption[];
   schedules: SelectOption[];
@@ -15,8 +15,8 @@ export type EmployeePageData = {
 };
 
 type EmployeeRow = EmployeeRecord & {
-  branches?: { name: string }[] | { name: string } | null;
   departments?: { name: string }[] | { name: string } | null;
+  company_workstations?: { name: string }[] | { name: string } | null;
 };
 
 type WorkScheduleAssignmentRow = {
@@ -46,11 +46,11 @@ function relationName(
 }
 
 function normalizeEmployee(row: EmployeeRow): EmployeeRecord {
-  const { branches, departments, ...employee } = row;
+  const { departments, company_workstations, ...employee } = row;
 
   return {
     ...employee,
-    branch_name: relationName(branches),
+    workstation_name: relationName(company_workstations),
     department_name: relationName(departments),
   };
 }
@@ -80,7 +80,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     return {
       isConfigured: false,
       companyName: null,
-      branches: [],
+      workstations: [],
       departments: [],
       managers: [],
       schedules: [],
@@ -91,9 +91,9 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
 
-  const [branchesResult, departmentsResult, schedulesResult, employeesResult, assignmentsResult] = await Promise.all([
+  const [workstationsResult, departmentsResult, schedulesResult, employeesResult, assignmentsResult] = await Promise.all([
     supabase
-      .from("branches")
+      .from("company_workstations")
       .select("id, name")
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -116,7 +116,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     supabase
       .from("employees")
       .select(
-        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, branch_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
+        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
       )
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -130,8 +130,8 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       .order("priority", { ascending: true }),
   ]);
 
-  if (branchesResult.error) {
-    throw new Error(branchesResult.error.message);
+  if (workstationsResult.error) {
+    throw new Error(workstationsResult.error.message);
   }
 
   if (departmentsResult.error) {
@@ -160,9 +160,9 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
   return {
     isConfigured: true,
     companyName: company.name,
-    branches: (branchesResult.data ?? []).map((branch) => ({
-      id: branch.id,
-      label: branch.name,
+    workstations: (workstationsResult.data ?? []).map((workstation) => ({
+      id: workstation.id,
+      label: workstation.name,
     })),
     departments: (departmentsResult.data ?? []).map((department) => ({
       id: department.id,
@@ -191,7 +191,7 @@ export async function getEmployeeDetail(employeeId: string) {
     supabase
     .from("employees")
     .select(
-      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, branch_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, branches(name), departments(name)",
+      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
     )
     .eq("company_id", company.id)
     .eq("id", employeeId)

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlus, Send } from "lucide-react";
+import { Calendar, CalendarPlus, FileText, Link, List, Send } from "lucide-react";
 import { useActionState, useState } from "react";
 import {
   calculateLeaveRequestHours,
@@ -124,36 +124,54 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
           </div>
         </div>
 
-        <form action={formAction} className="grid gap-2 rounded-md border border-border bg-background p-3">
+        <form action={formAction} className="grid gap-2 rounded-lg border border-border bg-background p-3">
           <p className="text-sm font-semibold text-foreground">New request</p>
-          <select
-            name="leave_type_id"
-            value={leaveTypeId}
-            onChange={(event) => setLeaveTypeId(event.target.value)}
-            className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
-          >
-            <option value="">Leave type</option>
-            {state.leaveTypes.map((leaveType) => (
-              <option key={leaveType.id} value={leaveType.id}>
-                {leaveType.name}
-              </option>
-            ))}
-          </select>
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Leave Type</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <List className="size-4 shrink-0 text-muted" />
+              <select
+                name="leave_type_id"
+                value={leaveTypeId}
+                onChange={(event) => setLeaveTypeId(event.target.value)}
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              >
+                <option value="">Leave type</option>
+                {state.leaveTypes.map((leaveType) => (
+                  <option key={leaveType.id} value={leaveType.id}>
+                    {leaveType.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </label>
           <div className="grid grid-cols-2 gap-2">
-            <input
-              name="start_date"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-              className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
-            />
-            <input
-              name="end_date"
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
-              className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
-            />
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start Date</span>
+              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                <Calendar className="size-4 shrink-0 text-muted" />
+                <input
+                  name="start_date"
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                />
+              </span>
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">End Date</span>
+              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                <Calendar className="size-4 shrink-0 text-muted" />
+                <input
+                  name="end_date"
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                />
+              </span>
+            </label>
           </div>
           {calculation ? (
             <div
@@ -209,32 +227,44 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               </span>
             </div>
           )}
-          <input
-            name="attachment_url"
-            value={attachmentUrl}
-            onChange={(event) => setAttachmentUrl(event.target.value)}
-            className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
-            placeholder="Attachment link, if needed"
-          />
-          <textarea
-            name="reason"
-            rows={2}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className="rounded-md border border-border bg-surface px-3 py-2 text-sm"
-            placeholder="Reason"
-          />
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Attachment Link</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <Link className="size-4 shrink-0 text-muted" />
+              <input
+                name="attachment_url"
+                value={attachmentUrl}
+                onChange={(event) => setAttachmentUrl(event.target.value)}
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                placeholder="Attachment link, if needed"
+              />
+            </span>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
+            <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+              <FileText className="size-4 shrink-0 text-muted" />
+              <textarea
+                name="reason"
+                rows={2}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
+                placeholder="Reason"
+              />
+            </span>
+          </label>
           <div className="grid gap-2 sm:grid-cols-2">
             <button
               formAction={calculationAction}
               disabled={calculationPending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
             >
               {calculationPending ? "Calculating..." : "Calculate hours"}
             </button>
             <button
               disabled={pending || Boolean(calculation?.exceeds_balance)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               <Send className="size-4" />
               {pending ? "Sending..." : "Send request"}

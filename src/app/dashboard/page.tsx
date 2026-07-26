@@ -76,6 +76,15 @@ const CompanyGeolocationPanel = dynamic(
     loading: () => <LoadingPanel label="geolocation tools" />,
   },
 );
+const CompanyDepartmentPanel = dynamic(
+  () => import("@/components/foundation/CompanyDepartmentPanel"),
+  {
+    loading: () => <LoadingPanel label="department tools" />,
+  },
+);
+const CompanyLogoForm = dynamic(() => import("@/components/company/CompanyLogoForm"), {
+  loading: () => <LoadingPanel label="logo settings" />,
+});
 const InviteLinkPanel = dynamic(() => import("@/components/invitations/InviteLinkPanel"), {
   loading: () => <LoadingPanel label="invite link" />,
 });
@@ -169,7 +178,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
     canManageCompany
       ? getCompanySetup(company.id)
-      : Promise.resolve({ branches: [], departments: [] }),
+      : Promise.resolve({ workstations: [], departments: [] }),
     canReviewTime ? getCompanyLiveTimeOverview() : Promise.resolve(null),
     canReviewTime ? getCompanyTimesheetCalendarEntries() : Promise.resolve([]),
     canReviewTime ? getCompanyCalendarEmployeeOptions() : Promise.resolve([]),
@@ -267,7 +276,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       </p>
                     </div>
                     <EmployeeForm
-                      branches={employeesData.branches}
+                      workstations={employeesData.workstations}
                       departments={employeesData.departments}
                       managers={employeesData.managers}
                       schedules={employeesData.schedules}
@@ -299,13 +308,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     All employee records are saved with company scope.
                   </p>
                 </div>
-                {employeesData.branches.length === 0 ? (
+                {employeesData.workstations.length === 0 ? (
                   <div className="rounded-lg border border-warning/20 bg-warning/8 px-4 py-4 text-sm text-warning">
-                    Branch setup is required first.
+                    Workstation setup is required first.
                   </div>
                 ) : (
                   <EmployeeForm
-                    branches={employeesData.branches}
+                    workstations={employeesData.workstations}
                     departments={employeesData.departments}
                     managers={employeesData.managers}
                     schedules={employeesData.schedules}
@@ -350,8 +359,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </div>
                 <CompanyProfileForm company={accountProfile.account.company} />
               </section>
+              <section className="card grid gap-4 p-4 sm:p-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">Company logo</h2>
+                  <p className="mt-1 text-sm text-muted">Set a logo URL to display in the navigation bar.</p>
+                </div>
+                <CompanyLogoForm
+                  companyName={accountProfile.account.company.name}
+                  logoUrl={accountProfile.account.company.logo_url}
+                />
+              </section>
               <CompanyWorkRulesPanel data={workRulesData} />
-              <CompanyGeolocationPanel branches={companySetup.branches} data={geolocationData} />
+              <CompanyGeolocationPanel data={geolocationData} />
+              <CompanyDepartmentPanel
+                workstations={companySetup.workstations}
+                departments={companySetup.departments}
+                employees={employeesData?.employees ?? []}
+              />
             </div>
           ),
         });

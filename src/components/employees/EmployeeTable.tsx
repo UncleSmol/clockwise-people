@@ -57,7 +57,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             value={globalFilter}
             onChange={(event) => setGlobalFilter(event.target.value)}
             placeholder="Search employees"
-            className="w-full rounded-md border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none ring-ring focus:ring-2"
+            className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none"
           />
         </label>
       </div>

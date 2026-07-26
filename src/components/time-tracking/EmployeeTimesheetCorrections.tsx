@@ -3,22 +3,24 @@
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
-import type { EventClickArg, EventInput } from "@fullcalendar/core";
+import type { EventClickArg, EventInput, DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  Clock,
   Clock3,
   ClipboardCheck,
   Edit3,
   FileQuestion,
+  FileText,
   Plus,
   Save,
   Send,
   Trash2,
   X,
 } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import {
   createPastDraftTimeEntry,
   deleteDraftTimeEntry,
@@ -188,6 +190,33 @@ export default function EmployeeTimesheetCorrections({
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
   const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);
+  const [tooltip, setTooltip] = useState<{
+    content: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [dayTooltip, setDayTooltip] = useState<{
+    content: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const dayEventsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const h of publicHolidays) {
+      const prev = map.get(h.holiday_date) ?? [];
+      prev.push(h.name);
+      map.set(h.holiday_date, prev);
+    }
+    for (const e of entries) {
+      const prev = map.get(e.work_date) ?? [];
+      const isHoliday = Boolean(e.notes?.startsWith("Public holiday:"));
+      const label = isHoliday ? "Public holiday" : `${e.status} - ${formatHours(e.paid_hours)}`;
+      prev.push(label);
+      map.set(e.work_date, prev);
+    }
+    return map;
+  }, [entries, publicHolidays]);
   const [createState, createAction, createPending] = useActionState(
     createPastDraftTimeEntry,
     initialState,
@@ -343,51 +372,40 @@ export default function EmployeeTimesheetCorrections({
             <input type="hidden" name="time_entry_id" value={entry.id} />
             <div className="grid gap-2 sm:grid-cols-4">
               <label className="grid gap-1">
-                <span className="text-xs font-semibold text-muted">In</span>
-                <input
-                  type="time"
-                  name="clock_in"
-                  defaultValue={inputTime(entry.clock_in)}
-                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">In</span>
+                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                  <Clock className="size-4 shrink-0 text-muted" />
+                  <input type="time" name="clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </span>
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-semibold text-muted">Lunch start</span>
-                <input
-                  type="time"
-                  name="lunch_start"
-                  defaultValue={inputTime(entry.lunch_start)}
-                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
+                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                  <Clock className="size-4 shrink-0 text-muted" />
+                  <input type="time" name="lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </span>
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-semibold text-muted">Lunch end</span>
-                <input
-                  type="time"
-                  name="lunch_end"
-                  defaultValue={inputTime(entry.lunch_end)}
-                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
+                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                  <Clock className="size-4 shrink-0 text-muted" />
+                  <input type="time" name="lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </span>
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-semibold text-muted">Out</span>
-                <input
-                  type="time"
-                  name="clock_out"
-                  defaultValue={inputTime(entry.clock_out)}
-                  className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Out</span>
+                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                  <Clock className="size-4 shrink-0 text-muted" />
+                  <input type="time" name="clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </span>
               </label>
             </div>
             <label className="grid gap-1">
-              <span className="text-xs font-semibold text-muted">Note</span>
-              <textarea
-                name="notes"
-                rows={2}
-                defaultValue={entry.notes ?? ""}
-                className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                placeholder="Optional"
-              />
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Note</span>
+              <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                <textarea name="notes" rows={2} defaultValue={entry.notes ?? ""} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Optional" />
+              </span>
             </label>
             <div className="flex justify-end">
               <button
@@ -400,7 +418,7 @@ export default function EmployeeTimesheetCorrections({
               </button>
               <button
                 disabled={savePending}
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 <Save className="size-4" />
                 {savePending ? "Saving..." : "Save"}
@@ -496,7 +514,7 @@ export default function EmployeeTimesheetCorrections({
             Rejected
           </span>
         </div>
-        <div className="cw-timesheet-calendar">
+        <div ref={calendarRef} className="cw-timesheet-calendar">
           <FullCalendar
             key={`${calendarWindow}-${calendarFocusDate}`}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -514,9 +532,66 @@ export default function EmployeeTimesheetCorrections({
             firstDay={1}
             events={calendarEvents}
             dayMaxEventRows={3}
-            dayMaxEvents={3}
+            dayMaxEvents={2}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
+            eventMouseEnter={(info) => {
+              setDayTooltip(null);
+              const rect = info.el.getBoundingClientRect();
+              const calRect = calendarRef.current?.getBoundingClientRect();
+              const entry = info.event.extendedProps.entry as TimeEntryRecord | undefined;
+              if (entry) {
+                const lines = [
+                  entry.status,
+                  `${formatTime(entry.clock_in)} \u2192 ${formatTime(entry.clock_out)}`,
+                  formatHours(entry.paid_hours),
+                  entry.missing_clocking ? "Missing clocking" : "",
+                  entry.late_arrival ? "Late arrival" : "",
+                  entry.early_departure ? "Early departure" : "",
+                  entry.warning_notes || entry.notes || "",
+                ].filter(Boolean).join(" · ");
+                let x = rect.left + rect.width / 2;
+                let y = rect.top - 8;
+                if (calRect) {
+                  x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                  y = Math.max(calRect.top + 4, y);
+                }
+                setTooltip({ content: lines, x, y });
+              } else {
+                let x = rect.left + rect.width / 2;
+                let y = rect.top - 8;
+                if (calRect) {
+                  x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                  y = Math.max(calRect.top + 4, y);
+                }
+                setTooltip({ content: info.event.title, x, y });
+              }
+            }}
+            eventMouseLeave={() => setTooltip(null)}
+            dayCellDidMount={(arg: DayCellMountArg) => {
+              const dateStr = arg.dateStr;
+              const eventsForDay = dayEventsMap.get(dateStr);
+              if (!eventsForDay) return;
+              arg.el.addEventListener("mouseenter", (e: MouseEvent) => {
+                const target = e.target as HTMLElement;
+                if (target.closest(".fc-event")) return;
+                const calRect = calendarRef.current?.getBoundingClientRect();
+                if (!calRect) return;
+                const cellRect = arg.el.getBoundingClientRect();
+                let x = cellRect.left + cellRect.width / 2;
+                let y = cellRect.top - 4;
+                x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                y = Math.max(calRect.top + 4, y);
+                setDayTooltip({
+                  content: eventsForDay.join(" · "),
+                  x,
+                  y,
+                });
+              });
+              arg.el.addEventListener("mouseleave", () => {
+                setDayTooltip(null);
+              });
+            }}
             headerToolbar={{
               left: "prev,next today",
               center: "title",
@@ -532,6 +607,14 @@ export default function EmployeeTimesheetCorrections({
             }}
           />
         </div>
+        {(tooltip ?? dayTooltip) ? (
+          <div
+            className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
+            style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
+          >
+            {(tooltip ?? dayTooltip)!.content}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
@@ -750,7 +833,7 @@ export default function EmployeeTimesheetCorrections({
                 ) : null}
 
                 {canRequestCorrection && !hasSubmittedCorrection ? (
-                  <details className="rounded-md border border-border bg-surface">
+                  <details className="rounded-lg border border-border bg-surface">
                     <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
                       Request correction
                     </summary>
@@ -759,52 +842,41 @@ export default function EmployeeTimesheetCorrections({
 
                       <div className="grid gap-2 sm:grid-cols-4">
                         <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Clock in</span>
-                          <input
-                            type="time"
-                            name="proposed_clock_in"
-                            defaultValue={inputTime(entry.clock_in)}
-                            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
+                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
+                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                            <Clock className="size-4 shrink-0 text-muted" />
+                            <input type="time" name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                          </span>
                         </label>
                         <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Lunch start</span>
-                          <input
-                            type="time"
-                            name="proposed_lunch_start"
-                            defaultValue={inputTime(entry.lunch_start)}
-                            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
+                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
+                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                            <Clock className="size-4 shrink-0 text-muted" />
+                            <input type="time" name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                          </span>
                         </label>
                         <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Lunch end</span>
-                          <input
-                            type="time"
-                            name="proposed_lunch_end"
-                            defaultValue={inputTime(entry.lunch_end)}
-                            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
+                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
+                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                            <Clock className="size-4 shrink-0 text-muted" />
+                            <input type="time" name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                          </span>
                         </label>
                         <label className="grid gap-1">
-                          <span className="text-xs font-semibold text-muted">Clock out</span>
-                          <input
-                            type="time"
-                            name="proposed_clock_out"
-                            defaultValue={inputTime(entry.clock_out)}
-                            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          />
+                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
+                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+                            <Clock className="size-4 shrink-0 text-muted" />
+                            <input type="time" name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
+                          </span>
                         </label>
                       </div>
 
                       <label className="grid gap-1">
-                        <span className="text-xs font-semibold text-muted">Reason</span>
-                        <textarea
-                          name="reason"
-                          required
-                          rows={3}
-                          className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none ring-ring focus:ring-2"
-                          placeholder="Explain what happened and why these times are correct."
-                        />
+                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
+                        <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                          <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                          <textarea name="reason" required rows={3} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Explain what happened and why these times are correct." />
+                        </span>
                       </label>
 
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -813,7 +885,7 @@ export default function EmployeeTimesheetCorrections({
                         </p>
                         <button
                           disabled={correctionPending}
-                          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                         >
                           <Send className="size-4" />
                           {correctionPending ? "Sending..." : "Send request"}

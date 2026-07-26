@@ -34,7 +34,7 @@ export default function CompanyLogoForm({
             logoUrl={previewUrl}
             brandName={companyName}
             imageSize={44}
-            imageClassName="size-11 rounded-md object-cover"
+            imageClassName="h-11 w-auto rounded-md"
             textClassName="px-2 text-center text-xs font-semibold text-primary"
             alwaysShowLogo
           />

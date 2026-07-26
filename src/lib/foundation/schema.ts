@@ -36,15 +36,8 @@ export const companyLogoSchema = z.object({
     }, "Use a valid logo link that starts with http:// or https://"),
 });
 
-export const branchSchema = z.object({
-  name: z.string().trim().min(2, "Branch name is required"),
-  code: z.string().trim().optional().or(z.literal("")),
-  address: z.string().trim().optional().or(z.literal("")),
-  timezone: z.string().trim().optional().or(z.literal("")),
-});
-
 export const departmentSchema = z.object({
-  branch_id: z.string().trim().optional().or(z.literal("")),
+  workstation_id: z.string().trim().optional().or(z.literal("")),
   name: z.string().trim().min(2, "Department name is required"),
   code: z.string().trim().optional().or(z.literal("")),
 });
@@ -71,22 +64,12 @@ export type Company = {
   payroll_cycle: string;
 };
 
-export type Branch = {
-  id: string;
-  company_id: string;
-  name: string;
-  code: string | null;
-  address: string | null;
-  timezone: string | null;
-  is_active: boolean;
-};
-
 export type Department = {
   id: string;
   company_id: string;
-  branch_id: string | null;
+  workstation_id: string | null;
   name: string;
   code: string | null;
   is_active: boolean;
-  branches?: { name: string } | null;
+  company_workstations?: { name: string } | null;
 };

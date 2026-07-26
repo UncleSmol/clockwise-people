@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCompany } from "./queries";
-import { branchSchema, companyLogoSchema, departmentSchema } from "./schema";
+import { companyLogoSchema, departmentSchema } from "./schema";
 
 type CompanyLogoState = {
   ok: boolean;
@@ -14,37 +14,6 @@ type CompanyLogoState = {
 function optional(value: FormDataEntryValue | null | undefined) {
   const text = String(value ?? "").trim();
   return text || null;
-}
-
-export async function createBranch(formData: FormData) {
-  const { company } = await getActiveCompany();
-  const parsed = branchSchema.safeParse({
-    name: formData.get("name"),
-    code: formData.get("code"),
-    address: formData.get("address"),
-    timezone: formData.get("timezone"),
-  });
-
-  if (!parsed.success) {
-    redirect(`/dashboard?panel=company&message=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid branch data.")}`);
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("branches").insert({
-    company_id: company.id,
-    name: parsed.data.name,
-    code: optional(parsed.data.code),
-    address: optional(parsed.data.address),
-    timezone: optional(parsed.data.timezone),
-  });
-
-  if (error) {
-    redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
-  }
-
-  revalidatePath("/dashboard/company");
-  revalidatePath("/dashboard");
-  redirect("/dashboard?panel=company");
 }
 
 export async function updateCompanyLogo(
@@ -82,7 +51,7 @@ export async function updateCompanyLogo(
 export async function createDepartment(formData: FormData) {
   const { company } = await getActiveCompany();
   const parsed = departmentSchema.safeParse({
-    branch_id: formData.get("branch_id"),
+    workstation_id: formData.get("workstation_id"),
     name: formData.get("name"),
     code: formData.get("code"),
   });
@@ -94,7 +63,7 @@ export async function createDepartment(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("departments").insert({
     company_id: company.id,
-    branch_id: optional(parsed.data.branch_id),
+    workstation_id: optional(parsed.data.workstation_id),
     name: parsed.data.name,
     code: optional(parsed.data.code),
   });
@@ -103,27 +72,6 @@ export async function createDepartment(formData: FormData) {
     redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/dashboard/company");
-  revalidatePath("/dashboard");
-  redirect("/dashboard?panel=company");
-}
-
-export async function deactivateBranch(formData: FormData) {
-  const { company } = await getActiveCompany();
-  const branchId = String(formData.get("branch_id"));
-  const supabase = await createSupabaseServerClient();
-
-  const { error } = await supabase
-    .from("branches")
-    .update({ is_active: false, deleted_at: new Date().toISOString() })
-    .eq("company_id", company.id)
-    .eq("id", branchId);
-
-  if (error) {
-    redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
-  }
-
-  revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
   redirect("/dashboard?panel=company");
 }
@@ -146,4 +94,26 @@ export async function deactivateDepartment(formData: FormData) {
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
   redirect("/dashboard?panel=company");
+}
+
+export async function assignEmployeeDepartment(
+  employeeId: string,
+  departmentId: string | null,
+): Promise<{ ok: boolean; message: string }> {
+  const { company } = await getActiveCompany();
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("employees")
+    .update({ department_id: departmentId })
+    .eq("company_id", company.id)
+    .eq("id", employeeId);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Employee department updated." };
 }

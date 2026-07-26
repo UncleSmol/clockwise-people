@@ -29,7 +29,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               brandName={company.name}
               logoUrl={company.logo_url}
               imageSize={28}
-              imageClassName="size-7 rounded"
+              imageClassName="h-7 w-auto rounded"
               textClassName="truncate text-sm font-bold text-foreground"
               priority
             />

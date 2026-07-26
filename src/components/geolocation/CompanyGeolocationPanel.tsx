@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { MapPin, Navigation, Radar, Save, Search, Trash2, Users } from "lucide-react";
+import { MapPin, Navigation, Radar, Save, Search, Trash2, User, Users } from "lucide-react";
 import { useActionState, useMemo, useRef, useState } from "react";
 import {
   assignEmployeeWorkstation,
@@ -12,7 +12,6 @@ import type {
   CompanyGeolocationData,
   CompanyWorkstation,
 } from "@/lib/geolocation/schema";
-import type { Branch } from "@/lib/foundation/schema";
 
 const WorkstationMap = dynamic(() => import("./WorkstationMap"), {
   loading: () => (
@@ -24,7 +23,6 @@ const WorkstationMap = dynamic(() => import("./WorkstationMap"), {
 });
 
 type CompanyGeolocationPanelProps = {
-  branches: Branch[];
   data: CompanyGeolocationData;
 };
 
@@ -43,7 +41,6 @@ function formatCoordinate(value: number) {
 }
 
 export default function CompanyGeolocationPanel({
-  branches,
   data,
 }: CompanyGeolocationPanelProps) {
   const [selectedWorkstationId, setSelectedWorkstationId] = useState("");
@@ -67,28 +64,57 @@ export default function CompanyGeolocationPanel({
     initialState,
   );
   const [geocoding, setGeocoding] = useState(false);
+  const [searchResults, setSearchResults] = useState<
+    { lat: string; lon: string; display_name: string }[]
+  >([]);
+  const [showResults, setShowResults] = useState(false);
   const addressRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   async function searchAddress() {
     const value = addressRef.current?.value.trim();
     if (!value) return;
     setGeocoding(true);
+    setSearchResults([]);
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=1`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&limit=5&countrycodes=za&addressdetails=1`,
       );
       const data = await res.json();
       if (data.length > 0) {
-        setPosition({
-          latitude: Number(data[0].lat),
-          longitude: Number(data[0].lon),
-        });
+        setSearchResults(data);
+        setShowResults(true);
       }
     } catch {
       /* ignore */
     } finally {
       setGeocoding(false);
     }
+  }
+
+  function selectResult(result: { lat: string; lon: string; display_name: string }) {
+    setPosition({
+      latitude: Number(result.lat),
+      longitude: Number(result.lon),
+    });
+    setShowResults(false);
+    if (addressRef.current) {
+      addressRef.current.value = result.display_name;
+    }
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      searchAddress();
+    }
+    if (e.key === "Escape") {
+      setShowResults(false);
+    }
+  }
+
+  function handleSearchBlur() {
+    setTimeout(() => setShowResults(false), 200);
   }
 
   function selectWorkstation(workstation: CompanyWorkstation) {
@@ -195,52 +221,57 @@ export default function CompanyGeolocationPanel({
             ) : null}
           </div>
 
-          <label className="grid gap-1 text-sm font-medium text-foreground">
-            Name
-            <input
-              key={selectedWorkstation?.id ?? "new-name"}
-              name="name"
-              required
-              defaultValue={selectedWorkstation?.name ?? ""}
-              placeholder="Head office reception"
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            />
-          </label>
-
-          <label className="grid gap-1 text-sm font-medium text-foreground">
-            Branch
-            <select
-              key={selectedWorkstation?.id ?? "new-branch"}
-              name="branch_id"
-              defaultValue={selectedWorkstation?.branch_id ?? ""}
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            >
-              <option value="">Company-wide</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-sm font-medium text-foreground">
-            Address
-            <div className="flex gap-2">
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <MapPin className="size-4 shrink-0 text-muted" />
               <input
-                key={selectedWorkstation?.id ?? "new-address"}
-                ref={addressRef}
-                name="address"
-                defaultValue={selectedWorkstation?.address ?? ""}
-                placeholder="Search address then pin the location"
-                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchAddress(); } }}
+                key={selectedWorkstation?.id ?? "new-name"}
+                name="name"
+                required
+                defaultValue={selectedWorkstation?.name ?? ""}
+                placeholder="Head office reception"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
               />
+            </span>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Address</span>
+            <div className="relative flex gap-2" ref={searchRef}>
+              <span className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3">
+                <Navigation className="size-4 shrink-0 text-muted" />
+                <input
+                  key={selectedWorkstation?.id ?? "new-address"}
+                  ref={addressRef}
+                  name="address"
+                  defaultValue={selectedWorkstation?.address ?? ""}
+                  placeholder="Search address then pin the location"
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                  onKeyDown={handleSearchKeyDown}
+                  onBlur={handleSearchBlur}
+                  onFocus={() => { if (searchResults.length > 0) setShowResults(true); }}
+                />
+              </span>
+              {showResults && searchResults.length > 0 ? (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-surface shadow-lg">
+                  {searchResults.map((result, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={() => selectResult(result)}
+                      className="w-full px-3 py-2 text-left text-xs text-foreground hover:bg-surface-muted"
+                    >
+                      {result.display_name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <button
                 type="button"
                 disabled={geocoding}
                 onClick={searchAddress}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
               >
                 <Search className="size-3.5" />
                 {geocoding ? "..." : "Search"}
@@ -248,8 +279,8 @@ export default function CompanyGeolocationPanel({
             </div>
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-foreground">
-            Radius: {radiusMeters}m
+          <label className="grid gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Radius: {radiusMeters}m</span>
             <input
               min={25}
               max={5000}
@@ -267,7 +298,7 @@ export default function CompanyGeolocationPanel({
 
           <button
             disabled={savePending}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             <Save className="size-4" />
             {savePending ? "Saving..." : "Save workstation"}
@@ -329,40 +360,46 @@ export default function CompanyGeolocationPanel({
             </p>
           </div>
 
-          <label className="grid gap-1 text-sm font-medium text-foreground">
-            Employee
-            <select
-              name="employee_id"
-              required
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            >
-              <option value="">Choose employee</option>
-              {data.employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.label}
-                </option>
-              ))}
-            </select>
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employee</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <User className="size-4 shrink-0 text-muted" />
+              <select
+                name="employee_id"
+                required
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              >
+                <option value="">Choose employee</option>
+                {data.employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.label}
+                  </option>
+                ))}
+              </select>
+            </span>
           </label>
 
-          <label className="grid gap-1 text-sm font-medium text-foreground">
-            Workstation
-            <select
-              name="workstation_id"
-              className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            >
-              <option value="">No workstation</option>
-              {data.workstations.map((workstation) => (
-                <option key={workstation.id} value={workstation.id}>
-                  {workstation.name}
-                </option>
-              ))}
-            </select>
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <MapPin className="size-4 shrink-0 text-muted" />
+              <select
+                name="workstation_id"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              >
+                <option value="">No workstation</option>
+                {data.workstations.map((workstation) => (
+                  <option key={workstation.id} value={workstation.id}>
+                    {workstation.name}
+                  </option>
+                ))}
+              </select>
+            </span>
           </label>
 
           <button
             disabled={assignPending}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
           >
             <Radar className="size-4" />
             {assignPending ? "Saving..." : "Save assignment"}

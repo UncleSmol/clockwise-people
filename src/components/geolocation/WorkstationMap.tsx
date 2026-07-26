@@ -5,7 +5,8 @@ import "leaflet/dist/leaflet.css";
 import { Circle, MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
-import { useEffect } from "react";
+import { Layers } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const markerIcon = new L.Icon({
   iconAnchor: [12, 41],
@@ -15,6 +16,8 @@ const markerIcon = new L.Icon({
   shadowSize: [41, 41],
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+type MapType = "street" | "satellite";
 
 type WorkstationMapProps = {
   latitude: number;
@@ -56,15 +59,29 @@ export default function WorkstationMap({
   onChange,
   radiusMeters,
 }: WorkstationMapProps) {
+  const [mapType, setMapType] = useState<MapType>("street");
   const center: LatLngExpression = [latitude, longitude];
 
   return (
-    <div className="h-[360px] overflow-hidden rounded-md border border-border bg-background">
+    <div className="relative h-[360px] overflow-hidden rounded-md border border-border bg-background">
       <MapContainer center={center} className="h-full w-full" scrollWheelZoom zoom={16}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        {mapType === "street" ? (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        ) : (
+          <>
+            <TileLayer
+              attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />
+            <TileLayer
+              attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            />
+          </>
+        )}
         <MapClickHandler onChange={onChange} />
         <Recenter center={center} />
         <Circle
@@ -93,6 +110,14 @@ export default function WorkstationMap({
           position={center}
         />
       </MapContainer>
+      <button
+        type="button"
+        onClick={() => setMapType((t) => (t === "street" ? "satellite" : "street"))}
+        className="absolute bottom-3 right-3 z-[1000] inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-surface-muted"
+      >
+        <Layers className="size-3.5" />
+        {mapType === "street" ? "Satellite" : "Street"}
+      </button>
     </div>
   );
 }

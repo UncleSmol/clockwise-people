@@ -65,6 +65,11 @@ export async function createEmployee(
   const hourlyRate = moneyToNumber(values.hourly_rate);
 
   const selectedScheduleIds = scheduleIds(values);
+
+  if (!values.workstation_id) {
+    return { ok: false, message: "An employee must be assigned to a workstation." };
+  }
+
   const { data: employee, error } = await supabase.from("employees").insert({
     company_id: company.id,
     employee_number: await nextEmployeeNumber(company.id),
@@ -72,7 +77,7 @@ export async function createEmployee(
     known_as: blankToNull(values.known_as),
     email: blankToNull(values.email),
     phone_number: blankToNull(values.phone_number),
-    branch_id: values.branch_id,
+    workstation_id: values.workstation_id,
     department_id: blankToNull(values.department_id),
     job_title: blankToNull(values.job_title),
     employment_type: values.employment_type,
@@ -119,6 +124,10 @@ export async function updateEmployee(
   const hourlyRate = moneyToNumber(values.hourly_rate);
   const selectedScheduleIds = scheduleIds(values);
 
+  if (!values.workstation_id) {
+    return { ok: false, message: "An employee must be assigned to a workstation." };
+  }
+
   const { error } = await supabase
     .from("employees")
     .update({
@@ -126,7 +135,7 @@ export async function updateEmployee(
       known_as: blankToNull(values.known_as),
       email: blankToNull(values.email),
       phone_number: blankToNull(values.phone_number),
-      branch_id: values.branch_id,
+      workstation_id: values.workstation_id,
       department_id: blankToNull(values.department_id),
       job_title: blankToNull(values.job_title),
       employment_type: values.employment_type,

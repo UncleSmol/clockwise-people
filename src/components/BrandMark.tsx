@@ -26,7 +26,7 @@ export default function BrandMark({
   alwaysShowLogo = false,
   brandName = "ClockWise People",
   className,
-  imageClassName = "size-10 rounded-md",
+  imageClassName = "h-10 w-auto rounded-md",
   textClassName = "text-lg font-semibold text-primary",
   imageSize = 40,
   logoUrl = null,
@@ -58,7 +58,7 @@ export default function BrandMark({
         <img
           src={logoUrl}
           alt={`${brandName} logo`}
-          className={imageClassName}
+          className={`${imageClassName} object-contain`}
           loading={priority ? "eager" : "lazy"}
           referrerPolicy="no-referrer"
           onError={() => setFailedLogoUrl(logoUrl)}
@@ -69,7 +69,7 @@ export default function BrandMark({
           alt={`${brandName} logo`}
           width={imageSize}
           height={imageSize}
-          className={imageClassName}
+          className={`${imageClassName} object-contain`}
           priority={priority}
         />
       ) : (

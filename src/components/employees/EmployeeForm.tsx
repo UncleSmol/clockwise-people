@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Briefcase, Building2, Calendar, Clock, DollarSign, Flag, Hash, Mail, MapPin, Phone, User, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -16,7 +17,7 @@ import { createEmployee, updateEmployee } from "@/lib/employees/actions";
 import { jobTitleHints } from "@/lib/foundation/form-options";
 
 type EmployeeFormProps = {
-  branches: SelectOption[];
+  workstations: SelectOption[];
   departments: SelectOption[];
   managers: SelectOption[];
   schedules: SelectOption[];
@@ -32,7 +33,7 @@ function fieldValue(value: string | number | null | undefined) {
 }
 
 export default function EmployeeForm({
-  branches,
+  workstations,
   departments,
   managers,
   schedules,
@@ -52,7 +53,7 @@ export default function EmployeeForm({
       known_as: employee?.known_as ?? "",
       email: employee?.email ?? "",
       phone_number: employee?.phone_number ?? "",
-      branch_id: employee?.branch_id ?? "",
+      workstation_id: employee?.workstation_id ?? "",
       department_id: employee?.department_id ?? "",
       job_title: employee?.job_title ?? "",
       employment_type: employee?.employment_type ?? "full_time",
@@ -94,91 +95,102 @@ export default function EmployeeForm({
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Full name
-          <input
-            autoComplete="name"
-            placeholder="Legal or payroll name"
-            className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            {...register("full_name")}
-          />
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Full name</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <User className="size-4 shrink-0 text-muted" />
+            <input
+              autoComplete="name"
+              placeholder="Legal or payroll name"
+              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              {...register("full_name")}
+            />
+          </span>
           {errors.full_name && <span className="text-xs text-danger">{errors.full_name.message}</span>}
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Known as
-          <input
-            autoComplete="nickname"
-            placeholder="Preferred display name"
-            className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            {...register("known_as")}
-          />
-          <span className="text-xs font-normal text-muted">
-            Optional. Used where a shorter familiar name is clearer.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Known as</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <User className="size-4 shrink-0 text-muted" />
+            <input
+              autoComplete="nickname"
+              placeholder="Preferred display name"
+              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              {...register("known_as")}
+            />
           </span>
+          <span className="text-xs font-normal text-muted">Optional. Used where a shorter familiar name is clearer.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Email
-          <input
-            type="email"
-            autoComplete="email"
-            placeholder="name@company.co.za"
-            className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            {...register("email")}
-          />
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Email</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Mail className="size-4 shrink-0 text-muted" />
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder="name@company.co.za"
+              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              {...register("email")}
+            />
+          </span>
           {errors.email && <span className="text-xs text-danger">{errors.email.message}</span>}
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Phone
-          <input
-            autoComplete="tel"
-            placeholder="+27 82 000 0000"
-            className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            {...register("phone_number")}
-          />
-        </label>
-
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Branch
-          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("branch_id")}>
-            <option value="">Select branch</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.label}
-              </option>
-            ))}
-          </select>
-          {errors.branch_id && <span className="text-xs text-danger">{errors.branch_id.message}</span>}
-          <span className="text-xs font-normal text-muted">
-            Required. Time and approvals are branch-aware.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Phone</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Phone className="size-4 shrink-0 text-muted" />
+            <input
+              autoComplete="tel"
+              placeholder="+27 82 000 0000"
+              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              {...register("phone_number")}
+            />
           </span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Department
-          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("department_id")}>
-            <option value="">No department</option>
-            {departments.map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.label}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs font-normal text-muted">
-            Optional now, useful for reporting and filtering.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <MapPin className="size-4 shrink-0 text-muted" />
+            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("workstation_id")}>
+              <option value="">No workstation</option>
+              {workstations.map((ws) => (
+                <option key={ws.id} value={ws.id}>{ws.label}</option>
+              ))}
+            </select>
           </span>
+          {errors.workstation_id && <span className="text-xs text-danger">{errors.workstation_id.message}</span>}
+          <span className="text-xs font-normal text-muted">Assign a workstation to track where the employee works.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Job title
-          <input
-            list="job-title-hints"
-            placeholder="Start typing a role"
-            className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            {...register("job_title")}
-          />
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Department</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Building2 className="size-4 shrink-0 text-muted" />
+            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("department_id")}>
+              <option value="">No department</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.id}>{department.label}</option>
+              ))}
+            </select>
+          </span>
+          <span className="text-xs font-normal text-muted">Optional now, useful for reporting and filtering.</span>
+        </label>
+
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Job title</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Briefcase className="size-4 shrink-0 text-muted" />
+            <input
+              list="job-title-hints"
+              placeholder="Start typing a role"
+              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              {...register("job_title")}
+            />
+          </span>
           <datalist id="job-title-hints">
             {jobTitleHints.map((jobTitle) => (
               <option key={jobTitle} value={jobTitle} />
@@ -186,56 +198,53 @@ export default function EmployeeForm({
           </datalist>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Employment type
-          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("employment_type")}>
-            {employmentTypes.map((type) => (
-              <option key={type} value={type}>
-                {labelize(type)}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs font-normal text-muted">
-            Drives future schedule defaults and payroll reporting.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employment type</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Clock className="size-4 shrink-0 text-muted" />
+            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("employment_type")}>
+              {employmentTypes.map((type) => (
+                <option key={type} value={type}>{labelize(type)}</option>
+              ))}
+            </select>
           </span>
+          <span className="text-xs font-normal text-muted">Drives future schedule defaults and payroll reporting.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Start date
-          <input type="date" className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("start_date")} />
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start date</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Calendar className="size-4 shrink-0 text-muted" />
+            <input type="date" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("start_date")} />
+          </span>
           {errors.start_date && <span className="text-xs text-danger">{errors.start_date.message}</span>}
-          <span className="text-xs font-normal text-muted">
-            Use the employment start date, not the date the record was captured.
-          </span>
+          <span className="text-xs font-normal text-muted">Use the employment start date, not the date the record was captured.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Employment status
-          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("employment_status")}>
-            {employmentStatuses.map((status) => (
-              <option key={status} value={status}>
-                {labelize(status)}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs font-normal text-muted">
-            Inactive and terminated employees stay out of active register workflows.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employment status</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Flag className="size-4 shrink-0 text-muted" />
+            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("employment_status")}>
+              {employmentStatuses.map((status) => (
+                <option key={status} value={status}>{labelize(status)}</option>
+              ))}
+            </select>
           </span>
+          <span className="text-xs font-normal text-muted">Inactive and terminated employees stay out of active register workflows.</span>
         </label>
 
-        <fieldset className="grid gap-2 text-sm font-medium text-foreground">
-          Work rule
+        <fieldset className="grid gap-1 md:col-span-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Work rule</span>
           <input type="hidden" value="" {...register("work_schedule_id")} />
-          <div className="grid max-h-44 gap-2 overflow-y-auto rounded-md border border-border bg-surface p-2">
+          <div className="grid max-h-44 gap-2 overflow-y-auto rounded-lg border border-border bg-background p-2">
             {schedules.length === 0 ? (
-              <p className="px-2 py-1 text-xs font-normal text-muted">
-                No work rules available. The company default will be used.
-              </p>
+              <p className="px-2 py-1 text-xs font-normal text-muted">No work rules available. The company default will be used.</p>
             ) : null}
             {schedules.map((schedule) => (
               <label
                 key={schedule.id}
-                className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-sm font-semibold text-foreground"
+                className="flex cursor-pointer items-center gap-2 rounded-md bg-surface px-2 py-1.5 text-sm font-semibold text-foreground hover:bg-surface-muted"
               >
                 <input
                   type="checkbox"
@@ -247,56 +256,56 @@ export default function EmployeeForm({
               </label>
             ))}
           </div>
-          <span className="text-xs font-normal text-muted">
-            Assign one or more rules. Leave days only deduct hours from matched working days.
-          </span>
+          <span className="text-xs font-normal text-muted">Assign one or more rules. Leave days only deduct hours from matched working days.</span>
         </fieldset>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Manager
-          <select className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("manager_employee_id")}>
-            <option value="">No manager</option>
-            {managers
-              .filter((manager) => manager.id !== employee?.id)
-              .map((manager) => (
-                <option key={manager.id} value={manager.id}>
-                  {manager.label}
-                </option>
-              ))}
-          </select>
-          <span className="text-xs font-normal text-muted">
-            Optional. This manager can review the employee&apos;s timesheet requests.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Manager</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <UserCheck className="size-4 shrink-0 text-muted" />
+            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("manager_employee_id")}>
+              <option value="">No manager</option>
+              {managers
+                .filter((manager) => manager.id !== employee?.id)
+                .map((manager) => (
+                  <option key={manager.id} value={manager.id}>{manager.label}</option>
+                ))}
+            </select>
           </span>
+          <span className="text-xs font-normal text-muted">Optional. This manager can review the employee&apos;s timesheet requests.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Payroll identifier
-          <input
-            placeholder="External payroll code"
-            className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2"
-            {...register("payroll_identifier")}
-          />
-          <span className="text-xs font-normal text-muted">
-            Optional link to the payroll system’s employee code.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payroll identifier</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <Hash className="size-4 shrink-0 text-muted" />
+            <input
+              placeholder="External payroll code"
+              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              {...register("payroll_identifier")}
+            />
           </span>
+          <span className="text-xs font-normal text-muted">Optional link to the payroll system&apos;s employee code.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Monthly salary
-          <input type="number" step="0.01" min="0" className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("monthly_salary")} />
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Monthly salary</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <DollarSign className="size-4 shrink-0 text-muted" />
+            <input type="number" step="0.01" min="0" placeholder="0.00" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("monthly_salary")} />
+          </span>
           {errors.monthly_salary && <span className="text-xs text-danger">{errors.monthly_salary.message}</span>}
-          <span className="text-xs font-normal text-muted">
-            Use monthly salary for salaried employees.
-          </span>
+          <span className="text-xs font-normal text-muted">Use monthly salary for salaried employees.</span>
         </label>
 
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Hourly rate
-          <input type="number" step="0.01" min="0" className="rounded-md border border-border bg-surface px-3 py-2 outline-none ring-ring focus:ring-2" {...register("hourly_rate")} />
-          {errors.hourly_rate && <span className="text-xs text-danger">{errors.hourly_rate.message}</span>}
-          <span className="text-xs font-normal text-muted">
-            If hourly rate is entered, the record is treated as hourly paid.
+        <label className="grid gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Hourly rate</span>
+          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <DollarSign className="size-4 shrink-0 text-muted" />
+            <input type="number" step="0.01" min="0" placeholder="0.00" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("hourly_rate")} />
           </span>
+          {errors.hourly_rate && <span className="text-xs text-danger">{errors.hourly_rate.message}</span>}
+          <span className="text-xs font-normal text-muted">If hourly rate is entered, the record is treated as hourly paid.</span>
         </label>
       </div>
 
@@ -304,7 +313,7 @@ export default function EmployeeForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Saving..." : employee ? "Save employee" : "Add employee"}
         </button>
