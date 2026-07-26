@@ -64,7 +64,7 @@ export type SelectOption = {
 export type EmployeeRecord = {
   id: string;
   company_id: string;
-  employee_number: number;
+  employee_number: string;
   full_name: string;
   known_as: string | null;
   email: string | null;

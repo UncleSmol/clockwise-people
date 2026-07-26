@@ -11,6 +11,7 @@ export type EmployeePageData = {
   departments: SelectOption[];
   managers: SelectOption[];
   schedules: SelectOption[];
+  standardMonthlyHours: number;
   employees: EmployeeRecord[];
 };
 
@@ -84,6 +85,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       departments: [],
       managers: [],
       schedules: [],
+      standardMonthlyHours: 173.33,
       employees: [],
     };
   }
@@ -91,7 +93,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
 
-  const [workstationsResult, departmentsResult, schedulesResult, employeesResult, assignmentsResult] = await Promise.all([
+  const [workstationsResult, departmentsResult, schedulesResult, settingsResult, employeesResult, assignmentsResult] = await Promise.all([
     supabase
       .from("company_workstations")
       .select("id, name")
@@ -113,6 +115,11 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       .is("deleted_at", null)
       .eq("is_active", true)
       .order("name"),
+    supabase
+      .from("company_settings")
+      .select("standard_monthly_hours")
+      .eq("company_id", company.id)
+      .single(),
     supabase
       .from("employees")
       .select(
@@ -146,6 +153,10 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     throw new Error(schedulesResult.error.message);
   }
 
+  if (settingsResult.error) {
+    throw new Error(settingsResult.error.message);
+  }
+
   if (assignmentsResult.error && !isMissingAssignmentSchema(assignmentsResult.error)) {
     throw new Error(assignmentsResult.error.message);
   }
@@ -156,6 +167,8 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       ? []
       : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   );
+
+  const rawHours = settingsResult.data?.standard_monthly_hours;
 
   return {
     isConfigured: true,
@@ -172,6 +185,7 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       id: schedule.id,
       label: schedule.name,
     })),
+    standardMonthlyHours: rawHours != null ? Number(rawHours) : 173.33,
     managers: employees
       .filter((employee) => employee.employment_status !== "terminated")
       .map((employee) => ({ id: employee.id, label: employee.full_name })),

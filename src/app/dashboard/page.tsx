@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { ChevronDown } from "lucide-react";
 import ComplianceDocuments from "@/components/compliance/ComplianceDocuments";
 import CalendarWorkspace from "@/components/dashboard/CalendarWorkspace";
 import { getAccountProfile } from "@/lib/account/queries";
@@ -280,6 +281,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       departments={employeesData.departments}
                       managers={employeesData.managers}
                       schedules={employeesData.schedules}
+                      standardMonthlyHours={employeesData.standardMonthlyHours}
                       employee={selectedEmployee}
                     />
                   </section>
@@ -300,27 +302,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   ) : null}
                 </>
               ) : null}
-
-              <section className="card p-4">
-                <div className="mb-4">
-                  <h2 className="text-lg font-semibold text-foreground">Add employee</h2>
-                  <p className="mt-1 text-xs text-muted">
-                    All employee records are saved with company scope.
-                  </p>
-                </div>
-                {employeesData.workstations.length === 0 ? (
-                  <div className="rounded-lg border border-warning/20 bg-warning/8 px-4 py-4 text-sm text-warning">
-                    Workstation setup is required first.
-                  </div>
-                ) : (
-                  <EmployeeForm
-                    workstations={employeesData.workstations}
-                    departments={employeesData.departments}
-                    managers={employeesData.managers}
-                    schedules={employeesData.schedules}
-                  />
-                )}
-              </section>
 
               <section className="grid gap-3">
                 <div>
@@ -344,7 +325,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     panels.push({
           key: "company",
           label: "Company setup",
-          description: "Manage company profile, branches, rules, and geolocation from one modal.",
+          description: "Manage company profile, workstations, rules, departments, and employees from one modal.",
           content: (
             <div className="grid gap-6">
               {activePanel === "company" && message ? (
@@ -352,30 +333,98 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   {message}
                 </div>
               ) : null}
-              <section className="card grid gap-4 p-4 sm:p-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Company profile</h2>
-                  <p className="mt-1 text-sm text-muted">Registration and workspace details.</p>
+
+              {/* Company profile */}
+              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Company profile</h2>
+                    <p className="mt-0.5 text-sm text-muted">Registration and workspace details.</p>
+                  </div>
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="grid gap-6 border-t border-border p-4 sm:p-6">
+                  <CompanyProfileForm company={accountProfile.account.company} />
+                  <CompanyLogoForm
+                    companyName={accountProfile.account.company.name}
+                    logoUrl={accountProfile.account.company.logo_url}
+                  />
                 </div>
-                <CompanyProfileForm company={accountProfile.account.company} />
-              </section>
-              <section className="card grid gap-4 p-4 sm:p-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Company logo</h2>
-                  <p className="mt-1 text-sm text-muted">Set a logo URL to display in the navigation bar.</p>
+              </details>
+
+              {/* Workstations & Geolocation */}
+              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Workstations &amp; Geolocation</h2>
+                    <p className="mt-0.5 text-sm text-muted">Manage physical locations and geofence boundaries.</p>
+                  </div>
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-border">
+                  <CompanyGeolocationPanel data={geolocationData} />
                 </div>
-                <CompanyLogoForm
-                  companyName={accountProfile.account.company.name}
-                  logoUrl={accountProfile.account.company.logo_url}
-                />
-              </section>
-              <CompanyWorkRulesPanel data={workRulesData} />
-              <CompanyGeolocationPanel data={geolocationData} />
-              <CompanyDepartmentPanel
-                workstations={companySetup.workstations}
-                departments={companySetup.departments}
-                employees={employeesData?.employees ?? []}
-              />
+              </details>
+
+              {/* Work rules & leave */}
+              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Work rules &amp; leave</h2>
+                    <p className="mt-0.5 text-sm text-muted">Define working hours, overtime rules, and leave policies.</p>
+                  </div>
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-border">
+                  <CompanyWorkRulesPanel data={workRulesData} />
+                </div>
+              </details>
+
+              {/* Departments */}
+              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Departments</h2>
+                    <p className="mt-0.5 text-sm text-muted">Organise employees into departments for reporting and filtering.</p>
+                  </div>
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-border">
+                  <CompanyDepartmentPanel
+                    workstations={companySetup.workstations}
+                    departments={companySetup.departments}
+                    employees={employeesData?.employees ?? []}
+                  />
+                </div>
+              </details>
+
+              {/* Add Employee */}
+              {employeesData ? (
+                <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Add employee</h2>
+                      <p className="mt-0.5 text-sm text-muted">Create employee records scoped to the company.</p>
+                    </div>
+                    <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="border-t border-border p-4 sm:p-6">
+                    {employeesData.workstations.length === 0 ? (
+                      <div className="rounded-lg border border-warning/20 bg-warning/8 px-4 py-4 text-sm text-warning">
+                        Workstation setup is required first.
+                      </div>
+                    ) : (
+                      <EmployeeForm
+                        workstations={employeesData.workstations}
+                        departments={employeesData.departments}
+                        managers={employeesData.managers}
+                        schedules={employeesData.schedules}
+                        standardMonthlyHours={employeesData.standardMonthlyHours}
+                      />
+                    )}
+                  </div>
+                </details>
+              ) : null}
             </div>
           ),
         });

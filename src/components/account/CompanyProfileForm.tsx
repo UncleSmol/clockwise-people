@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Globe2, Mail, MapPin, Phone, Save } from "lucide-react";
+import { Building2, Globe2, Hash, Mail, MapPin, Phone, Save, ScrollText, Tags, Globe, Clock, MapPinned, Building } from "lucide-react";
 import type { ReactNode } from "react";
 import { useActionState } from "react";
 import { updateCompanyProfile } from "@/lib/account/actions";
@@ -93,21 +93,25 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
         />
         <Field
           defaultValue={company.registration_number}
+          icon={<Hash className="size-4" />}
           label="Registration number"
           name="registration_number"
         />
         <Field
           defaultValue={company.tax_number}
+          icon={<ScrollText className="size-4" />}
           label="Tax number"
           name="tax_number"
         />
         <Field
           defaultValue={company.vat_number}
+          icon={<ScrollText className="size-4" />}
           label="VAT number"
           name="vat_number"
         />
         <Field
           defaultValue={company.industry}
+          icon={<Tags className="size-4" />}
           label="Industry"
           name="industry"
         />
@@ -139,6 +143,7 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
         />
         <Field
           defaultValue={company.payroll_cycle}
+          icon={<Clock className="size-4" />}
           label="Payroll cycle"
           name="payroll_cycle"
           required
@@ -156,36 +161,42 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
         <Field
           autoComplete="address-line2"
           defaultValue={company.address_line_2}
+          icon={<MapPin className="size-4" />}
           label="Address line 2"
           name="address_line_2"
         />
         <Field
           autoComplete="address-level2"
           defaultValue={company.city}
+          icon={<Building className="size-4" />}
           label="City"
           name="city"
         />
         <Field
           autoComplete="address-level1"
           defaultValue={company.province}
+          icon={<MapPinned className="size-4" />}
           label="Province"
           name="province"
         />
         <Field
           autoComplete="postal-code"
           defaultValue={company.postal_code}
+          icon={<Hash className="size-4" />}
           label="Postal code"
           name="postal_code"
         />
         <Field
           autoComplete="country-name"
           defaultValue={company.country}
+          icon={<Globe className="size-4" />}
           label="Country"
           name="country"
           required
         />
         <Field
           defaultValue={company.timezone}
+          icon={<Clock className="size-4" />}
           label="Timezone"
           name="timezone"
           required

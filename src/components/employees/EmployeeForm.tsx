@@ -3,13 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Briefcase, Building2, Calendar, Clock, DollarSign, Flag, Hash, Mail, MapPin, Phone, User, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   employeeFormSchema,
   employmentStatuses,
   employmentTypes,
   type EmployeeFormInput,
+  type EmployeeFormValues,
   type EmployeeRecord,
   type SelectOption,
 } from "@/lib/employees/schema";
@@ -21,6 +22,7 @@ type EmployeeFormProps = {
   departments: SelectOption[];
   managers: SelectOption[];
   schedules: SelectOption[];
+  standardMonthlyHours: number;
   employee?: EmployeeRecord;
 };
 
@@ -37,6 +39,7 @@ export default function EmployeeForm({
   departments,
   managers,
   schedules,
+  standardMonthlyHours,
   employee,
 }: EmployeeFormProps) {
   const router = useRouter();
@@ -44,6 +47,8 @@ export default function EmployeeForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
     setError,
   } = useForm<EmployeeFormInput>({
@@ -56,8 +61,8 @@ export default function EmployeeForm({
       workstation_id: employee?.workstation_id ?? "",
       department_id: employee?.department_id ?? "",
       job_title: employee?.job_title ?? "",
-      employment_type: employee?.employment_type ?? "full_time",
-      employment_status: employee?.employment_status ?? "active",
+      employment_type: (employee?.employment_type ?? "full_time") as EmployeeFormValues["employment_type"],
+      employment_status: (employee?.employment_status ?? "active") as EmployeeFormValues["employment_status"],
       start_date: employee?.start_date ?? "",
       work_schedule_id: employee?.work_schedule_id ?? "",
       work_schedule_ids: employee?.work_schedule_ids ?? (
@@ -69,6 +74,19 @@ export default function EmployeeForm({
       hourly_rate: fieldValue(employee?.hourly_rate),
     },
   });
+
+  const monthlySalary = watch("monthly_salary");
+
+  useEffect(() => {
+    if (monthlySalary && standardMonthlyHours > 0) {
+      const salary = parseFloat(monthlySalary);
+      if (!isNaN(salary) && salary > 0) {
+        setValue("hourly_rate", (salary / standardMonthlyHours).toFixed(2));
+        return;
+      }
+    }
+    setValue("hourly_rate", "");
+  }, [monthlySalary, standardMonthlyHours, setValue]);
 
   const onSubmit = handleSubmit((values) => {
     startTransition(async () => {
@@ -120,7 +138,6 @@ export default function EmployeeForm({
               {...register("known_as")}
             />
           </span>
-          <span className="text-xs font-normal text-muted">Optional. Used where a shorter familiar name is clearer.</span>
         </label>
 
         <label className="grid gap-1">
@@ -163,7 +180,6 @@ export default function EmployeeForm({
             </select>
           </span>
           {errors.workstation_id && <span className="text-xs text-danger">{errors.workstation_id.message}</span>}
-          <span className="text-xs font-normal text-muted">Assign a workstation to track where the employee works.</span>
         </label>
 
         <label className="grid gap-1">
@@ -177,7 +193,6 @@ export default function EmployeeForm({
               ))}
             </select>
           </span>
-          <span className="text-xs font-normal text-muted">Optional now, useful for reporting and filtering.</span>
         </label>
 
         <label className="grid gap-1">
@@ -208,7 +223,6 @@ export default function EmployeeForm({
               ))}
             </select>
           </span>
-          <span className="text-xs font-normal text-muted">Drives future schedule defaults and payroll reporting.</span>
         </label>
 
         <label className="grid gap-1">
@@ -218,7 +232,6 @@ export default function EmployeeForm({
             <input type="date" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("start_date")} />
           </span>
           {errors.start_date && <span className="text-xs text-danger">{errors.start_date.message}</span>}
-          <span className="text-xs font-normal text-muted">Use the employment start date, not the date the record was captured.</span>
         </label>
 
         <label className="grid gap-1">
@@ -231,16 +244,12 @@ export default function EmployeeForm({
               ))}
             </select>
           </span>
-          <span className="text-xs font-normal text-muted">Inactive and terminated employees stay out of active register workflows.</span>
         </label>
 
         <fieldset className="grid gap-1 md:col-span-2">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Work rule</span>
           <input type="hidden" value="" {...register("work_schedule_id")} />
           <div className="grid max-h-44 gap-2 overflow-y-auto rounded-lg border border-border bg-background p-2">
-            {schedules.length === 0 ? (
-              <p className="px-2 py-1 text-xs font-normal text-muted">No work rules available. The company default will be used.</p>
-            ) : null}
             {schedules.map((schedule) => (
               <label
                 key={schedule.id}
@@ -256,7 +265,6 @@ export default function EmployeeForm({
               </label>
             ))}
           </div>
-          <span className="text-xs font-normal text-muted">Assign one or more rules. Leave days only deduct hours from matched working days.</span>
         </fieldset>
 
         <label className="grid gap-1">
@@ -272,7 +280,6 @@ export default function EmployeeForm({
                 ))}
             </select>
           </span>
-          <span className="text-xs font-normal text-muted">Optional. This manager can review the employee&apos;s timesheet requests.</span>
         </label>
 
         <label className="grid gap-1">
@@ -285,7 +292,6 @@ export default function EmployeeForm({
               {...register("payroll_identifier")}
             />
           </span>
-          <span className="text-xs font-normal text-muted">Optional link to the payroll system&apos;s employee code.</span>
         </label>
 
         <label className="grid gap-1">
@@ -295,7 +301,6 @@ export default function EmployeeForm({
             <input type="number" step="0.01" min="0" placeholder="0.00" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("monthly_salary")} />
           </span>
           {errors.monthly_salary && <span className="text-xs text-danger">{errors.monthly_salary.message}</span>}
-          <span className="text-xs font-normal text-muted">Use monthly salary for salaried employees.</span>
         </label>
 
         <label className="grid gap-1">
@@ -305,7 +310,6 @@ export default function EmployeeForm({
             <input type="number" step="0.01" min="0" placeholder="0.00" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("hourly_rate")} />
           </span>
           {errors.hourly_rate && <span className="text-xs text-danger">{errors.hourly_rate.message}</span>}
-          <span className="text-xs font-normal text-muted">If hourly rate is entered, the record is treated as hourly paid.</span>
         </label>
       </div>
 

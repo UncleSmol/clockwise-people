@@ -43,7 +43,7 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
     supabase
       .from("company_workstations")
       .select(
-        "id, company_id, branch_id, name, address, latitude, longitude, radius_meters, is_active, branches(name)",
+        "id, company_id, branch_id, name, address, latitude, longitude, radius_meters, is_active",
       )
       .eq("company_id", company.id)
       .eq("is_active", true)

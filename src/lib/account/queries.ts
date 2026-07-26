@@ -68,7 +68,7 @@ export const getAccountProfile = cache(async function getAccountProfile() {
         supabase
           .from("employees")
           .select(
-            "id, employee_number, full_name, known_as, email, phone_number, avatar_url, job_title, employment_type, employment_status, start_date, manager_employee_id, payroll_identifier, compensation_type, monthly_salary, hourly_rate, branches(name, code, address), departments(name, code)",
+            "id, employee_number, full_name, known_as, email, phone_number, avatar_url, job_title, employment_type, employment_status, start_date, manager_employee_id, payroll_identifier, compensation_type, monthly_salary, hourly_rate, departments(name, code)",
           )
           .eq("id", access.employeeId)
           .is("deleted_at", null)

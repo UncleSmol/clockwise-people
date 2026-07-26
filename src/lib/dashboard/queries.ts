@@ -169,7 +169,7 @@ export const getDashboardExperienceData = cache(async function getDashboardExper
       .limit(5),
     supabase
       .from("time_clock_events")
-      .select("id, event_type, event_at, local_event_time, geofence_status, employees(employee_number, full_name, known_as, branches(name))")
+      .select("id, event_type, event_at, local_event_time, geofence_status, employees(employee_number, full_name, known_as)")
       .eq("company_id", company.id)
       .eq("local_work_date", currentWorkDate)
       .order("event_at", { ascending: false })

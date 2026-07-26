@@ -91,8 +91,6 @@ export type EmployeeTimeState = {
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
-    branch_id: string;
-    branch_name: string | null;
     job_title: string | null;
   } | null;
   todayEntry: TimeEntryRecord | null;

@@ -27,7 +27,6 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
         employee.known_as,
         employee.email,
         employee.employee_number,
-        employee.branch_name,
         employee.department_name,
         employee.job_title,
         employee.employment_status,
@@ -86,7 +85,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                 </div>
 
                 <p className="truncate text-xs font-medium text-muted sm:text-sm">
-                  {employee.branch_name ?? "No branch"}
+                  {employee.workstation_name ?? "No workstation"}
                 </p>
 
                 <span className="w-max rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">

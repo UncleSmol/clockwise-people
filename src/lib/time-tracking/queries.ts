@@ -241,7 +241,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   ] = await Promise.all([
     supabase
       .from("employees")
-      .select("id, full_name, known_as, avatar_url, branch_id, job_title, branches(name)")
+      .select("id, full_name, known_as, avatar_url, job_title")
       .eq("id", access.employeeId)
       .is("deleted_at", null)
       .single(),
@@ -324,8 +324,6 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       full_name: employeeRow.full_name,
       known_as: employeeRow.known_as,
       avatar_url: employeeRow.avatar_url,
-      branch_id: employeeRow.branch_id,
-      branch_name: relationName(employeeRow.branches),
       job_title: employeeRow.job_title,
     },
     todayEntry: (todayEntryResult.data as TimeEntryRecord | null) ?? null,
@@ -364,7 +362,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     supabase
       .from("employees")
       .select(
-        "id, employee_number, full_name, known_as, avatar_url, branch_id, department_id, job_title, branches(name), departments(name)",
+        "id, employee_number, full_name, known_as, avatar_url, department_id, job_title, departments(name)",
       )
       .eq("company_id", company.id)
       .eq("employment_status", "active")
@@ -481,7 +479,7 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
   const { data, error } = await supabase
     .from("timesheet_correction_requests")
     .select(
-      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url, branches(name))",
+      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url)",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -523,7 +521,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url, branches(name))",
+      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url)",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -588,7 +586,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, branches(name))",
+      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as)",
     )
     .eq("company_id", company.id)
     .is("deleted_at", null)
