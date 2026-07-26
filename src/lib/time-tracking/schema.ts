@@ -12,7 +12,7 @@ export type TimeEntryRecord = {
   company_id: string;
   employee_id: string;
   work_date: string;
-  branch_id: string;
+  workstation_id: string | null;
   clock_in: string | null;
   lunch_start: string | null;
   lunch_end: string | null;

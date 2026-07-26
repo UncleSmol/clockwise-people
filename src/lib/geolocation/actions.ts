@@ -63,7 +63,6 @@ export async function saveCompanyWorkstation(
   const { error } = await supabase.rpc("upsert_company_workstation", {
     target_workstation_id: optionalUuid(formData, "workstation_id"),
     workstation_address: String(formData.get("address") ?? "").trim() || null,
-    workstation_branch_id: optionalUuid(formData, "branch_id"),
     workstation_latitude: latitude,
     workstation_longitude: longitude,
     workstation_name: name,

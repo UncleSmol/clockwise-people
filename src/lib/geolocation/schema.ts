@@ -1,14 +1,12 @@
 export type CompanyWorkstation = {
   id: string;
   company_id: string;
-  branch_id: string | null;
   name: string;
   address: string | null;
   latitude: number;
   longitude: number;
   radius_meters: number;
   is_active: boolean;
-  branch_name?: string | null;
   assigned_employee_count?: number;
 };
 

@@ -188,7 +188,7 @@ export const getCompanySetup = cache(async function getCompanySetup(companyId: s
   const [workstationsResult, departmentsResult] = await Promise.all([
     supabase
       .from("company_workstations")
-      .select("id, company_id, name, branch_id, address, latitude, longitude, radius_meters, is_active")
+      .select("id, company_id, name, address, latitude, longitude, radius_meters, is_active")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .eq("is_active", true)

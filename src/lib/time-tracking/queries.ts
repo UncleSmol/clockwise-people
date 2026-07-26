@@ -29,7 +29,7 @@ type EmployeeRow = {
   full_name: string;
   known_as: string | null;
   avatar_url: string | null;
-  branch_id: string;
+  workstation_id: string;
   department_id?: string | null;
   job_title: string | null;
   branches?: { name: string }[] | { name: string } | null;
@@ -248,7 +248,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     supabase
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
       )
       .eq("employee_id", access.employeeId)
       .eq("work_date", today)
@@ -257,7 +257,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     supabase
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
       )
       .eq("employee_id", access.employeeId)
       .is("deleted_at", null)
@@ -371,7 +371,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     supabase
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
       )
       .eq("company_id", company.id)
       .eq("work_date", workDate)
@@ -521,7 +521,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url)",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url)",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -586,7 +586,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, branch_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as)",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as)",
     )
     .eq("company_id", company.id)
     .is("deleted_at", null)

@@ -105,7 +105,7 @@ function optimisticEntry(
   eventLabel: string,
 ): TimeEntryRecord {
   const current = entry ?? {
-    branch_id: "",
+    workstation_id: null,
     clock_in: null,
     clock_out: null,
     company_id: "",

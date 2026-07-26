@@ -332,7 +332,7 @@ export default function CompanyGeolocationPanel({
                       {workstation.name}
                     </span>
                     <span className="text-xs text-muted">
-                      {workstation.branch_name ?? "Company-wide"} · {workstation.radius_meters}m ·{" "}
+                      {workstation.radius_meters}m ·{" "}
                       {workstation.assigned_employee_count ?? 0} assigned
                     </span>
                   </button>

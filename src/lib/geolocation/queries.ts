@@ -9,18 +9,6 @@ import type {
   WorkstationEmployeeOption,
 } from "./schema";
 
-type WorkstationRow = CompanyWorkstation & {
-  branches?: { name: string }[] | { name: string } | null;
-};
-
-function relationName(relation?: { name: string }[] | { name: string } | null) {
-  if (Array.isArray(relation)) {
-    return relation[0]?.name ?? null;
-  }
-
-  return relation?.name ?? null;
-}
-
 function isMissingGeolocationSchema(error: { code?: string; message?: string } | null) {
   if (!error) return false;
 
@@ -43,7 +31,7 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
     supabase
       .from("company_workstations")
       .select(
-        "id, company_id, branch_id, name, address, latitude, longitude, radius_meters, is_active",
+        "id, company_id, name, address, latitude, longitude, radius_meters, is_active",
       )
       .eq("company_id", company.id)
       .eq("is_active", true)
@@ -102,19 +90,14 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
       label: `${employee.full_name} (${employee.employee_number})`,
       workstation_id: assignmentsByEmployee.get(employee.id) ?? null,
     })) as WorkstationEmployeeOption[],
-    workstations: ((workstationsResult.data ?? []) as unknown as WorkstationRow[]).map(
-      (workstation) => {
-        const { branches, ...record } = workstation;
-
-        return {
-          ...record,
-          assigned_employee_count: workstationAssignments[workstation.id] ?? 0,
-          branch_name: relationName(branches),
-          latitude: Number(workstation.latitude),
-          longitude: Number(workstation.longitude),
-          radius_meters: Number(workstation.radius_meters),
-        };
-      },
+    workstations: ((workstationsResult.data ?? []) as CompanyWorkstation[]).map(
+      (workstation) => ({
+        ...workstation,
+        assigned_employee_count: workstationAssignments[workstation.id] ?? 0,
+        latitude: Number(workstation.latitude),
+        longitude: Number(workstation.longitude),
+        radius_meters: Number(workstation.radius_meters),
+      }),
     ),
   };
 });

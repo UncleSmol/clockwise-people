@@ -109,7 +109,7 @@ export default function CompanyDepartmentPanel({
               >
                 <option value="">Company-wide</option>
                 {workstations.map((ws) => (
-                  <option key={ws.id} value={ws.id}>{ws.name}{ws.branch_name ? ` (${ws.branch_name})` : ""}</option>
+                  <option key={ws.id} value={ws.id}>{ws.name}</option>
                 ))}
               </select>
             </span>
