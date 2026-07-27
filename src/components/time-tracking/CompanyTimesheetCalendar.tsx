@@ -8,12 +8,15 @@ import type { DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Clock3,
   FileText,
   LocateFixed,
   MapPin,
   Pencil,
+  Plus,
   Timer,
   Trash2,
   User,
@@ -454,7 +457,7 @@ export default function CompanyTimesheetCalendar({
 
         {events.length > 0 || publicHolidays.length > 0 ? (
           <>
-            <div ref={calendarRef} className="cw-timesheet-calendar">
+            <div ref={calendarRef} className="cw-timesheet-calendar max-sm:hidden">
               <FullCalendar
                 key={`${calendarWindow}-${calendarFocusDate}`}
                 dayMaxEventRows={3}
@@ -562,6 +565,139 @@ export default function CompanyTimesheetCalendar({
                 }}
               />
             </div>
+
+            <div className="hidden max-sm:block">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(calendarFocusDate);
+                    d.setDate(d.getDate() - 1);
+                    setCalendarFocusDate(d.toISOString().slice(0, 10));
+                  }}
+                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <span className="text-sm font-semibold text-foreground">
+                  {new Intl.DateTimeFormat("en-ZA", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  }).format(new Date(calendarFocusDate + "T12:00:00"))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date(calendarFocusDate);
+                    d.setDate(d.getDate() + 1);
+                    setCalendarFocusDate(d.toISOString().slice(0, 10));
+                  }}
+                  className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    setCalendarFocusDate(
+                      [
+                        today.getFullYear(),
+                        String(today.getMonth() + 1).padStart(2, "0"),
+                        String(today.getDate()).padStart(2, "0"),
+                      ].join("-"),
+                    );
+                  }}
+                  className="rounded-lg border border-accent px-3 py-1.5 text-xs font-semibold text-accent"
+                >
+                  Today
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {publicHolidays
+                  .filter((h) => h.holiday_date === calendarFocusDate)
+                  .map((holiday) => (
+                    <div
+                      key={`holiday-${holiday.id}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5"
+                    >
+                      <span className="text-sm font-semibold text-accent">{holiday.name}</span>
+                      <span className="rounded-full border border-accent/20 bg-accent/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+                        Holiday
+                      </span>
+                    </div>
+                  ))}
+                {entries
+                  .filter((e) => e.work_date === calendarFocusDate)
+                  .map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => {
+                        setCalendarFocusDate(entry.work_date);
+                        setSelectedEntry(entry);
+                        setEditing(false);
+                        setEditedTimes({});
+                      }}
+                      className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                        entry.missing_clocking || entry.late_arrival || entry.early_departure
+                          ? "border-danger/30 bg-danger/[0.07]"
+                          : "border-border bg-background"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {displayName(entry)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted">
+                            {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatHours(entry.paid_hours)}
+                            {Number(entry.overtime_hours ?? 0) > 0
+                              ? ` +${formatHours(entry.overtime_hours)}`
+                              : ""}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusBadgeClass(entry.status)}`}
+                          >
+                            {entry.status}
+                          </span>
+                        </div>
+                      </div>
+                      {entry.warning_notes || entry.notes ? (
+                        <p className="mt-1 truncate text-xs text-muted">
+                          {entry.warning_notes || entry.notes}
+                        </p>
+                      ) : null}
+                    </button>
+                  ))}
+                {entries.filter((e) => e.work_date === calendarFocusDate).length === 0 &&
+                publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+                    No entries for this day
+                  </div>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDate(calendarFocusDate);
+                  setShowDateActions(true);
+                }}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-3 text-sm font-semibold text-muted"
+              >
+                <Plus className="size-4" />
+                Add entries for this day
+              </button>
+            </div>
+
             {(tooltip ?? dayTooltip) ? (
               <div
                 className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
@@ -572,7 +708,7 @@ export default function CompanyTimesheetCalendar({
             ) : null}
           </>
         ) : (
-          <div className="rounded-md border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted">
+          <div className="rounded-md border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted max-sm:hidden">
             No company timesheets have been recorded for the current year yet.
           </div>
         )}

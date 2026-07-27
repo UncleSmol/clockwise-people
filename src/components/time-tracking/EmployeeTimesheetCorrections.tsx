@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Clock3,
   ClipboardCheck,
@@ -541,7 +543,7 @@ export default function EmployeeTimesheetCorrections({
             Rejected
           </span>
         </div>
-        <div ref={calendarRef} className="cw-timesheet-calendar">
+        <div ref={calendarRef} className="cw-timesheet-calendar max-sm:hidden">
           <FullCalendar
             key={`${calendarWindow}-${calendarFocusDate}`}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -634,6 +636,111 @@ export default function EmployeeTimesheetCorrections({
             }}
           />
         </div>
+
+        <div className="hidden max-sm:block">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                const d = new Date(calendarFocusDate);
+                d.setDate(d.getDate() - 1);
+                setCalendarFocusDate(d.toISOString().slice(0, 10));
+              }}
+              className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="text-sm font-semibold text-foreground">
+              {formatDate(calendarFocusDate)}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const d = new Date(calendarFocusDate);
+                d.setDate(d.getDate() + 1);
+                setCalendarFocusDate(d.toISOString().slice(0, 10));
+              }}
+              className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalendarFocusDate(currentWorkDate)}
+              className="rounded-lg border border-accent px-3 py-1.5 text-xs font-semibold text-accent"
+            >
+              Today
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {publicHolidays
+              .filter((h) => h.holiday_date === calendarFocusDate)
+              .map((holiday) => (
+                <div
+                  key={`holiday-${holiday.id}`}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5"
+                >
+                  <span className="text-sm font-semibold text-accent">{holiday.name}</span>
+                  <span className="rounded-full border border-accent/20 bg-accent/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+                    Holiday
+                  </span>
+                </div>
+              ))}
+            {entries
+              .filter((e) => e.work_date === calendarFocusDate)
+              .map((entry) => {
+                const isHoliday = Boolean(entry.notes?.startsWith("Public holiday:"));
+                if (isHoliday) return null;
+                const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => {
+                      setCalendarFocusDate(entry.work_date);
+                      setDetailEntry(entry);
+                    }}
+                    className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                      hasWarning
+                        ? "border-danger/30 bg-danger/[0.07]"
+                        : "border-border bg-background"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {entry.status === "draft" ? "Draft" : entry.status}
+                      </p>
+                      <span className="text-sm font-semibold text-foreground">
+                        {formatHours(entry.paid_hours)}
+                        {Number(entry.overtime_hours ?? 0) > 0
+                          ? ` +${formatHours(entry.overtime_hours)}`
+                          : ""}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
+                      {entry.lunch_start || entry.lunch_end
+                        ? ` \u00b7 Lunch ${formatTimeRange(entry.lunch_start, entry.lunch_end)}`
+                        : ""}
+                    </p>
+                    {entry.warning_notes || (entry.notes && !entry.notes.startsWith("Public holiday:")) ? (
+                      <p className="mt-1 truncate text-xs text-muted">
+                        {entry.warning_notes || entry.notes}
+                      </p>
+                    ) : null}
+                  </button>
+                );
+              })}
+            {entries.filter((e) => e.work_date === calendarFocusDate).length === 0 &&
+            publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+                No entries for this day
+              </div>
+            ) : null}
+          </div>
+        </div>
+
         {(tooltip ?? dayTooltip) ? (
           <div
             className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
