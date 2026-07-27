@@ -50,14 +50,14 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
       >
         <Bell className="size-4" />
         {notifications.length > 0 ? (
-          <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-5 text-white">
+          <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-5 text-primary-foreground">
             {notifications.length > 9 ? "9+" : notifications.length}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-[65] mt-2 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-md border border-border bg-surface shadow-2xl">
+        <div className="card absolute right-0 z-[65] mt-2 w-[min(360px,calc(100vw-24px))] overflow-hidden p-0">
           <div className="border-b border-border px-3 py-3">
             <p className="font-semibold text-foreground">Notifications</p>
             <p className="mt-1 text-xs text-muted">
@@ -86,7 +86,7 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
                   </div>
                   <button
                     disabled={pending}
-                    className="justify-self-start rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                    className="btn btn-primary justify-self-start px-3 py-1.5 text-xs"
                   >
                     {notification.targetHref ? "Open and clear" : "Clear"}
                   </button>

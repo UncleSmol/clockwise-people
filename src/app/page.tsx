@@ -9,7 +9,7 @@ export default function Home() {
           className="mb-6 flex justify-center"
           imageSize={120}
           imageClassName="size-28 rounded-2xl sm:size-32"
-          textClassName="font-sans text-4xl font-bold tracking-tight text-primary sm:text-6xl"
+          textClassName="font-doodle text-4xl font-bold tracking-tight text-primary sm:text-6xl"
           priority
         />
         <p className="mt-3 text-base font-medium text-muted sm:text-lg">

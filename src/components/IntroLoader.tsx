@@ -229,7 +229,7 @@ export default function IntroLoader({
             <BrandMark
               className="mb-8 flex justify-center"
               imageSize={128}
-              imageClassName="size-28 rounded-2xl border border-border bg-surface p-2 shadow-sm sm:size-32"
+              imageClassName="card size-28 rounded-2xl border border-border bg-surface p-2 sm:size-32"
               textClassName="text-sm font-semibold uppercase tracking-[0.18em] text-accent"
               priority
             />

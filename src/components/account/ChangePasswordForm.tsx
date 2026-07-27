@@ -17,13 +17,13 @@ export default function ChangePasswordForm() {
   return (
     <form action={formAction} className="grid gap-4">
       {state.message && !state.ok && (
-        <div className="rounded-lg border border-danger/20 bg-danger/8 px-4 py-3 text-sm font-medium text-danger">
+        <div className="rounded-lg border border-danger/20 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
           {state.message}
         </div>
       )}
 
       {state.message && state.ok && (
-        <div className="rounded-lg border border-accent/20 bg-accent/8 px-4 py-3 text-sm font-medium text-foreground">
+        <div className="rounded-lg border border-accent/20 bg-accent/10 px-4 py-3 text-sm font-medium text-foreground">
           {state.message}
         </div>
       )}

@@ -145,7 +145,7 @@ export default function CompanyGeolocationPanel({
             the employee location and whether it was inside the assigned radius.
           </p>
         </div>
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 lg:max-w-56">
+        <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent lg:max-w-56">
           Browser geolocation is captured when employees clock while using the app. It is not
           background GPS tracking when the browser is closed.
         </div>

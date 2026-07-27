@@ -124,19 +124,19 @@ export default function EmployeeAccountPanel({
       </div>
 
       {!email && (
-        <div className="mt-4 rounded-lg border border-warning/20 bg-warning/8 px-4 py-3 text-sm font-medium text-warning">
+        <div className="mt-4 rounded-lg border border-warning/20 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
           Add an email address before creating an account or sending an invite.
         </div>
       )}
 
       {state.error && (
-        <div className="mt-4 rounded-lg border border-danger/20 bg-danger/8 px-4 py-3 text-sm font-medium text-danger">
+        <div className="mt-4 rounded-lg border border-danger/20 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
           {state.error}
         </div>
       )}
 
       {state.credentials && (
-        <div className="mt-4 rounded-lg border border-accent/20 bg-accent/8 p-4">
+        <div className="mt-4 rounded-lg border border-accent/20 bg-accent/10 p-4">
           <p className="text-sm font-semibold text-foreground">
             {state.message ?? "Employee account created."}
           </p>

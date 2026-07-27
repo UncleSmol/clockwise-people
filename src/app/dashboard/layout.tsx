@@ -23,13 +23,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
           <Link
             href="/dashboard"
-            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1"
+            className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1"
           >
             <BrandMark
               brandName={company.name}
               logoUrl={company.logo_url}
               imageSize={28}
-              imageClassName="h-7 w-auto rounded"
+              imageClassName="h-7 w-auto rounded-lg"
               textClassName="truncate text-sm font-bold text-foreground"
               priority
             />

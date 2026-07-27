@@ -4,7 +4,7 @@ import BrandMark from "@/components/BrandMark";
 export default function NotFound() {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 py-10 text-foreground">
-      <section className="w-full max-w-lg rounded-md border border-border bg-surface p-6 text-center shadow-sm">
+      <section className="card w-full max-w-lg p-6 text-center">
         <BrandMark
           className="flex justify-center"
           imageSize={72}
@@ -24,13 +24,13 @@ export default function NotFound() {
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           <Link
             href="/dashboard"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            className="btn btn-primary"
           >
             Go to dashboard
           </Link>
           <Link
             href="/login"
-            className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground"
+            className="btn btn-outline"
           >
             Sign in
           </Link>

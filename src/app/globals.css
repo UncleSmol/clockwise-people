@@ -65,6 +65,9 @@
   --color-danger: var(--color-danger);
   --color-border: var(--color-border);
   --color-ring: var(--color-ring);
+  --shadow-tight: var(--shadow-tight);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lg: var(--shadow-lg);
   --font-sans: var(--font-plus-jakarta-sans), Arial, Helvetica, sans-serif;
   --font-mono: "SF Mono", "Cascadia Code", "Courier New", monospace;
   --font-doodle: var(--font-fredoka), Arial, Helvetica, sans-serif;
@@ -252,26 +255,6 @@ select {
     3px 3px 0 var(--color-border);
   position: relative;
   transition: transform 120ms ease, box-shadow 120ms ease;
-}
-
-.card::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: 12px;
-  right: 12px;
-  height: 10px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      var(--color-accent) 0,
-      var(--color-accent) 6px,
-      transparent 6px,
-      transparent 10px
-    );
-  border-radius: 2px;
-  pointer-events: none;
-  opacity: 0.5;
 }
 
 .card:hover {

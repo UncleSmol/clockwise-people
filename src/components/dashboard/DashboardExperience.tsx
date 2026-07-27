@@ -187,7 +187,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
   return (
     <section className="grid gap-4">
       {popup ? (
-        <div className="fixed right-3 top-[88px] z-[60] w-[min(360px,calc(100vw-24px))] rounded-md border border-accent/30 bg-surface p-3 shadow-2xl">
+        <div className="fixed right-3 top-[88px] z-[60] w-[min(360px,calc(100vw-24px))] card p-3">
           <div className="flex items-start gap-3">
             <div className="grid size-9 shrink-0 place-items-center rounded-md bg-accent/10 text-accent">
               <Bell className="size-4" />

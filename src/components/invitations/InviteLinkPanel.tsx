@@ -16,7 +16,7 @@ export default function InviteLinkPanel({ inviteUrl }: InviteLinkPanelProps) {
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-accent/20 bg-accent/8 p-4">
+    <div className="mt-4 rounded-lg border border-accent/20 bg-accent/10 p-4">
       <p className="text-sm font-semibold text-foreground">Manual invite link</p>
       <p className="mt-1 text-sm text-muted">
         Copy this link and send it to the employee through your preferred channel.

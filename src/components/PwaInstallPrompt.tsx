@@ -91,7 +91,7 @@ export default function PwaInstallPrompt() {
   };
 
   return (
-    <div className="card fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-xl p-3 shadow-lg">
+    <div className="card fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-xl p-3">
       <div className="flex items-start gap-3">
         <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
           <Download className="size-5" />

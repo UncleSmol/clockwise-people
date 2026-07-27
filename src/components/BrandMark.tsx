@@ -26,7 +26,7 @@ export default function BrandMark({
   alwaysShowLogo = false,
   brandName = "ClockWise People",
   className,
-  imageClassName = "h-10 w-auto rounded-md",
+  imageClassName = "h-10 w-auto rounded-lg",
   textClassName = "text-lg font-semibold text-primary",
   imageSize = 40,
   logoUrl = null,
