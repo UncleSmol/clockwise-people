@@ -606,8 +606,8 @@ select {
 
   .cw-timesheet-calendar .fc-button {
     font-size: 0.6875rem;
-    min-height: 2rem;
-    padding: 0.25rem 0.4rem;
+    min-height: 2.25rem;
+    padding: 0.25rem 0.5rem;
   }
 
   .cw-timesheet-calendar .fc-col-header-cell {
@@ -640,5 +640,70 @@ select {
   .cw-timesheet-calendar .fc-daygrid-day-events {
     gap: 0.08rem;
     padding: 0 0.08rem 0.15rem;
+  }
+}
+
+/* Day view on mobile — clean single-column list */
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-daygrid-day-events {
+  gap: 0.375rem;
+  padding: 0.375rem;
+}
+
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-event {
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  margin-top: 0;
+  padding: 0.5rem 0.625rem;
+  white-space: normal;
+}
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-event .fc-event-title {
+  font-weight: 700;
+}
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-event .fc-event-time {
+  font-weight: 600;
+}
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-daygrid-day-frame {
+  min-height: auto;
+}
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-daygrid-body,
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-scrollgrid-sync-table {
+  height: auto !important;
+}
+
+/* Bigger prev/next touch targets on mobile */
+.cw-timesheet-calendar .fc-prev-button,
+.cw-timesheet-calendar .fc-next-button {
+  padding: 0.375rem 0.75rem;
+}
+
+/* Hide the time-axis gutter on dayGridDay (cleaner list) */
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-timegrid-axis,
+.cw-timesheet-calendar .fc-dayGridDay-view .fc-timegrid-slots {
+  display: none;
+}
+
+/* Today button accent */
+.cw-timesheet-calendar .fc-today-button {
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
+}
+.cw-timesheet-calendar .fc-today-button:disabled {
+  border-color: var(--color-border) !important;
+  color: var(--color-muted) !important;
+}
+
+/* Full-day mobile toolbar: prev/next + title on one line */
+@media (max-width: 380px) {
+  .cw-timesheet-calendar .fc-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .cw-timesheet-calendar .fc-toolbar-chunk:first-child {
+    justify-content: center;
+    gap: 0.375rem;
+  }
+  .cw-timesheet-calendar .fc-toolbar-chunk:first-child .fc-button {
+    min-width: 2.5rem;
+    justify-content: center;
   }
 }

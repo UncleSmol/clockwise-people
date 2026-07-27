@@ -189,11 +189,14 @@ export default function EmployeeTimesheetCorrections({
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
 
   useEffect(() => {
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 640) {
+      setCalendarWindow("day");
+    } else if (window.innerWidth < 768) {
       setCalendarWindow("week");
     }
   }, []);
 
+  const [showLegend, setShowLegend] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
   const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);
@@ -472,7 +475,7 @@ export default function EmployeeTimesheetCorrections({
               <CalendarDays className="size-4 text-accent" />
               Calendar
             </p>
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-muted max-sm:hidden">
               Select a past work day to create a draft timesheet. Public holidays are booked automatically.
             </p>
           </div>
@@ -487,7 +490,7 @@ export default function EmployeeTimesheetCorrections({
                 key={value}
                 type="button"
                 onClick={() => setCalendarWindow(value)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${viewButtonClass(calendarWindow === value)}`}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold max-sm:px-2 max-sm:py-1 max-sm:text-[0.625rem] ${viewButtonClass(calendarWindow === value)}`}
               >
                 {label}
               </button>
@@ -499,7 +502,24 @@ export default function EmployeeTimesheetCorrections({
             Payroll period anchored to the selected week: {payrollRangeLabel}
           </p>
         ) : null}
-        <div className="flex flex-wrap gap-2 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setShowLegend(!showLegend)}
+          className="flex items-center gap-1.5 text-xs font-semibold text-muted sm:hidden"
+        >
+          <span
+            className="inline-flex size-2 rounded-full"
+            style={{
+              background:
+                "conic-gradient(var(--color-accent),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
+            }}
+          />
+          Legend ({showLegend ? "hide" : "show"})
+        </button>
+
+        <div
+          className={`flex flex-wrap gap-2 text-xs font-semibold ${showLegend ? "" : "hidden sm:flex"}`}
+        >
           <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
             <span className="size-2 rounded-full bg-accent" />
             Public holiday

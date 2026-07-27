@@ -175,8 +175,12 @@ export default function CompanyTimesheetCalendar({
   const [showDateActions, setShowDateActions] = useState(false);
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
 
+  const [showLegend, setShowLegend] = useState(false);
+
   useEffect(() => {
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 640) {
+      setCalendarWindow("day");
+    } else if (window.innerWidth < 768) {
       setCalendarWindow("week");
     }
   }, []);
@@ -344,11 +348,11 @@ export default function CompanyTimesheetCalendar({
             Company calendar
           </p>
           <h2 className="mt-1 text-lg font-semibold text-foreground">Timesheet calendar</h2>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-sm text-muted max-sm:hidden">
             Click a date to create timesheets or load leave. Click an existing entry to view or edit.
           </p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-4 lg:w-130">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-130">
           <div className="rounded-md border border-border bg-background px-3 py-2">
             <div className="flex items-center gap-2 text-xs text-muted">
               <CalendarDays className="size-4" />
@@ -401,14 +405,31 @@ export default function CompanyTimesheetCalendar({
               key={value}
               type="button"
               onClick={() => setCalendarWindow(value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${viewButtonClass(calendarWindow === value)}`}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold max-sm:px-2 max-sm:py-1 max-sm:text-[0.625rem] ${viewButtonClass(calendarWindow === value)}`}
             >
               {label}
             </button>
           ))}
         </div>
 
-        <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setShowLegend(!showLegend)}
+          className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-muted sm:hidden"
+        >
+          <span
+            className="inline-flex size-2 rounded-full"
+            style={{
+              background:
+                "conic-gradient(var(--color-accent),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
+            }}
+          />
+          Legend ({showLegend ? "hide" : "show"})
+        </button>
+
+        <div
+          className={`mb-3 flex flex-wrap gap-2 text-xs font-semibold ${showLegend ? "" : "hidden sm:flex"}`}
+        >
           <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
             <span className="size-2 rounded-full bg-accent" />
             Public holiday
