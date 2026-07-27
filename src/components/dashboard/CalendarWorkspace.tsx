@@ -73,15 +73,16 @@ export default function CalendarWorkspace({
     () => panels.find((panel) => panel.key === activePanelKey) ?? null,
     [activePanelKey, panels],
   );
-  const [panelWidthPercent, setPanelWidthPercent] = useState(() =>
-    typeof window !== "undefined" && window.innerWidth < 768 ? 90 : 80,
-  );
+  const [panelWidthPercent, setPanelWidthPercent] = useState(80);
   const resizingRef = useRef(false);
 
   useEffect(() => {
     if (!activePanel) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    if (window.innerWidth < 768) {
+      setPanelWidthPercent(90);
+    }
     return () => {
       document.body.style.overflow = originalOverflow;
     };

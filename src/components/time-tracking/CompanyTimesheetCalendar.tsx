@@ -19,7 +19,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
@@ -177,7 +177,7 @@ export default function CompanyTimesheetCalendar({
 
   const [showLegend, setShowLegend] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (window.innerWidth < 640) {
       setCalendarWindow("day");
     } else if (window.innerWidth < 768) {
