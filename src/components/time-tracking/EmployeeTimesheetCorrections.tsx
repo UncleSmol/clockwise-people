@@ -8,8 +8,6 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Clock3,
   ClipboardCheck,
@@ -481,7 +479,7 @@ export default function EmployeeTimesheetCorrections({
               Select a past work day to create a draft timesheet. Public holidays are booked automatically.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
             {([
               ["day", "Daily"],
               ["week", "Weekly"],
@@ -638,36 +636,17 @@ export default function EmployeeTimesheetCorrections({
         </div>
 
         <div className="hidden max-sm:block">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                const d = new Date(calendarFocusDate);
-                d.setDate(d.getDate() - 1);
-                setCalendarFocusDate(d.toISOString().slice(0, 10));
-              }}
-              className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <span className="text-sm font-semibold text-foreground">
-              {formatDate(calendarFocusDate)}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const d = new Date(calendarFocusDate);
-                d.setDate(d.getDate() + 1);
-                setCalendarFocusDate(d.toISOString().slice(0, 10));
-              }}
-              className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground"
-            >
-              <ChevronRight className="size-4" />
-            </button>
+          <div className="flex items-center gap-3">
+            <input
+              type="date"
+              value={calendarFocusDate}
+              onChange={(e) => setCalendarFocusDate(e.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none"
+            />
             <button
               type="button"
               onClick={() => setCalendarFocusDate(currentWorkDate)}
-              className="rounded-lg border border-accent px-3 py-1.5 text-xs font-semibold text-accent"
+              className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent"
             >
               Today
             </button>
