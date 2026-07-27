@@ -44,13 +44,13 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
       <button
         aria-expanded={open}
         aria-label="Open notifications"
-        className="relative grid size-10 place-items-center rounded-full border border-border bg-background text-foreground"
+        className="relative grid size-8 place-items-center sm:size-10 rounded-full border border-border bg-background text-foreground"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
         <Bell className="size-4" />
         {notifications.length > 0 ? (
-          <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-5 text-primary-foreground">
+          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-danger px-0.5 text-[9px] font-bold leading-4 sm:min-w-5 sm:px-1 sm:text-[10px] sm:leading-5 text-primary-foreground">
             {notifications.length > 9 ? "9+" : notifications.length}
           </span>
         ) : null}
