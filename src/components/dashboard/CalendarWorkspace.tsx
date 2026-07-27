@@ -1,5 +1,6 @@
 "use client";
 
+import LiveClock from "@/components/LiveClock";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
@@ -141,7 +142,9 @@ export default function CalendarWorkspace({
   ) : (
     <h1 className="text-lg font-bold text-foreground">{companyName}</h1>
   )}
-  <p className="text-xs text-muted">{currentDateLabel}</p>
+  <p className="text-xs text-muted">
+    {currentDateLabel} · <LiveClock />
+  </p>
 </div>
           </div>
           <div className="flex items-center gap-2">
