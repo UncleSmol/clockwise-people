@@ -316,7 +316,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-muted">
-                      {formatTime(movement.localEventTime)} - {movement.branchName ?? "No branch"}
+                      {formatTime(movement.localEventTime)} - {movement.workstationName ?? "No workstation"}
                     </p>
                   </div>
                 </div>

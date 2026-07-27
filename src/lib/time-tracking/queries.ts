@@ -32,7 +32,7 @@ type EmployeeRow = {
   workstation_id: string;
   department_id?: string | null;
   job_title: string | null;
-  branches?: { name: string }[] | { name: string } | null;
+  company_workstations?: { name: string }[] | { name: string } | null;
   departments?: { name: string }[] | { name: string } | null;
 };
 
@@ -42,13 +42,13 @@ type CorrectionRequestRow = TimesheetCorrectionRequest & {
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
-    branches?: { name: string }[] | { name: string } | null;
+    company_workstations?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
-    branches?: { name: string }[] | { name: string } | null;
+    company_workstations?: { name: string }[] | { name: string } | null;
   } | null;
 };
 
@@ -58,13 +58,13 @@ type SubmittedTimesheetRow = TimeEntryRecord & {
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
-    branches?: { name: string }[] | { name: string } | null;
+    company_workstations?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
-    branches?: { name: string }[] | { name: string } | null;
+    company_workstations?: { name: string }[] | { name: string } | null;
   } | null;
 };
 
@@ -421,7 +421,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
       const status = liveStatus(entry);
 
       return {
-        branchName: relationName(employee.branches),
+        workstationName: relationName(employee.company_workstations),
         clockIn: entry?.clock_in ?? null,
         clockOut: entry?.clock_out ?? null,
         departmentName: relationName(employee.departments),
@@ -444,7 +444,6 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
         overtimeHours: Number(entry?.overtime_hours ?? 0),
         paidHours: Number(entry?.paid_hours ?? 0),
         status,
-        workstationName: relationName(geofence?.company_workstations),
         workDate: entry?.work_date ?? null,
       };
     },
@@ -498,7 +497,7 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
 
     return {
       ...request,
-      branchName: relationName(employee?.branches),
+      workstationName: relationName(employee?.company_workstations),
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
@@ -549,7 +548,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
 
     return {
       ...timeEntry,
-      branchName: relationName(employee?.branches),
+      workstationName: relationName(employee?.company_workstations),
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
@@ -615,7 +614,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
 
     return {
       ...timeEntry,
-      branchName: relationName(employee?.branches),
+      workstationName: relationName(employee?.company_workstations),
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,

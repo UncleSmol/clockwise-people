@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { MapPin, Navigation, Radar, Save, Search, Trash2, User, Users } from "lucide-react";
+import { ChevronDown, MapPin, Navigation, Radar, Save, Search, Trash2, User, Users } from "lucide-react";
 import { useActionState, useMemo, useRef, useState } from "react";
 import {
   assignEmployeeWorkstation,
@@ -405,24 +405,36 @@ export default function CompanyGeolocationPanel({
             {assignPending ? "Saving..." : "Save assignment"}
           </button>
 
-          <div className="grid gap-2 border-t border-border pt-3">
-            {data.employees
-              .filter((employee) => employee.workstation_id)
-              .map((employee) => {
-                const workstation = data.workstations.find(
-                  (item) => item.id === employee.workstation_id,
-                );
+          <details className="group border-t border-border pt-2">
+            <summary className="flex cursor-pointer items-center justify-between gap-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+              <span>
+                Assigned employees ({data.employees.filter((e) => e.workstation_id).length})
+              </span>
+              <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-2 grid gap-1.5">
+              {data.employees.filter((e) => e.workstation_id).length === 0 ? (
+                <p className="py-2 text-xs text-muted">No employees assigned yet.</p>
+              ) : (
+                data.employees
+                  .filter((employee) => employee.workstation_id)
+                  .map((employee) => {
+                    const workstation = data.workstations.find(
+                      (item) => item.id === employee.workstation_id,
+                    );
 
-                return (
-                  <p key={employee.id} className="flex items-center gap-2 text-xs text-muted">
-                    <Navigation className="size-3.5 text-accent" />
-                    <span className="truncate">
-                      {employee.label} · {workstation?.name ?? "Unknown workstation"}
-                    </span>
-                  </p>
-                );
-              })}
-          </div>
+                    return (
+                      <p key={employee.id} className="flex items-center gap-2 text-xs text-muted">
+                        <Navigation className="size-3.5 shrink-0 text-accent" />
+                        <span className="truncate">
+                          {employee.label} · {workstation?.name ?? "Unknown workstation"}
+                        </span>
+                      </p>
+                    );
+                  })
+              )}
+            </div>
+          </details>
         </form>
       </div>
     </section>

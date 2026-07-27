@@ -108,7 +108,7 @@ export default function CompanyTimesheetCorrectionQueue({
                       {request.knownAs ?? request.fullName}
                     </h3>
                     <p className="mt-1 truncate text-xs text-muted">
-                      {request.employeeNumber} - {request.branchName ?? "No branch"} -{" "}
+                      {request.workstationName ?? "No workstation"} -{" "}
                       {formatDate(request.work_date)}
                     </p>
                   </div>

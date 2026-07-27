@@ -106,7 +106,7 @@ export type CompanyLiveTimeEntry = {
   fullName: string;
   knownAs: string | null;
   avatarUrl: string | null;
-  branchName: string | null;
+  workstationName: string | null;
   departmentName: string | null;
   jobTitle: string | null;
   workDate: string | null;
@@ -122,7 +122,6 @@ export type CompanyLiveTimeEntry = {
   latestGeofenceStatus: string | null;
   latestGeofenceDistanceMeters: number | null;
   latestGeofenceEventType: ClockEventType | null;
-  workstationName: string | null;
   status: "not_started" | "working" | "on_lunch" | "worked" | "needs_review";
 };
 
@@ -145,7 +144,7 @@ export type CompanyTimesheetCorrectionRequest = TimesheetCorrectionRequest & {
   fullName: string;
   knownAs: string | null;
   avatarUrl: string | null;
-  branchName: string | null;
+  workstationName: string | null;
 };
 
 export type CompanySubmittedTimesheet = TimeEntryRecord & {
@@ -153,7 +152,7 @@ export type CompanySubmittedTimesheet = TimeEntryRecord & {
   fullName: string;
   knownAs: string | null;
   avatarUrl: string | null;
-  branchName: string | null;
+  workstationName: string | null;
   paidTimeOffHours: number;
   locationEvents: TimeClockLocationEvent[];
 };
@@ -162,7 +161,7 @@ export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
   employeeNumber: string;
   fullName: string;
   knownAs: string | null;
-  branchName: string | null;
+  workstationName: string | null;
   paidTimeOffHours: number;
   locationEvents: TimeClockLocationEvent[];
 };

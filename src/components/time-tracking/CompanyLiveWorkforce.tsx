@@ -216,7 +216,7 @@ export default function CompanyLiveWorkforce({
                   {entry.knownAs ?? entry.fullName}
                 </p>
                 <p className="mt-1 truncate text-xs text-muted">
-                  {entry.employeeNumber} - {entry.branchName ?? "No branch"}
+                  {entry.workstationName ?? "No workstation"}
                   {entry.jobTitle ? ` - ${entry.jobTitle}` : ""}
                 </p>
               </div>

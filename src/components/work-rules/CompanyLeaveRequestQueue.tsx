@@ -72,7 +72,7 @@ export default function CompanyLeaveRequestQueue({
                     {request.knownAs ?? request.fullName}
                   </p>
                   <p className="mt-1 truncate text-xs text-muted">
-                    {request.employeeNumber} - {request.leaveTypeName ?? "Leave"} -{" "}
+                    {request.leaveTypeName ?? "Leave"} -{" "}
                     {request.start_date} to {request.end_date}
                   </p>
                 </div>

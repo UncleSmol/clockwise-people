@@ -32,12 +32,12 @@ type MovementRow = {
     employee_number: string;
     full_name: string;
     known_as: string | null;
-    branches?: { name: string }[] | { name: string } | null;
+    company_workstations?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
-    branches?: { name: string }[] | { name: string } | null;
+    company_workstations?: { name: string }[] | { name: string } | null;
   } | null;
 };
 
@@ -169,7 +169,7 @@ export const getDashboardExperienceData = cache(async function getDashboardExper
       .limit(5),
     supabase
       .from("time_clock_events")
-      .select("id, event_type, event_at, local_event_time, geofence_status, employees(employee_number, full_name, known_as)")
+      .select("id, event_type, event_at, local_event_time, geofence_status, employees(employee_number, full_name, known_as, company_workstations(name))")
       .eq("company_id", company.id)
       .eq("local_work_date", currentWorkDate)
       .order("event_at", { ascending: false })
@@ -194,10 +194,10 @@ export const getDashboardExperienceData = cache(async function getDashboardExper
   const holidays = (holidaysResult.data ?? []) as DashboardHoliday[];
   const teamMovements = ((movementsResult.data ?? []) as unknown as MovementRow[]).map((movement) => {
     const employee = relationOne(movement.employees);
-    const branch = relationOne(employee?.branches);
+    const workstation = relationOne(employee?.company_workstations);
 
     return {
-      branchName: branch?.name ?? null,
+      workstationName: workstation?.name ?? null,
       employeeName: employee?.known_as ?? employee?.full_name ?? "Employee",
       employeeNumber: employee?.employee_number ?? "",
       eventAt: movement.event_at,

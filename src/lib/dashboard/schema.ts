@@ -11,7 +11,7 @@ export type DashboardTeamMovement = {
   id: string;
   employeeName: string;
   employeeNumber: string;
-  branchName: string | null;
+  workstationName: string | null;
   eventType: ClockEventType;
   eventAt: string;
   localEventTime: string;

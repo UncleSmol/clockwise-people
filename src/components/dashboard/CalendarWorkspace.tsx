@@ -2,7 +2,7 @@
 
 import LiveClock from "@/components/LiveClock";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
   Building2,
@@ -75,6 +75,33 @@ export default function CalendarWorkspace({
   );
   const [panelWidthPercent, setPanelWidthPercent] = useState(80);
   const resizingRef = useRef(false);
+  const [switcherPos, setSwitcherPos] = useState({ x: 16, y: 80 });
+  const switcherDragRef = useRef({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const switcherElRef = useRef<HTMLDivElement>(null);
+
+  const handleSwitcherPointerDown = useCallback((e: PointerEvent) => {
+    switcherDragRef.current.dragging = true;
+    switcherDragRef.current.startX = e.clientX;
+    switcherDragRef.current.startY = e.clientY;
+    switcherDragRef.current.origX = switcherPos.x;
+    switcherDragRef.current.origY = switcherPos.y;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [switcherPos]);
+
+  const handleSwitcherPointerMove = useCallback((e: PointerEvent) => {
+    if (!switcherDragRef.current.dragging) return;
+    const dx = e.clientX - switcherDragRef.current.startX;
+    const dy = e.clientY - switcherDragRef.current.startY;
+    setSwitcherPos({
+      x: switcherDragRef.current.origX + dx,
+      y: switcherDragRef.current.origY + dy,
+    });
+  }, []);
+
+  const handleSwitcherPointerUp = useCallback((e: PointerEvent) => {
+    switcherDragRef.current.dragging = false;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
 
   useEffect(() => {
     if (!activePanel) return;
@@ -94,7 +121,7 @@ export default function CalendarWorkspace({
     document.body.style.cursor = "ew-resize";
     document.body.style.userSelect = "none";
 
-    const handlePointerMove = (ev: PointerEvent) => {
+    const handlePointerMove = (ev: globalThis.PointerEvent) => {
       if (!resizingRef.current) return;
       const vw = window.innerWidth;
       const pct = ((vw - ev.clientX) / vw) * 100;
@@ -117,44 +144,22 @@ export default function CalendarWorkspace({
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col gap-0">
       <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-3">
-<div>
-  {isSuperAdmin ? (
-    <select
-      value={companyName}
-      onChange={(e) => {
-        const target = e.target as HTMLSelectElement;
-        const selected = target.options[target.selectedIndex];
-        const companyId = selected.dataset.companyId;
-        if (companyId) {
-          document.cookie = `active_company_id=${companyId}; path=/; max-age=31536000`;
-          router.refresh();
-        }
-      }}
-      className="text-lg font-bold text-foreground bg-transparent border-none outline-none cursor-pointer appearance-none"
-    >
-      {companies.map((c) => (
-        <option key={c.id} value={c.name} data-company-id={c.id}>
-          {c.name}
-        </option>
-      ))}
-    </select>
-  ) : (
-    <h1 className="text-lg font-bold text-foreground">{companyName}</h1>
-  )}
-  <p className="text-xs text-muted">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3">
+          <div className="flex min-w-0 items-center gap-2">
+<div className="min-w-0">
+  <h1 className="truncate text-sm font-bold text-foreground sm:text-lg">{companyName}</h1>
+  <p className="truncate text-[10px] text-muted sm:text-xs">
     {currentDateLabel} · <LiveClock />
   </p>
 </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1">
             {isManager && managerCalendar ? (
-              <div className="flex gap-1 rounded-full border border-border bg-background p-0.5 text-xs font-semibold">
+              <div className="flex gap-0.5 rounded-full border border-border bg-background p-0.5 text-[10px] font-semibold sm:text-xs">
                 <button
                   type="button"
                   onClick={() => setWorkspaceMode("me")}
-                  className={`rounded-full px-3 py-1.5 ${
+                  className={`rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${
                     workspaceMode === "me"
                       ? "bg-primary text-primary-foreground"
                       : "text-foreground hover:text-accent"
@@ -165,7 +170,7 @@ export default function CalendarWorkspace({
                 <button
                   type="button"
                   onClick={() => setWorkspaceMode("team")}
-                  className={`rounded-full px-3 py-1.5 ${
+                  className={`rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${
                     workspaceMode === "team"
                       ? "bg-primary text-primary-foreground"
                       : "text-foreground hover:text-accent"
@@ -175,14 +180,14 @@ export default function CalendarWorkspace({
                 </button>
               </div>
             ) : null}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => setShowServices(!showServices)}
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground sm:icon-btn sm:px-0 sm:py-0 sm:text-inherit sm:font-normal"
+                className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-muted hover:bg-surface-muted hover:text-foreground sm:icon-btn sm:px-0 sm:py-0 sm:text-inherit sm:font-normal"
                 aria-label="Services"
               >
-                <LayoutGrid className="size-4" />
+                <LayoutGrid className="size-3.5 sm:size-4" />
                 <span className="sm:hidden">Menu</span>
               </button>
 
@@ -226,35 +231,75 @@ export default function CalendarWorkspace({
       </div>
 
       {activePanel ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
+        <div className="fixed inset-0 z-50 flex justify-end bg-foreground/15 backdrop-blur-sm">
           <div
-            className="flex h-full flex-col overflow-hidden border-l border-border bg-surface shadow-lg animate-slide-in-right"
+            className="flex h-full flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right"
             style={{ width: `${panelWidthPercent}vw` }}
           >
             <div
-              className="flex shrink-0 cursor-ew-resize items-center justify-center border-b border-border bg-surface-muted px-1 py-0.5 hover:bg-accent/20"
+              className="flex shrink-0 cursor-ew-resize items-center justify-center px-1 py-0.5 hover:bg-accent/10"
               onPointerDown={handleResizeStart}
             >
               <GripVertical className="size-3 text-muted" />
             </div>
-            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div className="min-w-0">
-                <h3 className="truncate text-lg font-bold text-foreground">{activePanel.label}</h3>
-                <p className="mt-0.5 truncate text-sm text-muted">{activePanel.description}</p>
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+                  {activePanel.key === "leave" ? "Leave" :
+                   activePanel.key === "manager-review" ? "Approvals" :
+                   activePanel.key === "people" ? "People" :
+                   activePanel.key === "company" ? "Company" :
+                   activePanel.key === "account" ? "Account" :
+                   activePanel.key === "policies" ? "Governance" : "Services"}
+                </span>
+                <h3 className="mt-1 text-xl font-bold text-foreground">{activePanel.label}</h3>
+                <p className="mt-1 text-sm text-muted">{activePanel.description}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setActivePanelKey(null)}
-                className="icon-btn shrink-0 text-muted hover:text-foreground"
+                className="icon-btn mt-0.5 shrink-0 text-muted hover:bg-surface-muted hover:text-foreground"
                 aria-label="Close panel"
               >
                 <X className="size-4" />
               </button>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-5">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
               {activePanel.content}
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {isSuperAdmin ? (
+        <div
+          ref={switcherElRef}
+          style={{ left: switcherPos.x, top: switcherPos.y }}
+          className="fixed z-50 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none"
+          onPointerDown={handleSwitcherPointerDown}
+          onPointerMove={handleSwitcherPointerMove}
+          onPointerUp={handleSwitcherPointerUp}
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">Company</span>
+          <select
+            value={companyName}
+            onChange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              const selected = target.options[target.selectedIndex];
+              const companyId = selected.dataset.companyId;
+              if (companyId) {
+                document.cookie = `active_company_id=${companyId}; path=/; max-age=31536000`;
+                router.refresh();
+              }
+            }}
+            className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer"
+          >
+            {companies.map((c) => (
+              <option key={c.id} value={c.name} data-company-id={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       ) : null}
     </div>

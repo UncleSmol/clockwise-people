@@ -75,6 +75,12 @@ function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
 }
 
+function formatTimeRange(start: string | null, end: string | null) {
+  if (!start && !end) return "--";
+  if (start && end) return `${formatTime(start)} - ${formatTime(end)}`;
+  return formatTime(start ?? end);
+}
+
 function geofenceLabel(status: string | null) {
   if (status === "in_range") return "In range";
   if (status === "out_of_range") return "Out of range";
@@ -483,7 +489,7 @@ export default function CompanyTimesheetCalendar({
                         : "",
                       `${formatHours(entry.paid_hours)}${entry.overtime_hours > 0 ? ` + ${formatHours(entry.overtime_hours)} OT` : ""}`,
                       entry.status,
-                      entry.branchName ? entry.branchName : "",
+                      entry.workstationName ? entry.workstationName : "",
                       entry.warning_notes || entry.notes || "",
                     ].filter(Boolean).join(" · ");
                     let x = rect.left + rect.width / 2;
@@ -806,7 +812,7 @@ export default function CompanyTimesheetCalendar({
                           />
                           <span className="min-w-0">
                             <span className="block font-semibold text-foreground">
-                              {request.employeeName} ({request.employeeNumber})
+                              {request.employeeName}
                             </span>
                             <span className="block text-xs text-muted">
                               {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
@@ -835,7 +841,7 @@ export default function CompanyTimesheetCalendar({
                               />
                               <span className="min-w-0">
                                 <span className="block font-semibold text-foreground">
-                                  {request.employeeName} ({request.employeeNumber})
+                                  {request.employeeName}
                                 </span>
                                 <span className="block text-xs text-muted">
                                   {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
@@ -864,267 +870,155 @@ export default function CompanyTimesheetCalendar({
       {/* Entry detail/edit modal */}
       {selectedEntry ? (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
-          <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
-            <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
+          <div className="flex h-full w-full max-w-md flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
+            <div className="z-10 flex shrink-0 items-start justify-between gap-2 border-b border-border bg-surface px-3 py-2">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
                     Timesheet
                   </p>
                   <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize ${statusBadgeClass(selectedEntry.status)}`}
+                    className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold capitalize ${statusBadgeClass(selectedEntry.status)}`}
                   >
                     {selectedEntry.status}
                   </span>
                 </div>
-                <h3 className="mt-1 text-xl font-semibold text-foreground">
+                <h3 className="mt-0.5 text-sm font-bold text-foreground">
                   {displayName(selectedEntry)}
                 </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {selectedEntry.employeeNumber} - {selectedEntry.branchName ?? "No branch"} -{" "}
+                <p className="text-[11px] text-muted">
+                  {selectedEntry.workstationName ?? "No workstation"} -{" "}
                   {selectedEntry.work_date}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1">
                 {canEdit(selectedEntry.status) && !editing ? (
                   <button
                     type="button"
                     onClick={startEditing}
-                    className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground hover:bg-accent/10 hover:text-accent"
+                    className="grid size-6 place-items-center rounded border border-border bg-background text-foreground hover:bg-accent/10 hover:text-accent"
                     aria-label="Edit timesheet"
                   >
-                    <Pencil className="size-4" />
+                    <Pencil className="size-3" />
                   </button>
                 ) : null}
                 <button
                   type="button"
                   onClick={closeEntryModal}
-                  className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                  className="grid size-6 place-items-center rounded border border-border bg-background text-foreground"
                   aria-label="Close timesheet details"
                 >
-                  <X className="size-4" />
+                  <X className="size-3" />
                 </button>
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
+            <div className="flex flex-col overflow-y-auto px-3 py-2">
               {/* Editable time fields */}
-              <div className="grid gap-2 sm:grid-cols-4">
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Clock in</p>
-                  {editing ? (
-                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                      <Clock className="size-4 shrink-0 text-muted" />
-                      <input
-                        type="time"
-                        name="clock_in"
-                        defaultValue={selectedEntry.clock_in ?? ""}
-                        onChange={(e) => handleTimeChange("clock_in", e.target.value)}
-                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                      />
-                    </span>
-                  ) : (
-                    <p className="mt-1 font-semibold text-foreground">
-                      {formatTime(selectedEntry.clock_in)}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Lunch start</p>
-                  {editing ? (
-                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                      <Clock className="size-4 shrink-0 text-muted" />
-                      <input
-                        type="time"
-                        name="lunch_start"
-                        defaultValue={selectedEntry.lunch_start ?? ""}
-                        onChange={(e) => handleTimeChange("lunch_start", e.target.value)}
-                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                      />
-                    </span>
-                  ) : (
-                    <p className="mt-1 font-semibold text-foreground">
-                      {formatTime(selectedEntry.lunch_start)}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Lunch end</p>
-                  {editing ? (
-                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                      <Clock className="size-4 shrink-0 text-muted" />
-                      <input
-                        type="time"
-                        name="lunch_end"
-                        defaultValue={selectedEntry.lunch_end ?? ""}
-                        onChange={(e) => handleTimeChange("lunch_end", e.target.value)}
-                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                      />
-                    </span>
-                  ) : (
-                    <p className="mt-1 font-semibold text-foreground">
-                      {formatTime(selectedEntry.lunch_end)}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Clock out</p>
-                  {editing ? (
-                    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                      <Clock className="size-4 shrink-0 text-muted" />
-                      <input
-                        type="time"
-                        name="clock_out"
-                        defaultValue={selectedEntry.clock_out ?? ""}
-                        onChange={(e) => handleTimeChange("clock_out", e.target.value)}
-                        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                      />
-                    </span>
-                  ) : (
-                    <p className="mt-1 font-semibold text-foreground">
-                      {formatTime(selectedEntry.clock_out)}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Notes field (editable) */}
               {editing ? (
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Notes</p>
-                  <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                    <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                    <textarea
-                      name="notes"
-                      defaultValue={selectedEntry.notes ?? ""}
-                      onChange={(e) => handleTimeChange("notes", e.target.value)}
-                      rows={2}
-                      className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
-                    />
-                  </span>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  {(["clock_in","lunch_start","lunch_end","clock_out"] as const).map((field) => (
+                    <div key={field} className="rounded border border-border bg-background px-1.5 py-1">
+                      <p className="text-[9px] text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_"," ")}</p>
+                      <input
+                        type="time"
+                        name={field}
+                        defaultValue={(selectedEntry as any)[field] ?? ""}
+                        onChange={(e) => handleTimeChange(field, e.target.value)}
+                        className="h-6 w-full bg-transparent text-[11px] text-foreground outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <tbody>
+                    <tr><td className="py-0.5 text-muted pr-4">Clock in</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_in)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">Lunch</td><td className="font-semibold text-foreground">{formatTimeRange(selectedEntry.lunch_start, selectedEntry.lunch_end)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">Clock out</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_out)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">Paid</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.paid_hours)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">NT</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.normal_hours)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">OT</td><td className="font-semibold text-warning">{formatHours(selectedEntry.overtime_hours)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">Paid leave</td><td className="font-semibold text-accent">{formatHours(selectedEntry.paidTimeOffHours)}</td></tr>
+                    <tr><td className="py-0.5 text-muted pr-4">Lunch break</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.lunch_hours)}</td></tr>
+                  </tbody>
+                </table>
+              )}
+
+              {/* Notes */}
+              {editing ? (
+                <div className="mt-2">
+                  <p className="text-[9px] text-muted leading-none">Notes</p>
+                  <textarea name="notes" defaultValue={selectedEntry.notes ?? ""} onChange={(e) => handleTimeChange("notes", e.target.value)} rows={1} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground outline-none resize-none" />
                 </div>
               ) : selectedEntry.notes ? (
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Notes</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{selectedEntry.notes}</p>
+                <div className="mt-2 border-t border-border pt-2">
+                  <p className="text-[9px] text-muted leading-none">Notes</p>
+                  <p className="mt-0.5 text-xs text-foreground">{selectedEntry.notes}</p>
                 </div>
               ) : null}
-
-              {/* Hours stats */}
-              <div className="grid gap-2 sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="flex items-center gap-2 text-xs text-muted">
-                    <Timer className="size-3.5" />
-                    NT
-                  </p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatHours(selectedEntry.normal_hours)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">OT</p>
-                  <p className="mt-1 font-semibold text-warning">
-                    {formatHours(selectedEntry.overtime_hours)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Paid leave</p>
-                  <p className="mt-1 font-semibold text-accent">
-                    {formatHours(selectedEntry.paidTimeOffHours)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Lunch break</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatHours(selectedEntry.lunch_hours)}
-                  </p>
-                </div>
-              </div>
 
               {selectedEntry.warning_notes ? (
-                <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
-                  <p className="text-xs text-warning">Calculation note</p>
-                  <p className="mt-1 text-sm font-medium text-warning">
-                    {selectedEntry.warning_notes}
-                  </p>
+                <div className="mt-2 border-t border-border pt-2">
+                  <p className="text-[9px] text-warning leading-none">Note</p>
+                  <p className="mt-0.5 text-xs text-warning">{selectedEntry.warning_notes}</p>
                 </div>
               ) : null}
 
-              {/* Location history (read-only) */}
-              <div className="rounded-md border border-border bg-background">
-                <div className="border-b border-border px-3 py-3">
-                  <p className="flex items-center gap-2 font-semibold text-foreground">
-                    <MapPin className="size-4 text-accent" />
-                    Location history
+              {/* Location history */}
+              <div className="mt-2 border-t border-border pt-2">
+                <p className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
+                  <MapPin className="size-3 text-accent" />
+                  Location history
+                </p>
+                {selectedEntry.locationEvents.length === 0 ? (
+                  <p className="mt-1 text-xs text-muted">
+                    No location events were captured for this shift.
                   </p>
-                </div>
-                <div className="divide-y divide-border">
-                  {selectedEntry.locationEvents.length === 0 ? (
-                    <p className="px-3 py-4 text-sm text-muted">
-                      No location events were captured for this shift.
-                    </p>
-                  ) : (
-                    selectedEntry.locationEvents.map((event) => (
-                      <div key={event.id} className="grid gap-2 px-3 py-3 sm:grid-cols-[150px_1fr_auto] sm:items-center">
-                        <div>
-                          <p className="text-sm font-semibold capitalize text-foreground">
-                            {event.event_type.replaceAll("_", " ")}
-                          </p>
-                          <p className="mt-1 text-xs text-muted">{formatTime(event.local_event_time)}</p>
-                        </div>
-                        <div className="min-w-0 text-xs text-muted">
-                          <p className="truncate">
-                            {event.workstationName ?? "No workstation"}
-                            {event.distance_meters !== null
-                              ? ` - ${Math.round(event.distance_meters)}m from workstation`
-                              : ""}
-                          </p>
-                          <p className="mt-1 truncate">
-                            {event.latitude !== null && event.longitude !== null
-                              ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
-                              : "No coordinates captured"}
-                            {event.accuracy_meters !== null
-                              ? ` - +/-${Math.round(event.accuracy_meters)}m`
-                              : ""}
-                          </p>
-                        </div>
+                ) : (
+                  <div className="mt-1 divide-y divide-border">
+                    {selectedEntry.locationEvents.map((event) => (
+                      <div key={event.id} className="flex items-center gap-2 py-1 text-xs">
+                        <span className="font-semibold capitalize text-foreground shrink-0">
+                          {event.event_type.replaceAll("_", " ")}
+                        </span>
+                        <span className="text-muted shrink-0">{formatTime(event.local_event_time)}</span>
+                        <span className="text-muted truncate min-w-0">
+                          {event.workstationName ?? "No workstation"}
+                          {event.distance_meters !== null ? ` ${Math.round(event.distance_meters)}m` : ""}
+                        </span>
                         <span
-                          className={`inline-flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${geofenceClass(event.geofence_status)}`}
+                          className={`ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${geofenceClass(event.geofence_status)}`}
                         >
-                          <LocateFixed className="size-3.5" />
                           {geofenceLabel(event.geofence_status)}
                         </span>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Edit action bar */}
               {editing && canEdit(selectedEntry.status) ? (
-                <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-3">
+                <div className="flex items-center justify-between gap-2 rounded border border-border bg-background px-2.5 py-1.5">
                   <form
                     action={deleteAction}
-                    onSubmit={() => {
-                      setTimeout(closeEntryModal, 100);
-                    }}
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
                   >
                     <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
                     <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
                     <button
                       disabled={deletePending}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger disabled:opacity-50"
                     >
-                      <Trash2 className="size-4" />
-                      {deletePending ? "Deleting..." : "Delete draft"}
+                      <Trash2 className="size-3" />
+                      {deletePending ? "..." : "Delete"}
                     </button>
                   </form>
                   <form
                     action={updateAction}
-                    onSubmit={() => {
-                      setTimeout(closeEntryModal, 100);
-                    }}
-                    className="flex items-center gap-2"
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                    className="flex items-center gap-1"
                   >
                     <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
                     <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
@@ -1135,19 +1029,16 @@ export default function CompanyTimesheetCalendar({
                     <input type="hidden" name="notes" value={editedTimes.notes ?? ""} />
                     <button
                       type="button"
-                      onClick={() => {
-                        setEditing(false);
-                        setEditedTimes({});
-                      }}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground"
+                      onClick={() => { setEditing(false); setEditedTimes({}); }}
+                      className="rounded border border-border bg-background px-2 py-1 text-[11px] font-semibold text-foreground"
                     >
                       Cancel
                     </button>
                     <button
                       disabled={updatePending}
-                      className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                      className="rounded bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
                     >
-                      {updatePending ? "Saving..." : "Save changes"}
+                      {updatePending ? "..." : "Save"}
                     </button>
                   </form>
                 </div>

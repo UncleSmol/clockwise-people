@@ -148,7 +148,7 @@ export default function CompanyTimesheetApprovalQueue({
                           {timesheet.knownAs ?? timesheet.fullName}
                         </p>
                         <p className="mt-1 truncate text-xs text-muted">
-                          {timesheet.employeeNumber} - {timesheet.branchName ?? "No branch"} -{" "}
+                          {timesheet.workstationName ?? "No workstation"} -{" "}
                           {formatDate(timesheet.work_date)}
                         </p>
                       </div>

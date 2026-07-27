@@ -79,7 +79,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                       {employee.known_as ?? employee.full_name}
                     </p>
                     <p className="truncate text-xs text-muted">
-                      {employee.employee_number} {employee.email ? `- ${employee.email}` : ""}
+                      {employee.email ?? ""}
                     </p>
                   </div>
                 </div>
