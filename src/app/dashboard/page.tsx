@@ -182,7 +182,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     selectedEmployee,
     companySettings,
   ] = await Promise.all([
-    access.employeeId ? getEmployeeTimeState() : Promise.resolve(null),
+    getEmployeeTimeState(),
     canManageCompany
       ? getCompanySetup(company.id)
       : Promise.resolve({ workstations: [], departments: [] }),
@@ -193,7 +193,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     canReviewTime ? getCompanyCalendarLeaveRequests() : Promise.resolve([]),
     canReviewTime ? getCompanyTimesheetCorrectionQueue() : Promise.resolve([]),
     canReviewTime ? getCompanySubmittedTimesheetQueue() : Promise.resolve([]),
-    access.employeeId ? getEmployeeLeaveState() : Promise.resolve(null),
+    getEmployeeLeaveState(),
     canReviewTime ? getCompanyLeaveRequestQueue() : Promise.resolve([]),
     getAccountProfile(),
     canManageCompany ? getCompanyWorkRulesData() : Promise.resolve(null),

@@ -175,10 +175,11 @@ export default function CalendarWorkspace({
               <button
                 type="button"
                 onClick={() => setShowServices(!showServices)}
-                className="icon-btn text-muted hover:text-foreground"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-surface-muted hover:text-foreground sm:icon-btn sm:px-0 sm:py-0 sm:text-inherit sm:font-normal"
                 aria-label="Services"
               >
                 <LayoutGrid className="size-4" />
+                <span className="sm:hidden">Menu</span>
               </button>
 
             </div>

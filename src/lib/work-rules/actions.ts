@@ -306,6 +306,69 @@ export async function submitLeaveRequest(
   return { ok: true, message: "Leave request sent." };
 }
 
+export async function accrueToilBalance(
+  employeeId: string,
+  periodStart: string,
+  periodEnd: string,
+): Promise<ActionState> {
+  const { company } = await getActiveCompany();
+  const supabase = await createSupabaseServerClient();
+
+  const [settingsResult, overtimeResult, toilTypeResult] = await Promise.all([
+    supabase
+      .from("company_settings")
+      .select("toil_rules")
+      .eq("company_id", company.id)
+      .single(),
+    supabase
+      .from("time_entries")
+      .select("overtime_hours")
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId)
+      .is("deleted_at", null)
+      .gte("work_date", periodStart)
+      .lte("work_date", periodEnd),
+    supabase
+      .from("leave_types")
+      .select("id")
+      .eq("company_id", company.id)
+      .eq("category", "toil_taken")
+      .is("deleted_at", null)
+      .maybeSingle(),
+  ]);
+
+  if (settingsResult.error) return { ok: false, message: settingsResult.error.message };
+  if (overtimeResult.error) return { ok: false, message: overtimeResult.error.message };
+  if (toilTypeResult.error) return { ok: false, message: toilTypeResult.error.message };
+
+  const toilRules = settingsResult.data?.toil_rules as Record<string, unknown> | undefined;
+  const multiplier = Number(toilRules?.accrual_multiplier ?? 1.5);
+  const totalOvertime = (overtimeResult.data ?? []).reduce(
+    (sum, entry) => sum + Number(entry.overtime_hours ?? 0),
+    0,
+  );
+  const earnedHours = Number((totalOvertime * multiplier).toFixed(2));
+
+  if (earnedHours <= 0) {
+    return { ok: false, message: "No overtime hours found in the selected period." };
+  }
+
+  if (!toilTypeResult.data) {
+    return { ok: false, message: "No TOIL leave type exists. Create a leave type with category 'Toil Taken' first." };
+  }
+
+  const { error } = await supabase.rpc("assign_employee_leave_balance", {
+    balance_hours: earnedHours,
+    target_employee_id: employeeId,
+    target_leave_type_id: toilTypeResult.data.id,
+  });
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/dashboard");
+  return { ok: true, message: `${earnedHours}h TOIL accrued from ${totalOvertime}h overtime (×${multiplier}).` };
+}
+
 export async function reviewLeaveRequest(
   _previousState: ActionState,
   formData: FormData,

@@ -20,7 +20,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   createPastDraftTimeEntry,
   deleteDraftTimeEntry,
@@ -187,6 +187,13 @@ export default function EmployeeTimesheetCorrections({
 }: EmployeeTimesheetCorrectionsProps) {
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setCalendarWindow("week");
+    }
+  }, []);
+
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
   const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);

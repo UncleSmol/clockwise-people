@@ -19,7 +19,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
@@ -174,6 +174,13 @@ export default function CompanyTimesheetCalendar({
   const [selectedDate, setSelectedDate] = useState("");
   const [showDateActions, setShowDateActions] = useState(false);
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setCalendarWindow("week");
+    }
+  }, []);
+
   const [calendarFocusDate, setCalendarFocusDate] = useState(() => {
     const today = new Date();
     return [
