@@ -68,3 +68,5 @@ next-env.d.ts
 .vscode/
 *.swp
 Thumbs.db
+
+download_cli.ps1
