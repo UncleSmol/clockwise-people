@@ -80,27 +80,35 @@ export default function CalendarWorkspace({
   const switcherElRef = useRef<HTMLDivElement>(null);
 
   const handleSwitcherPointerDown = useCallback((e: PointerEvent) => {
-    switcherDragRef.current.dragging = true;
-    switcherDragRef.current.startX = e.clientX;
-    switcherDragRef.current.startY = e.clientY;
-    switcherDragRef.current.origX = switcherPos.x;
-    switcherDragRef.current.origY = switcherPos.y;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+    const el = e.target as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    switcherDragRef.current = {
+      dragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: switcherPos.x,
+      origY: switcherPos.y,
+    };
   }, [switcherPos]);
 
-  const handleSwitcherPointerMove = useCallback((e: PointerEvent) => {
-    if (!switcherDragRef.current.dragging) return;
-    const dx = e.clientX - switcherDragRef.current.startX;
-    const dy = e.clientY - switcherDragRef.current.startY;
-    setSwitcherPos({
-      x: switcherDragRef.current.origX + dx,
-      y: switcherDragRef.current.origY + dy,
-    });
-  }, []);
-
-  const handleSwitcherPointerUp = useCallback((e: PointerEvent) => {
-    switcherDragRef.current.dragging = false;
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  useEffect(() => {
+    const handleMove = (e: globalThis.PointerEvent) => {
+      if (!switcherDragRef.current.dragging) return;
+      setSwitcherPos({
+        x: switcherDragRef.current.origX + (e.clientX - switcherDragRef.current.startX),
+        y: switcherDragRef.current.origY + (e.clientY - switcherDragRef.current.startY),
+      });
+    };
+    const handleUp = () => {
+      switcherDragRef.current.dragging = false;
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
   }, []);
 
   useEffect(() => {
@@ -275,10 +283,8 @@ export default function CalendarWorkspace({
         <div
           ref={switcherElRef}
           style={{ left: switcherPos.x, top: switcherPos.y }}
-          className="fixed z-50 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none"
+          className="fixed z-50 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none touch-none"
           onPointerDown={handleSwitcherPointerDown}
-          onPointerMove={handleSwitcherPointerMove}
-          onPointerUp={handleSwitcherPointerUp}
         >
           <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">Company</span>
           <select
