@@ -54,24 +54,28 @@ export default function BrandMark({
   return (
     <span className={className}>
       {logoUrl && failedLogoUrl !== logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logoUrl}
-          alt={`${brandName} logo`}
-          className={`${imageClassName} object-contain`}
-          loading={priority ? "eager" : "lazy"}
-          referrerPolicy="no-referrer"
-          onError={() => setFailedLogoUrl(logoUrl)}
-        />
+        <span className="brand-logo-bg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logoUrl}
+            alt={`${brandName} logo`}
+            className={`${imageClassName} object-contain`}
+            loading={priority ? "eager" : "lazy"}
+            referrerPolicy="no-referrer"
+            onError={() => setFailedLogoUrl(logoUrl)}
+          />
+        </span>
       ) : alwaysShowLogo || variant === "logo" ? (
-        <Image
-          src="/assets/clockwise-people-logo.png"
-          alt={`${brandName} logo`}
-          width={imageSize}
-          height={imageSize}
-          className={`${imageClassName} object-contain`}
-          priority={priority}
-        />
+        <span className="brand-logo-bg">
+          <Image
+            src="/assets/clockwise-people-logo.png"
+            alt={`${brandName} logo`}
+            width={imageSize}
+            height={imageSize}
+            className={`${imageClassName} object-contain`}
+            priority={priority}
+          />
+        </span>
       ) : (
         <span className={textClassName}>{brandName}</span>
       )}
