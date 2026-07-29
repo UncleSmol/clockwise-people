@@ -24,6 +24,7 @@ import { useActionState, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import {
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
+  deleteTimeEntry,
   loadManagedLeaveRequestsToTimesheets,
   updateManagedDraftTimeEntry,
 } from "@/lib/time-tracking/actions";
@@ -242,6 +243,10 @@ export default function CompanyTimesheetCalendar({
   );
   const [deleteState, deleteAction, deletePending] = useActionState(
     deleteManagedDraftTimeEntry,
+    initialActionState,
+  );
+  const [forceDeleteState, forceDeleteAction, forceDeletePending] = useActionState(
+    deleteTimeEntry,
     initialActionState,
   );
 
@@ -997,6 +1002,32 @@ export default function CompanyTimesheetCalendar({
                   </div>
                 )}
               </div>
+
+              {/* Delete action (always available) */}
+              {!editing ? (
+                <div className="mt-2 border-t border-border pt-2">
+                  <form
+                    action={forceDeleteAction}
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                    className="flex items-center justify-between"
+                  >
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <button
+                      disabled={forceDeletePending}
+                      className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger disabled:opacity-50"
+                    >
+                      <Trash2 className="size-3" />
+                      {forceDeletePending ? "..." : "Delete entry"}
+                    </button>
+                    {forceDeleteState.message ? (
+                      <span className={`text-[11px] ${forceDeleteState.ok ? "text-success" : "text-danger"}`}>
+                        {forceDeleteState.message}
+                      </span>
+                    ) : null}
+                  </form>
+                </div>
+              ) : null}
 
               {/* Edit action bar */}
               {editing && canEdit(selectedEntry.status) ? (

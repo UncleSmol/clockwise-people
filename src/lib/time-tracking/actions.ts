@@ -345,6 +345,35 @@ export async function deleteManagedDraftTimeEntry(
   return { ok: true, message: "Draft timesheet deleted." };
 }
 
+export async function deleteTimeEntry(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+  const employeeId = String(formData.get("employee_id") ?? "").trim();
+
+  if (!timeEntryId || !employeeId) {
+    return { ok: false, message: "Missing time entry or employee." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("delete_time_entry", {
+    target_time_entry_id: timeEntryId,
+    target_employee_id: employeeId,
+  });
+
+  if (error) {
+    if (isMissingManagerCalendarRpc(error)) {
+      return { ok: false, message: managerCalendarMigrationMessage };
+    }
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Time entry deleted." };
+}
+
 export async function deleteDraftTimeEntry(
   _previousState: TimeEntryActionState,
   formData: FormData,

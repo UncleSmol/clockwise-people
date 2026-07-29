@@ -147,25 +147,31 @@ async function getLocationEventsByTimeEntry(
     return new Map<string, TimeClockLocationEvent[]>();
   }
 
-  const { data, error } = await supabase
-    .from("time_clock_events")
-    .select(
-      "id, time_entry_id, event_type, event_at, local_work_date, local_event_time, latitude, longitude, accuracy_meters, distance_meters, geofence_status, company_workstations(name)",
-    )
-    .eq("company_id", companyId)
-    .in("time_entry_id", timeEntryIds)
-    .order("event_at", { ascending: true });
+  const results: TimeClockLocationEventRow[] = [];
+  const batchSize = 100;
+  for (let i = 0; i < timeEntryIds.length; i += batchSize) {
+    const batch = timeEntryIds.slice(i, i + batchSize);
+    const { data, error } = await supabase
+      .from("time_clock_events")
+      .select(
+        "id, time_entry_id, event_type, event_at, local_work_date, local_event_time, latitude, longitude, accuracy_meters, distance_meters, geofence_status, company_workstations(name)",
+      )
+      .eq("company_id", companyId)
+      .in("time_entry_id", batch)
+      .order("event_at", { ascending: true });
 
-  if (error) {
-    if (isMissingGeofenceSchema(error)) {
-      return new Map<string, TimeClockLocationEvent[]>();
+    if (error) {
+      if (isMissingGeofenceSchema(error)) {
+        return new Map<string, TimeClockLocationEvent[]>();
+      }
+      throw new Error(error.message);
     }
 
-    throw new Error(error.message);
+    results.push(...(data ?? []));
   }
 
   const eventsByEntry = new Map<string, TimeClockLocationEvent[]>();
-  ((data ?? []) as unknown as TimeClockLocationEventRow[]).forEach((event) => {
+  results.forEach((event) => {
     const current = eventsByEntry.get(event.time_entry_id) ?? [];
     current.push({
       accuracy_meters: event.accuracy_meters === null ? null : Number(event.accuracy_meters),
