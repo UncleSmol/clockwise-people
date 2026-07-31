@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { LocateFixed, MapPin } from "lucide-react";
 import {
   clockIn,
   clockOut,
@@ -61,6 +62,21 @@ function formatTime(value: string | null | undefined) {
 
 function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
+}
+
+function geofenceLabel(status: string | null | undefined) {
+  if (status === "in_range") return "In range";
+  if (status === "out_of_range") return "Out of range";
+  if (status === "no_location") return "No location";
+  if (status === "no_workstation") return "No workstation";
+  return "Unknown";
+}
+
+function geofenceClass(status: string | null | undefined) {
+  if (status === "in_range") return "border-success/30 bg-success/10 text-success";
+  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
+  return "border-border bg-surface-muted text-muted";
 }
 
 function currentStatus(entry: TimeEntryRecord | null) {
@@ -408,6 +424,44 @@ export default function EmployeeTimeClock({
             </p>
           )}
         </div>
+
+        {displayEntry?.locationEvents?.length ? (
+          <div className="mb-4 rounded-md border border-border bg-background px-3 py-2 text-sm">
+            <p className="flex items-center gap-2 font-semibold text-foreground">
+              <MapPin className="size-4 text-accent" />
+              Recorded locations
+            </p>
+            <div className="mt-2 grid gap-2">
+              {displayEntry.locationEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="grid gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs sm:grid-cols-[120px_1fr_auto] sm:items-center"
+                >
+                  <p className="font-semibold capitalize text-foreground">
+                    {event.event_type.replaceAll("_", " ")}
+                  </p>
+                  <p className="text-muted">
+                    {event.latitude !== null && event.longitude !== null
+                      ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                      : "No coordinates"}
+                    {event.accuracy_meters !== null
+                      ? ` · ±${Math.round(event.accuracy_meters)}m`
+                      : ""}
+                    {event.distance_meters !== null
+                      ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                      : ""}
+                  </p>
+                  <span
+                    className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
+                  >
+                    <LocateFixed className="size-3" />
+                    {geofenceLabel(event.geofence_status)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="grid gap-2 sm:grid-cols-3">
           <div className="card p-3">

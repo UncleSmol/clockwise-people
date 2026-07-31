@@ -147,6 +147,31 @@ function useSmartReminders(schedule: DashboardReminderSchedule | null) {
       },
     ];
 
+    if (schedule.endTime && !schedule.todayEntry?.clock_out) {
+      const endDateTime = scheduleDateTime(schedule, schedule.endTime);
+
+      if (endDateTime) {
+        const dayEnd =
+          scheduleDateTime(schedule, "23:59")?.getTime() ??
+          endDateTime.getTime() + 12 * 60 * 60 * 1000;
+        const repeats = Math.min(
+          12,
+          Math.max(1, Math.ceil((dayEnd - endDateTime.getTime()) / (60 * 60 * 1000))),
+        );
+
+        for (let repeat = 0; repeat < repeats; repeat += 1) {
+          reminders.push({
+            body: `Your shift ended at ${formatTime(schedule.endTime)} and you have not clocked out. Clock out now to keep your timesheet accurate.`,
+            dueAt: endDateTime,
+            offsetMinutes: 15 + repeat * 60,
+            skip: Boolean(schedule.todayEntry?.clock_out),
+            tag: `clock-out-missed-${repeat}`,
+            title: "Forgot to clock out",
+          });
+        }
+      }
+    }
+
     const timers = reminders.flatMap((reminder) => {
       if (!reminder.dueAt || reminder.skip) return [];
 

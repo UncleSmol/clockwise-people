@@ -14,6 +14,8 @@ import {
   Edit3,
   FileQuestion,
   FileText,
+  LocateFixed,
+  MapPin,
   Plus,
   Save,
   Send,
@@ -96,6 +98,79 @@ function statusClass(status: TimesheetCorrectionRequest["status"]) {
   if (status === "approved") return "bg-success/10 text-success";
   if (status === "rejected") return "bg-danger/10 text-danger";
   return "bg-surface-muted text-foreground";
+}
+
+function geofenceLabel(status: string | null | undefined) {
+  if (status === "in_range") return "In range";
+  if (status === "out_of_range") return "Out of range";
+  if (status === "no_location") return "No location";
+  if (status === "no_workstation") return "No workstation";
+  return "Unknown";
+}
+
+function geofenceClass(status: string | null | undefined) {
+  if (status === "in_range") return "border-success/30 bg-success/10 text-success";
+  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
+  return "border-border bg-surface-muted text-muted";
+}
+
+function renderLocationHistory(entry: TimeEntryRecord) {
+  const events = entry.locationEvents ?? [];
+
+  return (
+    <details className="rounded-md border border-border/70 bg-surface/80">
+      <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs font-semibold text-foreground">
+        <MapPin className="size-4 text-accent" />
+        Location history ({events.length})
+      </summary>
+      <div className="divide-y divide-border border-t border-border">
+        {events.length === 0 ? (
+          <p className="px-3 py-3 text-xs text-muted">
+            No location events were captured for this shift.
+          </p>
+        ) : (
+          events.map((event) => (
+            <div
+              key={event.id}
+              className="grid gap-2 px-3 py-2 sm:grid-cols-[130px_1fr_auto] sm:items-center"
+            >
+              <div>
+                <p className="font-semibold capitalize text-foreground">
+                  {event.event_type.replaceAll("_", " ")}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  {formatTime(event.local_event_time)}
+                </p>
+              </div>
+              <div className="min-w-0 text-xs text-muted">
+                <p className="truncate">
+                  {event.workstationName ?? "No workstation"}
+                  {event.distance_meters !== null
+                    ? ` - ${Math.round(event.distance_meters)}m away`
+                    : ""}
+                </p>
+                <p className="mt-1 truncate">
+                  {event.latitude !== null && event.longitude !== null
+                    ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                    : "No coordinates"}
+                  {event.accuracy_meters !== null
+                    ? ` - +/-${Math.round(event.accuracy_meters)}m`
+                    : ""}
+                </p>
+              </div>
+              <span
+                className={`inline-flex w-max items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${geofenceClass(event.geofence_status)}`}
+              >
+                <LocateFixed className="size-3.5" />
+                {geofenceLabel(event.geofence_status)}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </details>
+  );
 }
 
 function timesheetCalendarClass(entry: TimeEntryRecord, isHoliday: boolean) {
@@ -417,6 +492,7 @@ export default function EmployeeTimesheetCorrections({
                 <textarea name="notes" rows={2} defaultValue={entry.notes ?? ""} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Optional" />
               </span>
             </label>
+            {renderLocationHistory(entry)}
             <div className="flex justify-end">
               <button
                 formAction={deleteAction}
@@ -1114,6 +1190,41 @@ export default function EmployeeTimesheetCorrections({
                   <p className="mt-1 text-sm font-medium text-warning">
                     {detailEntry.warning_notes}
                   </p>
+                </div>
+              ) : null}
+
+              {detailEntry.locationEvents?.length ? (
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <p className="text-xs text-muted">Location history</p>
+                  <div className="mt-2 grid gap-2">
+                    {detailEntry.locationEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="grid gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs sm:grid-cols-[130px_1fr_auto] sm:items-center"
+                      >
+                        <p className="font-semibold capitalize text-foreground">
+                          {event.event_type.replaceAll("_", " ")}
+                        </p>
+                        <p className="text-muted">
+                          {event.latitude !== null && event.longitude !== null
+                            ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                            : "No coordinates"}
+                          {event.accuracy_meters !== null
+                            ? ` · ±${Math.round(event.accuracy_meters)}m`
+                            : ""}
+                          {event.distance_meters !== null
+                            ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                            : ""}
+                        </p>
+                        <span
+                          className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
+                        >
+                          <LocateFixed className="size-3" />
+                          {geofenceLabel(event.geofence_status)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </div>

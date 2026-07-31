@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { ClockEventType, TimeEntryRecord } from "./schema";
+import type { ClockEventType, TimeClockLocationEvent, TimeEntryRecord } from "./schema";
 
 type ClockActionState = {
   entry?: TimeEntryRecord;
@@ -70,9 +70,53 @@ export async function recordClockEvent(
     return { ok: false, message: error.message };
   }
 
+  const entry = data as TimeEntryRecord & {
+    device_metadata?: {
+      location?: {
+        accuracy?: number | null;
+        captured_at?: string | null;
+        latitude?: number | null;
+        longitude?: number | null;
+      };
+      geofence?: {
+        distance_meters?: number | null;
+        status?: string | null;
+        workstation_name?: string | null;
+      };
+    };
+  };
+  const metadata = entry?.device_metadata ?? {};
+  const metadataLocation = metadata.location ?? {};
+  const metadataGeofence = metadata.geofence ?? {};
+  const eventTime =
+    eventType === "clock_in"
+      ? entry?.clock_in
+      : eventType === "lunch_start"
+        ? entry?.lunch_start
+        : eventType === "lunch_end"
+          ? entry?.lunch_end
+          : entry?.clock_out;
+  const locationEvents: TimeClockLocationEvent[] = [
+    {
+      id: `${entry?.id}-${eventType}`,
+      event_type: eventType,
+      event_at: metadataLocation.captured_at ?? new Date().toISOString(),
+      local_work_date: entry?.work_date ?? "",
+      local_event_time: eventTime ?? "",
+      latitude: metadataLocation.latitude != null ? Number(metadataLocation.latitude) : null,
+      longitude: metadataLocation.longitude != null ? Number(metadataLocation.longitude) : null,
+      accuracy_meters:
+        metadataLocation.accuracy != null ? Number(metadataLocation.accuracy) : null,
+      workstationName: metadataGeofence.workstation_name ?? null,
+      distance_meters:
+        metadataGeofence.distance_meters != null ? Number(metadataGeofence.distance_meters) : null,
+      geofence_status: metadataGeofence.status ?? null,
+    },
+  ];
+
   revalidatePath("/dashboard");
   return {
-    entry: data as TimeEntryRecord,
+    entry: { ...(entry as TimeEntryRecord), locationEvents },
     ok: true,
     message: "Time record updated.",
   };

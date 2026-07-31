@@ -321,7 +321,26 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   }
 
   const employeeRow = employeeResult.data as unknown as EmployeeRow;
-  const recentEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
+  const todayEntryRow = (todayEntryResult.data as TimeEntryRecord | null) ?? null;
+  const rawRecentEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
+  const locationEventsByEntry = await getLocationEventsByTimeEntry(
+    supabase,
+    company.id,
+    [
+      ...(todayEntryRow ? [todayEntryRow.id] : []),
+      ...rawRecentEntries.map((entry) => entry.id),
+    ],
+  );
+  const todayEntry = todayEntryRow
+    ? {
+        ...todayEntryRow,
+        locationEvents: locationEventsByEntry.get(todayEntryRow.id) ?? [],
+      }
+    : null;
+  const recentEntries = rawRecentEntries.map((entry) => ({
+    ...entry,
+    locationEvents: locationEventsByEntry.get(entry.id) ?? [],
+  }));
 
   return {
     currentWorkDate: today,
@@ -332,7 +351,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       avatar_url: employeeRow.avatar_url,
       job_title: employeeRow.job_title,
     },
-    todayEntry: (todayEntryResult.data as TimeEntryRecord | null) ?? null,
+    todayEntry,
     recentEntries,
     recentEvents: (eventsResult.data ?? []) as ClockEventRecord[],
     correctionRequests: (correctionRequestsResult.data ?? []) as TimesheetCorrectionRequest[],

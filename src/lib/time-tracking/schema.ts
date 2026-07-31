@@ -28,6 +28,7 @@ export type TimeEntryRecord = {
   warning_notes: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
+  locationEvents?: TimeClockLocationEvent[];
 };
 
 export type CompanyPublicHoliday = {
