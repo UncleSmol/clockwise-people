@@ -157,7 +157,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               </select>
             </span>
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start Date</span>
               <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">

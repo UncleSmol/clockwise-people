@@ -40,7 +40,7 @@ export default function EmployeeMyTimeHub({
   review,
 }: EmployeeMyTimeHubProps) {
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4">
       <section className="card grid gap-3 p-4 sm:p-5">
         <StepHeading
           step="1"

@@ -82,9 +82,11 @@
 
 html {
   background: var(--background);
+  overflow-x: clip;
 }
 
 body {
+  overflow-x: clip;
   background:
     radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 60%),
     conic-gradient(
