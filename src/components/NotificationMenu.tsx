@@ -61,7 +61,7 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
       </button>
 
       {open ? (
-        <div className="card absolute right-0 z-[65] mt-2 w-[min(360px,calc(100vw-24px))] overflow-hidden p-0">
+        <div className="card fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden p-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[360px]">
           <div className="border-b border-border px-3 py-3">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -87,7 +87,7 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
             </div>
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto sm:max-h-96">
             {notifications.length === 0 ? (
               <p className="px-3 py-4 text-sm text-muted">You are all caught up.</p>
             ) : (

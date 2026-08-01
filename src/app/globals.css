@@ -17,6 +17,7 @@
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-danger: #dc2626;
+  --color-holiday: #7c3aed;
   --color-border: #e2dfd7;
   --color-ring: #0F172A;
   --shadow-soft: 0 4px 24px rgb(15 23 42 / 7%);
@@ -43,6 +44,7 @@
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+  --color-holiday: #a78bfa;
   --color-border: #2a3344;
   --color-ring: #3b82f6;
   --shadow-soft: 0 4px 24px rgb(0 0 0 / 40%);
@@ -64,6 +66,7 @@
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
+  --color-holiday: var(--color-holiday);
   --color-border: var(--color-border);
   --color-ring: var(--color-ring);
   --shadow-tight: var(--shadow-tight);
@@ -555,8 +558,8 @@ select {
 
 .cw-timesheet-calendar .cw-calendar-holiday,
 .cw-timesheet-calendar .cw-calendar-holiday-booked {
-  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-holiday) 50%, transparent);
+  background: color-mix(in srgb, var(--color-holiday) 20%, var(--color-surface));
 }
 
 .cw-timesheet-calendar .cw-company-timesheet-event-warning {

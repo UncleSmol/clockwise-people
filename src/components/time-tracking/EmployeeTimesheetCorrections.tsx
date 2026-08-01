@@ -753,7 +753,7 @@ export default function EmployeeTimesheetCorrections({
             className="inline-flex size-2 rounded-full"
             style={{
               background:
-                "conic-gradient(var(--color-accent),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
+                "conic-gradient(var(--color-holiday),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
             }}
           />
           Legend ({showLegend ? "hide" : "show"})
@@ -762,8 +762,8 @@ export default function EmployeeTimesheetCorrections({
         <div
           className={`flex flex-wrap gap-2 text-xs font-semibold ${showLegend ? "" : "hidden sm:flex"}`}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-accent">
-            <span className="size-2 rounded-full bg-accent" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-holiday/30 bg-holiday/10 px-2.5 py-1 text-holiday">
+            <span className="size-2 rounded-full bg-holiday" />
             Public holiday
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-warning">
@@ -900,10 +900,10 @@ export default function EmployeeTimesheetCorrections({
               .map((holiday) => (
                 <div
                   key={`holiday-${holiday.id}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5"
                 >
-                  <span className="text-sm font-semibold text-accent">{holiday.name}</span>
-                  <span className="rounded-full border border-accent/20 bg-accent/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+                  <span className="text-sm font-semibold text-holiday">{holiday.name}</span>
+                  <span className="rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday">
                     Holiday
                   </span>
                 </div>
