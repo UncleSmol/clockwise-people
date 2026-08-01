@@ -87,7 +87,18 @@ html {
 body {
   background:
     radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 60%),
+    conic-gradient(
+      from 90deg at 1px 1px,
+      color-mix(in srgb, var(--color-muted) 26%, transparent) 25%,
+      transparent 0 50%,
+      color-mix(in srgb, var(--color-muted) 26%, transparent) 0 75%,
+      transparent 0
+    ),
     var(--background);
+  background-size:
+    auto,
+    28px 28px,
+    auto;
   color: var(--foreground);
   font-family: var(--font-sans);
   margin: 0;
@@ -99,6 +110,19 @@ body {
     position: relative;
     z-index: 1;
   }
+}
+
+/* Keep sidebar content from forcing the panel wider than the viewport —
+   grid/flex children get min-width 0 so inputs and selects can shrink
+   instead of being clipped off the right edge on small screens. */
+[role="dialog"] {
+  min-width: 0;
+  max-width: 100vw;
+}
+
+[role="dialog"] .grid > *,
+[role="dialog"] .flex > * {
+  min-width: 0;
 }
 
 /* Logo gets a white background in dark mode so it remains visible */

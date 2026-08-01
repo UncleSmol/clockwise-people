@@ -161,14 +161,14 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch (min)</span>
               <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
                 <Timer className="size-4 shrink-0 text-muted" />
-                <input name="lunch_minutes" type="number" min="0" className="h-10 w-20 bg-transparent text-sm text-foreground outline-none" placeholder="30" />
+                <input name="lunch_minutes" type="number" min="0" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" placeholder="30" />
               </span>
             </label>
             <label className="grid gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Paid hours</span>
               <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
                 <Clock className="size-4 shrink-0 text-muted" />
-                <input name="daily_hours" type="number" min="0" step="0.25" className="h-10 w-20 bg-transparent text-sm text-foreground outline-none" placeholder="8" />
+                <input name="daily_hours" type="number" min="0" step="0.25" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" placeholder="8" />
               </span>
             </label>
           </div>
@@ -429,7 +429,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                               type="number"
                               min="0"
                               defaultValue={String(firstWorkingDay(schedule)?.lunch_minutes ?? 0)}
-                              className="h-8 w-16 bg-transparent text-xs text-foreground outline-none"
+                              className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
                               placeholder="30"
                             />
                           </span>
@@ -444,7 +444,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                               min="0"
                               step="0.25"
                               defaultValue={String(schedule.standard_daily_hours ?? "")}
-                              className="h-8 w-16 bg-transparent text-xs text-foreground outline-none"
+                              className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
                               placeholder="8"
                             />
                           </span>

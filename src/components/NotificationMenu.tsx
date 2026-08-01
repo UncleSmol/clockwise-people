@@ -2,10 +2,16 @@
 
 import { Bell, CheckCircle2, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { clearAllDashboardNotifications, markDashboardNotificationRead } from "@/lib/dashboard/actions";
+import {
+  clearAllDashboardNotifications,
+  fetchDashboardNotifications,
+  markDashboardNotificationRead,
+} from "@/lib/dashboard/actions";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { DashboardNotification } from "@/lib/dashboard/schema";
 
 type NotificationMenuProps = {
+  companyId: string;
   notifications: DashboardNotification[];
 };
 
@@ -20,14 +26,53 @@ function notificationTone(category: string) {
   return "border-accent/30 bg-accent/10 text-accent";
 }
 
-export default function NotificationMenu({ notifications }: NotificationMenuProps) {
+export default function NotificationMenu({ companyId, notifications }: NotificationMenuProps) {
   const [open, setOpen] = useState(false);
+  const [liveNotifications, setLiveNotifications] = useState(notifications);
   const [state, action, pending] = useActionState(markDashboardNotificationRead, initialState);
   const [clearState, clearAction, clearPending] = useActionState(
     clearAllDashboardNotifications,
     initialState,
   );
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    let refreshTimeout: number | null = null;
+
+    const scheduleRefresh = () => {
+      if (refreshTimeout) {
+        window.clearTimeout(refreshTimeout);
+      }
+
+      refreshTimeout = window.setTimeout(async () => {
+        const next = await fetchDashboardNotifications();
+        setLiveNotifications(next);
+      }, 800);
+    };
+
+    const channel = supabase
+      .channel(`app-notifications:${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          filter: `company_id=eq.${companyId}`,
+          schema: "public",
+          table: "app_notifications",
+        },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimeout) {
+        window.clearTimeout(refreshTimeout);
+      }
+
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,9 +98,9 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
         type="button"
       >
         <Bell className="size-4" />
-        {notifications.length > 0 ? (
+        {liveNotifications.length > 0 ? (
           <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-danger px-0.5 text-[9px] font-bold leading-4 sm:min-w-5 sm:px-1 sm:text-[10px] sm:leading-5 text-primary-foreground">
-            {notifications.length > 9 ? "9+" : notifications.length}
+            {liveNotifications.length > 9 ? "9+" : liveNotifications.length}
           </span>
         ) : null}
       </button>
@@ -67,12 +112,12 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
               <div>
                 <p className="font-semibold text-foreground">Notifications</p>
                 <p className="mt-1 text-xs text-muted">
-                  {notifications.length === 0
+                  {liveNotifications.length === 0
                     ? "No unread notifications"
-                    : `${notifications.length} unread`}
+                    : `${liveNotifications.length} unread`}
                 </p>
               </div>
-              {notifications.length > 0 ? (
+              {liveNotifications.length > 0 ? (
                 <form action={clearAction}>
                   <button
                     disabled={clearPending}
@@ -88,10 +133,10 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
           </div>
 
           <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto sm:max-h-96">
-            {notifications.length === 0 ? (
+            {liveNotifications.length === 0 ? (
               <p className="px-3 py-4 text-sm text-muted">You are all caught up.</p>
             ) : (
-              notifications.map((notification) => (
+              liveNotifications.map((notification) => (
                 <form key={notification.id} action={action} className="grid gap-2 border-b border-border px-3 py-3 last:border-b-0">
                   <input type="hidden" name="notification_id" value={notification.id} />
                   <input type="hidden" name="target_href" value={notification.targetHref ?? ""} />

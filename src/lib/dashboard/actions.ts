@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getDashboardNotifications } from "@/lib/dashboard/queries";
+import type { DashboardNotification } from "@/lib/dashboard/schema";
 
 type NotificationActionState = {
   ok: boolean;
   message: string;
 };
+
+export async function fetchDashboardNotifications(): Promise<DashboardNotification[]> {
+  return getDashboardNotifications();
+}
 
 export async function markDashboardNotificationRead(
   _previousState: NotificationActionState,

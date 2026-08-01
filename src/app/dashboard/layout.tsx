@@ -35,6 +35,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             />
           </Link>
           <DashboardNavigation
+            companyId={company.id}
             companyName={company.name}
             companyLogoUrl={company.logo_url}
             notifications={notifications}

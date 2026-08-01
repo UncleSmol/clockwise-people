@@ -96,7 +96,7 @@ export default function ViewportSidebar({
       }}
     >
       <div
-        className={`flex h-full w-full flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right ${maxWidth}`}
+        className={`flex h-full min-w-0 w-full flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right ${maxWidth}`}
         style={panelStyle}
         role="dialog"
         aria-modal="true"

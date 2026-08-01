@@ -95,6 +95,12 @@ function entryNeedsAttention(entry: TimeEntryRecord) {
   );
 }
 
+function extractManagerNote(notes: string | null | undefined) {
+  if (!notes) return null;
+  const match = notes.match(/Manager note:\s*(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
 function formatTimeRange(start: string | null, end: string | null) {
   if (!start && !end) return "Not recorded";
   if (start && !end) return `${formatTime(start)} - active`;
@@ -430,6 +436,9 @@ export default function EmployeeTimesheetCorrections({
     (entry) => selectedEntryIds.has(entry.id) && entryNeedsAttention(entry),
   );
   const hasFlaggedSelected = flaggedSelected.length > 0;
+  const hasRejectedSelected = editableEntries.some(
+    (entry) => selectedEntryIds.has(entry.id) && entry.status === "rejected",
+  );
   const submitBlocked =
     selectedEntryIds.size === 0 || (hasFlaggedSelected && !acknowledgedFlags);
   const message =
@@ -478,7 +487,9 @@ export default function EmployeeTimesheetCorrections({
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
     const editable = entry.status === "draft" || entry.status === "rejected";
-    const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
+    const rejected = entry.status === "rejected";
+    const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure || rejected;
+    const managerNote = extractManagerNote(entry.notes);
 
     return (
       <article
@@ -500,7 +511,7 @@ export default function EmployeeTimesheetCorrections({
               {formatDate(entry.work_date)}
             </p>
             <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
-              {editable ? "Draft" : entry.status}
+              {rejected ? "Rejected" : editable ? "Draft" : entry.status}
             </p>
           </div>
           <span className="inline-flex w-max items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-foreground">
@@ -508,6 +519,14 @@ export default function EmployeeTimesheetCorrections({
             {formatHours(entry.paid_hours)}
           </span>
         </div>
+
+        {rejected ? (
+          <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">
+            {managerNote
+              ? `Rejected by your manager: ${managerNote}`
+              : "This timesheet was rejected. Correct the times below, save, then resubmit."}
+          </p>
+        ) : null}
 
         {editable ? (
           <form action={saveAction} className="grid gap-2">
@@ -613,7 +632,11 @@ export default function EmployeeTimesheetCorrections({
               className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               <Send className="size-4" />
-              {submitPending ? "Submitting..." : "Submit selected"}
+              {submitPending
+                ? "Submitting..."
+                : hasRejectedSelected
+                  ? "Resubmit selected"
+                  : "Submit selected"}
             </button>
           </div>
         </div>
@@ -640,6 +663,7 @@ export default function EmployeeTimesheetCorrections({
             const needsAttention = entryNeedsAttention(entry);
             const isSelected = selectedEntryIds.has(entry.id);
             const isAnchor = rangeAnchorId === entry.id;
+            const isRejected = entry.status === "rejected";
 
             return (
               <button
@@ -651,9 +675,11 @@ export default function EmployeeTimesheetCorrections({
                     ? "border-accent bg-accent/10 text-foreground"
                     : isSelected
                       ? "border-primary bg-primary/10 text-foreground"
-                      : needsAttention
+                      : isRejected
                         ? "border-danger/30 bg-danger/[0.07] text-foreground"
-                        : "border-border bg-background text-foreground"
+                        : needsAttention
+                          ? "border-danger/30 bg-danger/[0.07] text-foreground"
+                          : "border-border bg-background text-foreground"
                 }`}
               >
                 <span
@@ -668,15 +694,21 @@ export default function EmployeeTimesheetCorrections({
                 <span>{formatDate(entry.work_date)}</span>
                 <span
                   className={`ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    needsAttention ? "bg-danger/10 text-danger" : "bg-success/10 text-success"
+                    isRejected
+                      ? "bg-danger/10 text-danger"
+                      : needsAttention
+                        ? "bg-danger/10 text-danger"
+                        : "bg-success/10 text-success"
                   }`}
                 >
-                  {needsAttention ? (
+                  {isRejected ? (
+                    <X className="size-3.5" />
+                  ) : needsAttention ? (
                     <AlertTriangle className="size-3.5" />
                   ) : (
                     <CheckCircle2 className="size-3.5" />
                   )}
-                  {needsAttention ? "Check" : "Good"}
+                  {isRejected ? "Rejected" : needsAttention ? "Check" : "Good"}
                 </span>
               </button>
             );
