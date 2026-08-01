@@ -1,10 +1,29 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 const emptySubscribe = () => () => {};
+
+let scrollLockCount = 0;
+let savedBodyOverflow: string | null = null;
+
+function lockBodyScroll() {
+  if (scrollLockCount === 0) {
+    savedBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  scrollLockCount += 1;
+}
+
+function unlockBodyScroll() {
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount === 0) {
+    document.body.style.overflow = savedBodyOverflow ?? "";
+    savedBodyOverflow = null;
+  }
+}
 
 type ViewportSidebarProps = {
   open: boolean;
@@ -47,26 +66,35 @@ export default function ViewportSidebar({
     () => false,
   );
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      unlockBodyScroll();
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className={`fixed inset-0 ${zIndex} flex justify-end ${backdropClassName}`}>
+    <div
+      className={`fixed inset-0 ${zIndex} flex justify-end ${backdropClassName}`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div
         className={`flex h-full w-full flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right ${maxWidth}`}
         style={panelStyle}

@@ -26,10 +26,14 @@ export default function EmployeeAvatar({
 }: EmployeeAvatarProps) {
   const [failed, setFailed] = useState(false);
   const label = initials(name);
+  const defaultClass = className.includes("rounded-")
+    ? ""
+    : " rounded-md";
+  const defaultBorder = className.includes("border-") ? "" : " border border-border";
 
   return (
     <span
-      className={`relative grid shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs font-semibold text-foreground ${className}`}
+      className={`relative grid shrink-0 place-items-center overflow-hidden bg-surface-muted text-xs font-semibold text-foreground${defaultClass}${defaultBorder} ${className}`}
       aria-label={`${name} profile picture`}
     >
       {src && !failed ? (

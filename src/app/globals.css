@@ -91,9 +91,11 @@ body {
 }
 
 /* ensure content sits above background glow */
-body > * {
-  position: relative;
-  z-index: 1;
+@layer base {
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Logo gets a white background in dark mode so it remains visible */
@@ -543,18 +545,55 @@ select {
 
 /* Avatar-only day-cell events (manager calendar) */
 .cw-timesheet-calendar .fc-daygrid-day-events .fc-event.cw-calendar-avatar-event,
-.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event {
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event,
+.cw-timesheet-calendar .fc-daygrid-block-event.cw-calendar-avatar-event {
   background: transparent;
-  border-color: transparent;
+  border: none;
+  border-radius: 9999px;
   box-shadow: none;
+  color: inherit;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   margin: 0.125rem;
+  max-width: none;
+  overflow: visible;
   padding: 0;
   width: auto;
+  height: auto;
 }
-.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event:hover {
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event:hover,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event:hover {
   transform: none;
   box-shadow: none;
+}
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event .fc-event-main,
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event .fc-event-main-frame,
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event .fc-event-title-container,
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event .fc-event-title,
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event .fc-sticky,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event .fc-event-main,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event .fc-event-main-frame,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event .fc-event-title-container,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event .fc-event-title,
+.cw-timesheet-calendar .fc-daygrid-event.cw-calendar-avatar-event .fc-sticky {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  max-width: none;
+  overflow: visible;
+  padding: 0;
+  position: static;
+  width: auto;
+  height: auto;
 }
 
 .cw-timesheet-calendar .cw-calendar-attention,
