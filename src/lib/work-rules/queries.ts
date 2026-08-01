@@ -45,6 +45,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     employeesResult,
     balancesResult,
     holidaysResult,
+    settingsResult,
   ] = await Promise.all([
       supabase
         .from("work_schedules")
@@ -79,6 +80,11 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         .is("deleted_at", null)
         .order("holiday_date", { ascending: false })
         .limit(20),
+      supabase
+        .from("company_settings")
+        .select("standard_monthly_hours, leave_rules")
+        .eq("company_id", company.id)
+        .maybeSingle(),
   ]);
 
   if (schedulesResult.error) throw new Error(schedulesResult.error.message);
@@ -86,8 +92,20 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
   if (employeesResult.error) throw new Error(employeesResult.error.message);
   if (balancesResult.error) throw new Error(balancesResult.error.message);
   if (holidaysResult.error) throw new Error(holidaysResult.error.message);
+  if (settingsResult.error) throw new Error(settingsResult.error.message);
+
+  const leaveRules = (settingsResult.data?.leave_rules ?? {}) as Record<string, unknown>;
+  const carryOverValue = leaveRules.carry_over_hours;
+  const carryOverHours =
+    typeof carryOverValue === "number"
+      ? carryOverValue
+      : typeof carryOverValue === "string" && carryOverValue.trim() !== ""
+        ? Number(carryOverValue)
+        : null;
+  const standardAnnualHours = Number(settingsResult.data?.standard_monthly_hours ?? 173.33) * 12;
 
   return {
+    carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
     employees: (employeesResult.data ?? []).map((employee) => ({
       id: employee.id,
       label: `${employee.full_name} (${employee.employee_number})`,
@@ -96,6 +114,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     leaveTypes: (leaveTypesResult.data ?? []) as LeaveType[],
     publicHolidays: (holidaysResult.data ?? []) as PublicHoliday[],
     schedules: (schedulesResult.data ?? []) as unknown as WorkSchedule[],
+    standardAnnualHours,
   };
 });
 
@@ -107,10 +126,17 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
   ]);
 
   if (!access.employeeId) {
-    return { balances: [], leaveTypes: [], requests: [] };
+    return {
+      balances: [],
+      carryOverHours: null,
+      leaveTypes: [],
+      requests: [],
+      standardAnnualHours: 0,
+      standardDailyHours: 0,
+    };
   }
 
-  const [leaveTypesResult, balancesResult, requestsResult] = await Promise.all([
+  const [leaveTypesResult, balancesResult, requestsResult, settingsResult] = await Promise.all([
     supabase
       .from("leave_types")
       .select("id, name, category, is_paid, requires_attachment, accrual_rules")
@@ -131,11 +157,17 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(12),
+    supabase
+      .from("company_settings")
+      .select("standard_daily_hours, standard_monthly_hours, leave_rules")
+      .eq("company_id", company.id)
+      .maybeSingle(),
   ]);
 
   if (leaveTypesResult.error) throw new Error(leaveTypesResult.error.message);
   if (balancesResult.error) throw new Error(balancesResult.error.message);
   if (requestsResult.error) throw new Error(requestsResult.error.message);
+  if (settingsResult.error) throw new Error(settingsResult.error.message);
 
   const requests = ((requestsResult.data ?? []) as unknown as LeaveRequestRow[]).map(
     (request) => ({
@@ -144,10 +176,22 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     }),
   );
 
+  const leaveRules = (settingsResult.data?.leave_rules ?? {}) as Record<string, unknown>;
+  const carryOverValue = leaveRules.carry_over_hours;
+  const carryOverHours =
+    typeof carryOverValue === "number"
+      ? carryOverValue
+      : typeof carryOverValue === "string" && carryOverValue.trim() !== ""
+        ? Number(carryOverValue)
+        : null;
+
   return {
     balances: (balancesResult.data ?? []) as unknown as LeaveBalance[],
+    carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
     leaveTypes: (leaveTypesResult.data ?? []) as LeaveType[],
     requests,
+    standardAnnualHours: Number(settingsResult.data?.standard_monthly_hours ?? 173.33) * 12,
+    standardDailyHours: Number(settingsResult.data?.standard_daily_hours ?? 8),
   };
 });
 

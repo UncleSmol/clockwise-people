@@ -65,6 +65,25 @@ export const leaveRequestFormSchema = z.object({
   start_date: z.iso.date("Start date is required"),
 });
 
+export const leaveAccrualPreviewFormSchema = z.object({
+  leave_type_id: z.uuid("Choose a leave type"),
+  period_end: z.iso.date("Period end is required"),
+  period_start: z.iso.date("Period start is required"),
+});
+
+export const leaveAccrualLoadFormSchema = z.object({
+  add_to_balance: z.string().optional(),
+  leave_type_id: z.uuid("Choose a leave type"),
+  period_end: z.iso.date("Period end is required"),
+  period_start: z.iso.date("Period start is required"),
+  entries: z.array(
+    z.object({
+      accrued_hours: z.coerce.number().min(0),
+      employee_id: z.uuid("Choose an employee"),
+    }),
+  ),
+});
+
 export const publicHolidayFormSchema = z.object({
   holiday_date: z.iso.date("Holiday date is required"),
   is_paid: z.string().optional(),
@@ -149,16 +168,41 @@ export type LeaveCalculation = {
   days: LeaveCalculationDay[];
 };
 
+export type LeaveAdvisor = LeaveCalculation & {
+  days_equivalent: number;
+  expected_return_date: string;
+  requires_attachment: boolean;
+  standard_daily_hours: number;
+};
+
+export type LeaveAccrualPreviewRow = {
+  accrued_hours: number;
+  employee_id: string;
+  employee_number: string;
+  full_name: string;
+  hours_worked: number;
+};
+
+export type LeaveAccrualEntry = {
+  accrued_hours: number;
+  employee_id: string;
+};
+
 export type CompanyWorkRulesData = {
+  carryOverHours: number | null;
   employees: { id: string; label: string }[];
   leaveBalances: Array<LeaveBalance & { employee_id: string; leave_type_id: string }>;
   leaveTypes: LeaveType[];
   publicHolidays: PublicHoliday[];
   schedules: WorkSchedule[];
+  standardAnnualHours: number;
 };
 
 export type EmployeeLeaveState = {
   balances: LeaveBalance[];
+  carryOverHours: number | null;
   leaveTypes: LeaveType[];
   requests: LeaveRequest[];
+  standardAnnualHours: number;
+  standardDailyHours: number;
 };

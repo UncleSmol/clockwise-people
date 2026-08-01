@@ -37,6 +37,7 @@ type CalendarWorkspaceProps = {
   currentDateLabel: string;
   employeeCalendar: ReactNode;
   employeeClock: ReactNode;
+  employeeHub?: ReactNode;
   initialActivePanelKey?: string | null;
   isManager: boolean;
   managerCalendar?: ReactNode;
@@ -62,6 +63,7 @@ export default function CalendarWorkspace({
   currentDateLabel,
   employeeCalendar,
   employeeClock,
+  employeeHub,
   initialActivePanelKey = null,
   isManager,
   managerCalendar,
@@ -166,13 +168,15 @@ export default function CalendarWorkspace({
     <PanelContext.Provider value={{ openPanel: (key) => setActivePanelKey(key) }}>
       <WorkspaceSectionContext.Provider
         value={
-          isMobile && !isTeamMode
-            ? mobileTab === "records"
-              ? "records"
-              : mobileTab === "calendar"
-                ? "calendar"
-                : "full"
-            : "full"
+          employeeHub
+            ? "full"
+            : isMobile && !isTeamMode
+              ? mobileTab === "records"
+                ? "records"
+                : mobileTab === "calendar"
+                  ? "calendar"
+                  : "full"
+              : "full"
         }
       >
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col gap-0">
@@ -253,7 +257,7 @@ export default function CalendarWorkspace({
         </section>
       )}
 
-      {isMobile && !isTeamMode ? (
+      {isMobile && !isTeamMode && !employeeHub ? (
         <div className="mx-4 mb-4 sm:mx-6">
           <div className="grid grid-cols-3 gap-1 rounded-full border border-border bg-background p-1 text-xs font-semibold">
             {(
@@ -284,6 +288,8 @@ export default function CalendarWorkspace({
       <div className="mx-4 flex-1 sm:mx-6">
         {isTeamMode ? (
           managerCalendar
+        ) : employeeHub ? (
+          employeeHub
         ) : isMobile ? (
           <div className="grid gap-4">
             <div className={mobileTab === "clock" ? "" : "hidden"}>{employeeClock}</div>

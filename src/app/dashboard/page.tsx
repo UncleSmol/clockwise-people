@@ -121,6 +121,12 @@ const EmployeeTimesheetCorrections = dynamic(
     loading: () => <LoadingPanel label="timesheets" />,
   },
 );
+const EmployeeMyTimeHub = dynamic(
+  () => import("@/components/time-tracking/EmployeeMyTimeHub"),
+  {
+    loading: () => <LoadingPanel label="my time" />,
+  },
+);
 const CompanyLeaveRequestQueue = dynamic(
   () => import("@/components/work-rules/CompanyLeaveRequestQueue"),
   {
@@ -131,6 +137,12 @@ const CompanyWorkRulesPanel = dynamic(
   () => import("@/components/work-rules/CompanyWorkRulesPanel"),
   {
     loading: () => <LoadingPanel label="work rules" />,
+  },
+);
+const CompanyLeaveAccrualPanel = dynamic(
+  () => import("@/components/work-rules/CompanyLeaveAccrualPanel"),
+  {
+    loading: () => <LoadingPanel label="leave accruals" />,
   },
 );
 const EmployeeLeaveRequests = dynamic(
@@ -384,6 +396,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </summary>
                 <div className="border-t border-border">
                   <CompanyWorkRulesPanel data={workRulesData} />
+                  <CompanyLeaveAccrualPanel data={workRulesData} />
                 </div>
               </details>
 
@@ -489,10 +502,48 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       employeeCalendar={
         employeeTimeState ? (
           <EmployeeTimesheetCorrections
+            collapsedCalendar
             correctionRequests={employeeTimeState.correctionRequests}
             currentWorkDate={employeeTimeState.currentWorkDate}
             entries={employeeTimeState.recentEntries}
             publicHolidays={employeeTimeState.publicHolidays}
+          />
+        ) : (
+          <section className="card p-6 text-sm text-muted">
+            No employee time profile is linked to this account.
+          </section>
+        )
+      }
+      employeeHub={
+        employeeTimeState ? (
+          <EmployeeMyTimeHub
+            clock={
+              <EmployeeTimeClock
+                todayEntry={employeeTimeState.todayEntry ?? null}
+                variant="strip"
+                workstations={employeeTimeState.workstations ?? []}
+                assignedWorkstationId={employeeTimeState.assignedWorkstationId ?? null}
+                todaySchedule={employeeTimeState.todaySchedule ?? null}
+              />
+            }
+            review={
+              <EmployeeTimesheetCorrections
+                collapsedCalendar
+                correctionRequests={employeeTimeState.correctionRequests}
+                currentWorkDate={employeeTimeState.currentWorkDate}
+                entries={employeeTimeState.recentEntries}
+                publicHolidays={employeeTimeState.publicHolidays}
+              />
+            }
+            leave={
+              leaveState ? (
+                <EmployeeLeaveRequests state={leaveState} />
+              ) : (
+                <section className="card p-6 text-sm text-muted">
+                  No employee leave profile is linked to this account.
+                </section>
+              )
+            }
           />
         ) : (
           <section className="card p-6 text-sm text-muted">

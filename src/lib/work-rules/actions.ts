@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getActiveCompany, getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  leaveAccrualLoadFormSchema,
+  leaveAccrualPreviewFormSchema,
   leaveAssignmentFormSchema,
   leaveRequestFormSchema,
   leaveTypeFormSchema,
@@ -11,13 +13,22 @@ import {
   updateLeaveTypeFormSchema,
   updateWorkScheduleFormSchema,
   workScheduleFormSchema,
+  type LeaveAdvisor,
   type LeaveCalculation,
 } from "./schema";
 
 type ActionState = {
   calculation?: LeaveCalculation;
+  advisor?: LeaveAdvisor;
   ok: boolean;
   message: string;
+  preview?: Array<{
+    accrued_hours: number;
+    employee_id: string;
+    employee_number: string;
+    full_name: string;
+    hours_worked: number;
+  }>;
 };
 
 function numberOrNull(value: string | undefined) {
@@ -211,6 +222,115 @@ export async function assignLeaveBalance(
   return { ok: true, message: "Leave balance assigned." };
 }
 
+export async function previewLeaveAccruals(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = leaveAccrualPreviewFormSchema.safeParse({
+    leave_type_id: String(formData.get("leave_type_id") ?? ""),
+    period_end: String(formData.get("period_end") ?? ""),
+    period_start: String(formData.get("period_start") ?? ""),
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: firstIssue(parsed.error) };
+  }
+
+  if (parsed.data.period_end < parsed.data.period_start) {
+    return { ok: false, message: "Period end must be after period start." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("calculate_company_leave_accruals", {
+    period_end: parsed.data.period_end,
+    period_start: parsed.data.period_start,
+    target_leave_type_id: parsed.data.leave_type_id,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  const preview = (data ?? []) as Array<{
+    accrued_hours: number;
+    employee_id: string;
+    employee_number: string;
+    full_name: string;
+    hours_worked: number;
+  }>;
+
+  if (preview.length === 0) {
+    return { ok: false, message: "No active employees were found for this period." };
+  }
+
+  return {
+    ok: true,
+    message: `${preview.length} accrual row${preview.length === 1 ? "" : "s"} calculated for the selected period.`,
+    preview,
+  };
+}
+
+export async function loadLeaveAccruals(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const leaveTypeId = String(formData.get("leave_type_id") ?? "").trim();
+  const periodStart = String(formData.get("period_start") ?? "").trim();
+  const periodEnd = String(formData.get("period_end") ?? "").trim();
+  const addToBalance = String(formData.get("add_to_balance") ?? "") === "on";
+
+  const rawEntries: Array<{ accrued_hours: string; employee_id: string }> = [];
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("accrued_")) {
+      const employeeId = key.slice("accrued_".length);
+      rawEntries.push({ accrued_hours: String(value), employee_id: employeeId });
+    }
+  }
+
+  const parsed = leaveAccrualLoadFormSchema.safeParse({
+    add_to_balance: addToBalance ? "on" : undefined,
+    entries: rawEntries,
+    leave_type_id: leaveTypeId,
+    period_end: periodEnd,
+    period_start: periodStart,
+  });
+
+  if (!parsed.success) {
+    return { ok: false, message: firstIssue(parsed.error) };
+  }
+
+  const entries = parsed.data.entries.filter((entry) => entry.accrued_hours > 0);
+
+  if (entries.length === 0) {
+    return { ok: false, message: "Enter accrual hours for at least one employee." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("accrue_company_leave_balances", {
+    add_to_balance: addToBalance,
+    entries: entries.map((entry) => ({
+      accrued_hours: entry.accrued_hours,
+      employee_id: entry.employee_id,
+    })),
+    period_end: parsed.data.period_end,
+    period_start: parsed.data.period_start,
+    target_leave_type_id: parsed.data.leave_type_id,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  const affected = Number((data as { affected?: number } | null)?.affected ?? 0);
+
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard");
+  return {
+    ok: true,
+    message: `${affected} balance${affected === 1 ? "" : "s"} updated (${addToBalance ? "added to" : "overwritten in"} the accrual run).`,
+  };
+}
+
 export async function createPublicHoliday(
   _previousState: ActionState,
   formData: FormData,
@@ -269,6 +389,49 @@ export async function calculateLeaveRequestHours(
     calculation: data as LeaveCalculation,
     ok: true,
     message: "Hours calculated from your work rule.",
+  };
+}
+
+export async function calculateLeaveAdvisor(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const startDate = String(formData.get("start_date") ?? "").trim();
+  const endDate = String(formData.get("end_date") ?? "").trim();
+  const leaveTypeId = String(formData.get("leave_type_id") ?? "").trim();
+
+  if (!leaveTypeId || !startDate || !endDate) {
+    return { ok: false, message: "Choose leave type, start date, and end date first." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("calculate_own_leave_advisor", {
+    request_end_date: endDate,
+    request_start_date: startDate,
+    target_leave_type_id: leaveTypeId,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  const advisor = data as LeaveAdvisor;
+
+  return {
+    advisor,
+    calculation: {
+      available_hours: advisor.available_hours,
+      days: advisor.days,
+      exceeds_balance: advisor.exceeds_balance,
+      leave_type_name: advisor.leave_type_name,
+      non_working_days: advisor.non_working_days,
+      public_holidays: advisor.public_holidays,
+      remaining_hours: advisor.remaining_hours,
+      total_hours: advisor.total_hours,
+      working_days: advisor.working_days,
+    },
+    ok: true,
+    message: "Leave advice prepared from your work rule.",
   };
 }
 

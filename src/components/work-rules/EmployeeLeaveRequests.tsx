@@ -1,16 +1,16 @@
 "use client";
 
-import { Calendar, CalendarPlus, FileText, Link, List, Send, Timer } from "lucide-react";
+import { Calendar, CalendarPlus, FileText, Link, List, Send, Sparkles, Timer } from "lucide-react";
 import { useActionState, useState } from "react";
 import {
-  calculateLeaveRequestHours,
+  calculateLeaveAdvisor,
   convertOvertimeToToil,
   submitLeaveRequest,
 } from "@/lib/work-rules/actions";
 import type {
   EmployeeLeaveState,
+  LeaveAdvisor,
   LeaveBalance,
-  LeaveCalculation,
 } from "@/lib/work-rules/schema";
 
 type EmployeeLeaveRequestsProps = {
@@ -18,7 +18,7 @@ type EmployeeLeaveRequestsProps = {
 };
 
 type LeaveRequestActionState = {
-  calculation?: LeaveCalculation;
+  advisor?: LeaveAdvisor;
   ok: boolean;
   message: string;
 };
@@ -73,15 +73,25 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
     initialState,
   );
   const [calculationState, calculationAction, calculationPending] = useActionState(
-    calculateLeaveRequestHours,
+    calculateLeaveAdvisor,
     initialState,
   );
   const [toilState, toilAction, toilPending] = useActionState(convertOvertimeToToil, initialState);
-  const calculation = calculationState.calculation;
+  const calculation = calculationState.advisor;
   const holidayDays =
     calculation?.days.filter((day) => day.reason === "public_holiday") ?? [];
   const visibleMessage = formState.message || calculationState.message;
   const visibleOk = formState.message ? formState.ok : calculationState.ok;
+
+  function formatFullDate(value: string | undefined) {
+    if (!value) return "—";
+    const [year, month, day] = value.split("-").map(Number);
+    return new Intl.DateTimeFormat("en-ZA", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(year, month - 1, day));
+  }
 
   return (
     <section className="card grid gap-3 p-4">
@@ -177,19 +187,59 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
           </div>
           {calculation ? (
             <div
-              className={`rounded-md border p-3 text-sm ${
+              className={`grid gap-2 rounded-md border p-3 text-sm ${
                 calculation.exceeds_balance
                   ? "border-danger/30 bg-danger/10"
                   : "border-accent/30 bg-accent/10"
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold text-foreground">Hours requested</span>
-                <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-foreground">
-                  {Number(calculation.total_hours).toFixed(2)}h
+              <div className="flex items-center gap-2 font-semibold text-foreground">
+                <Sparkles className="size-4 text-accent" />
+                Leave advisor
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <span className="rounded-md bg-surface px-2 py-1.5">
+                  <span className="block text-xs text-muted">Hours to take</span>
+                  <span className="font-semibold text-foreground">
+                    {Number(calculation.total_hours).toFixed(2)}h
+                  </span>
+                </span>
+                <span className="rounded-md bg-surface px-2 py-1.5">
+                  <span className="block text-xs text-muted">Working days</span>
+                  <span className="font-semibold text-foreground">
+                    {calculation.working_days} day{calculation.working_days === 1 ? "" : "s"}
+                  </span>
+                </span>
+                <span className="rounded-md bg-surface px-2 py-1.5">
+                  <span className="block text-xs text-muted">As days (approx)</span>
+                  <span className="font-semibold text-foreground">
+                    {Number(calculation.days_equivalent).toFixed(2)}d
+                  </span>
+                </span>
+                <span className="rounded-md bg-surface px-2 py-1.5">
+                  <span className="block text-xs text-muted">Leave begins</span>
+                  <span className="font-semibold text-foreground">
+                    {formatFullDate(startDate || calculation.days[0]?.date)}
+                  </span>
+                </span>
+                <span className="rounded-md bg-surface px-2 py-1.5">
+                  <span className="block text-xs text-muted">Return to work</span>
+                  <span className="font-semibold text-foreground">
+                    {formatFullDate(calculation.expected_return_date)}
+                  </span>
+                </span>
+                <span className="rounded-md bg-surface px-2 py-1.5">
+                  <span className="block text-xs text-muted">Supporting docs</span>
+                  <span
+                    className={`font-semibold ${
+                      calculation.requires_attachment ? "text-warning" : "text-success"
+                    }`}
+                  >
+                    {calculation.requires_attachment ? "Required" : "Not required"}
+                  </span>
                 </span>
               </div>
-              <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-2 text-xs">
                 <span className="rounded-md bg-surface px-2 py-1 font-semibold text-foreground">
                   Available: {Number(calculation.available_hours).toFixed(2)}h
                 </span>
@@ -202,12 +252,12 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
                 </span>
               </div>
               {calculation.exceeds_balance ? (
-                <p className="mt-2 text-xs font-semibold text-danger">
+                <p className="text-xs font-semibold text-danger">
                   You do not have enough hours for this request.
                 </p>
               ) : null}
               {holidayDays.length > 0 ? (
-                <div className="mt-2 rounded-md bg-surface px-2 py-1.5">
+                <div className="rounded-md bg-surface px-2 py-1.5">
                   <p className="text-xs font-semibold text-foreground">
                     Public holidays in this request
                   </p>
@@ -262,7 +312,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               disabled={calculationPending}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
             >
-              {calculationPending ? "Calculating..." : "Calculate hours"}
+              {calculationPending ? "Preparing..." : "Get advice"}
             </button>
             <button
               disabled={pending || Boolean(calculation?.exceeds_balance)}

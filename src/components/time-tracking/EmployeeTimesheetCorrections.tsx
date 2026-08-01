@@ -41,6 +41,7 @@ import type {
 import { usePanel, useWorkspaceSection } from "@/components/dashboard/workspace-context";
 
 type EmployeeTimesheetCorrectionsProps = {
+  collapsedCalendar?: boolean;
   correctionRequests: TimesheetCorrectionRequest[];
   currentWorkDate: string;
   entries: TimeEntryRecord[];
@@ -268,6 +269,7 @@ function groupByWeek(entries: TimeEntryRecord[]) {
 }
 
 export default function EmployeeTimesheetCorrections({
+  collapsedCalendar = false,
   correctionRequests,
   currentWorkDate,
   entries,
@@ -710,7 +712,16 @@ export default function EmployeeTimesheetCorrections({
       </div>
 
       {section !== "records" ? (
-        <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+        <details className="grid gap-3 rounded-md border border-border bg-background p-3" open={!collapsedCalendar}>
+          {collapsedCalendar ? (
+            <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+              <CalendarDays className="size-4 text-accent" />
+              Detailed calendar
+              <span className="ml-auto rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-muted">
+                Expand
+              </span>
+            </summary>
+          ) : null}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="inline-flex items-center gap-2 font-semibold text-foreground">
@@ -985,7 +996,7 @@ export default function EmployeeTimesheetCorrections({
             {quickSubmitForm}
           </div>
         ) : null}
-      </div>
+      </details>
       ) : null}
 
       {section !== "calendar" ? (
