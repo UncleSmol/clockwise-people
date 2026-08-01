@@ -37,3 +37,19 @@ export async function markDashboardNotificationRead(
 
   return { ok: true, message: "Notification cleared." };
 }
+
+export async function clearAllDashboardNotifications(
+  _previousState: NotificationActionState,
+): Promise<NotificationActionState> {
+  void _previousState;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("clear_app_notifications");
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/dashboard");
+
+  return { ok: true, message: "All notifications cleared." };
+}

@@ -95,6 +95,7 @@ export default function CalendarWorkspace({
   const switcherElRef = useRef<HTMLDivElement>(null);
 
   const handleSwitcherPointerDown = useCallback((e: PointerEvent) => {
+    if ((e.target as HTMLElement).closest("select")) return;
     e.preventDefault();
     const el = e.target as HTMLElement;
     el.setPointerCapture(e.pointerId);

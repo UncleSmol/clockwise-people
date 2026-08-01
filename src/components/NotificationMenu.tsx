@@ -1,8 +1,8 @@
 "use client";
 
-import { Bell, CheckCircle2 } from "lucide-react";
+import { Bell, CheckCircle2, Trash2 } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { markDashboardNotificationRead } from "@/lib/dashboard/actions";
+import { clearAllDashboardNotifications, markDashboardNotificationRead } from "@/lib/dashboard/actions";
 import type { DashboardNotification } from "@/lib/dashboard/schema";
 
 type NotificationMenuProps = {
@@ -23,6 +23,10 @@ function notificationTone(category: string) {
 export default function NotificationMenu({ notifications }: NotificationMenuProps) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(markDashboardNotificationRead, initialState);
+  const [clearState, clearAction, clearPending] = useActionState(
+    clearAllDashboardNotifications,
+    initialState,
+  );
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -59,12 +63,28 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
       {open ? (
         <div className="card absolute right-0 z-[65] mt-2 w-[min(360px,calc(100vw-24px))] overflow-hidden p-0">
           <div className="border-b border-border px-3 py-3">
-            <p className="font-semibold text-foreground">Notifications</p>
-            <p className="mt-1 text-xs text-muted">
-              {notifications.length === 0
-                ? "No unread notifications"
-                : `${notifications.length} unread`}
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-semibold text-foreground">Notifications</p>
+                <p className="mt-1 text-xs text-muted">
+                  {notifications.length === 0
+                    ? "No unread notifications"
+                    : `${notifications.length} unread`}
+                </p>
+              </div>
+              {notifications.length > 0 ? (
+                <form action={clearAction}>
+                  <button
+                    disabled={clearPending}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+                    type="submit"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Clear all
+                  </button>
+                </form>
+              ) : null}
+            </div>
           </div>
 
           <div className="max-h-96 overflow-y-auto">
@@ -95,9 +115,9 @@ export default function NotificationMenu({ notifications }: NotificationMenuProp
             )}
           </div>
 
-          {state.message ? (
-            <p className={`border-t border-border px-3 py-2 text-xs ${state.ok ? "text-success" : "text-danger"}`}>
-              {state.message}
+          {(state.message || clearState.message) && !pending && !clearPending ? (
+            <p className={`border-t border-border px-3 py-2 text-xs ${(state.message ? state.ok : clearState.ok) ? "text-success" : "text-danger"}`}>
+              {state.message || clearState.message}
             </p>
           ) : null}
         </div>

@@ -477,6 +477,26 @@ select {
   min-width: 0;
 }
 
+.cw-timesheet-calendar .fc-daygrid-day-events:has(.cw-calendar-avatar-event) {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+}
+
+.cw-timesheet-calendar .fc-daygrid-day-events:has(.cw-calendar-avatar-event) .fc-daygrid-event-harness {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.cw-timesheet-calendar .fc-daygrid-day-events:has(.cw-calendar-avatar-event) .fc-daygrid-event-harness:has(.cw-calendar-holiday) {
+  flex: 1 1 100%;
+}
+
+.cw-timesheet-calendar .fc-daygrid-day-events:has(.cw-calendar-avatar-event) .fc-daygrid-more-link {
+  flex: 1 1 100%;
+}
+
 .cw-timesheet-calendar .fc-daygrid-more-link {
   border: 1px solid var(--color-border);
   border-radius: 0.25rem;

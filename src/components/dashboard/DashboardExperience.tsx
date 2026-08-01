@@ -11,8 +11,9 @@ import {
   Radio,
   Send,
   TimerReset,
+  Trash2,
 } from "lucide-react";
-import { markDashboardNotificationRead } from "@/lib/dashboard/actions";
+import { clearAllDashboardNotifications, markDashboardNotificationRead } from "@/lib/dashboard/actions";
 import type { DashboardExperienceData, DashboardReminderSchedule } from "@/lib/dashboard/schema";
 
 type DashboardExperienceProps = {
@@ -198,6 +199,10 @@ function useSmartReminders(schedule: DashboardReminderSchedule | null) {
 
 export default function DashboardExperience({ data }: DashboardExperienceProps) {
   const [state, action, pending] = useActionState(markDashboardNotificationRead, initialState);
+  const [clearState, clearAction, clearPending] = useActionState(
+    clearAllDashboardNotifications,
+    initialState,
+  );
   const { popup, setPopup } = useSmartReminders(data.reminderSchedule);
   const nextReminder = useMemo(() => {
     const schedule = data.reminderSchedule;
@@ -351,12 +356,26 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
         </div>
 
         <div className="card">
-          <div className="border-b border-border px-4 py-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              <Bell className="size-4" />
-              Notifications
-            </p>
-            <h2 className="mt-1 text-lg font-semibold text-foreground">Action center</h2>
+          <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <Bell className="size-4" />
+                Notifications
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-foreground">Action center</h2>
+            </div>
+            {data.notifications.length > 0 ? (
+              <form action={clearAction}>
+                <button
+                  disabled={clearPending}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+                  type="submit"
+                >
+                  <Trash2 className="size-3.5" />
+                  Clear all
+                </button>
+              </form>
+            ) : null}
           </div>
           <div className="divide-y divide-border">
             {data.notifications.length === 0 ? (
@@ -385,9 +404,9 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
               ))
             )}
           </div>
-          {state.message ? (
-            <p className={`border-t border-border px-4 py-2 text-sm ${state.ok ? "text-success" : "text-danger"}`}>
-              {state.message}
+          {(state.message || clearState.message) && !pending && !clearPending ? (
+            <p className={`border-t border-border px-4 py-2 text-sm ${(state.message ? state.ok : clearState.ok) ? "text-success" : "text-danger"}`}>
+              {state.message || clearState.message}
             </p>
           ) : null}
         </div>
