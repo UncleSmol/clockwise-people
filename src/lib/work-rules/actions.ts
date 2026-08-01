@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveCompany } from "@/lib/foundation/queries";
+import { getActiveCompany, getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   leaveAssignmentFormSchema,
@@ -367,6 +367,48 @@ export async function accrueToilBalance(
 
   revalidatePath("/dashboard");
   return { ok: true, message: `${earnedHours}h TOIL accrued from ${totalOvertime}h overtime (×${multiplier}).` };
+}
+
+export async function convertOvertimeToToil(
+  _previousState: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  void _previousState;
+  void _formData;
+  const { company } = await getActiveCompany();
+  const { supabase } = await requireUser();
+  const { employeeId } = await getCurrentUserAccess();
+
+  if (!employeeId) {
+    return { ok: false, message: "No employee is linked to this account." };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const periodResult = await supabase
+    .from("payroll_periods")
+    .select("period_start, period_end")
+    .eq("company_id", company.id)
+    .eq("status", "open")
+    .lte("period_start", today)
+    .gte("period_end", today)
+    .is("deleted_at", null)
+    .order("period_start", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (periodResult.error) {
+    return { ok: false, message: periodResult.error.message };
+  }
+
+  if (!periodResult.data) {
+    return { ok: false, message: "No open payroll period covers today's date." };
+  }
+
+  return accrueToilBalance(
+    employeeId,
+    periodResult.data.period_start,
+    periodResult.data.period_end,
+  );
 }
 
 export async function reviewLeaveRequest(

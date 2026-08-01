@@ -8,19 +8,17 @@ import type { DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
   CalendarDays,
-  Clock,
   Clock3,
-  FileText,
-  LocateFixed,
   MapPin,
   Pencil,
   Plus,
-  Timer,
   Trash2,
   User,
-  X,
 } from "lucide-react";
-import { useActionState, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
+import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
 import {
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
@@ -131,45 +129,25 @@ function renderEventContent(eventInfo: EventContentArg) {
   }
 
   return (
-    <div className="grid min-w-0 gap-0.5 text-[11px] leading-4">
-      <span className="truncate font-semibold">{displayName(entry)}</span>
-      <span className="truncate opacity-75">
-        {Number(entry.paid_hours ?? 0).toFixed(2)}h
-        {Number(entry.overtime_hours ?? 0) > 0
-          ? ` + ${Number(entry.overtime_hours).toFixed(2)}h OT`
-          : ""}
-      </span>
-    </div>
-  );
-}
-
-function TimeInput({
-  name,
-  value,
-  editable,
-  onChange,
-}: {
-  name: string;
-  value: string | null;
-  editable: boolean;
-  onChange: (name: string, value: string) => void;
-}) {
-  if (!editable) {
-    return <span className="mt-1 font-semibold text-foreground">{formatTime(value)}</span>;
-  }
-
-  return (
-    <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-      <Clock className="size-4 shrink-0 text-muted" />
-      <input
-        type="time"
-        name={name}
-        defaultValue={value ?? ""}
-        onChange={(e) => onChange(name, e.target.value)}
-        className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+    <span
+      className={`cw-calendar-avatar-event inline-grid shrink-0 place-items-center overflow-hidden rounded-full ring-2 ${avatarRingClass(entry.status)}`}
+      title={`${displayName(entry)} · ${formatHours(entry.paid_hours)}`}
+    >
+      <EmployeeAvatar
+        name={displayName(entry)}
+        src={entry.avatarUrl}
+        className="size-6 rounded-full border-0"
       />
     </span>
   );
+}
+
+function avatarRingClass(status: CompanyTimesheetCalendarEntry["status"]) {
+  if (status === "draft") return "ring-warning/70";
+  if (status === "approved") return "ring-success/70";
+  if (status === "rejected") return "ring-danger/70";
+  if (status === "locked") return "ring-muted/50";
+  return "ring-primary/60";
 }
 
 export default function CompanyTimesheetCalendar({
@@ -469,14 +447,16 @@ export default function CompanyTimesheetCalendar({
             <div ref={calendarRef} className="cw-timesheet-calendar max-sm:hidden">
               <FullCalendar
                 key={`${calendarWindow}-${calendarFocusDate}`}
-                dayMaxEventRows={3}
-                dayMaxEvents={2}
+                dayMaxEventRows={6}
+                dayMaxEvents={6}
                 eventClassNames={(arg) => {
                   const entry = arg.event.extendedProps.entry as
                     | CompanyTimesheetCalendarEntry
                     | undefined;
 
-                  return entry ? statusClass(entry.status) : ["cw-calendar-holiday"];
+                  return entry
+                    ? [...statusClass(entry.status), "cw-calendar-avatar-event"]
+                    : ["cw-calendar-holiday"];
                 }}
                 eventContent={renderEventContent}
                 eventClick={handleEventClick}
@@ -566,7 +546,7 @@ export default function CompanyTimesheetCalendar({
                     type: "dayGrid",
                   },
                   dayGridMonth: {
-                    dayMaxEventRows: 3,
+                    dayMaxEventRows: 6,
                   },
                   dayGridWeek: {
                     dayMaxEventRows: 6,
@@ -684,13 +664,14 @@ export default function CompanyTimesheetCalendar({
               </button>
             </div>
 
-            {(tooltip ?? dayTooltip) ? (
+            {(tooltip ?? dayTooltip) ? createPortal(
               <div
                 className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
                 style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
               >
                 {(tooltip ?? dayTooltip)!.content}
-              </div>
+              </div>,
+              document.body,
             ) : null}
           </>
         ) : (
@@ -701,383 +682,353 @@ export default function CompanyTimesheetCalendar({
       </div>
 
       {/* Date action modal */}
-      {showDateActions ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
-          <div className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
-            <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                  {selectedDate}
-                </p>
-                <h3 className="mt-1 text-xl font-semibold text-foreground">
-                  {existingEntriesForDate.length} {existingEntriesForDate.length === 1 ? "entry" : "entries"}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {existingEntriesForDate.length > 0
-                    ? "Click an entry to view or edit its details."
-                    : "No entries for this date yet."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeDateActions}
-                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
-                aria-label="Close"
-              >
-                <X className="size-4" />
-              </button>
+      <ViewportSidebar
+        open={showDateActions}
+        onClose={closeDateActions}
+        eyebrow={selectedDate}
+        title={`${existingEntriesForDate.length} ${existingEntriesForDate.length === 1 ? "entry" : "entries"}`}
+        description={
+          existingEntriesForDate.length > 0
+            ? "Click an entry to view or edit its details."
+            : "No entries for this date yet."
+        }
+        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4"
+      >
+        {/* Create draft section */}
+        <form action={createAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
+          <div>
+            <p className="font-semibold text-foreground">Create draft entry</p>
+            <p className="mt-1 text-xs text-muted">
+              Add a manual draft timesheet row for an employee on this date.
+            </p>
+          </div>
+          <input name="work_date" type="hidden" value={selectedDate} />
+          {existingEntriesForDate.length > 0 ? (
+            <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-surface">
+              {existingEntriesForDate.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => { setSelectedEntry(entry); setSelectedDate(""); setShowDateActions(false); }}
+                  className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-surface-muted"
+                >
+                  <span className={statusBadgeClass(entry.status)}>
+                    {entry.status}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-foreground">
+                      {displayName(entry)}
+                    </span>
+                    <span className="block text-xs text-muted">
+                      {formatTime(entry.clock_in)} \u2192 {formatTime(entry.clock_out)} · {formatHours(entry.paid_hours)}
+                    </span>
+                  </span>
+                </button>
+              ))}
             </div>
+          ) : null}
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <User className="size-4 shrink-0 text-muted" />
+              <select
+                name="employee_id"
+                required
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              >
+                <option value="">Choose employee</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.label}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <button
+              disabled={createPending}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {createPending ? "Creating..." : "Create draft"}
+            </button>
+          </div>
+        </form>
 
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
-              {/* Create draft section */}
-              <form action={createAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
-                <div>
-                  <p className="font-semibold text-foreground">Create draft entry</p>
-                  <p className="mt-1 text-xs text-muted">
-                    Add a manual draft timesheet row for an employee on this date.
-                  </p>
-                </div>
-                <input name="work_date" type="hidden" value={selectedDate} />
-                {existingEntriesForDate.length > 0 ? (
-                  <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-surface">
-                    {existingEntriesForDate.map((entry) => (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        onClick={() => { setSelectedEntry(entry); setSelectedDate(""); setShowDateActions(false); }}
-                        className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-surface-muted"
+        {/* Load approved leave section */}
+        <form action={loadLeaveAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
+          <div>
+            <p className="font-semibold text-foreground">Load approved leave</p>
+            <p className="mt-1 text-xs text-muted">
+              Tick approved leave requests to load them into timesheet rows.
+            </p>
+          </div>
+          {leaveRequestsForDate.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-center text-xs text-muted">
+              {leaveRequests.length === 0
+                ? "No approved leave requests available."
+                : "No approved leave requests cover this date."}
+            </div>
+          ) : (
+            <>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-surface">
+                {leaveRequestsForDate.map((request) => (
+                  <label
+                    key={request.id}
+                    className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
+                  >
+                    <input
+                      className="mt-1 size-4 accent-current"
+                      name="leave_request_ids"
+                      type="checkbox"
+                      value={request.id}
+                    />
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">
+                        {request.employeeName}
+                      </span>
+                      <span className="block text-xs text-muted">
+                        {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
+                        {formatHours(request.total_hours)}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {leaveRequests.length > leaveRequestsForDate.length ? (
+                <details className="text-xs text-muted">
+                  <summary className="cursor-pointer font-semibold">
+                    Show all {leaveRequests.length} requests
+                  </summary>
+                  <div className="mt-2 max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
+                    {leaveRequests.map((request) => (
+                      <label
+                        key={request.id}
+                        className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
                       >
-                        <span className={statusBadgeClass(entry.status)}>
-                          {entry.status}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold text-foreground">
-                            {displayName(entry)}
+                        <input
+                          className="mt-1 size-4 accent-current"
+                          name="leave_request_ids"
+                          type="checkbox"
+                          value={request.id}
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-foreground">
+                            {request.employeeName}
                           </span>
                           <span className="block text-xs text-muted">
-                            {formatTime(entry.clock_in)} \u2192 {formatTime(entry.clock_out)} · {formatHours(entry.paid_hours)}
+                            {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
+                            {formatHours(request.total_hours)}
                           </span>
                         </span>
-                      </button>
+                      </label>
                     ))}
                   </div>
-                ) : null}
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                    <User className="size-4 shrink-0 text-muted" />
-                    <select
-                      name="employee_id"
-                      required
-                      className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                    >
-                      <option value="">Choose employee</option>
-                      {employees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.label}
-                        </option>
-                      ))}
-                    </select>
-                  </span>
-                  <button
-                    disabled={createPending}
-                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                  >
-                    {createPending ? "Creating..." : "Create draft"}
-                  </button>
-                </div>
-              </form>
-
-              {/* Load approved leave section */}
-              <form action={loadLeaveAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
-                <div>
-                  <p className="font-semibold text-foreground">Load approved leave</p>
-                  <p className="mt-1 text-xs text-muted">
-                    Tick approved leave requests to load them into timesheet rows.
-                  </p>
-                </div>
-                {leaveRequestsForDate.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-center text-xs text-muted">
-                    {leaveRequests.length === 0
-                      ? "No approved leave requests available."
-                      : "No approved leave requests cover this date."}
-                  </div>
-                ) : (
-                  <>
-                    <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-surface">
-                      {leaveRequestsForDate.map((request) => (
-                        <label
-                          key={request.id}
-                          className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
-                        >
-                          <input
-                            className="mt-1 size-4 accent-current"
-                            name="leave_request_ids"
-                            type="checkbox"
-                            value={request.id}
-                          />
-                          <span className="min-w-0">
-                            <span className="block font-semibold text-foreground">
-                              {request.employeeName}
-                            </span>
-                            <span className="block text-xs text-muted">
-                              {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
-                              {formatHours(request.total_hours)}
-                            </span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                    {leaveRequests.length > leaveRequestsForDate.length ? (
-                      <details className="text-xs text-muted">
-                        <summary className="cursor-pointer font-semibold">
-                          Show all {leaveRequests.length} requests
-                        </summary>
-                        <div className="mt-2 max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
-                          {leaveRequests.map((request) => (
-                            <label
-                              key={request.id}
-                              className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
-                            >
-                              <input
-                                className="mt-1 size-4 accent-current"
-                                name="leave_request_ids"
-                                type="checkbox"
-                                value={request.id}
-                              />
-                              <span className="min-w-0">
-                                <span className="block font-semibold text-foreground">
-                                  {request.employeeName}
-                                </span>
-                                <span className="block text-xs text-muted">
-                                  {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
-                                  {formatHours(request.total_hours)}
-                                </span>
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </details>
-                    ) : null}
-                    <button
-                      disabled={loadLeavePending}
-                      className="justify-self-end rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                    >
-                      {loadLeavePending ? "Loading..." : "Load selected leave"}
-                    </button>
-                  </>
-                )}
-              </form>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                </details>
+              ) : null}
+              <button
+                disabled={loadLeavePending}
+                className="justify-self-end rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {loadLeavePending ? "Loading..." : "Load selected leave"}
+              </button>
+            </>
+          )}
+        </form>
+      </ViewportSidebar>
 
       {/* Entry detail/edit modal */}
-      {selectedEntry ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
-          <div className="flex h-full w-full max-w-md flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
-            <div className="z-10 flex shrink-0 items-start justify-between gap-2 border-b border-border bg-surface px-3 py-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
-                    Timesheet
-                  </p>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold capitalize ${statusBadgeClass(selectedEntry.status)}`}
-                  >
-                    {selectedEntry.status}
-                  </span>
-                </div>
-                <h3 className="mt-0.5 text-sm font-bold text-foreground">
-                  {displayName(selectedEntry)}
-                </h3>
-                <p className="text-[11px] text-muted">
-                  {selectedEntry.workstationName ?? "No workstation"} -{" "}
-                  {selectedEntry.work_date}
-                </p>
+      <ViewportSidebar
+        open={Boolean(selectedEntry)}
+        onClose={closeEntryModal}
+        maxWidth="max-w-md"
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5">
+            <span>Timesheet</span>
+            <span
+              className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold capitalize ${selectedEntry ? statusBadgeClass(selectedEntry.status) : ""}`}
+            >
+              {selectedEntry?.status}
+            </span>
+          </span>
+        }
+        title={selectedEntry ? displayName(selectedEntry) : ""}
+        description={
+          selectedEntry
+            ? `${selectedEntry.workstationName ?? "No workstation"} - ${selectedEntry.work_date}`
+            : ""
+        }
+        actions={
+          selectedEntry && canEdit(selectedEntry.status) && !editing ? (
+            <button
+              type="button"
+              onClick={startEditing}
+              className="grid size-8 place-items-center rounded-md border border-border bg-background text-foreground hover:bg-accent/10 hover:text-accent"
+              aria-label="Edit timesheet"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          ) : null
+        }
+        bodyClassName="flex flex-col overflow-y-auto px-3 py-2"
+      >
+        {selectedEntry ? (
+          <>
+            {/* Editable time fields */}
+            {editing ? (
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                {(["clock_in","lunch_start","lunch_end","clock_out"] as const).map((field) => (
+                  <div key={field} className="rounded border border-border bg-background px-1.5 py-1">
+                    <p className="text-[9px] text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_"," ")}</p>
+                    <input
+                      type="time"
+                      name={field}
+                      defaultValue={selectedEntry[field] ?? ""}
+                      onChange={(e) => handleTimeChange(field, e.target.value)}
+                      className="h-6 w-full bg-transparent text-[11px] text-foreground outline-none"
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {canEdit(selectedEntry.status) && !editing ? (
-                  <button
-                    type="button"
-                    onClick={startEditing}
-                    className="grid size-6 place-items-center rounded border border-border bg-background text-foreground hover:bg-accent/10 hover:text-accent"
-                    aria-label="Edit timesheet"
-                  >
-                    <Pencil className="size-3" />
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={closeEntryModal}
-                  className="grid size-6 place-items-center rounded border border-border bg-background text-foreground"
-                  aria-label="Close timesheet details"
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
-            </div>
+            ) : (
+              <table className="w-full text-xs">
+                <tbody>
+                  <tr><td className="py-0.5 text-muted pr-4">Clock in</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_in)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Lunch</td><td className="font-semibold text-foreground">{formatTimeRange(selectedEntry.lunch_start, selectedEntry.lunch_end)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Clock out</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_out)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Paid</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.paid_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">NT</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.normal_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">OT</td><td className="font-semibold text-warning">{formatHours(selectedEntry.overtime_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Paid leave</td><td className="font-semibold text-accent">{formatHours(selectedEntry.paidTimeOffHours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Lunch break</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.lunch_hours)}</td></tr>
+                </tbody>
+              </table>
+            )}
 
-            <div className="flex flex-col overflow-y-auto px-3 py-2">
-              {/* Editable time fields */}
-              {editing ? (
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                  {(["clock_in","lunch_start","lunch_end","clock_out"] as const).map((field) => (
-                    <div key={field} className="rounded border border-border bg-background px-1.5 py-1">
-                      <p className="text-[9px] text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_"," ")}</p>
-                      <input
-                        type="time"
-                        name={field}
-                        defaultValue={(selectedEntry as any)[field] ?? ""}
-                        onChange={(e) => handleTimeChange(field, e.target.value)}
-                        className="h-6 w-full bg-transparent text-[11px] text-foreground outline-none"
-                      />
+            {/* Notes */}
+            {editing ? (
+              <div className="mt-2">
+                <p className="text-[9px] text-muted leading-none">Notes</p>
+                <textarea name="notes" defaultValue={selectedEntry.notes ?? ""} onChange={(e) => handleTimeChange("notes", e.target.value)} rows={1} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground outline-none resize-none" />
+              </div>
+            ) : selectedEntry.notes ? (
+              <div className="mt-2 border-t border-border pt-2">
+                <p className="text-[9px] text-muted leading-none">Notes</p>
+                <p className="mt-0.5 text-xs text-foreground">{selectedEntry.notes}</p>
+              </div>
+            ) : null}
+
+            {selectedEntry.warning_notes ? (
+              <div className="mt-2 border-t border-border pt-2">
+                <p className="text-[9px] text-warning leading-none">Note</p>
+                <p className="mt-0.5 text-xs text-warning">{selectedEntry.warning_notes}</p>
+              </div>
+            ) : null}
+
+            {/* Location history */}
+            <div className="mt-2 border-t border-border pt-2">
+              <p className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
+                <MapPin className="size-3 text-accent" />
+                Location history
+              </p>
+              {selectedEntry.locationEvents.length === 0 ? (
+                <p className="mt-1 text-xs text-muted">
+                  No location events were captured for this shift.
+                </p>
+              ) : (
+                <div className="mt-1 divide-y divide-border">
+                  {selectedEntry.locationEvents.map((event) => (
+                    <div key={event.id} className="flex items-center gap-2 py-1 text-xs">
+                      <span className="font-semibold capitalize text-foreground shrink-0">
+                        {event.event_type.replaceAll("_", " ")}
+                      </span>
+                      <span className="text-muted shrink-0">{formatTime(event.local_event_time)}</span>
+                      <span className="text-muted truncate min-w-0">
+                        {event.workstationName ?? "No workstation"}
+                        {event.distance_meters !== null ? ` ${Math.round(event.distance_meters)}m` : ""}
+                      </span>
+                      <span
+                        className={`ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${geofenceClass(event.geofence_status)}`}
+                      >
+                        {geofenceLabel(event.geofence_status)}
+                      </span>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <table className="w-full text-xs">
-                  <tbody>
-                    <tr><td className="py-0.5 text-muted pr-4">Clock in</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_in)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">Lunch</td><td className="font-semibold text-foreground">{formatTimeRange(selectedEntry.lunch_start, selectedEntry.lunch_end)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">Clock out</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_out)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">Paid</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.paid_hours)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">NT</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.normal_hours)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">OT</td><td className="font-semibold text-warning">{formatHours(selectedEntry.overtime_hours)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">Paid leave</td><td className="font-semibold text-accent">{formatHours(selectedEntry.paidTimeOffHours)}</td></tr>
-                    <tr><td className="py-0.5 text-muted pr-4">Lunch break</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.lunch_hours)}</td></tr>
-                  </tbody>
-                </table>
               )}
-
-              {/* Notes */}
-              {editing ? (
-                <div className="mt-2">
-                  <p className="text-[9px] text-muted leading-none">Notes</p>
-                  <textarea name="notes" defaultValue={selectedEntry.notes ?? ""} onChange={(e) => handleTimeChange("notes", e.target.value)} rows={1} className="mt-1 w-full rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground outline-none resize-none" />
-                </div>
-              ) : selectedEntry.notes ? (
-                <div className="mt-2 border-t border-border pt-2">
-                  <p className="text-[9px] text-muted leading-none">Notes</p>
-                  <p className="mt-0.5 text-xs text-foreground">{selectedEntry.notes}</p>
-                </div>
-              ) : null}
-
-              {selectedEntry.warning_notes ? (
-                <div className="mt-2 border-t border-border pt-2">
-                  <p className="text-[9px] text-warning leading-none">Note</p>
-                  <p className="mt-0.5 text-xs text-warning">{selectedEntry.warning_notes}</p>
-                </div>
-              ) : null}
-
-              {/* Location history */}
-              <div className="mt-2 border-t border-border pt-2">
-                <p className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
-                  <MapPin className="size-3 text-accent" />
-                  Location history
-                </p>
-                {selectedEntry.locationEvents.length === 0 ? (
-                  <p className="mt-1 text-xs text-muted">
-                    No location events were captured for this shift.
-                  </p>
-                ) : (
-                  <div className="mt-1 divide-y divide-border">
-                    {selectedEntry.locationEvents.map((event) => (
-                      <div key={event.id} className="flex items-center gap-2 py-1 text-xs">
-                        <span className="font-semibold capitalize text-foreground shrink-0">
-                          {event.event_type.replaceAll("_", " ")}
-                        </span>
-                        <span className="text-muted shrink-0">{formatTime(event.local_event_time)}</span>
-                        <span className="text-muted truncate min-w-0">
-                          {event.workstationName ?? "No workstation"}
-                          {event.distance_meters !== null ? ` ${Math.round(event.distance_meters)}m` : ""}
-                        </span>
-                        <span
-                          className={`ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${geofenceClass(event.geofence_status)}`}
-                        >
-                          {geofenceLabel(event.geofence_status)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Delete action (always available) */}
-              {!editing ? (
-                <div className="mt-2 border-t border-border pt-2">
-                  <form
-                    action={forceDeleteAction}
-                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
-                    className="flex items-center justify-between"
-                  >
-                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
-                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
-                    <button
-                      disabled={forceDeletePending}
-                      className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger disabled:opacity-50"
-                    >
-                      <Trash2 className="size-3" />
-                      {forceDeletePending ? "..." : "Delete entry"}
-                    </button>
-                    {forceDeleteState.message ? (
-                      <span className={`text-[11px] ${forceDeleteState.ok ? "text-success" : "text-danger"}`}>
-                        {forceDeleteState.message}
-                      </span>
-                    ) : null}
-                  </form>
-                </div>
-              ) : null}
-
-              {/* Edit action bar */}
-              {editing && canEdit(selectedEntry.status) ? (
-                <div className="flex items-center justify-between gap-2 rounded border border-border bg-background px-2.5 py-1.5">
-                  <form
-                    action={deleteAction}
-                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
-                  >
-                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
-                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
-                    <button
-                      disabled={deletePending}
-                      className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger disabled:opacity-50"
-                    >
-                      <Trash2 className="size-3" />
-                      {deletePending ? "..." : "Delete"}
-                    </button>
-                  </form>
-                  <form
-                    action={updateAction}
-                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
-                    className="flex items-center gap-1"
-                  >
-                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
-                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
-                    <input type="hidden" name="clock_in" value={editedTimes.clock_in ?? ""} />
-                    <input type="hidden" name="lunch_start" value={editedTimes.lunch_start ?? ""} />
-                    <input type="hidden" name="lunch_end" value={editedTimes.lunch_end ?? ""} />
-                    <input type="hidden" name="clock_out" value={editedTimes.clock_out ?? ""} />
-                    <input type="hidden" name="notes" value={editedTimes.notes ?? ""} />
-                    <button
-                      type="button"
-                      onClick={() => { setEditing(false); setEditedTimes({}); }}
-                      className="rounded border border-border bg-background px-2 py-1 text-[11px] font-semibold text-foreground"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      disabled={updatePending}
-                      className="rounded bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
-                    >
-                      {updatePending ? "..." : "Save"}
-                    </button>
-                  </form>
-                </div>
-              ) : null}
             </div>
-          </div>
-        </div>
-      ) : null}
+
+            {/* Delete action (always available) */}
+            {!editing ? (
+              <div className="mt-2 border-t border-border pt-2">
+                <form
+                  action={forceDeleteAction}
+                  onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                  className="flex items-center justify-between"
+                >
+                  <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                  <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                  <button
+                    disabled={forceDeletePending}
+                    className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger disabled:opacity-50"
+                  >
+                    <Trash2 className="size-3" />
+                    {forceDeletePending ? "..." : "Delete entry"}
+                  </button>
+                  {forceDeleteState.message ? (
+                    <span className={`text-[11px] ${forceDeleteState.ok ? "text-success" : "text-danger"}`}>
+                      {forceDeleteState.message}
+                    </span>
+                  ) : null}
+                </form>
+              </div>
+            ) : null}
+
+            {/* Edit action bar */}
+            {editing && canEdit(selectedEntry.status) ? (
+              <div className="flex items-center justify-between gap-2 rounded border border-border bg-background px-2.5 py-1.5">
+                <form
+                  action={deleteAction}
+                  onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                >
+                  <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                  <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                  <button
+                    disabled={deletePending}
+                    className="inline-flex items-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger disabled:opacity-50"
+                  >
+                    <Trash2 className="size-3" />
+                    {deletePending ? "..." : "Delete"}
+                  </button>
+                </form>
+                <form
+                  action={updateAction}
+                  onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                  className="flex items-center gap-1"
+                >
+                  <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                  <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                  <input type="hidden" name="clock_in" value={editedTimes.clock_in ?? ""} />
+                  <input type="hidden" name="lunch_start" value={editedTimes.lunch_start ?? ""} />
+                  <input type="hidden" name="lunch_end" value={editedTimes.lunch_end ?? ""} />
+                  <input type="hidden" name="clock_out" value={editedTimes.clock_out ?? ""} />
+                  <input type="hidden" name="notes" value={editedTimes.notes ?? ""} />
+                  <button
+                    type="button"
+                    onClick={() => { setEditing(false); setEditedTimes({}); }}
+                    className="rounded border border-border bg-background px-2 py-1 text-[11px] font-semibold text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={updatePending}
+                    className="rounded bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    {updatePending ? "..." : "Save"}
+                  </button>
+                </form>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </ViewportSidebar>
     </section>
   );
 }

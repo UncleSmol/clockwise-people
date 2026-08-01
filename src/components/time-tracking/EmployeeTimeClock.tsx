@@ -8,12 +8,23 @@ import {
   clockOut,
   endLunch,
   startLunch,
+  switchWorkstation,
 } from "@/lib/time-tracking/actions";
 import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
+
+type TodaySchedule = {
+  start_time: string | null;
+  end_time: string | null;
+  lunch_minutes: number;
+  is_working_day: boolean;
+};
 
 type EmployeeTimeClockProps = {
   todayEntry: TimeEntryRecord | null;
   variant?: "card" | "compact" | "strip";
+  workstations?: { id: string; name: string }[];
+  assignedWorkstationId?: string | null;
+  todaySchedule?: TodaySchedule | null;
 };
 
 type ClockActionState = {
@@ -27,12 +38,15 @@ const initialState: ClockActionState = {
   message: "",
 };
 
-function nextAction(entry: TimeEntryRecord | null) {
+function nextAction(
+  entry: TimeEntryRecord | null,
+  noLunchToday: boolean,
+): { action: (formData?: FormData) => Promise<ClockActionState>; label: string; tone: string } | null {
   if (!entry?.clock_in) {
     return { label: "Clock in", action: clockIn, tone: "primary" };
   }
 
-  if (!entry.lunch_start && !entry.clock_out) {
+  if (!entry.lunch_start && !entry.clock_out && !noLunchToday) {
     return { label: "Start lunch", action: startLunch, tone: "secondary" };
   }
 
@@ -119,9 +133,10 @@ function formatLocationLabel(details: {
 function optimisticEntry(
   entry: TimeEntryRecord | null,
   eventLabel: string,
+  workstationId: string,
 ): TimeEntryRecord {
   const current = entry ?? {
-    workstation_id: null,
+    workstation_id: workstationId || null,
     clock_in: null,
     clock_out: null,
     company_id: "",
@@ -149,6 +164,7 @@ function optimisticEntry(
   if (eventLabel === "Start lunch") next.lunch_start = time;
   if (eventLabel === "End lunch") next.lunch_end = time;
   if (eventLabel === "Clock out") next.clock_out = time;
+  if (eventLabel === "Switch workstation") next.workstation_id = workstationId || null;
 
   return next;
 }
@@ -156,6 +172,9 @@ function optimisticEntry(
 export default function EmployeeTimeClock({
   todayEntry,
   variant = "card",
+  workstations = [],
+  assignedWorkstationId = null,
+  todaySchedule = null,
 }: EmployeeTimeClockProps) {
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
   const [locationMessage, setLocationMessage] = useState("");
@@ -166,6 +185,10 @@ export default function EmployeeTimeClock({
     longitude: number;
   } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [workstationId, setWorkstationId] = useState(() => {
+    if (assignedWorkstationId) return assignedWorkstationId;
+    return workstations[0]?.id ?? "";
+  });
   const formRef = useRef<HTMLFormElement>(null);
   const latitudeRef = useRef<HTMLInputElement>(null);
   const longitudeRef = useRef<HTMLInputElement>(null);
@@ -173,16 +196,22 @@ export default function EmployeeTimeClock({
   const capturedAtRef = useRef<HTMLInputElement>(null);
   const locationReadyRef = useRef(false);
   const hasLoadedInitialLocationRef = useRef(false);
+  const switchPendingRef = useRef(false);
+  const noLunchToday = Boolean(todaySchedule && todaySchedule.lunch_minutes <= 0);
   const [state, formAction, pending] = useActionState(
     async (previousState: ClockActionState, formData: FormData) => {
       const currentEntry = previousState.entry ?? optimistic ?? todayEntry;
-      const currentAction = nextAction(currentEntry);
+      const overrideLabel = switchPendingRef.current ? "Switch workstation" : null;
+      switchPendingRef.current = false;
+      const currentAction = overrideLabel
+        ? { label: overrideLabel, action: switchWorkstation, tone: "secondary" }
+        : nextAction(currentEntry, noLunchToday);
 
       if (!currentAction) {
         return { ok: false, message: "Today is already complete." };
       }
 
-      setOptimistic(optimisticEntry(currentEntry, currentAction.label));
+      setOptimistic(optimisticEntry(currentEntry, currentAction.label, workstationId));
       const result = await currentAction.action(formData);
       setOptimistic(null);
 
@@ -191,7 +220,10 @@ export default function EmployeeTimeClock({
     initialState,
   );
   const displayEntry = state.entry ?? optimistic ?? todayEntry;
-  const actionConfig = nextAction(displayEntry);
+  const actionConfig = nextAction(displayEntry, noLunchToday);
+  const canSwitch =
+    Boolean(displayEntry?.clock_in) && !displayEntry?.clock_out && workstations.length > 0;
+  const latestGeofenceStatus = displayEntry?.locationEvents?.at(-1)?.geofence_status ?? null;
 
   useEffect(() => {
     if (hasLoadedInitialLocationRef.current || typeof navigator === "undefined") {
@@ -312,7 +344,7 @@ export default function EmployeeTimeClock({
       "bg-muted";
 
     return (
-      <section className="card flex items-center gap-4 px-4 py-3">
+      <section className="card flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="flex items-center gap-3">
           <span className={`inline-block size-2.5 rounded-full ${statusDot}`} />
           <div>
@@ -327,22 +359,65 @@ export default function EmployeeTimeClock({
           {formatHours(displayEntry?.paid_hours)}
         </span>
 
-        {actionConfig ? (
-          <form action={formAction} onSubmit={handleSubmit} ref={formRef}>
+        {actionConfig || canSwitch ? (
+          <form
+            action={formAction}
+            onSubmit={handleSubmit}
+            ref={formRef}
+            className="flex flex-wrap items-center gap-2"
+          >
             <input name="latitude" ref={latitudeRef} type="hidden" />
             <input name="longitude" ref={longitudeRef} type="hidden" />
             <input name="accuracy" ref={accuracyRef} type="hidden" />
             <input name="captured_at" ref={capturedAtRef} type="hidden" />
-            <button
-              disabled={pending || locating}
-              className={`btn ${actionConfig.tone === "danger" ? "btn-danger" : actionConfig.tone === "secondary" ? "btn-outline" : "btn-accent"}`}
-            >
-              {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
-            </button>
+            <input name="workstation_id" type="hidden" value={workstationId} />
+            {workstations.length > 0 ? (
+              <label className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
+                <MapPin className="size-3.5 shrink-0 text-muted" />
+                <select
+                  value={workstationId}
+                  onChange={(event) => setWorkstationId(event.target.value)}
+                  disabled={Boolean(displayEntry?.clock_out)}
+                  className="max-w-[9rem] bg-transparent text-xs font-semibold text-foreground outline-none"
+                >
+                  {workstations.map((workstation) => (
+                    <option key={workstation.id} value={workstation.id}>
+                      {workstation.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {canSwitch ? (
+              <button
+                type="submit"
+                onClick={() => {
+                  switchPendingRef.current = true;
+                }}
+                disabled={pending || locating || !workstationId}
+                className="btn btn-outline"
+              >
+                {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
+              </button>
+            ) : null}
+            {actionConfig ? (
+              <button
+                disabled={pending || locating}
+                className={`btn ${actionConfig.tone === "danger" ? "btn-danger" : actionConfig.tone === "secondary" ? "btn-outline" : "btn-accent"}`}
+              >
+                {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
+              </button>
+            ) : null}
           </form>
         ) : (
           <span className="badge badge-success">Complete</span>
         )}
+
+        {latestGeofenceStatus === "out_of_range" ? (
+          <p className="w-full text-xs font-semibold text-danger">
+            You are outside your selected workstation radius. This event will be flagged.
+          </p>
+        ) : null}
 
         {locationMessage ? (
           <p className="text-xs text-danger">{locationMessage}</p>
@@ -369,18 +444,57 @@ export default function EmployeeTimeClock({
             {displayEntry?.work_date ?? "No time record started yet"}
           </p>
         </div>
-        {actionConfig ? (
-          <form action={formAction} onSubmit={handleSubmit} ref={formRef}>
+        {actionConfig || canSwitch ? (
+          <form
+            action={formAction}
+            onSubmit={handleSubmit}
+            ref={formRef}
+            className="grid w-full gap-2 sm:w-auto"
+          >
             <input name="latitude" ref={latitudeRef} type="hidden" />
             <input name="longitude" ref={longitudeRef} type="hidden" />
             <input name="accuracy" ref={accuracyRef} type="hidden" />
             <input name="captured_at" ref={capturedAtRef} type="hidden" />
-            <button
-              disabled={pending || locating}
-              className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
-            >
-              {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
-            </button>
+            <input name="workstation_id" type="hidden" value={workstationId} />
+            {workstations.length > 0 ? (
+              <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
+                <MapPin className="size-4 shrink-0 opacity-80" />
+                <select
+                  value={workstationId}
+                  onChange={(event) => setWorkstationId(event.target.value)}
+                  disabled={Boolean(displayEntry?.clock_out)}
+                  className="h-9 min-w-0 flex-1 bg-transparent text-sm font-semibold text-primary-foreground outline-none"
+                >
+                  {workstations.map((workstation) => (
+                    <option key={workstation.id} value={workstation.id}>
+                      {workstation.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {canSwitch ? (
+                <button
+                  type="submit"
+                  onClick={() => {
+                    switchPendingRef.current = true;
+                  }}
+                  disabled={pending || locating || !workstationId}
+                  className="rounded-md border border-primary-foreground/30 bg-primary-foreground/10 px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                >
+                  {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
+                </button>
+              ) : null}
+              {actionConfig ? (
+                <button
+                  disabled={pending || locating}
+                  className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
+                >
+                  {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
+                </button>
+              ) : null}
+            </div>
           </form>
         ) : (
           <span className="rounded-full bg-success/10 px-3 py-1 text-sm font-semibold text-success">
@@ -408,11 +522,25 @@ export default function EmployeeTimeClock({
           </div>
         ) : null}
 
+        {latestGeofenceStatus === "out_of_range" ? (
+          <div className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
+            You are outside your selected workstation radius. This event will be flagged for
+            review.
+          </div>
+        ) : null}
+
         <div className="mb-4 rounded-md border border-border bg-background px-3 py-2 text-sm">
           <p className="font-semibold text-foreground">Clocking location</p>
           <p className="mt-1 text-xs text-muted">
             Location is required for every clocking event and is used to validate workstation radius.
           </p>
+          {workstations.length > 0 ? (
+            <p className="mt-2 text-xs font-semibold text-foreground">
+              Selected workstation:{" "}
+              {workstations.find((workstation) => workstation.id === workstationId)?.name ??
+                "Default"}
+            </p>
+          ) : null}
           {locationDetails ? (
             <p className="mt-2 text-xs font-semibold text-foreground">
               {locationDetails.latitude.toFixed(6)}, {locationDetails.longitude.toFixed(6)}

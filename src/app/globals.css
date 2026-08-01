@@ -3,24 +3,25 @@
 :root {
   color-scheme: light;
 
-  --color-background: #f5f3ee;
+  /* New primary-anchored palette — light mode */
+  --color-background: #f8f7f4;
   --color-surface: #ffffff;
-  --color-surface-muted: #f0ede8;
-  --color-foreground: #1a1816;
-  --color-muted: #8a857c;
-  --color-primary: #FF6B50;
+  --color-surface-muted: #f1efe9;
+  --color-foreground: #0f172a;
+  --color-muted: #6b7280;
+  --color-primary: #0F172A;
   --color-primary-foreground: #ffffff;
-  --color-accent: #FF6B50;
+  --color-accent: #0F172A;
   --color-accent-foreground: #ffffff;
-  --color-accent-light: #ff8a73;
+  --color-accent-light: #334155;
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-danger: #dc2626;
-  --color-border: #e0dbd4;
-  --color-ring: #FF6B50;
-  --shadow-soft: 0 4px 24px rgb(26 24 22 / 7%);
-  --shadow-tight: 0 2px 10px rgb(26 24 22 / 5%);
-  --shadow-lg: 0 12px 48px rgb(26 24 22 / 10%);
+  --color-border: #e2dfd7;
+  --color-ring: #0F172A;
+  --shadow-soft: 0 4px 24px rgb(15 23 42 / 7%);
+  --shadow-tight: 0 2px 10px rgb(15 23 42 / 5%);
+  --shadow-lg: 0 12px 48px rgb(15 23 42 / 10%);
 
   --background: var(--color-background);
   --foreground: var(--color-foreground);
@@ -29,21 +30,21 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --color-background: #050505;
-  --color-surface: #111111;
-  --color-surface-muted: #1a1a1a;
-  --color-foreground: #ebebeb;
-  --color-muted: #888888;
-  --color-primary: #FF6B50;
+  --color-background: #0a0e14;
+  --color-surface: #141a24;
+  --color-surface-muted: #1e2530;
+  --color-foreground: #e8ecf1;
+  --color-muted: #8892a6;
+  --color-primary: #3b82f6;
   --color-primary-foreground: #ffffff;
-  --color-accent: #FF6B50;
+  --color-accent: #3b82f6;
   --color-accent-foreground: #ffffff;
-  --color-accent-light: #ff8a73;
+  --color-accent-light: #60a5fa;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
-  --color-border: #333333;
-  --color-ring: #FF6B50;
+  --color-border: #2a3344;
+  --color-ring: #3b82f6;
   --shadow-soft: 0 4px 24px rgb(0 0 0 / 40%);
   --shadow-tight: 0 2px 10px rgb(0 0 0 / 32%);
   --shadow-lg: 0 12px 48px rgb(0 0 0 / 50%);
@@ -82,7 +83,7 @@ html {
 
 body {
   background:
-    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--color-accent) 4%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 60%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -191,7 +192,7 @@ textarea:focus {
 
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8072' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   padding-right: 2.5rem;
@@ -345,19 +346,20 @@ select {
   animation: slide-in-right 200ms ease-out;
 }
 
+/* ── Timesheet calendar (preserved structure, remapped colors) ── */
 .cw-timesheet-calendar {
   --fc-border-color: var(--color-border);
   --fc-button-bg-color: var(--color-surface);
   --fc-button-border-color: var(--color-border);
   --fc-button-hover-bg-color: var(--color-surface-muted);
   --fc-button-hover-border-color: var(--color-ring);
-  --fc-button-active-bg-color: var(--color-accent);
-  --fc-button-active-border-color: var(--color-accent);
+  --fc-button-active-bg-color: var(--color-primary);
+  --fc-button-active-border-color: var(--color-primary);
   --fc-button-text-color: var(--color-foreground);
   --fc-event-border-color: transparent;
   --fc-page-bg-color: transparent;
   --fc-small-font-size: 0.75rem;
-  --fc-today-bg-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-background));
+  --fc-today-bg-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-background));
   color: var(--color-foreground);
 }
 
@@ -394,9 +396,9 @@ select {
 
 .cw-timesheet-calendar .fc-button-primary:not(:disabled).fc-button-active,
 .cw-timesheet-calendar .fc-button-primary:not(:disabled):active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-accent-foreground);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
 .cw-timesheet-calendar .fc-button:disabled {
@@ -510,8 +512,8 @@ select {
 }
 
 .cw-timesheet-calendar .cw-calendar-submitted {
-  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
-  background: color-mix(in srgb, var(--color-primary) 20%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
 }
 
 .cw-timesheet-calendar .cw-calendar-approved {
@@ -537,6 +539,22 @@ select {
 
 .cw-timesheet-calendar .cw-company-timesheet-event-warning {
   box-shadow: inset 3px 0 0 var(--color-danger);
+}
+
+/* Avatar-only day-cell events (manager calendar) */
+.cw-timesheet-calendar .fc-daygrid-day-events .fc-event.cw-calendar-avatar-event,
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  display: inline-flex;
+  margin: 0.125rem;
+  padding: 0;
+  width: auto;
+}
+.cw-timesheet-calendar .fc-event.cw-calendar-avatar-event:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 .cw-timesheet-calendar .cw-calendar-attention,
@@ -692,8 +710,8 @@ select {
 
 /* Today button accent */
 .cw-timesheet-calendar .fc-today-button {
-  border-color: var(--color-accent) !important;
-  color: var(--color-accent) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
 }
 .cw-timesheet-calendar .fc-today-button:disabled {
   border-color: var(--color-border) !important;

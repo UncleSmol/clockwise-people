@@ -7,6 +7,7 @@ import type { EventClickArg, EventInput, DayCellMountArg } from "@fullcalendar/c
 import {
   AlertTriangle,
   CalendarDays,
+  CalendarPlus,
   CheckCircle2,
   Clock,
   Clock3,
@@ -22,7 +23,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useActionState, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
 import {
   createPastDraftTimeEntry,
   deleteDraftTimeEntry,
@@ -35,6 +38,7 @@ import type {
   TimeEntryRecord,
   TimesheetCorrectionRequest,
 } from "@/lib/time-tracking/schema";
+import { usePanel, useWorkspaceSection } from "@/components/dashboard/workspace-context";
 
 type EmployeeTimesheetCorrectionsProps = {
   correctionRequests: TimesheetCorrectionRequest[];
@@ -79,6 +83,15 @@ function formatTime(value: string | null) {
 
 function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
+}
+
+function entryNeedsAttention(entry: TimeEntryRecord) {
+  return Boolean(
+    entry.missing_clocking ||
+      entry.late_arrival ||
+      entry.early_departure ||
+      (entry.clock_in && Number(entry.paid_hours) <= 0),
+  );
 }
 
 function formatTimeRange(start: string | null, end: string | null) {
@@ -262,6 +275,8 @@ export default function EmployeeTimesheetCorrections({
 }: EmployeeTimesheetCorrectionsProps) {
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+  const section = useWorkspaceSection();
+  const { openPanel } = usePanel();
 
   useLayoutEffect(() => {
     if (window.innerWidth < 640) {
@@ -275,6 +290,9 @@ export default function EmployeeTimesheetCorrections({
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
   const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(() => new Set());
+  const [rangeAnchorId, setRangeAnchorId] = useState<string | null>(null);
+  const [acknowledgedFlags, setAcknowledgedFlags] = useState(false);
   const [tooltip, setTooltip] = useState<{
     content: string;
     x: number;
@@ -375,6 +393,43 @@ export default function EmployeeTimesheetCorrections({
   }, [entries, publicHolidays]);
   const editableEntries = entries.filter((entry) => entry.status === "draft" || entry.status === "rejected");
   const submittedEntries = entries.filter((entry) => entry.status !== "draft" && entry.status !== "rejected");
+  const handleRangeSelect = (entryId: string) => {
+    setAcknowledgedFlags(false);
+
+    if (!rangeAnchorId) {
+      setRangeAnchorId(entryId);
+      setSelectedEntryIds(new Set([entryId]));
+      return;
+    }
+
+    const anchorIndex = editableEntries.findIndex((entry) => entry.id === rangeAnchorId);
+    const targetIndex = editableEntries.findIndex((entry) => entry.id === entryId);
+
+    if (anchorIndex === -1 || targetIndex === -1) {
+      setRangeAnchorId(entryId);
+      setSelectedEntryIds(new Set([entryId]));
+      return;
+    }
+
+    const [start, end] = [
+      Math.min(anchorIndex, targetIndex),
+      Math.max(anchorIndex, targetIndex),
+    ];
+    const rangeIds = editableEntries.slice(start, end + 1).map((entry) => entry.id);
+    setSelectedEntryIds(new Set(rangeIds));
+    setRangeAnchorId(null);
+  };
+  const clearSelection = () => {
+    setSelectedEntryIds(new Set());
+    setRangeAnchorId(null);
+    setAcknowledgedFlags(false);
+  };
+  const flaggedSelected = editableEntries.filter(
+    (entry) => selectedEntryIds.has(entry.id) && entryNeedsAttention(entry),
+  );
+  const hasFlaggedSelected = flaggedSelected.length > 0;
+  const submitBlocked =
+    selectedEntryIds.size === 0 || (hasFlaggedSelected && !acknowledgedFlags);
   const message =
     createState.message ||
     deleteState.message ||
@@ -530,6 +585,116 @@ export default function EmployeeTimesheetCorrections({
     );
   };
 
+  const quickSubmitForm =
+    editableEntries.length > 0 ? (
+      <form action={submitAction} className="rounded-md border border-border bg-surface p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold text-foreground">Submit ready timesheets</p>
+            <p className="mt-1 text-xs text-muted">
+              Tap a start day, then tap an end day to select the whole range.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedEntryIds.size > 0 ? (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-muted hover:text-foreground"
+              >
+                <X className="size-4" />
+                Clear ({selectedEntryIds.size})
+              </button>
+            ) : null}
+            <button
+              disabled={submitBlocked || submitPending}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              <Send className="size-4" />
+              {submitPending ? "Submitting..." : "Submit selected"}
+            </button>
+          </div>
+        </div>
+
+        {Array.from(selectedEntryIds).map((entryId) => (
+          <input key={entryId} type="hidden" name="time_entry_ids" value={entryId} />
+        ))}
+        {acknowledgedFlags
+          ? flaggedSelected.map((entry) => (
+              <input key={`ack-${entry.id}`} type="hidden" name="acknowledged_ids" value={entry.id} />
+            ))
+          : null}
+
+        {hasFlaggedSelected ? (
+          <div className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+            The selected range includes timesheets that need attention:{" "}
+            {flaggedSelected.map((entry) => formatDate(entry.work_date)).join(", ")}. Flag them
+            below to continue.
+          </div>
+        ) : null}
+
+        <div className="mt-3 grid gap-2">
+          {editableEntries.map((entry) => {
+            const needsAttention = entryNeedsAttention(entry);
+            const isSelected = selectedEntryIds.has(entry.id);
+            const isAnchor = rangeAnchorId === entry.id;
+
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => handleRangeSelect(entry.id)}
+                className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                  isAnchor
+                    ? "border-accent bg-accent/10 text-foreground"
+                    : isSelected
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : needsAttention
+                        ? "border-danger/30 bg-danger/[0.07] text-foreground"
+                        : "border-border bg-background text-foreground"
+                }`}
+              >
+                <span
+                  className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                    isSelected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-surface-muted text-muted"
+                  }`}
+                >
+                  {isSelected ? "✓" : isAnchor ? "A" : ""}
+                </span>
+                <span>{formatDate(entry.work_date)}</span>
+                <span
+                  className={`ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    needsAttention ? "bg-danger/10 text-danger" : "bg-success/10 text-success"
+                  }`}
+                >
+                  {needsAttention ? (
+                    <AlertTriangle className="size-3.5" />
+                  ) : (
+                    <CheckCircle2 className="size-3.5" />
+                  )}
+                  {needsAttention ? "Check" : "Good"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {hasFlaggedSelected ? (
+          <label className="mt-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs font-medium text-foreground">
+            <input
+              type="checkbox"
+              checked={acknowledgedFlags}
+              onChange={(event) => setAcknowledgedFlags(event.target.checked)}
+              className="mt-0.5 size-4 accent-current"
+            />
+            <span>I understand the flagged days need attention and will be sent for review.</span>
+          </label>
+        ) : null}
+      </form>
+    ) : null;
+
   return (
     <section className="card grid gap-3 p-4">
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
@@ -544,7 +709,8 @@ export default function EmployeeTimesheetCorrections({
         </span>
       </div>
 
-      <div className="grid gap-3 rounded-md border border-border bg-background p-3">
+      {section !== "records" ? (
+        <div className="grid gap-3 rounded-md border border-border bg-background p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="inline-flex items-center gap-2 font-semibold text-foreground">
@@ -796,17 +962,35 @@ export default function EmployeeTimesheetCorrections({
           </div>
         </div>
 
-        {(tooltip ?? dayTooltip) ? (
+        {(tooltip ?? dayTooltip) ? createPortal(
           <div
             className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
             style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
           >
             {(tooltip ?? dayTooltip)!.content}
+          </div>,
+          document.body,
+        ) : null}
+
+        {section === "calendar" ? (
+          <div className="grid gap-2">
+            <button
+              type="button"
+              onClick={() => openPanel("leave")}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
+            >
+              <CalendarPlus className="size-4" />
+              Request leave / TOIL
+            </button>
+            {quickSubmitForm}
           </div>
         ) : null}
       </div>
+      ) : null}
 
-      <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
+      {section !== "calendar" ? (
+        <>
+        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
         <button
           type="button"
           onClick={() => setActiveTab("timesheets")}
@@ -851,56 +1035,7 @@ export default function EmployeeTimesheetCorrections({
         </p>
       ) : activeTab === "timesheets" ? (
         <div className="grid gap-3">
-          {editableEntries.length > 0 ? (
-            <form action={submitAction} className="rounded-md border border-border bg-surface p-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">Submit ready timesheets</p>
-                  <p className="mt-1 text-xs text-muted">Tick the days you want to send.</p>
-                </div>
-                <button
-                  disabled={submitPending}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                >
-                  <Send className="size-4" />
-                  {submitPending ? "Submitting..." : "Submit selected"}
-                </button>
-              </div>
-
-              <div className="mt-3 grid gap-2">
-                {editableEntries.map((entry) => (
-                  <label
-                    key={entry.id}
-                    className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground"
-                  >
-                    <input
-                      type="checkbox"
-                      name="time_entry_ids"
-                      value={entry.id}
-                      className="size-4 accent-current"
-                    />
-                    <span>{formatDate(entry.work_date)}</span>
-                    <span
-                      className={`ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        entry.missing_clocking || entry.late_arrival || entry.early_departure
-                          ? "bg-danger/10 text-danger"
-                          : "bg-success/10 text-success"
-                      }`}
-                    >
-                      {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
-                        <AlertTriangle className="size-3.5" />
-                      ) : (
-                        <CheckCircle2 className="size-3.5" />
-                      )}
-                      {entry.missing_clocking || entry.late_arrival || entry.early_departure
-                        ? "Check"
-                        : "Good"}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </form>
-          ) : null}
+          {section === "full" ? quickSubmitForm : null}
 
           <div className="grid gap-2">
             {shouldGroupWeeks
@@ -1096,211 +1231,179 @@ export default function EmployeeTimesheetCorrections({
           })}
         </div>
       )}
+        </>
+      ) : null}
 
-      {detailEntry ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/45">
-          <div className="flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                  Timesheet
+      <ViewportSidebar
+        open={Boolean(detailEntry)}
+        onClose={() => setDetailEntry(null)}
+        maxWidth="max-w-2xl"
+        eyebrow="Timesheet"
+        title={detailEntry ? formatDate(detailEntry.work_date) : ""}
+        description={detailEntry ? <span className="capitalize">{detailEntry.status}</span> : ""}
+        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4"
+      >
+        {detailEntry ? (
+          <>
+            <div className="grid gap-2 sm:grid-cols-4">
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Clock in</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {formatTime(detailEntry.clock_in)}
                 </p>
-                <h3 className="mt-1 text-xl font-semibold text-foreground">
-                  {formatDate(detailEntry.work_date)}
-                </h3>
-                <p className="mt-1 text-sm capitalize text-muted">{detailEntry.status}</p>
               </div>
-              <button
-                aria-label="Close timesheet details"
-                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
-                onClick={() => setDetailEntry(null)}
-                type="button"
-              >
-                <X className="size-4" />
-              </button>
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Lunch</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {formatTimeRange(detailEntry.lunch_start, detailEntry.lunch_end)}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Clock out</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {formatTime(detailEntry.clock_out)}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Paid</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {formatHours(detailEntry.paid_hours)}
+                </p>
+              </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
-              <div className="grid gap-2 sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Clock in</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatTime(detailEntry.clock_in)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Lunch</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatTimeRange(detailEntry.lunch_start, detailEntry.lunch_end)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Clock out</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatTime(detailEntry.clock_out)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Paid</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatHours(detailEntry.paid_hours)}
-                  </p>
-                </div>
+            <div className="grid gap-2 sm:grid-cols-4">
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">NT</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {formatHours(detailEntry.normal_hours)}
+                </p>
               </div>
-
-              <div className="grid gap-2 sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">NT</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatHours(detailEntry.normal_hours)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">OT</p>
-                  <p className="mt-1 font-semibold text-warning">
-                    {formatHours(detailEntry.overtime_hours)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Lunch break</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {formatHours(detailEntry.lunch_hours)}
-                  </p>
-                </div>
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Warnings</p>
-                  <p className="mt-1 font-semibold text-foreground">
-                    {detailEntry.missing_clocking || detailEntry.late_arrival || detailEntry.early_departure
-                      ? "Needs review"
-                      : "Clear"}
-                  </p>
-                </div>
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">OT</p>
+                <p className="mt-1 font-semibold text-warning">
+                  {formatHours(detailEntry.overtime_hours)}
+                </p>
               </div>
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Lunch break</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {formatHours(detailEntry.lunch_hours)}
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Warnings</p>
+                <p className="mt-1 font-semibold text-foreground">
+                  {detailEntry.missing_clocking || detailEntry.late_arrival || detailEntry.early_departure
+                    ? "Needs review"
+                    : "Clear"}
+                </p>
+              </div>
+            </div>
 
-              {detailEntry.notes ? (
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Notes</p>
-                  <p className="mt-1 text-sm text-foreground">{detailEntry.notes}</p>
-                </div>
-              ) : null}
+            {detailEntry.notes ? (
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Notes</p>
+                <p className="mt-1 text-sm text-foreground">{detailEntry.notes}</p>
+              </div>
+            ) : null}
 
-              {detailEntry.warning_notes ? (
-                <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
-                  <p className="text-xs text-warning">Calculation note</p>
-                  <p className="mt-1 text-sm font-medium text-warning">
-                    {detailEntry.warning_notes}
-                  </p>
-                </div>
-              ) : null}
+            {detailEntry.warning_notes ? (
+              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+                <p className="text-xs text-warning">Calculation note</p>
+                <p className="mt-1 text-sm font-medium text-warning">
+                  {detailEntry.warning_notes}
+                </p>
+              </div>
+            ) : null}
 
-              {detailEntry.locationEvents?.length ? (
-                <div className="rounded-md border border-border bg-background px-3 py-2">
-                  <p className="text-xs text-muted">Location history</p>
-                  <div className="mt-2 grid gap-2">
-                    {detailEntry.locationEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className="grid gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs sm:grid-cols-[130px_1fr_auto] sm:items-center"
+            {detailEntry.locationEvents?.length ? (
+              <div className="rounded-md border border-border bg-background px-3 py-2">
+                <p className="text-xs text-muted">Location history</p>
+                <div className="mt-2 grid gap-2">
+                  {detailEntry.locationEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="grid gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs sm:grid-cols-[130px_1fr_auto] sm:items-center"
+                    >
+                      <p className="font-semibold capitalize text-foreground">
+                        {event.event_type.replaceAll("_", " ")}
+                      </p>
+                      <p className="text-muted">
+                        {event.latitude !== null && event.longitude !== null
+                          ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                          : "No coordinates"}
+                        {event.accuracy_meters !== null
+                          ? ` · ±${Math.round(event.accuracy_meters)}m`
+                          : ""}
+                        {event.distance_meters !== null
+                          ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                          : ""}
+                      </p>
+                      <span
+                        className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
                       >
-                        <p className="font-semibold capitalize text-foreground">
-                          {event.event_type.replaceAll("_", " ")}
-                        </p>
-                        <p className="text-muted">
-                          {event.latitude !== null && event.longitude !== null
-                            ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
-                            : "No coordinates"}
-                          {event.accuracy_meters !== null
-                            ? ` · ±${Math.round(event.accuracy_meters)}m`
-                            : ""}
-                          {event.distance_meters !== null
-                            ? ` · ${Math.round(event.distance_meters)}m from workstation`
-                            : ""}
-                        </p>
-                        <span
-                          className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
-                        >
-                          <LocateFixed className="size-3" />
-                          {geofenceLabel(event.geofence_status)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                        <LocateFixed className="size-3" />
+                        {geofenceLabel(event.geofence_status)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {selectedDate && !detailEntry ? (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/30">
-          <div className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                  Date actions
-                </p>
-                <h3 className="mt-1 text-xl font-semibold text-foreground">
-                  {formatDate(selectedDate)}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  Choose an action for this day without leaving the calendar.
-                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedDate("")}
-                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
-                aria-label="Close date actions"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4">
-              {selectedEntry ? (
-                <>
-                  <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-muted">
-                    This day already has a {selectedEntry.status} timesheet.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDetailEntry(selectedEntry);
-                      setSelectedDate("");
-                    }}
-                    className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-                  >
-                    <Clock3 className="size-4" />
-                    Open timesheet
-                  </button>
-                </>
-              ) : selectedIsHoliday ? (
-                <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
-                  This day is a company public holiday and is handled automatically.
-                </p>
-              ) : selectedDate >= currentWorkDate ? (
-                <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
-                  Employees can only add past timesheets from the calendar.
-                </p>
-              ) : (
-                <form action={createAction} className="grid gap-3">
-                  <input type="hidden" name="work_date" value={selectedDate} />
-                  <p className="text-sm text-muted">
-                    Create a draft timesheet for this work day. You can refine the times before submission.
-                  </p>
-                  <button
-                    disabled={!selectedCanAdd || createPending}
-                    className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                  >
-                    <Plus className="size-4" />
-                    {createPending ? "Adding..." : "Add draft"}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+            ) : null}
+          </>
+        ) : null}
+      </ViewportSidebar>
+
+      <ViewportSidebar
+        open={Boolean(selectedDate) && !detailEntry}
+        onClose={() => setSelectedDate("")}
+        eyebrow="Date actions"
+        title={selectedDate ? formatDate(selectedDate) : ""}
+        description="Choose an action for this day without leaving the calendar."
+        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4"
+      >
+        {selectedEntry ? (
+          <>
+            <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-muted">
+              This day already has a {selectedEntry.status} timesheet.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setDetailEntry(selectedEntry);
+                setSelectedDate("");
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              <Clock3 className="size-4" />
+              Open timesheet
+            </button>
+          </>
+        ) : selectedIsHoliday ? (
+          <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+            This day is a company public holiday and is handled automatically.
+          </p>
+        ) : selectedDate >= currentWorkDate ? (
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+            Employees can only add past timesheets from the calendar.
+          </p>
+        ) : (
+          <form action={createAction} className="grid gap-3">
+            <input type="hidden" name="work_date" value={selectedDate} />
+            <p className="text-sm text-muted">
+              Create a draft timesheet for this work day. You can refine the times before submission.
+            </p>
+            <button
+              disabled={!selectedCanAdd || createPending}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              <Plus className="size-4" />
+              {createPending ? "Adding..." : "Add draft"}
+            </button>
+          </form>
+        )}
+      </ViewportSidebar>
     </section>
   );
 }

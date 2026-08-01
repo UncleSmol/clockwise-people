@@ -2,6 +2,7 @@
 
 import { CheckCircle2, ChevronDown, Sparkles } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
 import { markAppUpdatesSeen } from "@/lib/app-updates/actions";
 import type { AppUpdate } from "@/lib/app-updates/schema";
 
@@ -26,7 +27,7 @@ export default function AppUpdateChangelog({
   updates,
 }: AppUpdateChangelogProps) {
   const [open, setOpen] = useState(updates.length > 0);
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const clearButtonRef = useRef<HTMLButtonElement>(null);
   const [state, formAction, pending] = useActionState(
     async (previousState: typeof initialState, formData: FormData) => {
@@ -84,17 +85,13 @@ export default function AppUpdateChangelog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-80 flex justify-end bg-foreground/15"
-      onKeyDown={handleKeyDown}
-    >
-      <section
-        aria-labelledby="app-update-title"
-        aria-modal="true"
-        ref={dialogRef}
-        role="dialog"
-        className="flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-border bg-surface animate-slide-in-right"
-      >
+    <ViewportSidebar
+      open={open}
+      onClose={() => setOpen(false)}
+      maxWidth="max-w-xl"
+      zIndex="z-[80]"
+      backdropClassName="bg-foreground/15"
+      header={
         <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex min-w-0 gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
@@ -115,49 +112,9 @@ export default function AppUpdateChangelog({
             </div>
           </div>
         </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {state.message ? (
-            <p className="mb-3 rounded-lg border border-danger/20 bg-danger/8 px-3 py-2 text-sm font-medium text-danger">
-              {state.message}
-            </p>
-          ) : null}
-
-          {updates.map((update, index) => (
-            <details
-              key={update.id}
-              className="group border-b border-border last:border-b-0"
-              open={index === 0}
-            >
-              <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-lg px-2 py-3 hover:bg-surface-muted">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate font-semibold text-foreground">
-                      {update.title}
-                    </h3>
-                    <span className="badge badge-muted">
-                      {formatDate(update.published_at)}
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted">
-                    {update.summary}
-                  </p>
-                </div>
-                <ChevronDown className="mt-1 size-4 text-muted transition-transform group-open:rotate-180" />
-              </summary>
-
-              <ul className="grid gap-2 px-2 pb-3">
-                {update.changes.map((change) => (
-                  <li key={change} className="flex gap-2 text-sm text-foreground">
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
-                    <span>{change}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ))}
-        </div>
-
+      }
+      bodyClassName="min-h-0 flex-1 overflow-y-auto p-4"
+      footer={
         <form action={formAction} className="shrink-0 border-t border-border px-5 py-4">
           {updates.map((update) => (
             <input key={update.id} type="hidden" name="update_ids" value={update.id} />
@@ -170,7 +127,49 @@ export default function AppUpdateChangelog({
             {pending ? "Saving..." : `Got it, clear ${updateCount === 1 ? "update" : "updates"}`}
           </button>
         </form>
-      </section>
-    </div>
+      }
+    >
+      <div ref={dialogRef} onKeyDown={handleKeyDown}>
+        {state.message ? (
+          <p className="mb-3 rounded-lg border border-danger/20 bg-danger/8 px-3 py-2 text-sm font-medium text-danger">
+            {state.message}
+          </p>
+        ) : null}
+
+        {updates.map((update, index) => (
+          <details
+            key={update.id}
+            className="group border-b border-border last:border-b-0"
+            open={index === 0}
+          >
+            <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-lg px-2 py-3 hover:bg-surface-muted">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate font-semibold text-foreground">
+                    {update.title}
+                  </h3>
+                  <span className="badge badge-muted">
+                    {formatDate(update.published_at)}
+                  </span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-sm text-muted">
+                  {update.summary}
+                </p>
+              </div>
+              <ChevronDown className="mt-1 size-4 text-muted transition-transform group-open:rotate-180" />
+            </summary>
+
+            <ul className="grid gap-2 px-2 pb-3">
+              {update.changes.map((change) => (
+                <li key={change} className="flex gap-2 text-sm text-foreground">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
+                  <span>{change}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
+    </ViewportSidebar>
   );
 }

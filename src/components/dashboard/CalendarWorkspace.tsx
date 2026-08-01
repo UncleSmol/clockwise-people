@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, t
 import {
   BriefcaseBusiness,
   Building2,
+  CalendarDays,
   CalendarRange,
   ClipboardCheck,
   Clock3,
@@ -14,8 +15,12 @@ import {
   Settings2,
   ShieldCheck,
   Users,
-  X,
 } from "lucide-react";
+import {
+  PanelContext,
+  WorkspaceSectionContext,
+} from "./workspace-context";
+import ViewportSidebar from "./ViewportSidebar";
 
 type WorkspacePanel = {
   content: ReactNode;
@@ -65,9 +70,19 @@ export default function CalendarWorkspace({
   const router = useRouter();
   const [activePanelKey, setActivePanelKey] = useState<string | null>(initialActivePanelKey);
   const [showServices, setShowServices] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"clock" | "calendar" | "records">("clock");
   const [workspaceMode, setWorkspaceMode] = useState<"me" | "team">(
     isManager && managerCalendar ? "team" : "me",
   );
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   const activePanel = useMemo(
     () => panels.find((panel) => panel.key === activePanelKey) ?? null,
@@ -113,14 +128,9 @@ export default function CalendarWorkspace({
 
   useEffect(() => {
     if (!activePanel) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     if (window.innerWidth < 768) {
       setPanelWidthPercent(90);
     }
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
   }, [activePanel]);
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
@@ -149,7 +159,21 @@ export default function CalendarWorkspace({
     document.addEventListener("pointerup", handlePointerUp);
   }, []);
 
+  const isTeamMode = workspaceMode === "team" && isManager && managerCalendar;
+
   return (
+    <PanelContext.Provider value={{ openPanel: (key) => setActivePanelKey(key) }}>
+      <WorkspaceSectionContext.Provider
+        value={
+          isMobile && !isTeamMode
+            ? mobileTab === "records"
+              ? "records"
+              : mobileTab === "calendar"
+                ? "calendar"
+                : "full"
+            : "full"
+        }
+      >
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col gap-0">
       <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
         <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3">
@@ -228,56 +252,87 @@ export default function CalendarWorkspace({
         </section>
       )}
 
-      <div className="mx-4 flex-1 sm:mx-6">
-        {workspaceMode === "team" && isManager && managerCalendar
-          ? managerCalendar
-          : employeeCalendar}
-      </div>
-
-      <div className="mx-4 mb-4 mt-4 sm:mx-6">
-        {employeeClock}
-      </div>
-
-      {activePanel ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-foreground/15 backdrop-blur-sm">
-          <div
-            className="flex h-full flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right"
-            style={{ width: `${panelWidthPercent}vw` }}
-          >
-            <div
-              className="flex shrink-0 cursor-ew-resize items-center justify-center px-1 py-0.5 hover:bg-accent/10"
-              onPointerDown={handleResizeStart}
-            >
-              <GripVertical className="size-3 text-muted" />
-            </div>
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-              <div className="min-w-0">
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
-                  {activePanel.key === "leave" ? "Leave" :
-                   activePanel.key === "manager-review" ? "Approvals" :
-                   activePanel.key === "people" ? "People" :
-                   activePanel.key === "company" ? "Company" :
-                   activePanel.key === "account" ? "Account" :
-                   activePanel.key === "policies" ? "Governance" : "Services"}
-                </span>
-                <h3 className="mt-1 text-xl font-bold text-foreground">{activePanel.label}</h3>
-                <p className="mt-1 text-sm text-muted">{activePanel.description}</p>
-              </div>
+      {isMobile && !isTeamMode ? (
+        <div className="mx-4 mb-4 sm:mx-6">
+          <div className="grid grid-cols-3 gap-1 rounded-full border border-border bg-background p-1 text-xs font-semibold">
+            {(
+              [
+                ["clock", "Clock", Clock3],
+                ["calendar", "Calendar", CalendarDays],
+                ["records", "Records", ClipboardCheck],
+              ] as const
+            ).map(([key, label, Icon]) => (
               <button
+                key={key}
                 type="button"
-                onClick={() => setActivePanelKey(null)}
-                className="icon-btn mt-0.5 shrink-0 text-muted hover:bg-surface-muted hover:text-foreground"
-                aria-label="Close panel"
+                onClick={() => setMobileTab(key)}
+                className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-2 ${
+                  mobileTab === key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground hover:bg-surface-muted"
+                }`}
               >
-                <X className="size-4" />
+                <Icon className="size-4" />
+                {label}
               </button>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
-              {activePanel.content}
-            </div>
+            ))}
           </div>
         </div>
       ) : null}
+
+      <div className="mx-4 flex-1 sm:mx-6">
+        {isTeamMode ? (
+          managerCalendar
+        ) : isMobile ? (
+          <div className="grid gap-4">
+            <div className={mobileTab === "clock" ? "" : "hidden"}>{employeeClock}</div>
+            <div className={mobileTab === "clock" ? "hidden" : ""}>{employeeCalendar}</div>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {employeeClock}
+            {employeeCalendar}
+          </div>
+        )}
+      </div>
+
+      <ViewportSidebar
+        open={Boolean(activePanel)}
+        onClose={() => setActivePanelKey(null)}
+        maxWidth=""
+        backdropClassName="bg-foreground/15 backdrop-blur-sm"
+        panelStyle={{ width: `${panelWidthPercent}vw` }}
+        gutter={
+          <div
+            className="flex cursor-ew-resize items-center justify-center px-1 py-0.5 hover:bg-accent/10"
+            onPointerDown={handleResizeStart}
+          >
+            <GripVertical className="size-3 text-muted" />
+          </div>
+        }
+        eyebrow={
+          activePanel
+            ? activePanel.key === "leave"
+              ? "Leave"
+              : activePanel.key === "manager-review"
+                ? "Approvals"
+                : activePanel.key === "people"
+                  ? "People"
+                  : activePanel.key === "company"
+                    ? "Company"
+                    : activePanel.key === "account"
+                      ? "Account"
+                      : activePanel.key === "policies"
+                        ? "Governance"
+                        : "Services"
+            : ""
+        }
+        title={activePanel?.label ?? ""}
+        description={activePanel?.description ?? ""}
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6"
+      >
+        {activePanel?.content}
+      </ViewportSidebar>
 
       {isSuperAdmin ? (
         <div
@@ -309,5 +364,7 @@ export default function CalendarWorkspace({
         </div>
       ) : null}
     </div>
+      </WorkspaceSectionContext.Provider>
+    </PanelContext.Provider>
   );
 }

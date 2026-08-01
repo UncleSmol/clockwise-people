@@ -478,7 +478,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       isSuperAdmin={access.isSuperAdmin}
       currentDateLabel={currentDateLabel}
         employeeClock={
-          <EmployeeTimeClock todayEntry={employeeTimeState?.todayEntry ?? null} variant="strip" />
+          <EmployeeTimeClock
+            todayEntry={employeeTimeState?.todayEntry ?? null}
+            variant="strip"
+            workstations={employeeTimeState?.workstations ?? []}
+            assignedWorkstationId={employeeTimeState?.assignedWorkstationId ?? null}
+            todaySchedule={employeeTimeState?.todaySchedule ?? null}
+          />
         }
       employeeCalendar={
         employeeTimeState ? (

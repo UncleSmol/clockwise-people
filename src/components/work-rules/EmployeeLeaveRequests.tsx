@@ -1,9 +1,10 @@
 "use client";
 
-import { Calendar, CalendarPlus, FileText, Link, List, Send } from "lucide-react";
+import { Calendar, CalendarPlus, FileText, Link, List, Send, Timer } from "lucide-react";
 import { useActionState, useState } from "react";
 import {
   calculateLeaveRequestHours,
+  convertOvertimeToToil,
   submitLeaveRequest,
 } from "@/lib/work-rules/actions";
 import type {
@@ -75,6 +76,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
     calculateLeaveRequestHours,
     initialState,
   );
+  const [toilState, toilAction, toilPending] = useActionState(convertOvertimeToToil, initialState);
   const calculation = calculationState.calculation;
   const holidayDays =
     calculation?.days.filter((day) => day.reason === "public_holiday") ?? [];
@@ -291,6 +293,37 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
           </div>
         ))}
       </div>
+
+      <form action={toilAction} className="grid gap-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 font-semibold text-foreground">
+              <Timer className="size-4 text-accent" />
+              Convert overtime to TOIL
+            </h3>
+            <p className="mt-1 text-xs text-muted">
+              Accrue the current open payroll period&apos;s overtime as time off in lieu.
+            </p>
+          </div>
+          <button
+            disabled={toilPending}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+          >
+            {toilPending ? "Converting..." : "Convert to TOIL"}
+          </button>
+        </div>
+        {toilState.message ? (
+          <p
+            className={`rounded-md border px-3 py-2 text-sm font-medium ${
+              toilState.ok
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-danger/30 bg-danger/10 text-danger"
+            }`}
+          >
+            {toilState.message}
+          </p>
+        ) : null}
+      </form>
     </section>
   );
 }

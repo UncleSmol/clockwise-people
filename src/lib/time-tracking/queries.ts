@@ -30,6 +30,7 @@ type EmployeeRow = {
   known_as: string | null;
   avatar_url: string | null;
   workstation_id: string;
+  work_schedule_id: string | null;
   department_id?: string | null;
   job_title: string | null;
   company_workstations?: { name: string }[] | { name: string } | null;
@@ -221,6 +222,9 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       recentEvents: [],
       correctionRequests: [],
       publicHolidays: [],
+      workstations: [],
+      assignedWorkstationId: null,
+      todaySchedule: null,
     };
   }
 
@@ -244,10 +248,12 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     eventsResult,
     correctionRequestsResult,
     holidaysResult,
+    workstationsResult,
+    assignmentsResult,
   ] = await Promise.all([
     supabase
       .from("employees")
-      .select("id, full_name, known_as, avatar_url, job_title")
+      .select("id, full_name, known_as, avatar_url, job_title, work_schedule_id")
       .eq("id", access.employeeId)
       .is("deleted_at", null)
       .single(),
@@ -294,6 +300,24 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .gte("holiday_date", `${currentYear}-01-01`)
       .lte("holiday_date", `${currentYear}-12-31`)
       .order("holiday_date", { ascending: true }),
+    supabase
+      .from("company_workstations")
+      .select("id, name")
+      .eq("company_id", company.id)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("name", { ascending: true }),
+    supabase
+      .from("employee_workstation_assignments")
+      .select("workstation_id")
+      .eq("company_id", company.id)
+      .eq("employee_id", access.employeeId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .lte("effective_from", today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`)
+      .order("created_at", { ascending: false })
+      .limit(1),
   ]);
 
   if (employeeResult.error) {
@@ -320,6 +344,14 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     throw new Error(holidaysResult.error.message);
   }
 
+  if (workstationsResult.error && !workstationsResult.error.message.includes("schema cache")) {
+    throw new Error(workstationsResult.error.message);
+  }
+
+  if (assignmentsResult.error && !assignmentsResult.error.message.includes("schema cache")) {
+    throw new Error(assignmentsResult.error.message);
+  }
+
   const employeeRow = employeeResult.data as unknown as EmployeeRow;
   const todayEntryRow = (todayEntryResult.data as TimeEntryRecord | null) ?? null;
   const rawRecentEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
@@ -342,6 +374,30 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     locationEvents: locationEventsByEntry.get(entry.id) ?? [],
   }));
 
+  const workstations = ((workstationsResult.data ?? []) as { id: string; name: string }[]).map(
+    (workstation) => ({ id: workstation.id, name: workstation.name }),
+  );
+  const assignedWorkstationId = (assignmentsResult.data?.[0]?.workstation_id as string) ?? null;
+
+  let todaySchedule: EmployeeTimeState["todaySchedule"] = null;
+  if (employeeRow.work_schedule_id) {
+    const { data: scheduleDay } = await supabase
+      .from("schedule_days")
+      .select("start_time, end_time, lunch_minutes, is_working_day")
+      .eq("work_schedule_id", employeeRow.work_schedule_id)
+      .eq("day_of_week", new Date(`${today}T00:00:00`).getDay())
+      .maybeSingle();
+
+    if (scheduleDay) {
+      todaySchedule = {
+        start_time: scheduleDay.start_time ?? null,
+        end_time: scheduleDay.end_time ?? null,
+        lunch_minutes: Number(scheduleDay.lunch_minutes ?? 0),
+        is_working_day: Boolean(scheduleDay.is_working_day),
+      };
+    }
+  }
+
   return {
     currentWorkDate: today,
     employee: {
@@ -356,6 +412,9 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     recentEvents: (eventsResult.data ?? []) as ClockEventRecord[],
     correctionRequests: (correctionRequestsResult.data ?? []) as TimesheetCorrectionRequest[],
     publicHolidays: (holidaysResult.data ?? []) as CompanyPublicHoliday[],
+    workstations,
+    assignedWorkstationId,
+    todaySchedule,
   };
 });
 
@@ -387,7 +446,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     supabase
       .from("employees")
       .select(
-        "id, employee_number, full_name, known_as, avatar_url, department_id, job_title, departments(name)",
+        "id, employee_number, full_name, known_as, avatar_url, workstation_id, department_id, job_title, company_workstations(name), departments(name)",
       )
       .eq("company_id", company.id)
       .eq("employment_status", "active")
@@ -503,7 +562,7 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
   const { data, error } = await supabase
     .from("timesheet_correction_requests")
     .select(
-      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url)",
+      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -545,7 +604,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url)",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -610,7 +669,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as)",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .is("deleted_at", null)
@@ -643,6 +702,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
       knownAs: employee?.known_as ?? null,
+      avatarUrl: employee?.avatar_url ?? null,
       locationEvents: locationEventsByEntry.get(entry.id) ?? [],
       paidTimeOffHours: paidTimeOffHours(timeEntry),
     };

@@ -3,6 +3,7 @@ export const clockEventTypes = [
   "lunch_start",
   "lunch_end",
   "clock_out",
+  "switch_workstation",
 ] as const;
 
 export type ClockEventType = (typeof clockEventTypes)[number];
@@ -99,6 +100,14 @@ export type EmployeeTimeState = {
   recentEvents: ClockEventRecord[];
   correctionRequests: TimesheetCorrectionRequest[];
   publicHolidays: CompanyPublicHoliday[];
+  workstations: { id: string; name: string }[];
+  assignedWorkstationId: string | null;
+  todaySchedule: {
+    start_time: string | null;
+    end_time: string | null;
+    lunch_minutes: number;
+    is_working_day: boolean;
+  } | null;
 };
 
 export type CompanyLiveTimeEntry = {
@@ -162,6 +171,7 @@ export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
   employeeNumber: string;
   fullName: string;
   knownAs: string | null;
+  avatarUrl: string | null;
   workstationName: string | null;
   paidTimeOffHours: number;
   locationEvents: TimeClockLocationEvent[];

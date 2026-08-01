@@ -42,6 +42,7 @@ export async function recordClockEvent(
   const longitude = String(formData?.get("longitude") ?? "").trim();
   const accuracy = String(formData?.get("accuracy") ?? "").trim();
   const capturedAt = String(formData?.get("captured_at") ?? "").trim();
+  const workstationId = String(formData?.get("workstation_id") ?? "").trim();
 
   if (!latitude || !longitude) {
     return {
@@ -52,6 +53,7 @@ export async function recordClockEvent(
 
   const { data, error } = await supabase.rpc("record_employee_time_event", {
     requested_event: eventType,
+    workstation_id: workstationId || null,
     device_metadata: {
       location:
         latitude && longitude
@@ -136,6 +138,10 @@ export async function endLunch(formData?: FormData) {
 
 export async function clockOut(formData?: FormData) {
   return recordClockEvent("clock_out", formData);
+}
+
+export async function switchWorkstation(formData?: FormData) {
+  return recordClockEvent("switch_workstation", formData);
 }
 
 function optionalTime(formData: FormData, key: string) {
@@ -449,6 +455,10 @@ export async function submitSelectedTimesheets(
     .getAll("time_entry_ids")
     .map((value) => String(value).trim())
     .filter(Boolean);
+  const acknowledgedIds = formData
+    .getAll("acknowledged_ids")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
 
   if (timeEntryIds.length === 0) {
     return { ok: false, message: "Pick at least one timesheet to submit." };
@@ -457,6 +467,7 @@ export async function submitSelectedTimesheets(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("submit_own_timesheets", {
     target_time_entry_ids: timeEntryIds,
+    acknowledged_ids: acknowledgedIds,
   });
 
   if (error) {
