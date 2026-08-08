@@ -40,8 +40,8 @@ export default function EmployeeMyTimeHub({
   review,
 }: EmployeeMyTimeHubProps) {
   return (
-    <div className="grid min-w-0 gap-4">
-      <section className="card grid gap-3 p-4 sm:p-5">
+    <div className="grid min-w-0 grid-cols-1 gap-4">
+      <section className="card grid min-w-0 grid-cols-1 gap-3 p-4 sm:p-5">
         <StepHeading
           step="1"
           title="Clock in and out"
@@ -51,7 +51,7 @@ export default function EmployeeMyTimeHub({
         {clock}
       </section>
 
-      <section className="grid gap-3">
+      <section className="grid min-w-0 grid-cols-1 gap-3">
         <StepHeading
           step="2"
           title="Review and adjust"
@@ -61,7 +61,7 @@ export default function EmployeeMyTimeHub({
         {review}
       </section>
 
-      <section className="grid gap-3">
+      <section className="grid min-w-0 grid-cols-1 gap-3">
         <StepHeading
           step="3"
           title="Leave and accruals"

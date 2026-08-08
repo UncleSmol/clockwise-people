@@ -765,7 +765,7 @@ export default function EmployeeTimesheetCorrections({
     ) : null;
 
   return (
-    <section className="card grid min-w-0 gap-3 p-4">
+    <section className="card grid min-w-0 grid-cols-1 gap-3 p-4">
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Timesheets</h2>

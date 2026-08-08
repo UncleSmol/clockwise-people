@@ -94,7 +94,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
   }
 
   return (
-    <section className="card grid gap-3 p-4">
+    <section className="card grid min-w-0 grid-cols-1 gap-3 p-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <CalendarPlus className="size-5 text-accent" />
@@ -117,7 +117,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
         </p>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-[1fr_1.2fr]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1.2fr]">
         <div className="rounded-md border border-border bg-background p-3">
           <p className="text-sm font-semibold text-foreground">Available balances</p>
           <div className="mt-2 grid gap-2">
