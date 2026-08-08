@@ -133,18 +133,6 @@ function localDateValue() {
   return `${year}-${month}-${day}`;
 }
 
-function formatCoordinate(value: number) {
-  return value.toFixed(5);
-}
-
-function formatLocationLabel(details: {
-  accuracy: number;
-  latitude: number;
-  longitude: number;
-}) {
-  return `${formatCoordinate(details.latitude)}, ${formatCoordinate(details.longitude)} (+/-${Math.round(details.accuracy)}m)`;
-}
-
 function optimisticEntry(
   entry: TimeEntryRecord | null,
   eventLabel: string,
@@ -353,12 +341,6 @@ export default function EmployeeTimeClock({
     { label: "Lunch end", value: displayEntry?.lunch_end },
     { label: "Clock out", value: displayEntry?.clock_out },
   ];
-  const locationSummary = locationDetails
-    ? `Current location: ${formatLocationLabel(locationDetails)}`
-    : locationMessage ||
-      (typeof navigator !== "undefined" && !navigator.geolocation
-        ? "Location is unavailable on this device."
-        : "Checking current location...");
 
   if (variant === "strip") {
     const statusDot =
@@ -403,7 +385,7 @@ export default function EmployeeTimeClock({
                   name="requested_at"
                   type="time"
                   defaultValue={localTimeInputValue()}
-                  className="max-w-[7.5rem] bg-transparent text-xs font-semibold text-foreground outline-none"
+                  className="min-w-0 max-w-[7.5rem] bg-transparent text-xs font-semibold text-foreground outline-none"
                 />
               </label>
             ) : null}
@@ -413,8 +395,8 @@ export default function EmployeeTimeClock({
                 <select
                   value={workstationId}
                   onChange={(event) => setWorkstationId(event.target.value)}
-                  disabled={Boolean(displayEntry?.clock_out)}
-                  className="max-w-[9rem] bg-transparent text-xs font-semibold text-foreground outline-none"
+                  disabled={pending || locating}
+                  className="min-w-0 max-w-[9rem] cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none"
                 >
                   {workstations.map((workstation) => (
                     <option key={workstation.id} value={workstation.id}>
@@ -516,8 +498,8 @@ export default function EmployeeTimeClock({
                 <select
                   value={workstationId}
                   onChange={(event) => setWorkstationId(event.target.value)}
-                  disabled={Boolean(displayEntry?.clock_out)}
-                  className="h-9 min-w-0 flex-1 bg-transparent text-sm font-semibold text-primary-foreground outline-none"
+                  disabled={pending || locating}
+                  className="h-9 min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold text-primary-foreground outline-none"
                 >
                   {workstations.map((workstation) => (
                     <option key={workstation.id} value={workstation.id}>

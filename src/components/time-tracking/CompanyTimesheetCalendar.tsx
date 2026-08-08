@@ -8,14 +8,17 @@ import type { DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
   CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
   Clock3,
   MapPin,
   Pencil,
   Plus,
   Trash2,
   User,
+  XCircle,
 } from "lucide-react";
-import { useActionState, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
@@ -24,6 +27,7 @@ import {
   deleteManagedDraftTimeEntry,
   deleteTimeEntry,
   loadManagedLeaveRequestsToTimesheets,
+  reviewSubmittedTimesheets,
   updateManagedDraftTimeEntry,
 } from "@/lib/time-tracking/actions";
 import type {
@@ -78,6 +82,15 @@ function formatTimeRange(start: string | null, end: string | null) {
   if (!start && !end) return "--";
   if (start && end) return `${formatTime(start)} - ${formatTime(end)}`;
   return formatTime(start ?? end);
+}
+
+function formatDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-ZA", {
+    day: "numeric",
+    month: "short",
+    weekday: "short",
+  }).format(new Date(year, month - 1, day));
 }
 
 function geofenceLabel(status: string | null) {
@@ -159,17 +172,13 @@ export default function CompanyTimesheetCalendar({
   const [selectedEntry, setSelectedEntry] = useState<CompanyTimesheetCalendarEntry | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [showDateActions, setShowDateActions] = useState(false);
-  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) return "day";
+    if (typeof window !== "undefined" && window.innerWidth < 768) return "week";
+    return "month";
+  });
 
   const [showLegend, setShowLegend] = useState(false);
-
-  useLayoutEffect(() => {
-    if (window.innerWidth < 640) {
-      setCalendarWindow("day");
-    } else if (window.innerWidth < 768) {
-      setCalendarWindow("week");
-    }
-  }, []);
 
   const [calendarFocusDate, setCalendarFocusDate] = useState(() => {
     const today = new Date();
@@ -227,6 +236,21 @@ export default function CompanyTimesheetCalendar({
     deleteTimeEntry,
     initialActionState,
   );
+  const [approvalState, approvalAction, approvalPending] = useActionState(
+    reviewSubmittedTimesheets,
+    initialActionState,
+  );
+  const [selectedApprovalIds, setSelectedApprovalIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const employeeSubmitted = useMemo(() => {
+    if (!selectedEntry) return [];
+    return entries.filter(
+      (entry) =>
+        entry.employee_id === selectedEntry.employee_id && entry.status === "submitted",
+    );
+  }, [entries, selectedEntry]);
 
   const events = useMemo<EventInput[]>(
     () => {
@@ -288,6 +312,15 @@ export default function CompanyTimesheetCalendar({
       setSelectedEntry(entry);
       setEditing(false);
       setEditedTimes({});
+      setSelectedApprovalIds(
+        new Set(
+          entries
+            .filter(
+              (e) => e.employee_id === entry.employee_id && e.status === "submitted",
+            )
+            .map((e) => e.id),
+        ),
+      );
     }
   };
 
@@ -306,6 +339,7 @@ export default function CompanyTimesheetCalendar({
     setSelectedEntry(null);
     setEditing(false);
     setEditedTimes({});
+    setSelectedApprovalIds(new Set());
   };
 
   const startEditing = () => {
@@ -322,6 +356,22 @@ export default function CompanyTimesheetCalendar({
 
   const handleTimeChange = (name: string, value: string) => {
     setEditedTimes((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const toggleApprovalId = (id: string) => {
+    setSelectedApprovalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const setAllApprovalSelection = (checked: boolean) => {
+    setSelectedApprovalIds(new Set(checked ? employeeSubmitted.map((entry) => entry.id) : []));
   };
 
   const globalMessage = createState.message || loadLeaveState.message || updateState.message || deleteState.message;
@@ -606,6 +656,17 @@ export default function CompanyTimesheetCalendar({
                         setSelectedEntry(entry);
                         setEditing(false);
                         setEditedTimes({});
+                        setSelectedApprovalIds(
+                          new Set(
+                            entries
+                              .filter(
+                                (e) =>
+                                  e.employee_id === entry.employee_id &&
+                                  e.status === "submitted",
+                              )
+                              .map((e) => e.id),
+                          ),
+                        );
                       }}
                       className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
                         entry.missing_clocking || entry.late_arrival || entry.early_departure
@@ -709,7 +770,21 @@ export default function CompanyTimesheetCalendar({
                 <button
                   key={entry.id}
                   type="button"
-                  onClick={() => { setSelectedEntry(entry); setSelectedDate(""); setShowDateActions(false); }}
+                  onClick={() => {
+                    setSelectedEntry(entry);
+                    setSelectedDate("");
+                    setShowDateActions(false);
+                    setSelectedApprovalIds(
+                      new Set(
+                        entries
+                          .filter(
+                            (e) =>
+                              e.employee_id === entry.employee_id && e.status === "submitted",
+                          )
+                          .map((e) => e.id),
+                      ),
+                    );
+                  }}
                   className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-surface-muted"
                 >
                   <span className={statusBadgeClass(entry.status)}>
@@ -954,6 +1029,113 @@ export default function CompanyTimesheetCalendar({
                 </div>
               )}
             </div>
+
+            {/* Bulk approval for submitted entries */}
+            {selectedEntry.status === "submitted" && employeeSubmitted.length > 0 ? (
+              <div className="mt-2 overflow-hidden rounded-md border border-border bg-background">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-2.5 py-2">
+                  <p className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
+                    <ClipboardCheck className="size-3 text-accent" />
+                    {employeeSubmitted.length} submitted
+                  </p>
+                  {employeeSubmitted.length > 1 ? (
+                    <span className="flex shrink-0 gap-2 text-[10px] font-semibold text-muted">
+                      <button
+                        type="button"
+                        onClick={() => setAllApprovalSelection(true)}
+                        className="underline-offset-2 hover:text-accent hover:underline"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAllApprovalSelection(false)}
+                        className="underline-offset-2 hover:text-accent hover:underline"
+                      >
+                        Deselect
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
+                <form action={approvalAction} className="grid gap-2 p-2.5">
+                  <div className="max-h-44 overflow-y-auto rounded-md border border-border bg-surface">
+                    {employeeSubmitted.map((entry) => (
+                      <label
+                        key={entry.id}
+                        className="flex cursor-pointer items-start gap-2 border-b border-border px-2 py-1.5 text-xs last:border-b-0"
+                      >
+                        <input
+                          type="checkbox"
+                          name="time_entry_ids"
+                          value={entry.id}
+                          checked={selectedApprovalIds.has(entry.id)}
+                          onChange={() => toggleApprovalId(entry.id)}
+                          className="mt-0.5 size-3.5 shrink-0 accent-current"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="truncate font-semibold text-foreground">
+                              {formatDate(entry.work_date)}
+                            </span>
+                            <span className="shrink-0 font-semibold text-foreground">
+                              {formatHours(entry.paid_hours)}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block truncate text-muted">
+                            {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
+                            {Number(entry.overtime_hours ?? 0) > 0
+                              ? ` + ${formatHours(entry.overtime_hours)} OT`
+                              : ""}
+                            {entry.missing_clocking ||
+                            entry.late_arrival ||
+                            entry.early_departure
+                              ? " · needs review"
+                              : ""}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <textarea
+                    name="approval_notes"
+                    rows={1}
+                    placeholder="Approval note (optional)"
+                    className="w-full resize-none rounded border border-border bg-surface px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="submit"
+                      name="decision"
+                      value="reject"
+                      disabled={approvalPending || selectedApprovalIds.size === 0}
+                      className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1.5 text-xs font-semibold text-danger disabled:opacity-50"
+                    >
+                      <XCircle className="size-3.5 shrink-0" />
+                      {approvalPending ? "Working..." : "Reject"}
+                    </button>
+                    <button
+                      type="submit"
+                      name="decision"
+                      value="approve"
+                      disabled={approvalPending || selectedApprovalIds.size === 0}
+                      className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      {approvalPending ? "Working..." : "Approve"}
+                    </button>
+                  </div>
+                  {approvalState.message ? (
+                    <p
+                      className={`text-[11px] ${
+                        approvalState.ok ? "text-success" : "text-danger"
+                      }`}
+                    >
+                      {approvalState.message}
+                    </p>
+                  ) : null}
+                </form>
+              </div>
+            ) : null}
 
             {/* Delete action (always available) */}
             {!editing ? (

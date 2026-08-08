@@ -148,12 +148,12 @@ export default function CalendarWorkspace({
     setSwitcherExpanded((value) => !value);
   }, []);
 
-  useEffect(() => {
-    if (!activePanel) return;
-    if (window.innerWidth < 768) {
+  const handleOpenPanel = useCallback((key: string) => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
       setPanelWidthPercent(90);
     }
-  }, [activePanel]);
+    setActivePanelKey(key);
+  }, []);
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -184,7 +184,7 @@ export default function CalendarWorkspace({
   const isTeamMode = workspaceMode === "team" && isManager && managerCalendar;
 
   return (
-    <PanelContext.Provider value={{ openPanel: (key) => setActivePanelKey(key) }}>
+    <PanelContext.Provider value={{ openPanel: handleOpenPanel }}>
       <WorkspaceSectionContext.Provider
         value={
           employeeHub
@@ -262,7 +262,7 @@ export default function CalendarWorkspace({
                   key={panel.key}
                   type="button"
                   onClick={() => {
-                    setActivePanelKey(panel.key);
+                    handleOpenPanel(panel.key);
                     setShowServices(false);
                   }}
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-surface-muted"

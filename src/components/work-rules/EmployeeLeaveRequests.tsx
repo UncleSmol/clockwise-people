@@ -118,7 +118,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1.2fr]">
-        <div className="rounded-md border border-border bg-background p-3">
+        <div className="min-w-0 rounded-md border border-border bg-background p-3">
           <p className="text-sm font-semibold text-foreground">Available balances</p>
           <div className="mt-2 grid gap-2">
             {state.balances.length === 0 ? (
@@ -136,7 +136,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
           </div>
         </div>
 
-        <form action={formAction} className="grid gap-2 rounded-lg border border-border bg-background p-3">
+        <form action={formAction} className="grid min-w-0 gap-2 rounded-lg border border-border bg-background p-3">
           <p className="text-sm font-semibold text-foreground">New request</p>
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Leave Type</span>
@@ -158,7 +158,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
             </span>
           </label>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className="grid gap-1">
+            <label className="grid min-w-0 gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start Date</span>
               <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
                 <Calendar className="size-4 shrink-0 text-muted" />
@@ -171,7 +171,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
                 />
               </span>
             </label>
-            <label className="grid gap-1">
+            <label className="grid min-w-0 gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">End Date</span>
               <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
                 <Calendar className="size-4 shrink-0 text-muted" />
@@ -279,7 +279,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               </span>
             </div>
           )}
-          <label className="grid gap-1">
+          <label className="grid min-w-0 gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Attachment Link</span>
             <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
               <Link className="size-4 shrink-0 text-muted" />
@@ -292,7 +292,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               />
             </span>
           </label>
-          <label className="grid gap-1">
+          <label className="grid min-w-0 gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
             <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
               <FileText className="size-4 shrink-0 text-muted" />
@@ -306,17 +306,17 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               />
             </span>
           </label>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             <button
               formAction={calculationAction}
               disabled={calculationPending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
+              className="min-w-0 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
             >
               {calculationPending ? "Preparing..." : "Get advice"}
             </button>
             <button
               disabled={pending || Boolean(calculation?.exceeds_balance)}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="min-w-0 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               <Send className="size-4" />
               {pending ? "Sending..." : "Send request"}

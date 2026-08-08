@@ -25,7 +25,7 @@ import {
   UtensilsCrossed,
   X,
 } from "lucide-react";
-import { useActionState, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
 import {
@@ -295,17 +295,14 @@ export default function EmployeeTimesheetCorrections({
   publicHolidays,
 }: EmployeeTimesheetCorrectionsProps) {
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
-  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
+    if (typeof window === "undefined") return "month";
+    if (window.innerWidth < 640) return "day";
+    if (window.innerWidth < 768) return "week";
+    return "month";
+  });
   const section = useWorkspaceSection();
   const { openPanel } = usePanel();
-
-  useLayoutEffect(() => {
-    if (window.innerWidth < 640) {
-      setCalendarWindow("day");
-    } else if (window.innerWidth < 768) {
-      setCalendarWindow("week");
-    }
-  }, []);
 
   const [showLegend, setShowLegend] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");

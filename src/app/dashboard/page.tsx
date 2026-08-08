@@ -223,6 +223,51 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     weekday: "long",
   }).format(new Date());
 
+  const todayEntry = employeeTimeState?.todayEntry ?? null;
+  const draftCount =
+    employeeTimeState?.recentEntries.filter((entry) => entry.status === "draft").length ?? 0;
+  const submittedCount =
+    employeeTimeState?.recentEntries.filter((entry) => entry.status === "submitted").length ?? 0;
+  const pendingLeaveCount =
+    leaveState?.requests.filter((request) => request.status === "submitted").length ?? 0;
+
+  const clockBadge = !todayEntry?.clock_in ? (
+    <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+      Not clocked in
+    </span>
+  ) : todayEntry.clock_out ? (
+    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted">
+      Complete
+    </span>
+  ) : (
+    <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
+      Clocked in
+    </span>
+  );
+
+  const timesheetBadge = draftCount === 0 && submittedCount === 0 ? (
+    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted">
+      Up to date
+    </span>
+  ) : (
+    <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+      {draftCount > 0
+        ? `${draftCount} draft${draftCount === 1 ? "" : "s"}`
+        : `${submittedCount} pending`}
+      {draftCount > 0 && submittedCount > 0 ? ` · ${submittedCount} pending` : ""}
+    </span>
+  );
+
+  const leaveBadge = pendingLeaveCount > 0 ? (
+    <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+      {pendingLeaveCount} pending
+    </span>
+  ) : (
+    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted">
+      No pending
+    </span>
+  );
+
   const employeeDeactivateAction = selectedEmployee
     ? deactivateEmployee.bind(null, selectedEmployee.id)
     : null;
@@ -526,6 +571,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 todaySchedule={employeeTimeState.todaySchedule ?? null}
               />
             }
+            clockBadge={clockBadge}
             review={
               <EmployeeTimesheetCorrections
                 collapsedCalendar
@@ -535,6 +581,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 publicHolidays={employeeTimeState.publicHolidays}
               />
             }
+            timesheetBadge={timesheetBadge}
             leave={
               leaveState ? (
                 <EmployeeLeaveRequests state={leaveState} />
@@ -544,6 +591,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </section>
               )
             }
+            leaveBadge={leaveBadge}
           />
         ) : (
           <section className="card p-6 text-sm text-muted">
