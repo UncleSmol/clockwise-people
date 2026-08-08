@@ -7,6 +7,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarDays,
+  ChevronUp,
   CalendarRange,
   ClipboardCheck,
   Clock3,
@@ -93,7 +94,15 @@ export default function CalendarWorkspace({
   const [panelWidthPercent, setPanelWidthPercent] = useState(80);
   const resizingRef = useRef(false);
   const [switcherPos, setSwitcherPos] = useState({ x: 16, y: 80 });
-  const switcherDragRef = useRef({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const [switcherExpanded, setSwitcherExpanded] = useState(false);
+  const switcherDragRef = useRef({
+    dragging: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    origX: 0,
+    origY: 0,
+  });
   const switcherElRef = useRef<HTMLDivElement>(null);
 
   const handleSwitcherPointerDown = useCallback((e: PointerEvent) => {
@@ -103,6 +112,7 @@ export default function CalendarWorkspace({
     el.setPointerCapture(e.pointerId);
     switcherDragRef.current = {
       dragging: true,
+      moved: false,
       startX: e.clientX,
       startY: e.clientY,
       origX: switcherPos.x,
@@ -112,10 +122,14 @@ export default function CalendarWorkspace({
 
   useEffect(() => {
     const handleMove = (e: globalThis.PointerEvent) => {
-      if (!switcherDragRef.current.dragging) return;
+      const drag = switcherDragRef.current;
+      if (!drag.dragging) return;
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true;
       setSwitcherPos({
-        x: switcherDragRef.current.origX + (e.clientX - switcherDragRef.current.startX),
-        y: switcherDragRef.current.origY + (e.clientY - switcherDragRef.current.startY),
+        x: drag.origX + dx,
+        y: drag.origY + dy,
       });
     };
     const handleUp = () => {
@@ -127,6 +141,11 @@ export default function CalendarWorkspace({
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
     };
+  }, []);
+
+  const handleSwitcherClick = useCallback(() => {
+    if (switcherDragRef.current.moved) return;
+    setSwitcherExpanded((value) => !value);
   }, []);
 
   useEffect(() => {
@@ -345,29 +364,52 @@ export default function CalendarWorkspace({
         <div
           ref={switcherElRef}
           style={{ left: switcherPos.x, top: switcherPos.y }}
-          className="fixed z-50 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg cursor-grab active:cursor-grabbing select-none touch-none"
+          className="fixed z-50 touch-none select-none cursor-grab active:cursor-grabbing"
           onPointerDown={handleSwitcherPointerDown}
         >
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent">Company</span>
-          <select
-            value={companyName}
-            onChange={(e) => {
-              const target = e.target as HTMLSelectElement;
-              const selected = target.options[target.selectedIndex];
-              const companyId = selected.dataset.companyId;
-              if (companyId) {
-                document.cookie = `active_company_id=${companyId}; path=/; max-age=31536000`;
-                router.refresh();
-              }
-            }}
-            className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer"
-          >
-            {companies.map((c) => (
-              <option key={c.id} value={c.name} data-company-id={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {switcherExpanded ? (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg">
+              <button
+                type="button"
+                onClick={handleSwitcherClick}
+                aria-label="Collapse company switcher"
+                className="grid size-6 shrink-0 place-items-center rounded-md text-muted hover:bg-surface-muted hover:text-foreground"
+              >
+                <ChevronUp className="size-4" />
+              </button>
+              <select
+                value={companyName}
+                onChange={(e) => {
+                  const target = e.target as HTMLSelectElement;
+                  const selected = target.options[target.selectedIndex];
+                  const companyId = selected.dataset.companyId;
+                  if (companyId) {
+                    document.cookie = `active_company_id=${companyId}; path=/; max-age=31536000`;
+                    router.refresh();
+                  }
+                }}
+                className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer"
+              >
+                {companies.map((c) => (
+                  <option key={c.id} value={c.name} data-company-id={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSwitcherClick}
+              aria-label="Expand company switcher"
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg"
+            >
+              <Building2 className="size-4 text-accent" />
+              <span className="pointer-events-none max-w-[140px] truncate text-xs font-semibold text-foreground">
+                {companyName}
+              </span>
+            </button>
+          )}
         </div>
       ) : null}
     </div>

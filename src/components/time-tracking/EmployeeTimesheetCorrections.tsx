@@ -600,26 +600,26 @@ export default function EmployeeTimesheetCorrections({
           </form>
         ) : (
           <div className="grid gap-2">
-            <div className="grid grid-cols-4 items-start gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
-              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+            <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                 <Clock className="size-3.5 text-accent" />
                 <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
                   {shortTime(entry.clock_in)}
                 </span>
               </span>
-              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                 <UtensilsCrossed className="size-3.5 text-accent" />
                 <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
                   {shortLunch(entry.lunch_start, entry.lunch_end)}
                 </span>
               </span>
-              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                 <LogOut className="size-3.5 text-accent" />
                 <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
                   {shortTime(entry.clock_out)}
                 </span>
               </span>
-              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                 {hasWarning ? (
                   <AlertTriangle className="size-3.5 text-warning" />
                 ) : (
@@ -1165,26 +1165,26 @@ export default function EmployeeTimesheetCorrections({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-4 items-start gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
-                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                  <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                       <Clock className="size-3.5 text-accent" />
                       <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
                         {shortTime(entry.clock_in)}
                       </span>
                     </span>
-                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                       <UtensilsCrossed className="size-3.5 text-accent" />
                       <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
                         {shortLunch(entry.lunch_start, entry.lunch_end)}
                       </span>
                     </span>
-                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                       <LogOut className="size-3.5 text-accent" />
                       <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
                         {shortTime(entry.clock_out)}
                       </span>
                     </span>
-                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                       {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
                         <AlertTriangle className="size-3.5 text-warning" />
                       ) : (

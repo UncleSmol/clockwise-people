@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.8.8",
+  "version": "2026.8.8-mobile-my-time-and-block-company-switcher",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
