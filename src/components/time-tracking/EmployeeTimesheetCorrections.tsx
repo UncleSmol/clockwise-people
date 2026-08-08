@@ -858,7 +858,7 @@ export default function EmployeeTimesheetCorrections({
             Rejected
           </span>
         </div>
-        <div ref={calendarRef} className="cw-timesheet-calendar max-sm:hidden">
+        <div ref={calendarRef} className="cw-timesheet-calendar min-w-0 max-sm:hidden">
           <FullCalendar
             key={`${calendarWindow}-${calendarFocusDate}`}
             plugins={[dayGridPlugin, interactionPlugin]}

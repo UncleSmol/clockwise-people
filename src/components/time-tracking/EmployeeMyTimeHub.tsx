@@ -52,24 +52,30 @@ function StepItem({
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-4 text-left sm:px-5"
+        className="flex w-full items-start gap-3 px-4 py-4 text-left sm:items-center sm:px-5"
       >
         <span
-          className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${toneBadge}`}
+          className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${toneBadge}`}
         >
           {step}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2 text-base font-semibold text-foreground">
-            {icon}
-            {title}
+          <span className="flex min-w-0 items-center gap-2 text-base font-semibold text-foreground">
+            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+              {icon}
+            </span>
+            <span className="truncate">{title}</span>
           </span>
-          <span className="mt-0.5 block text-xs text-muted">{description}</span>
+          <span className="mt-0.5 block text-xs leading-snug text-muted sm:pl-8">
+            {description}
+          </span>
         </span>
-        {badge ? <span className="shrink-0">{badge}</span> : null}
-        <ChevronDown
-          className={`size-4 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
-        />
+        <span className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5 sm:flex-row sm:items-center sm:pt-0">
+          {badge ? badge : null}
+          <ChevronDown
+            className={`size-4 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </span>
       </button>
       {open ? <div className="min-w-0 border-t border-border p-4 sm:p-5">{children}</div> : null}
     </section>

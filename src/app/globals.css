@@ -401,10 +401,24 @@ select {
   --fc-small-font-size: 0.75rem;
   --fc-today-bg-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-background));
   color: var(--color-foreground);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: clip;
 }
 
 .cw-timesheet-calendar .fc {
   font-family: inherit;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cw-timesheet-calendar .fc-scrollgrid {
+  max-width: 100%;
+}
+
+.cw-timesheet-calendar .fc-daygrid-day-events {
+  min-width: 0;
 }
 
 .cw-timesheet-calendar .fc-toolbar {
