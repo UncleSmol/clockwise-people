@@ -43,6 +43,7 @@ export async function recordClockEvent(
   const accuracy = String(formData?.get("accuracy") ?? "").trim();
   const capturedAt = String(formData?.get("captured_at") ?? "").trim();
   const workstationId = String(formData?.get("workstation_id") ?? "").trim();
+  const requestedAt = String(formData?.get("requested_at") ?? "").trim() || null;
 
   if (!latitude || !longitude) {
     return {
@@ -54,6 +55,7 @@ export async function recordClockEvent(
   const { data, error } = await supabase.rpc("record_employee_time_event", {
     requested_event: eventType,
     workstation_id: workstationId || null,
+    requested_at: requestedAt,
     device_metadata: {
       location:
         latitude && longitude

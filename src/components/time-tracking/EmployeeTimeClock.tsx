@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { LocateFixed, MapPin } from "lucide-react";
+import { Clock, LocateFixed, MapPin } from "lucide-react";
 import {
   clockIn,
   clockOut,
@@ -38,27 +38,36 @@ const initialState: ClockActionState = {
   message: "",
 };
 
-function nextAction(
-  entry: TimeEntryRecord | null,
-  noLunchToday: boolean,
-): { action: (formData?: FormData) => Promise<ClockActionState>; label: string; tone: string } | null {
+type ClockAction = {
+  action: (formData?: FormData) => Promise<ClockActionState>;
+  label: string;
+  tone: "primary" | "secondary" | "danger";
+};
+
+function nextActions(entry: TimeEntryRecord | null, noLunchToday: boolean): ClockAction[] {
   if (!entry?.clock_in) {
-    return { label: "Clock in", action: clockIn, tone: "primary" };
+    return [{ label: "Clock in", action: clockIn, tone: "primary" }];
   }
 
-  if (!entry.lunch_start && !entry.clock_out && !noLunchToday) {
-    return { label: "Start lunch", action: startLunch, tone: "secondary" };
-  }
-
-  if (entry.lunch_start && !entry.lunch_end && !entry.clock_out) {
-    return { label: "End lunch", action: endLunch, tone: "primary" };
-  }
+  const actions: ClockAction[] = [];
 
   if (!entry.clock_out) {
-    return { label: "Clock out", action: clockOut, tone: "danger" };
+    if (!entry.lunch_start && !noLunchToday) {
+      actions.push({ label: "Start lunch", action: startLunch, tone: "secondary" });
+    } else if (entry.lunch_start && !entry.lunch_end) {
+      actions.push({ label: "End lunch", action: endLunch, tone: "primary" });
+    }
+
+    actions.push({ label: "Clock out", action: clockOut, tone: "danger" });
   }
 
-  return null;
+  return actions;
+}
+
+function toneButtonClass(tone: ClockAction["tone"]) {
+  if (tone === "danger") return "bg-danger text-white";
+  if (tone === "secondary") return "border border-border bg-surface text-foreground";
+  return "bg-primary text-primary-foreground";
 }
 
 function formatTime(value: string | null | undefined) {
@@ -109,6 +118,14 @@ function localTimeValue() {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+function localTimeInputValue() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+}
+
 function localDateValue() {
   const now = new Date();
   const year = now.getFullYear();
@@ -134,6 +151,7 @@ function optimisticEntry(
   entry: TimeEntryRecord | null,
   eventLabel: string,
   workstationId: string,
+  requestedAt?: string | null,
 ): TimeEntryRecord {
   const current = entry ?? {
     workstation_id: workstationId || null,
@@ -158,7 +176,7 @@ function optimisticEntry(
     work_date: localDateValue(),
   };
   const next = { ...current };
-  const time = localTimeValue();
+  const time = eventLabel === "Clock in" && requestedAt ? requestedAt : localTimeValue();
 
   if (eventLabel === "Clock in") next.clock_in = time;
   if (eventLabel === "Start lunch") next.lunch_start = time;
@@ -197,21 +215,33 @@ export default function EmployeeTimeClock({
   const locationReadyRef = useRef(false);
   const hasLoadedInitialLocationRef = useRef(false);
   const switchPendingRef = useRef(false);
+  const pendingActionRef = useRef<string | null>(null);
   const noLunchToday = Boolean(todaySchedule && todaySchedule.lunch_minutes <= 0);
   const [state, formAction, pending] = useActionState(
     async (previousState: ClockActionState, formData: FormData) => {
       const currentEntry = previousState.entry ?? optimistic ?? todayEntry;
+      const requestedAt = String(formData.get("requested_at") ?? "").trim() || null;
       const overrideLabel = switchPendingRef.current ? "Switch workstation" : null;
       switchPendingRef.current = false;
-      const currentAction = overrideLabel
-        ? { label: overrideLabel, action: switchWorkstation, tone: "secondary" }
-        : nextAction(currentEntry, noLunchToday);
+      let currentAction: ClockAction | null = null;
+
+      if (overrideLabel) {
+        currentAction = { label: overrideLabel, action: switchWorkstation, tone: "secondary" };
+      } else {
+        const pendingLabel = pendingActionRef.current;
+        pendingActionRef.current = null;
+        const available = nextActions(currentEntry, noLunchToday);
+        currentAction =
+          available.find((item) => item.label === pendingLabel) ?? available[0] ?? null;
+      }
 
       if (!currentAction) {
         return { ok: false, message: "Today is already complete." };
       }
 
-      setOptimistic(optimisticEntry(currentEntry, currentAction.label, workstationId));
+      setOptimistic(
+        optimisticEntry(currentEntry, currentAction.label, workstationId, requestedAt),
+      );
       const result = await currentAction.action(formData);
       setOptimistic(null);
 
@@ -220,7 +250,8 @@ export default function EmployeeTimeClock({
     initialState,
   );
   const displayEntry = state.entry ?? optimistic ?? todayEntry;
-  const actionConfig = nextAction(displayEntry, noLunchToday);
+  const availableActions = nextActions(displayEntry, noLunchToday);
+  const canClockIn = availableActions.some((action) => action.label === "Clock in");
   const canSwitch =
     Boolean(displayEntry?.clock_in) && !displayEntry?.clock_out && workstations.length > 0;
   const latestGeofenceStatus = displayEntry?.locationEvents?.at(-1)?.geofence_status ?? null;
@@ -316,12 +347,6 @@ export default function EmployeeTimeClock({
   };
 
   const status = currentStatus(displayEntry);
-  const buttonClass =
-    actionConfig?.tone === "danger"
-      ? "bg-danger text-white"
-      : actionConfig?.tone === "secondary"
-        ? "border border-border bg-surface text-foreground"
-        : "bg-primary text-primary-foreground";
   const timeline = [
     { label: "Clock in", value: displayEntry?.clock_in },
     { label: "Lunch start", value: displayEntry?.lunch_start },
@@ -359,7 +384,7 @@ export default function EmployeeTimeClock({
           {formatHours(displayEntry?.paid_hours)}
         </span>
 
-        {actionConfig || canSwitch ? (
+        {availableActions.length > 0 || canSwitch ? (
           <form
             action={formAction}
             onSubmit={handleSubmit}
@@ -371,6 +396,17 @@ export default function EmployeeTimeClock({
             <input name="accuracy" ref={accuracyRef} type="hidden" />
             <input name="captured_at" ref={capturedAtRef} type="hidden" />
             <input name="workstation_id" type="hidden" value={workstationId} />
+            {canClockIn ? (
+              <label className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
+                <Clock className="size-3.5 shrink-0 text-muted" />
+                <input
+                  name="requested_at"
+                  type="time"
+                  defaultValue={localTimeInputValue()}
+                  className="max-w-[7.5rem] bg-transparent text-xs font-semibold text-foreground outline-none"
+                />
+              </label>
+            ) : null}
             {workstations.length > 0 ? (
               <label className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
                 <MapPin className="size-3.5 shrink-0 text-muted" />
@@ -400,14 +436,21 @@ export default function EmployeeTimeClock({
                 {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
               </button>
             ) : null}
-            {actionConfig ? (
+            {availableActions.map((action) => (
               <button
+                key={action.label}
+                type="submit"
+                name="clock_action"
+                value={action.label}
+                onClick={() => {
+                  pendingActionRef.current = action.label;
+                }}
                 disabled={pending || locating}
-                className={`btn ${actionConfig.tone === "danger" ? "btn-danger" : actionConfig.tone === "secondary" ? "btn-outline" : "btn-accent"}`}
+                className={`btn ${action.tone === "danger" ? "btn-danger" : action.tone === "secondary" ? "btn-outline" : "btn-accent"}`}
               >
-                {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
+                {pending ? "Saving..." : locating ? "Locating..." : action.label}
               </button>
-            ) : null}
+            ))}
           </form>
         ) : (
           <span className="badge badge-success">Complete</span>
@@ -444,7 +487,7 @@ export default function EmployeeTimeClock({
             {displayEntry?.work_date ?? "No time record started yet"}
           </p>
         </div>
-        {actionConfig || canSwitch ? (
+        {availableActions.length > 0 || canSwitch ? (
           <form
             action={formAction}
             onSubmit={handleSubmit}
@@ -456,6 +499,17 @@ export default function EmployeeTimeClock({
             <input name="accuracy" ref={accuracyRef} type="hidden" />
             <input name="captured_at" ref={capturedAtRef} type="hidden" />
             <input name="workstation_id" type="hidden" value={workstationId} />
+            {canClockIn ? (
+              <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
+                <Clock className="size-4 shrink-0 opacity-80" />
+                <input
+                  name="requested_at"
+                  type="time"
+                  defaultValue={localTimeInputValue()}
+                  className="h-9 min-w-0 flex-1 bg-transparent text-sm font-semibold text-primary-foreground outline-none"
+                />
+              </label>
+            ) : null}
             {workstations.length > 0 ? (
               <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
                 <MapPin className="size-4 shrink-0 opacity-80" />
@@ -486,14 +540,21 @@ export default function EmployeeTimeClock({
                   {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
                 </button>
               ) : null}
-              {actionConfig ? (
+              {availableActions.map((action) => (
                 <button
+                  key={action.label}
+                  type="submit"
+                  name="clock_action"
+                  value={action.label}
+                  onClick={() => {
+                    pendingActionRef.current = action.label;
+                  }}
                   disabled={pending || locating}
-                  className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${buttonClass}`}
+                  className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${toneButtonClass(action.tone)}`}
                 >
-                  {pending ? "Saving..." : locating ? "Locating..." : actionConfig.label}
+                  {pending ? "Saving..." : locating ? "Locating..." : action.label}
                 </button>
-              ) : null}
+              ))}
             </div>
           </form>
         ) : (
