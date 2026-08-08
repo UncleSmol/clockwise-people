@@ -2,7 +2,6 @@
 
 import { signOut } from "@/lib/auth/actions";
 import NotificationMenu from "@/components/NotificationMenu";
-import ThemeToggle from "@/components/ThemeToggle";
 import type { DashboardNotification } from "@/lib/dashboard/schema";
 
 type DashboardNavigationProps = {
@@ -18,7 +17,6 @@ export default function DashboardNavigation({
 }: DashboardNavigationProps) {
   return (
     <div className="flex items-center gap-1">
-      <ThemeToggle />
       <NotificationMenu companyId={companyId} notifications={notifications} />
       <form action={signOut}>
         <button

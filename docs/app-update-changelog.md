@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.06.26-account-admin-nav-notifications`. It covers moving admin links into Account and adding navbar notifications.
+The latest seeded production changelog is `2026.8.8-mobile-responsive-pattern-background`. It covers the mobile responsiveness polish (compact timesheet cards, 40px touch targets, 320px-wide support) and the new blueprint-pattern app background with a light-only theme.

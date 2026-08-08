@@ -1,12 +1,16 @@
 "use client";
 
 import {
+  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
+  Clock,
   FileText,
   LocateFixed,
+  LogOut,
   MapPin,
   Timer,
+  UtensilsCrossed,
   XCircle,
 } from "lucide-react";
 import { useActionState } from "react";
@@ -52,6 +56,17 @@ function formatTime(value: string | null) {
 
 function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
+}
+
+function shortTime(value: string | null) {
+  return value ? formatTime(value) : "–";
+}
+
+function shortLunch(start: string | null, end: string | null) {
+  if (!start && !end) return "–";
+  if (start && !end) return formatTime(start);
+  if (!start && end) return formatTime(end);
+  return `${shortTime(start)}-${shortTime(end)}`;
 }
 
 function geofenceLabel(status: string | null) {
@@ -129,19 +144,21 @@ export default function CompanyTimesheetApprovalQueue({
                       : "border-success/30 bg-success/10"
                   }`}
                 >
-                  <div className="grid gap-3 lg:grid-cols-[24px_1fr_1.2fr] lg:items-center">
-                    <input
-                      type="checkbox"
-                      name="time_entry_ids"
-                      value={timesheet.id}
-                      aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
-                      className="size-4 accent-current"
-                    />
+                  <div className="grid gap-2 lg:grid-cols-[40px_1fr_1.2fr] lg:items-center">
+                    <label className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-md lg:mx-auto lg:size-6 lg:rounded-none">
+                      <input
+                        type="checkbox"
+                        name="time_entry_ids"
+                        value={timesheet.id}
+                        aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
+                        className="size-5 accent-current lg:size-4"
+                      />
+                    </label>
                     <div className="flex min-w-0 items-center gap-2">
                       <EmployeeAvatar
                         name={timesheet.knownAs ?? timesheet.fullName}
                         src={timesheet.avatarUrl}
-                        className="size-9"
+                        className="size-9 shrink-0"
                       />
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-foreground">
@@ -153,39 +170,63 @@ export default function CompanyTimesheetApprovalQueue({
                         </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                      <span>In: {formatTime(timesheet.clock_in)}</span>
-                      <span>Lunch: {formatTime(timesheet.lunch_start)} - {formatTime(timesheet.lunch_end)}</span>
-                      <span>Out: {formatTime(timesheet.clock_out)}</span>
-                      <span>{hasWarning ? "Check" : "Good"}</span>
+                    <div className="grid grid-cols-4 items-start gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+                      <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        <Clock className="size-3.5 text-accent" />
+                        <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(timesheet.clock_in)}`}>
+                          {shortTime(timesheet.clock_in)}
+                        </span>
+                      </span>
+                      <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        <UtensilsCrossed className="size-3.5 text-accent" />
+                        <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(timesheet.lunch_start, timesheet.lunch_end)}`}>
+                          {shortLunch(timesheet.lunch_start, timesheet.lunch_end)}
+                        </span>
+                      </span>
+                      <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        <LogOut className="size-3.5 text-accent" />
+                        <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(timesheet.clock_out)}`}>
+                          {shortTime(timesheet.clock_out)}
+                        </span>
+                      </span>
+                      <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        {hasWarning ? (
+                          <AlertTriangle className="size-3.5 text-warning" />
+                        ) : (
+                          <CheckCircle2 className="size-3.5 text-success" />
+                        )}
+                        <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted">
+                          {hasWarning ? "Check" : "Good"}
+                        </span>
+                      </span>
                     </div>
                   </div>
 
-                  <div className="grid gap-2 sm:grid-cols-4">
-                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
                       <p className="flex items-center gap-1.5 text-xs text-muted">
-                        <Timer className="size-3.5" />
+                        <Timer className="size-3.5 shrink-0" />
                         NT
                       </p>
-                      <p className="mt-1 font-semibold text-foreground">
+                      <p className="mt-1 truncate font-semibold text-foreground">
                         {formatHours(timesheet.normal_hours)}
                       </p>
                     </div>
-                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
                       <p className="text-xs text-muted">OT</p>
-                      <p className="mt-1 font-semibold text-warning">
+                      <p className="mt-1 truncate font-semibold text-warning">
                         {formatHours(timesheet.overtime_hours)}
                       </p>
                     </div>
-                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
                       <p className="text-xs text-muted">Paid leave</p>
-                      <p className="mt-1 font-semibold text-accent">
+                      <p className="mt-1 truncate font-semibold text-accent">
                         {formatHours(timesheet.paidTimeOffHours)}
                       </p>
                     </div>
-                    <div className="rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
                       <p className="text-xs text-muted">Lunch break</p>
-                      <p className="mt-1 font-semibold text-foreground">
+                      <p className="mt-1 truncate font-semibold text-foreground">
                         {formatHours(timesheet.lunch_hours)}
                       </p>
                     </div>
@@ -257,18 +298,18 @@ export default function CompanyTimesheetApprovalQueue({
               name="decision"
               value="reject"
               disabled={pending}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-danger/40 bg-surface px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-danger/40 bg-surface px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60 sm:min-h-0"
             >
-              <XCircle className="size-4" />
+              <XCircle className="size-4 shrink-0" />
               {pending ? "Working..." : "Reject selected"}
             </button>
             <button
               name="decision"
               value="approve"
               disabled={pending}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
             >
-              <CheckCircle2 className="size-4" />
+              <CheckCircle2 className="size-4 shrink-0" />
               {pending ? "Working..." : "Approve selected"}
             </button>
           </div>

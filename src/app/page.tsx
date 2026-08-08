@@ -3,7 +3,7 @@ import BrandMark from "@/components/BrandMark";
 
 export default function Home() {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6 text-foreground">
+    <main className="grid min-h-screen place-items-center px-6 text-foreground">
       <div className="text-center">
         <BrandMark
           className="mb-6 flex justify-center"

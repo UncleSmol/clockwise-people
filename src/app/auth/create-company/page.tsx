@@ -3,7 +3,7 @@ import CreateCompanyForm from "@/components/CreateCompanyForm";
 
 export default function CreateCompanyPage() {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6 py-10 text-foreground">
+    <main className="grid min-h-screen place-items-center px-6 py-10 text-foreground">
       <section className="w-full max-w-sm">
         <BrandMark
           className="mb-6 flex justify-center"

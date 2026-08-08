@@ -179,7 +179,7 @@ export default function CalendarWorkspace({
               : "full"
         }
       >
-    <div className="flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-col gap-0">
+    <div className="flex min-h-[calc(100dvh-3.5rem)] min-w-0 flex-col gap-0">
       <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
         <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3">
           <div className="flex min-w-0 items-center gap-2">

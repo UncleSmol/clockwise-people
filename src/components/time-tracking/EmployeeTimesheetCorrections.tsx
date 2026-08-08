@@ -16,11 +16,13 @@ import {
   FileQuestion,
   FileText,
   LocateFixed,
+  LogOut,
   MapPin,
   Plus,
   Save,
   Send,
   Trash2,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
 import { useActionState, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -106,6 +108,17 @@ function formatTimeRange(start: string | null, end: string | null) {
   if (start && !end) return `${formatTime(start)} - active`;
   if (!start && end) return `Started before ${formatTime(end)}`;
   return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
+function shortTime(value: string | null) {
+  return value ? formatTime(value) : "–";
+}
+
+function shortLunch(start: string | null, end: string | null) {
+  if (!start && !end) return "–";
+  if (start && !end) return formatTime(start);
+  if (!start && end) return formatTime(end);
+  return `${shortTime(start)}-${shortTime(end)}`;
 }
 
 function inputTime(value: string | null) {
@@ -500,25 +513,23 @@ export default function EmployeeTimesheetCorrections({
             : "border-success/30 bg-success/10"
         }`}
       >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="flex items-center gap-2 font-semibold text-foreground">
-              {hasWarning ? (
-                <AlertTriangle className="size-4 text-danger" />
-              ) : (
-                <CheckCircle2 className="size-4 text-success" />
-              )}
-              {formatDate(entry.work_date)}
-            </p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
-              {rejected ? "Rejected" : editable ? "Draft" : entry.status}
-            </p>
-          </div>
-          <span className="inline-flex w-max items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-foreground">
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
+            {hasWarning ? (
+              <AlertTriangle className="size-4 shrink-0 text-danger" />
+            ) : (
+              <CheckCircle2 className="size-4 shrink-0 text-success" />
+            )}
+            <span className="truncate">{formatDate(entry.work_date)}</span>
+          </p>
+          <span className="inline-flex w-max shrink-0 items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-foreground">
             <Clock3 className="size-3.5" />
             {formatHours(entry.paid_hours)}
           </span>
         </div>
+        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted">
+          {rejected ? "Rejected" : editable ? "Draft" : entry.status}
+        </p>
 
         {rejected ? (
           <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">
@@ -589,11 +600,35 @@ export default function EmployeeTimesheetCorrections({
           </form>
         ) : (
           <div className="grid gap-2">
-            <div className="grid gap-2 sm:grid-cols-4">
-              <span>In: {formatTime(entry.clock_in)}</span>
-              <span>Lunch: {formatTimeRange(entry.lunch_start, entry.lunch_end)}</span>
-              <span>Out: {formatTime(entry.clock_out)}</span>
-              <span className="font-semibold">Submitted</span>
+            <div className="grid grid-cols-4 items-start gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                <Clock className="size-3.5 text-accent" />
+                <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
+                  {shortTime(entry.clock_in)}
+                </span>
+              </span>
+              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                <UtensilsCrossed className="size-3.5 text-accent" />
+                <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
+                  {shortLunch(entry.lunch_start, entry.lunch_end)}
+                </span>
+              </span>
+              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                <LogOut className="size-3.5 text-accent" />
+                <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
+                  {shortTime(entry.clock_out)}
+                </span>
+              </span>
+              <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                {hasWarning ? (
+                  <AlertTriangle className="size-3.5 text-warning" />
+                ) : (
+                  <CheckCircle2 className="size-3.5 text-success" />
+                )}
+                <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted">
+                  Submitted
+                </span>
+              </span>
             </div>
             {entry.warning_notes ? (
               <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
@@ -1037,7 +1072,7 @@ export default function EmployeeTimesheetCorrections({
         <button
           type="button"
           onClick={() => setActiveTab("timesheets")}
-          className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold ${
+          className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
             activeTab === "timesheets"
               ? "bg-primary text-primary-foreground"
               : "text-foreground"
@@ -1049,7 +1084,7 @@ export default function EmployeeTimesheetCorrections({
         <button
           type="button"
           onClick={() => setActiveTab("requests")}
-          className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold ${
+          className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
             activeTab === "requests"
               ? "bg-primary text-primary-foreground"
               : "text-foreground"
@@ -1130,33 +1165,37 @@ export default function EmployeeTimesheetCorrections({
                     </p>
                   </div>
 
-                  <div className="grid gap-2 sm:grid-cols-4">
-                    <div>
-                      <p className="text-xs text-muted">In</p>
-                      <p className="font-semibold text-foreground">
-                        {formatTime(entry.clock_in)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted">Lunch</p>
-                      <p className="font-semibold text-foreground">
-                        {formatTimeRange(entry.lunch_start, entry.lunch_end)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted">Out</p>
-                      <p className="font-semibold text-foreground">
-                        {formatTime(entry.clock_out)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted">Warnings</p>
-                      <p className="font-semibold text-foreground">
+                  <div className="grid grid-cols-4 items-start gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                      <Clock className="size-3.5 text-accent" />
+                      <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
+                        {shortTime(entry.clock_in)}
+                      </span>
+                    </span>
+                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                      <UtensilsCrossed className="size-3.5 text-accent" />
+                      <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
+                        {shortLunch(entry.lunch_start, entry.lunch_end)}
+                      </span>
+                    </span>
+                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                      <LogOut className="size-3.5 text-accent" />
+                      <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
+                        {shortTime(entry.clock_out)}
+                      </span>
+                    </span>
+                    <span className="grid min-w-0 justify-items-center gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                      {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
+                        <AlertTriangle className="size-3.5 text-warning" />
+                      ) : (
+                        <CheckCircle2 className="size-3.5 text-success" />
+                      )}
+                      <span className="truncate text-xs font-semibold text-muted">
                         {entry.missing_clocking || entry.late_arrival || entry.early_departure
-                          ? "Needs review"
+                          ? "Review"
                           : "Clear"}
-                      </p>
-                    </div>
+                      </span>
+                    </span>
                   </div>
 
                   <div className="rounded-md bg-surface-muted px-3 py-2 text-right">
@@ -1185,11 +1224,23 @@ export default function EmployeeTimesheetCorrections({
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-muted">{correction.reason}</p>
-                    <div className="mt-2 grid gap-2 text-xs sm:grid-cols-4">
-                      <span>In: {formatTime(correction.proposed_clock_in)}</span>
-                      <span>Lunch start: {formatTime(correction.proposed_lunch_start)}</span>
-                      <span>Lunch end: {formatTime(correction.proposed_lunch_end)}</span>
-                      <span>Out: {formatTime(correction.proposed_clock_out)}</span>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                        <Clock className="size-3.5 shrink-0 text-accent" />
+                        {shortTime(correction.proposed_clock_in)}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-foreground">
+                        <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
+                        {shortTime(correction.proposed_lunch_start)}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-foreground">
+                        <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
+                        {shortTime(correction.proposed_lunch_end)}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                        <LogOut className="size-3.5 shrink-0 text-accent" />
+                        {shortTime(correction.proposed_clock_out)}
+                      </span>
                     </div>
                     {correction.review_notes ? (
                       <p className="mt-2 text-sm font-medium text-foreground">

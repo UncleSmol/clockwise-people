@@ -113,9 +113,9 @@ export default function WorkstationMap({
       <button
         type="button"
         onClick={() => setMapType((t) => (t === "street" ? "satellite" : "street"))}
-        className="absolute bottom-3 right-3 z-[1000] inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-surface-muted"
+        className="absolute bottom-3 right-3 z-[1000] inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground shadow-sm hover:bg-surface-muted sm:min-h-0 sm:px-2.5 sm:py-1.5"
       >
-        <Layers className="size-3.5" />
+        <Layers className="size-3.5 shrink-0" />
         {mapType === "street" ? "Satellite" : "Street"}
       </button>
     </div>

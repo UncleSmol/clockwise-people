@@ -3,7 +3,7 @@ import BrandMark from "@/components/BrandMark";
 
 export default function NotFound() {
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6 py-10 text-foreground">
+    <main className="grid min-h-screen place-items-center px-6 py-10 text-foreground">
       <section className="card w-full max-w-lg p-6 text-center">
         <BrandMark
           className="flex justify-center"

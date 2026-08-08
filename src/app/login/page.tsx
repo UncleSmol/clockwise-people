@@ -9,7 +9,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6 py-10">
+    <main className="grid min-h-screen place-items-center px-6 py-10">
       <section className="w-full max-w-sm">
         <BrandMark
           className="mb-6 flex justify-center"

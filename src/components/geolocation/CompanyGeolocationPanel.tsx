@@ -271,9 +271,9 @@ export default function CompanyGeolocationPanel({
                 type="button"
                 disabled={geocoding}
                 onClick={searchAddress}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60 sm:min-h-0"
               >
-                <Search className="size-3.5" />
+                <Search className="size-4 shrink-0" />
                 {geocoding ? "..." : "Search"}
               </button>
             </div>
@@ -298,9 +298,9 @@ export default function CompanyGeolocationPanel({
 
           <button
             disabled={savePending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
           >
-            <Save className="size-4" />
+            <Save className="size-4 shrink-0" />
             {savePending ? "Saving..." : "Save workstation"}
           </button>
         </form>
@@ -338,8 +338,8 @@ export default function CompanyGeolocationPanel({
                   </button>
                   <form action={deactivateCompanyWorkstation}>
                     <input name="workstation_id" type="hidden" value={workstation.id} />
-                    <button className="inline-flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger">
-                      <Trash2 className="size-3.5" />
+                    <button className="inline-flex min-h-10 items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger sm:min-h-0">
+                      <Trash2 className="size-3.5 shrink-0" />
                       Deactivate
                     </button>
                   </form>
@@ -399,9 +399,9 @@ export default function CompanyGeolocationPanel({
 
           <button
             disabled={assignPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
           >
-            <Radar className="size-4" />
+            <Radar className="size-4 shrink-0" />
             {assignPending ? "Saving..." : "Save assignment"}
           </button>
 
