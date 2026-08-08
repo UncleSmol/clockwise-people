@@ -265,6 +265,8 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .eq("employee_id", access.employeeId)
       .eq("work_date", today)
       .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from("time_entries")
@@ -459,7 +461,8 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
       )
       .eq("company_id", company.id)
       .eq("work_date", workDate)
-      .is("deleted_at", null),
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
     supabase
       .from("time_clock_events")
       .select("employee_id, event_type, geofence_status, distance_meters, company_workstations(name)")

@@ -27,4 +27,4 @@ The notice appears on the first dashboard load after new updates are published. 
 
 ## Current Production Notes
 
-The latest seeded production changelog is `2026.8.8-flexible-clock-flow-and-manual-clock-in`. It covers the flexible daily clock flow (clock out without lunch, auto-close open lunch on clock out) and the option to set a manual clock-in time. The prior update, `2026.8.8-mobile-responsive-pattern-background`, covered the mobile responsiveness polish (compact timesheet cards, 40px touch targets, 320px-wide support) and the new blueprint-pattern app background with a light-only theme.
+The latest seeded production changelog is `2026.8.8-multiple-shifts-per-day`. It covers recording multiple shifts in a single day (clock in again after clocking out instead of waiting for the next day). Prior updates were `2026.8.8-flexible-clock-flow-and-manual-clock-in` (clock out without lunch, auto-close open lunch on clock out, manual clock-in times) and `2026.8.8-mobile-responsive-pattern-background` (mobile responsiveness polish, 40px touch targets, 320px-wide support, blueprint-pattern background, light-only theme).

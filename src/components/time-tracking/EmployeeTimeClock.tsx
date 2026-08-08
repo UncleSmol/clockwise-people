@@ -45,21 +45,19 @@ type ClockAction = {
 };
 
 function nextActions(entry: TimeEntryRecord | null, noLunchToday: boolean): ClockAction[] {
-  if (!entry?.clock_in) {
+  if (!entry?.clock_in || entry.clock_out) {
     return [{ label: "Clock in", action: clockIn, tone: "primary" }];
   }
 
   const actions: ClockAction[] = [];
 
-  if (!entry.clock_out) {
-    if (!entry.lunch_start && !noLunchToday) {
-      actions.push({ label: "Start lunch", action: startLunch, tone: "secondary" });
-    } else if (entry.lunch_start && !entry.lunch_end) {
-      actions.push({ label: "End lunch", action: endLunch, tone: "primary" });
-    }
-
-    actions.push({ label: "Clock out", action: clockOut, tone: "danger" });
+  if (!noLunchToday && !entry.lunch_start) {
+    actions.push({ label: "Start lunch", action: startLunch, tone: "secondary" });
+  } else if (entry.lunch_start && !entry.lunch_end) {
+    actions.push({ label: "End lunch", action: endLunch, tone: "primary" });
   }
+
+  actions.push({ label: "Clock out", action: clockOut, tone: "danger" });
 
   return actions;
 }
@@ -153,13 +151,13 @@ function optimisticEntry(
   workstationId: string,
   requestedAt?: string | null,
 ): TimeEntryRecord {
-  const current = entry ?? {
+  const fresh: TimeEntryRecord = {
     workstation_id: workstationId || null,
     clock_in: null,
     clock_out: null,
-    company_id: "",
+    company_id: entry?.company_id ?? "",
     early_departure: false,
-    employee_id: "",
+    employee_id: entry?.employee_id ?? "",
     gross_hours: 0,
     id: "optimistic",
     late_arrival: false,
@@ -175,6 +173,8 @@ function optimisticEntry(
     warning_notes: null,
     work_date: localDateValue(),
   };
+  const isNewShift = eventLabel === "Clock in" && (entry === null || Boolean(entry.clock_out));
+  const current = isNewShift ? fresh : { ...(entry ?? fresh) };
   const next = { ...current };
   const time = eventLabel === "Clock in" && requestedAt ? requestedAt : localTimeValue();
 
