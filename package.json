@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.6.26-account-admin-nav-notifications",
+  "version": "2026.8.8",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
