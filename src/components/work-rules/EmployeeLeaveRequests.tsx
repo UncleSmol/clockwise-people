@@ -2,6 +2,7 @@
 
 import { Calendar, CalendarPlus, FileText, Link, List, Send, Sparkles, Timer } from "lucide-react";
 import { useActionState, useState } from "react";
+import StorageUploadButton from "@/components/StorageUploadButton";
 import {
   calculateLeaveAdvisor,
   convertOvertimeToToil,
@@ -292,6 +293,12 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               />
             </span>
           </label>
+          <StorageUploadButton
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            folder="attachment"
+            hint="Or upload a supporting file under 5 MB."
+            onUploaded={(publicUrl) => setAttachmentUrl(publicUrl)}
+          />
           <label className="grid min-w-0 gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
             <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">

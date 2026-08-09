@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.8.8-mobile-my-time-and-block-company-switcher",
+  "version": "2026.8.9-file-uploads-for-avatars-logos-and-attachments",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

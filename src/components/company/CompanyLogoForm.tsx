@@ -3,6 +3,7 @@
 import { Image as ImageIcon, Save } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import BrandMark from "@/components/BrandMark";
+import StorageUploadButton from "@/components/StorageUploadButton";
 import { updateCompanyLogo } from "@/lib/foundation/actions";
 
 type CompanyLogoFormProps = {
@@ -44,7 +45,7 @@ export default function CompanyLogoForm({
             {companyName}
           </p>
           <p className="text-xs text-muted">
-            Use a public image link for now.
+            Use a public image link or upload a logo.
           </p>
         </div>
       </div>
@@ -73,6 +74,13 @@ export default function CompanyLogoForm({
           placeholder="https://..."
         />
       </label>
+
+      <StorageUploadButton
+        accept="image/*"
+        folder="logo"
+        hint="Or upload a logo under 5 MB."
+        onUploaded={(publicUrl) => setCurrentLogoUrl(publicUrl)}
+      />
 
       <div className="flex justify-end">
         <button

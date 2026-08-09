@@ -3,6 +3,7 @@
 import { Image as ImageIcon, Mail, Phone, Save, UserRound } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
+import StorageUploadButton from "@/components/StorageUploadButton";
 import { updateOwnProfile } from "@/lib/account/actions";
 
 type ProfileFormProps = {
@@ -42,7 +43,7 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
             {displayName}
           </p>
           <p className="text-xs text-muted">
-            Paste a public image link. Uploads come later.
+            Paste a public image link or upload a picture.
           </p>
         </div>
       </div>
@@ -109,6 +110,12 @@ export default function ProfileForm({ employee }: ProfileFormProps) {
             placeholder="https://..."
           />
         </label>
+        <StorageUploadButton
+          accept="image/*"
+          folder="avatar"
+          hint="Or upload an image under 5 MB."
+          onUploaded={(publicUrl) => setAvatarUrl(publicUrl)}
+        />
       </div>
 
       <div className="flex justify-end">
