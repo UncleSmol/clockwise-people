@@ -4,23 +4,18 @@ import LiveClock from "@/components/LiveClock";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
-  BriefcaseBusiness,
   Building2,
   CalendarDays,
   ChevronUp,
-  CalendarRange,
   ClipboardCheck,
   Clock3,
   GripVertical,
-  LayoutGrid,
-  Settings2,
-  ShieldCheck,
-  Users,
 } from "lucide-react";
 import {
   PanelContext,
   WorkspaceSectionContext,
 } from "./workspace-context";
+import { usePanelBridge } from "./panel-bridge";
 import ViewportSidebar from "./ViewportSidebar";
 
 type WorkspacePanel = {
@@ -45,18 +40,6 @@ type CalendarWorkspaceProps = {
   panels: WorkspacePanel[];
 };
 
-function panelIcon(label: string) {
-  const key = label.toLowerCase();
-  if (key.includes("clock")) return Clock3;
-  if (key.includes("people") || key.includes("employee")) return Users;
-  if (key.includes("approve") || key.includes("review")) return ClipboardCheck;
-  if (key.includes("leave")) return CalendarRange;
-  if (key.includes("company")) return Building2;
-  if (key.includes("account") || key.includes("settings")) return Settings2;
-  if (key.includes("policy") || key.includes("document")) return ShieldCheck;
-  return BriefcaseBusiness;
-}
-
 export default function CalendarWorkspace({
   companyName,
   companies,
@@ -71,8 +54,8 @@ export default function CalendarWorkspace({
   panels,
 }: CalendarWorkspaceProps) {
   const router = useRouter();
+  const { registerNavItems, registerPanelOpener } = usePanelBridge();
   const [activePanelKey, setActivePanelKey] = useState<string | null>(initialActivePanelKey);
-  const [showServices, setShowServices] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState<"clock" | "calendar" | "records">("clock");
   const [workspaceMode, setWorkspaceMode] = useState<"me" | "team">(
@@ -155,6 +138,16 @@ export default function CalendarWorkspace({
     setActivePanelKey(key);
   }, []);
 
+  useEffect(() => {
+    registerPanelOpener(handleOpenPanel);
+  }, [handleOpenPanel, registerPanelOpener]);
+
+  useEffect(() => {
+    registerNavItems(
+      panels.map((panel) => ({ key: panel.key, label: panel.label })),
+    );
+  }, [panels, registerNavItems]);
+
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     resizingRef.current = true;
@@ -236,45 +229,9 @@ export default function CalendarWorkspace({
                 </button>
               </div>
             ) : null}
-            <div className="flex items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => setShowServices(!showServices)}
-                className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-semibold text-muted hover:bg-surface-muted hover:text-foreground sm:icon-btn sm:px-0 sm:py-0 sm:text-inherit sm:font-normal"
-                aria-label="Services"
-              >
-                <LayoutGrid className="size-3.5 sm:size-4" />
-                <span className="sm:hidden">Menu</span>
-              </button>
-
-            </div>
           </div>
         </div>
       </section>
-
-      {showServices && panels.length > 0 && (
-        <section className="card mx-4 mb-4 overflow-hidden sm:mx-6">
-          <div className="grid gap-1 p-2">
-            {panels.map((panel) => {
-              const Icon = panelIcon(panel.label);
-              return (
-                <button
-                  key={panel.key}
-                  type="button"
-                  onClick={() => {
-                    handleOpenPanel(panel.key);
-                    setShowServices(false);
-                  }}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-surface-muted"
-                >
-                  <Icon className="size-4 text-muted" />
-                  {panel.label}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {isMobile && !isTeamMode && !employeeHub ? (
         <div className="mx-4 mb-4 sm:mx-6">

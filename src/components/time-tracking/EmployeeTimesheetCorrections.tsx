@@ -1126,7 +1126,7 @@ export default function EmployeeTimesheetCorrections({
                         {group.entries.length} records
                       </span>
                     </summary>
-                    <div className="grid gap-2 border-t border-border p-2">
+                    <div className="grid content-start gap-2 border-t border-border p-2 sm:grid-cols-2 xl:grid-cols-3">
                       {group.entries.map(renderTimesheetEntry)}
                     </div>
                   </details>
@@ -1135,7 +1135,7 @@ export default function EmployeeTimesheetCorrections({
           </div>
         </div>
       ) : (
-        <div className="grid gap-2">
+        <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {submittedEntries.length === 0 ? (
             <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
               Submit a timesheet first. Then requests will appear here.
