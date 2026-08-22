@@ -103,6 +103,7 @@ begin
       lunch_end = proposed_lunch_end,
       clock_out = proposed_clock_out,
       notes = nullif(btrim(coalesce(entry_notes, '')), ''),
+      status = 'draft',
       updated_at = now()
   where id = entry.id
   returning * into entry;

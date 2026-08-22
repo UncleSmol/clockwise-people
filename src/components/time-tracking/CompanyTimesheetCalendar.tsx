@@ -527,8 +527,13 @@ export default function CompanyTimesheetCalendar({
                       entry.workstationName ? entry.workstationName : "",
                       entry.warning_notes || entry.notes || "",
                     ].filter(Boolean).join(" · ");
+                    // Position tooltip below the event, fallback above if needed
                     let x = rect.left + rect.width / 2;
-                    let y = rect.top - 8;
+                    let y = rect.bottom + 8;
+                    // Check if tooltip would overflow downward - simple heuristic
+                    if (calRect && y + 120 > calRect.bottom) {
+                      y = rect.top - 8;
+                    }
                     if (calRect) {
                       x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
                       y = Math.max(calRect.top + 4, y);
@@ -668,18 +673,19 @@ export default function CompanyTimesheetCalendar({
                           ),
                         );
                       }}
-                      className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                        entry.missing_clocking || entry.late_arrival || entry.early_departure
-                          ? "border-danger/30 bg-danger/[0.07]"
-                          : "border-border bg-background"
+className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      entry.missing_clocking || entry.late_arrival || entry.early_departure
+                        ? "border-danger/30 bg-danger/[0.07]"
+                        : "border-border bg-background"
                       }`}
+                      aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">
                             {displayName(entry)}
                           </p>
-                          <p className="mt-0.5 text-xs text-muted">
+                          <p className="text-xs text-muted">
                             {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
                           </p>
                         </div>

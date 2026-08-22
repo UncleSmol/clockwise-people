@@ -5,6 +5,7 @@ import BrandMark from "@/components/BrandMark";
 
 const GESTURE_WINDOW_MS = 1500;
 const MIN_VISIBLE_MS = 450;
+const QUIET_MS = 500;
 
 export default function GlobalActionLoader() {
   const [visible, setVisible] = useState(false);
@@ -33,7 +34,7 @@ export default function GlobalActionLoader() {
       }
 
       const remaining = Math.max(
-        MIN_VISIBLE_MS - (Date.now() - visibleAtRef.current),
+        MIN_VISIBLE_MS + QUIET_MS - (Date.now() - visibleAtRef.current),
         0,
       );
 
@@ -45,14 +46,7 @@ export default function GlobalActionLoader() {
     };
 
     window.fetch = function patchedFetch(input: RequestInfo | URL, init?: RequestInit) {
-      const isUserInitiated =
-        Date.now() - gestureRef.current <= GESTURE_WINDOW_MS;
-
       const call = originalFetch.call(window, input, init);
-
-      if (!isUserInitiated) {
-        return call;
-      }
 
       if (pendingRef.current === 0) {
         visibleAtRef.current = Date.now();

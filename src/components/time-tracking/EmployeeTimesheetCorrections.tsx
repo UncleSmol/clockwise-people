@@ -182,13 +182,8 @@ function renderLocationHistory(entry: TimeEntryRecord) {
                   {event.distance_meters !== null
                     ? ` - ${Math.round(event.distance_meters)}m away`
                     : ""}
-                </p>
-                <p className="mt-1 truncate">
                   {event.latitude !== null && event.longitude !== null
-                    ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
-                    : "No coordinates"}
-                  {event.accuracy_meters !== null
-                    ? ` - +/-${Math.round(event.accuracy_meters)}m`
+                    ? ` • ${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`
                     : ""}
                 </p>
               </div>
@@ -539,43 +534,43 @@ export default function EmployeeTimesheetCorrections({
         {editable ? (
           <form action={saveAction} className="grid gap-2">
             <input type="hidden" name="time_entry_id" value={entry.id} />
-            <div className="grid gap-2 sm:grid-cols-4">
-              <label className="grid gap-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">In</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Clock className="size-4 shrink-0 text-muted" />
-                  <input type="time" name="clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </span>
-              </label>
-              <label className="grid gap-1">
+<div className="rounded-lg border border-border bg-background flex items-center px-3">
+                  <Clock className="size-3.5 mr-2" />
+                  <input type="time" name="clock_in" defaultValue={inputTime(entry.clock_in)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </div>
+              </div>
+              <div>
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Clock className="size-4 shrink-0 text-muted" />
-                  <input type="time" name="lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </span>
-              </label>
-              <label className="grid gap-1">
+                <div className="rounded-lg border border-border bg-background flex items-center px-3">
+                  <Clock className="size-3.5 mr-2" />
+                  <input type="time" name="lunch_start" defaultValue={inputTime(entry.lunch_start)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </div>
+              </div>
+              <div>
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Clock className="size-4 shrink-0 text-muted" />
-                  <input type="time" name="lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </span>
-              </label>
-              <label className="grid gap-1">
+                <div className="rounded-lg border border-border bg-background flex items-center px-3">
+                  <Clock className="size-3.5 mr-2" />
+                  <input type="time" name="lunch_end" defaultValue={inputTime(entry.lunch_end)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </div>
+              </div>
+              <div>
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Out</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Clock className="size-4 shrink-0 text-muted" />
-                  <input type="time" name="clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </span>
-              </label>
+                <div className="rounded-lg border border-border bg-background flex items-center px-3">
+                  <Clock className="size-3.5 mr-2" />
+                  <input type="time" name="clock_out" defaultValue={inputTime(entry.clock_out)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
+                </div>
+              </div>
             </div>
-            <label className="grid gap-1">
+<div>
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Note</span>
-              <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                <textarea name="notes" rows={2} defaultValue={entry.notes ?? ""} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Optional" />
-              </span>
-            </label>
+              <div className="rounded-lg border border-border bg-background flex items-center px-3">
+                <FileText className="size-3.5 mr-2" />
+                <textarea name="notes" rows={2} defaultValue={entry.notes ?? ""} className="flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Optional" />
+              </div>
+</div>
             {renderLocationHistory(entry)}
             <div className="flex justify-end">
               <button
