@@ -29,7 +29,9 @@ export type TimeEntryRecord = {
   warning_notes: string | null;
   notes: string | null;
   status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
+  leave_type_id: string | null;
   locationEvents?: TimeClockLocationEvent[];
+  scheduleValidation?: ScheduleValidation;
 };
 
 export type CompanyPublicHoliday = {
@@ -157,6 +159,11 @@ export type CompanyTimesheetCorrectionRequest = TimesheetCorrectionRequest & {
   workstationName: string | null;
 };
 
+export type ScheduleValidation = {
+  isCompliant: boolean;
+  issues: string[];
+};
+
 export type CompanySubmittedTimesheet = TimeEntryRecord & {
   employeeNumber: string;
   fullName: string;
@@ -165,6 +172,7 @@ export type CompanySubmittedTimesheet = TimeEntryRecord & {
   workstationName: string | null;
   paidTimeOffHours: number;
   locationEvents: TimeClockLocationEvent[];
+  scheduleValidation: ScheduleValidation;
 };
 
 export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
@@ -175,6 +183,7 @@ export type CompanyTimesheetCalendarEntry = TimeEntryRecord & {
   workstationName: string | null;
   paidTimeOffHours: number;
   locationEvents: TimeClockLocationEvent[];
+  scheduleValidation: ScheduleValidation;
 };
 
 export type CompanyCalendarEmployeeOption = {

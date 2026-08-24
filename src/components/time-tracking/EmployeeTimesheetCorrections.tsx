@@ -148,6 +148,30 @@ function geofenceClass(status: string | null | undefined) {
   return "border-border bg-surface-muted text-muted";
 }
 
+function getPaidHoursContainerClass(validation: TimeEntryRecord["scheduleValidation"]) {
+  if (!validation) return "border-border bg-background";
+  return validation.isCompliant
+    ? "border-success/30 bg-success/10"
+    : "border-danger/30 bg-danger/10";
+}
+
+function getPaidHoursTextClass(validation: TimeEntryRecord["scheduleValidation"]) {
+  if (!validation) return "text-foreground";
+  return validation.isCompliant ? "text-success" : "text-danger";
+}
+
+function getEntryBorderClass(entry: TimeEntryRecord) {
+  const validation = entry.scheduleValidation;
+  if (validation) {
+    return validation.isCompliant
+      ? "border-success/30 bg-success/10"
+      : "border-danger/30 bg-danger/10";
+  }
+  return entry.missing_clocking || entry.late_arrival || entry.early_departure
+    ? "border-danger/30 bg-danger/10"
+    : "border-success/30 bg-success/10";
+}
+
 function renderLocationHistory(entry: TimeEntryRecord) {
   const events = entry.locationEvents ?? [];
 
@@ -495,15 +519,13 @@ export default function EmployeeTimesheetCorrections({
     const rejected = entry.status === "rejected";
     const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure || rejected;
     const managerNote = extractManagerNote(entry.notes);
+    const validation = entry.scheduleValidation;
+    const isCompliant = validation?.isCompliant ?? !hasWarning;
 
     return (
       <article
         key={entry.id}
-        className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${
-          hasWarning
-            ? "border-danger/30 bg-danger/10"
-            : "border-success/30 bg-success/10"
-        }`}
+        className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${getEntryBorderClass(entry)}`}
       >
         <div className="flex items-center justify-between gap-2">
           <p className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
@@ -514,7 +536,7 @@ export default function EmployeeTimesheetCorrections({
             )}
             <span className="truncate">{formatDate(entry.work_date)}</span>
           </p>
-          <span className="inline-flex w-max shrink-0 items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-foreground">
+          <span className={`inline-flex w-max shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${getPaidHoursTextClass(validation)}`}>
             <Clock3 className="size-3.5" />
             {formatHours(entry.paid_hours)}
           </span>
@@ -1216,23 +1238,23 @@ export default function EmployeeTimesheetCorrections({
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-muted">{correction.reason}</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                        <Clock className="size-3.5 shrink-0 text-accent" />
-                        {shortTime(correction.proposed_clock_in)}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-foreground">
-                        <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
-                        {shortTime(correction.proposed_lunch_start)}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-foreground">
-                        <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
-                        {shortTime(correction.proposed_lunch_end)}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                        <LogOut className="size-3.5 shrink-0 text-accent" />
-                        {shortTime(correction.proposed_clock_out)}
-                      </span>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                        <p className="text-[10px] text-muted leading-none">In</p>
+                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_in)}</span>
+                      </div>
+                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                        <p className="text-[10px] text-muted leading-none">Lunch start</p>
+                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_start)}</span>
+                      </div>
+                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                        <p className="text-[10px] text-muted leading-none">Lunch end</p>
+                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_end)}</span>
+                      </div>
+                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                        <p className="text-[10px] text-muted leading-none">Out</p>
+                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_out)}</span>
+                      </div>
                     </div>
                     {correction.review_notes ? (
                       <p className="mt-2 text-sm font-medium text-foreground">
@@ -1250,35 +1272,23 @@ export default function EmployeeTimesheetCorrections({
                     <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
                       <input type="hidden" name="time_entry_id" value={entry.id} />
 
-                      <div className="grid gap-2 sm:grid-cols-4">
-                        <label className="grid gap-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-4 shrink-0 text-muted" />
-                            <input type="time" name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                          </span>
-                        </label>
-                        <label className="grid gap-1">
+                          <input type="time" name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                        </div>
+                        <div className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-4 shrink-0 text-muted" />
-                            <input type="time" name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                          </span>
-                        </label>
-                        <label className="grid gap-1">
+                          <input type="time" name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                        </div>
+                        <div className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-4 shrink-0 text-muted" />
-                            <input type="time" name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                          </span>
-                        </label>
-                        <label className="grid gap-1">
+                          <input type="time" name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                        </div>
+                        <div className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-4 shrink-0 text-muted" />
-                            <input type="time" name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                          </span>
-                        </label>
+                          <input type="time" name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                        </div>
                       </div>
 
                       <label className="grid gap-1">
@@ -1289,13 +1299,13 @@ export default function EmployeeTimesheetCorrections({
                         </span>
                       </label>
 
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-2">
                         <p className="text-xs text-muted">
                           Submitted correction requests cannot be edited by employees.
                         </p>
                         <button
                           disabled={correctionPending}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                         >
                           <Send className="size-4" />
                           {correctionPending ? "Sending..." : "Send request"}
@@ -1350,42 +1360,50 @@ export default function EmployeeTimesheetCorrections({
                   {formatTime(detailEntry.clock_out)}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background px-3 py-2">
+              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
                 <p className="text-xs text-muted">Paid</p>
-                <p className="mt-1 font-semibold text-foreground">
+                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
                   {formatHours(detailEntry.paid_hours)}
                 </p>
               </div>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-4">
-              <div className="rounded-md border border-border bg-background px-3 py-2">
+              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
                 <p className="text-xs text-muted">NT</p>
-                <p className="mt-1 font-semibold text-foreground">
+                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
                   {formatHours(detailEntry.normal_hours)}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background px-3 py-2">
+              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
                 <p className="text-xs text-muted">OT</p>
-                <p className="mt-1 font-semibold text-warning">
+                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
                   {formatHours(detailEntry.overtime_hours)}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background px-3 py-2">
+              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
                 <p className="text-xs text-muted">Lunch break</p>
-                <p className="mt-1 font-semibold text-foreground">
+                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
                   {formatHours(detailEntry.lunch_hours)}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background px-3 py-2">
-                <p className="text-xs text-muted">Warnings</p>
-                <p className="mt-1 font-semibold text-foreground">
-                  {detailEntry.missing_clocking || detailEntry.late_arrival || detailEntry.early_departure
-                    ? "Needs review"
-                    : "Clear"}
+              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
+                <p className="text-xs text-muted">Schedule</p>
+                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
+                  {detailEntry.scheduleValidation?.isCompliant ? "Compliant" : "Needs review"}
                 </p>
               </div>
             </div>
+            {detailEntry.scheduleValidation && !detailEntry.scheduleValidation.isCompliant && (
+              <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2">
+                <p className="text-xs text-danger font-semibold">Schedule issues:</p>
+                <ul className="mt-1 list-disc list-inside text-xs text-danger">
+                  {detailEntry.scheduleValidation.issues.map((issue, idx) => (
+                    <li key={idx}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {detailEntry.notes ? (
               <div className="rounded-md border border-border bg-background px-3 py-2">

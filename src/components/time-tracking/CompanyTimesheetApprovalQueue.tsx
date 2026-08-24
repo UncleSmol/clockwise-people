@@ -84,6 +84,18 @@ function geofenceClass(status: string | null) {
   return "border-border bg-surface-muted text-muted";
 }
 
+function getPaidHoursContainerClass(validation: CompanySubmittedTimesheet["scheduleValidation"]) {
+  if (!validation) return "border-border/70 bg-surface/80";
+  return validation.isCompliant
+    ? "border-success/30 bg-success/10"
+    : "border-danger/30 bg-danger/10";
+}
+
+function getPaidHoursTextClass(validation: CompanySubmittedTimesheet["scheduleValidation"]) {
+  if (!validation) return "text-foreground";
+  return validation.isCompliant ? "text-success" : "text-danger";
+}
+
 export default function CompanyTimesheetApprovalQueue({
   timesheets,
 }: CompanyTimesheetApprovalQueueProps) {
@@ -134,14 +146,16 @@ export default function CompanyTimesheetApprovalQueue({
                 timesheet.missing_clocking ||
                 timesheet.late_arrival ||
                 timesheet.early_departure;
+              const validation = timesheet.scheduleValidation;
+              const isCompliant = validation?.isCompliant ?? !hasWarning;
 
               return (
                 <article
                   key={timesheet.id}
                   className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${
-                    hasWarning
-                      ? "border-warning/40 bg-warning/10"
-                      : "border-success/30 bg-success/10"
+                    isCompliant
+                      ? "border-success/30 bg-success/10"
+                      : "border-danger/30 bg-danger/10"
                   }`}
                 >
                   <div className="grid gap-2 lg:grid-cols-[40px_1fr_1.2fr] lg:items-center">
@@ -203,30 +217,52 @@ export default function CompanyTimesheetApprovalQueue({
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div
+                      className={`min-w-0 rounded-md px-3 py-2 ${getPaidHoursContainerClass(
+                        validation,
+                      )}`}
+                    >
                       <p className="flex items-center gap-1.5 text-xs text-muted">
                         <Timer className="size-3.5 shrink-0" />
                         NT
                       </p>
-                      <p className="mt-1 truncate font-semibold text-foreground">
+                      <p className="mt-1 truncate font-semibold">
                         {formatHours(timesheet.normal_hours)}
                       </p>
                     </div>
-                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div
+                      className={`min-w-0 rounded-md px-3 py-2 ${getPaidHoursContainerClass(
+                        validation,
+                      )}`}
+                    >
                       <p className="text-xs text-muted">OT</p>
-                      <p className="mt-1 truncate font-semibold text-warning">
+                      <p className={`mt-1 truncate font-semibold ${getPaidHoursTextClass(
+                        validation,
+                      )}`}>
                         {formatHours(timesheet.overtime_hours)}
                       </p>
                     </div>
-                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div
+                      className={`min-w-0 rounded-md px-3 py-2 ${getPaidHoursContainerClass(
+                        validation,
+                      )}`}
+                    >
                       <p className="text-xs text-muted">Paid leave</p>
-                      <p className="mt-1 truncate font-semibold text-accent">
+                      <p className={`mt-1 truncate font-semibold ${getPaidHoursTextClass(
+                        validation,
+                      )}`}>
                         {formatHours(timesheet.paidTimeOffHours)}
                       </p>
                     </div>
-                    <div className="min-w-0 rounded-md border border-border/70 bg-surface/80 px-3 py-2">
+                    <div
+                      className={`min-w-0 rounded-md px-3 py-2 ${getPaidHoursContainerClass(
+                        validation,
+                      )}`}
+                    >
                       <p className="text-xs text-muted">Lunch break</p>
-                      <p className="mt-1 truncate font-semibold text-foreground">
+                      <p className={`mt-1 truncate font-semibold ${getPaidHoursTextClass(
+                        validation,
+                      )}`}>
                         {formatHours(timesheet.lunch_hours)}
                       </p>
                     </div>

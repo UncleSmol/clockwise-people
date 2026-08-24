@@ -2,12 +2,9 @@
 
 import {
   ClipboardList,
-  Clock,
   FileText,
-  LogOut,
   ThumbsDown,
   ThumbsUp,
-  UtensilsCrossed,
 } from "lucide-react";
 import { useActionState } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
@@ -126,46 +123,46 @@ export default function CompanyTimesheetCorrectionQueue({
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                     Original
                   </p>
-                  <div className="mt-2 grid grid-cols-2 gap-1.5">
-                    <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
-                      <Clock className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.original_clock_in)}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
-                      <LogOut className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.original_clock_out)}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
-                      <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.original_lunch_start)}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
-                      <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.original_lunch_end)}
-                    </span>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">In</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_clock_in)}</span>
+                    </div>
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">Lunch start</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_lunch_start)}</span>
+                    </div>
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">Lunch end</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_lunch_end)}</span>
+                    </div>
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">Out</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_clock_out)}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="min-w-0 rounded-md border border-accent/30 bg-accent/10 p-2.5">
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                     Proposed
                   </p>
-                  <div className="mt-2 grid grid-cols-2 gap-1.5 text-foreground">
-                    <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
-                      <Clock className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.proposed_clock_in)}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold text-foreground">
-                      <LogOut className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.proposed_clock_out)}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
-                      <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.proposed_lunch_start)}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
-                      <UtensilsCrossed className="size-3.5 shrink-0 text-accent" />
-                      {formatTime(request.proposed_lunch_end)}
-                    </span>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">In</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.proposed_clock_in)}</span>
+                    </div>
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">Lunch start</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.proposed_lunch_start)}</span>
+                    </div>
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">Lunch end</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.proposed_lunch_end)}</span>
+                    </div>
+                    <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                      <p className="text-[10px] text-muted leading-none">Out</p>
+                      <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.proposed_clock_out)}</span>
+                    </div>
                   </div>
                 </div>
               </div>

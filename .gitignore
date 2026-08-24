@@ -20,6 +20,20 @@
 # production
 /build
 
+# playwright
+/test-results/
+/playwright-report/
+/playwright-report-*/
+/playwright/.cache/
+*.tsbuildinfo
+
+# visual testing snapshots (keep baselines in repo, ignore diffs)
+/tests/visual/__snapshots__/*-diff.png
+/tests/visual/__snapshots__/*-actual.png
+
+# accessibility reports
+/test-results/accessibility/
+
 # misc
 .DS_Store
 *.pem
@@ -54,6 +68,7 @@ secrets.*
 /supabase/.temp/
 /supabase/.branches/
 /supabase/.env
+/supabase/.env.*
 /supabase/.env.*
 
 # vercel

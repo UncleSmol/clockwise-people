@@ -23,6 +23,15 @@ import type {
   TimesheetCorrectionRequest,
 } from "./schema";
 
+type WorkScheduleDay = {
+  day_of_week: number;
+  start_time: string | null;
+  end_time: string | null;
+  lunch_minutes: number;
+  paid_hours: number;
+  is_working_day: boolean;
+};
+
 type EmployeeRow = {
   id: string;
   employee_number?: string;
@@ -121,6 +130,106 @@ function relationName(
   return relation?.name ?? null;
 }
 
+async function getEmployeeSchedules(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  companyId: string,
+  employeeIds: string[],
+): Promise<Map<string, WorkScheduleDay[]>> {
+  if (employeeIds.length === 0) return new Map();
+
+  const { data: employees } = await supabase
+    .from("employees")
+    .select("id, work_schedule_id")
+    .eq("company_id", companyId)
+    .in("id", employeeIds)
+    .is("deleted_at", null);
+
+  if (!employees || employees.length === 0) return new Map();
+
+  const scheduleIds = [...new Set(employees.map((e) => e.work_schedule_id).filter(Boolean))] as string[];
+  if (scheduleIds.length === 0) return new Map();
+
+  const { data: scheduleDays } = await supabase
+    .from("schedule_days")
+    .select("work_schedule_id, day_of_week, start_time, end_time, lunch_minutes, paid_hours, is_working_day")
+    .in("work_schedule_id", scheduleIds);
+
+  const scheduleByEmployee = new Map<string, WorkScheduleDay[]>();
+  const scheduleMap = new Map<string, WorkScheduleDay[]>();
+  
+  (scheduleDays ?? []).forEach((day) => {
+    const existing = scheduleMap.get(day.work_schedule_id) ?? [];
+    existing.push({
+      day_of_week: day.day_of_week,
+      start_time: day.start_time,
+      end_time: day.end_time,
+      lunch_minutes: Number(day.lunch_minutes ?? 0),
+      paid_hours: Number(day.paid_hours ?? 0),
+      is_working_day: day.is_working_day,
+    });
+    scheduleMap.set(day.work_schedule_id, existing);
+  });
+
+  employees.forEach((emp) => {
+    if (emp.work_schedule_id && scheduleMap.has(emp.work_schedule_id)) {
+      scheduleByEmployee.set(emp.id, scheduleMap.get(emp.work_schedule_id)!);
+    }
+  });
+
+  return scheduleByEmployee;
+}
+
+function validateTimesAgainstSchedule(
+  entry: TimeEntryRecord,
+  scheduleDays: WorkScheduleDay[] | undefined,
+): { isCompliant: boolean; issues: string[] } {
+  const issues: string[] = [];
+
+  if (!scheduleDays || scheduleDays.length === 0) {
+    return { isCompliant: true, issues: [] };
+  }
+
+  const workDate = new Date(entry.work_date);
+  const dayOfWeek = workDate.getDay();
+  const scheduleDay = scheduleDays.find((d) => d.day_of_week === dayOfWeek);
+
+  if (!scheduleDay) {
+    return { isCompliant: true, issues: [] };
+  }
+
+  if (!scheduleDay.is_working_day) {
+    if (entry.clock_in || entry.clock_out) {
+      issues.push("Work recorded on non-working day");
+    }
+    return { isCompliant: issues.length === 0, issues };
+  }
+
+  if (entry.missing_clocking) {
+    issues.push("Missing clock in/out");
+  }
+
+  if (entry.late_arrival && scheduleDay.start_time) {
+    issues.push(`Late arrival (after ${scheduleDay.start_time})`);
+  }
+
+  if (entry.early_departure && scheduleDay.end_time) {
+    issues.push(`Early departure (before ${scheduleDay.end_time})`);
+  }
+
+  if (entry.paid_hours > 0 && scheduleDay.paid_hours > 0) {
+    const tolerance = 0.25;
+    if (Math.abs(entry.paid_hours - scheduleDay.paid_hours) > tolerance) {
+      issues.push(`Hours mismatch: worked ${entry.paid_hours.toFixed(2)}h, expected ${scheduleDay.paid_hours.toFixed(2)}h`);
+    }
+  }
+
+  if (!entry.clock_in && !entry.clock_out && entry.gross_hours > 0) {
+    issues.push("Has hours but no clock times recorded");
+  }
+
+  return { isCompliant: issues.length === 0, issues };
+}
+
 function isMissingGeofenceSchema(error: { code?: string; message?: string } | null) {
   if (!error) return false;
 
@@ -136,7 +245,9 @@ function isMissingGeofenceSchema(error: { code?: string; message?: string } | nu
 }
 
 function paidTimeOffHours(entry: TimeEntryRecord) {
-  return entry.notes?.startsWith("Public holiday:") ? Number(entry.paid_hours ?? 0) : 0;
+  const isPublicHoliday = entry.notes?.startsWith("Public holiday:") ?? false;
+  const isLeave = (entry.leave_type_id != null) || (entry.notes?.startsWith("Leave:") ?? false);
+  return (isPublicHoliday || isLeave) ? Number(entry.paid_hours ?? 0) : 0;
 }
 
 async function getLocationEventsByTimeEntry(
@@ -371,9 +482,13 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
         locationEvents: locationEventsByEntry.get(todayEntryRow.id) ?? [],
       }
     : null;
+  const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, [access.employeeId]);
+  const employeeScheduleDays = scheduleByEmployee.get(access.employeeId);
+
   const recentEntries = rawRecentEntries.map((entry) => ({
     ...entry,
     locationEvents: locationEventsByEntry.get(entry.id) ?? [],
+    scheduleValidation: validateTimesAgainstSchedule(entry, employeeScheduleDays),
   }));
 
   const workstations = ((workstationsResult.data ?? []) as { id: string; name: string }[]).map(
@@ -620,6 +735,8 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
   }
 
   const rows = (data ?? []) as unknown as SubmittedTimesheetRow[];
+  const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
+  const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, employeeIds);
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
     supabase,
     company.id,
@@ -633,6 +750,9 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     const { employees, ...timeEntry } = entry;
     void employees;
 
+    const scheduleDays = scheduleByEmployee.get(entry.employee_id);
+    const validation = validateTimesAgainstSchedule(timeEntry, scheduleDays);
+
     return {
       ...timeEntry,
       workstationName: relationName(employee?.company_workstations),
@@ -642,6 +762,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
       avatarUrl: employee?.avatar_url ?? null,
       locationEvents: locationEventsByEntry.get(entry.id) ?? [],
       paidTimeOffHours: paidTimeOffHours(timeEntry),
+      scheduleValidation: validation,
     };
   });
 });
@@ -672,7 +793,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .is("deleted_at", null)
@@ -686,6 +807,8 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   }
 
   const rows = (data ?? []) as unknown as SubmittedTimesheetRow[];
+  const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
+  const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, employeeIds);
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
     supabase,
     company.id,
@@ -699,6 +822,9 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     const { employees, ...timeEntry } = entry;
     void employees;
 
+    const scheduleDays = scheduleByEmployee.get(entry.employee_id);
+    const validation = validateTimesAgainstSchedule(timeEntry, scheduleDays);
+
     return {
       ...timeEntry,
       workstationName: relationName(employee?.company_workstations),
@@ -708,6 +834,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
       avatarUrl: employee?.avatar_url ?? null,
       locationEvents: locationEventsByEntry.get(entry.id) ?? [],
       paidTimeOffHours: paidTimeOffHours(timeEntry),
+      scheduleValidation: validation,
     };
   });
 });

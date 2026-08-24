@@ -14,6 +14,7 @@ declare
   target_period_id uuid;
   target_timesheet_id uuid;
   entry public.time_entries%rowtype;
+  manager_name text;
 begin
   if auth.uid() is null then
     raise exception 'Authentication is required';
@@ -98,6 +99,15 @@ begin
     returning id into target_timesheet_id;
   end if;
 
+  select coalesce(known_as, full_name) into manager_name
+    from public.employees
+    where user_id = auth.uid()
+      and deleted_at is null;
+
+  if manager_name is null then
+    manager_name := 'Manager';
+  end if;
+
   insert into public.time_entries (
     company_id,
     timesheet_id,
@@ -118,7 +128,7 @@ begin
     employee.branch_id,
     true,
     'draft',
-    'Manager added draft timesheet from calendar'
+    manager_name || ' added draft timesheet from calendar'
   )
   returning * into entry;
 

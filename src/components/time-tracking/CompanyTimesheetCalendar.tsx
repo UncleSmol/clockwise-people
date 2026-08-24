@@ -108,6 +108,30 @@ function geofenceClass(status: string | null) {
   return "border-border bg-surface-muted text-muted";
 }
 
+function getPaidHoursContainerClass(validation: CompanyTimesheetCalendarEntry["scheduleValidation"]) {
+  if (!validation) return "border-border bg-background";
+  return validation.isCompliant
+    ? "border-success/30 bg-success/10"
+    : "border-danger/30 bg-danger/10";
+}
+
+function getPaidHoursTextClass(validation: CompanyTimesheetCalendarEntry["scheduleValidation"]) {
+  if (!validation) return "text-foreground";
+  return validation.isCompliant ? "text-success" : "text-danger";
+}
+
+function getEntryBorderClass(entry: CompanyTimesheetCalendarEntry) {
+  const validation = entry.scheduleValidation;
+  if (validation) {
+    return validation.isCompliant
+      ? "border-success/30 bg-success/[0.05]"
+      : "border-danger/30 bg-danger/[0.07]";
+  }
+  return entry.missing_clocking || entry.late_arrival || entry.early_departure
+    ? "border-danger/30 bg-danger/[0.07]"
+    : "border-border bg-background";
+}
+
 function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
   if (status === "draft") return ["cw-company-timesheet-event", "cw-calendar-draft"];
   if (status === "approved") return ["cw-company-timesheet-event", "cw-calendar-approved"];
@@ -673,11 +697,7 @@ export default function CompanyTimesheetCalendar({
                           ),
                         );
                       }}
-className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                      entry.missing_clocking || entry.late_arrival || entry.early_departure
-                        ? "border-danger/30 bg-danger/[0.07]"
-                        : "border-border bg-background"
-                      }`}
+className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${getEntryBorderClass(entry)}`}
                       aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -690,7 +710,7 @@ className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">
+                          <span className={`text-sm font-semibold ${getPaidHoursTextClass(entry.scheduleValidation)}`}>
                             {formatHours(entry.paid_hours)}
                             {Number(entry.overtime_hours ?? 0) > 0
                               ? ` +${formatHours(entry.overtime_hours)}`
@@ -974,11 +994,11 @@ className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                   <tr><td className="py-0.5 text-muted pr-4">Clock in</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_in)}</td></tr>
                   <tr><td className="py-0.5 text-muted pr-4">Lunch</td><td className="font-semibold text-foreground">{formatTimeRange(selectedEntry.lunch_start, selectedEntry.lunch_end)}</td></tr>
                   <tr><td className="py-0.5 text-muted pr-4">Clock out</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_out)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Paid</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.paid_hours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">NT</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.normal_hours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">OT</td><td className="font-semibold text-warning">{formatHours(selectedEntry.overtime_hours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Paid leave</td><td className="font-semibold text-accent">{formatHours(selectedEntry.paidTimeOffHours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Lunch break</td><td className="font-semibold text-foreground">{formatHours(selectedEntry.lunch_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Paid</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.paid_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">NT</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.normal_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">OT</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.overtime_hours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Paid leave</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.paidTimeOffHours)}</td></tr>
+                  <tr><td className="py-0.5 text-muted pr-4">Lunch break</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.lunch_hours)}</td></tr>
                 </tbody>
               </table>
             )}

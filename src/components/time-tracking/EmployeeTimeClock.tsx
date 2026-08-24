@@ -149,6 +149,7 @@ function optimisticEntry(
     gross_hours: 0,
     id: "optimistic",
     late_arrival: false,
+    leave_type_id: null,
     lunch_end: null,
     lunch_hours: 0,
     lunch_start: null,

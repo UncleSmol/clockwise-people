@@ -9,6 +9,7 @@ import AppUpdateChangelog from "@/components/AppUpdateChangelog";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
+import { UIQADashboard } from "@/components/UIQADashboard";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const [{ company }, unseenUpdates, accountProfile] = await Promise.all([
@@ -50,6 +51,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       </PanelBridgeProvider>
       <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
       <PwaInstallPrompt />
+      {process.env.NODE_ENV === 'development' && <UIQADashboard />}
     </main>
   );
 }
