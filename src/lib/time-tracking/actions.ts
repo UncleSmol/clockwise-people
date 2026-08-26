@@ -191,12 +191,18 @@ export async function reviewTimesheetCorrection(
   _previousState: CorrectionActionState,
   formData: FormData,
 ): Promise<CorrectionActionState> {
-  const correctionId = String(formData.get("correction_id") ?? "").trim();
+  const correctionIds = [
+    ...formData.getAll("correction_ids"),
+    ...formData.getAll("correction_id"),
+  ]
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
   const decision = String(formData.get("decision") ?? "").trim();
   const notes = String(formData.get("review_notes") ?? "").trim();
 
-  if (!correctionId) {
-    return { ok: false, message: "Choose a correction request to review." };
+  if (correctionIds.length === 0) {
+    return { ok: false, message: "Pick at least one correction request to review." };
   }
 
   if (decision !== "approve" && decision !== "reject") {
@@ -204,20 +210,42 @@ export async function reviewTimesheetCorrection(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("review_timesheet_correction_request", {
-    approve_request: decision === "approve",
+  const approve = decision === "approve";
+
+  // Try bulk RPC first
+  const { data, error } = await supabase.rpc("review_timesheet_correction_requests", {
+    approve_request: approve,
     manager_notes: notes || null,
-    target_correction_id: correctionId,
+    target_correction_ids: correctionIds,
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    // Fallback to sequential single RPC in case bulk RPC is unavailable
+    let successCount = 0;
+    for (const cid of correctionIds) {
+      const { error: singleError } = await supabase.rpc("review_timesheet_correction_request", {
+        approve_request: approve,
+        manager_notes: notes || null,
+        target_correction_id: cid,
+      });
+      if (singleError) {
+        return { ok: false, message: singleError.message };
+      }
+      successCount++;
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      message: `${successCount} correction request${successCount === 1 ? "" : "s"} ${approve ? "approved" : "rejected"}.`,
+    };
   }
 
+  const count = Number(data ?? correctionIds.length);
   revalidatePath("/dashboard");
   return {
     ok: true,
-    message: `Correction request ${decision === "approve" ? "approved" : "rejected"}.`,
+    message: `${count} correction request${count === 1 ? "" : "s"} ${approve ? "approved" : "rejected"}.`,
   };
 }
 
