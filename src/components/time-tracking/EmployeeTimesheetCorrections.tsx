@@ -308,6 +308,80 @@ function groupByWeek(entries: TimeEntryRecord[]) {
   }));
 }
 
+function PaginationControl({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+  itemLabel = "records",
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  itemLabel?: string;
+}) {
+  if (totalItems <= pageSize) return null;
+
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background p-2.5 text-xs text-muted">
+      <span>
+        Showing <strong className="text-foreground">{startItem}</strong> -{" "}
+        <strong className="text-foreground">{endItem}</strong> of{" "}
+        <strong className="text-foreground">{totalItems}</strong> {itemLabel}
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          className="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-surface-muted disabled:opacity-40"
+        >
+          Previous
+        </button>
+
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+          .map((page, idx, arr) => {
+            const prevPage = arr[idx - 1];
+            const showEllipsis = prevPage && page - prevPage > 1;
+
+            return (
+              <span key={page} className="flex items-center">
+                {showEllipsis ? <span className="px-1 text-muted">…</span> : null}
+                <button
+                  type="button"
+                  onClick={() => onPageChange(page)}
+                  className={`size-6 rounded text-xs font-bold ${
+                    currentPage === page
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border bg-surface text-foreground hover:bg-surface-muted"
+                  }`}
+                >
+                  {page}
+                </button>
+              </span>
+            );
+          })}
+
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          className="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-surface-muted disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function EmployeeTimesheetCorrections({
   collapsedCalendar = false,
   correctionRequests,
@@ -493,6 +567,32 @@ export default function EmployeeTimesheetCorrections({
       ),
     [entries, holidayDates],
   );
+
+  const [timesheetsPage, setTimesheetsPage] = useState(1);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const timesheetsPageSize = 6;
+  const requestsPageSize = 6;
+
+  const totalTimesheetsPages = Math.max(1, Math.ceil(filteredEntries.length / timesheetsPageSize));
+  const paginatedEntries = useMemo(
+    () =>
+      filteredEntries.slice(
+        (timesheetsPage - 1) * timesheetsPageSize,
+        timesheetsPage * timesheetsPageSize,
+      ),
+    [filteredEntries, timesheetsPage, timesheetsPageSize],
+  );
+
+  const totalRequestsPages = Math.max(1, Math.ceil(submittedEntries.length / requestsPageSize));
+  const paginatedSubmittedEntries = useMemo(
+    () =>
+      submittedEntries.slice(
+        (requestsPage - 1) * requestsPageSize,
+        requestsPage * requestsPageSize,
+      ),
+    [submittedEntries, requestsPage, requestsPageSize],
+  );
+
   const handleRangeSelect = (entryId: string) => {
     setAcknowledgedFlags(false);
 
@@ -1193,27 +1293,18 @@ export default function EmployeeTimesheetCorrections({
         </p>
       ) : activeTab === "timesheets" ? (
         <div className="grid gap-3">
-          <div className="grid gap-2">
-            {shouldGroupWeeks
-              ? weekGroups.map((group) => (
-                  <details
-                    key={group.key}
-                    className="rounded-md border border-border bg-background"
-                    open={group.key === weekGroups[0]?.key}
-                  >
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-foreground">
-                      <span>{group.label}</span>
-                      <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs">
-                        {group.entries.length} records
-                      </span>
-                    </summary>
-                    <div className="grid content-start gap-2 border-t border-border p-2 sm:grid-cols-2 xl:grid-cols-3">
-                      {group.entries.map(renderTimesheetEntry)}
-                    </div>
-                  </details>
-                ))
-              : filteredEntries.map(renderTimesheetEntry)}
+          <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {paginatedEntries.map(renderTimesheetEntry)}
           </div>
+
+          <PaginationControl
+            currentPage={timesheetsPage}
+            totalPages={totalTimesheetsPages}
+            totalItems={filteredEntries.length}
+            pageSize={timesheetsPageSize}
+            onPageChange={setTimesheetsPage}
+            itemLabel="timesheets"
+          />
 
           {section === "full" ? quickSubmitForm : null}
         </div>
@@ -1343,7 +1434,7 @@ export default function EmployeeTimesheetCorrections({
                 Submit a timesheet first. Then requests will appear here.
               </p>
             ) : null}
-            {submittedEntries.map((entry) => {
+            {paginatedSubmittedEntries.map((entry) => {
               const correction = latestRequestByEntry.get(entry.id);
               const hasSubmittedCorrection = correction?.status === "submitted";
               const canRequestCorrection = entry.work_date < currentWorkDate;
@@ -1531,6 +1622,15 @@ export default function EmployeeTimesheetCorrections({
               );
             })}
           </div>
+
+          <PaginationControl
+            currentPage={requestsPage}
+            totalPages={totalRequestsPages}
+            totalItems={submittedEntries.length}
+            pageSize={requestsPageSize}
+            onPageChange={setRequestsPage}
+            itemLabel="submitted timesheets"
+          />
         </div>
       )}
         </>
