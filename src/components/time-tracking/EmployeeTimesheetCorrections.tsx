@@ -1640,70 +1640,140 @@ export default function EmployeeTimesheetCorrections({
         open={Boolean(detailEntry)}
         onClose={() => setDetailEntry(null)}
         maxWidth="max-w-2xl"
-        eyebrow="Timesheet"
+        eyebrow="Timesheet detail"
         title={detailEntry ? formatDate(detailEntry.work_date) : ""}
-        description={detailEntry ? <span className="capitalize">{detailEntry.status}</span> : ""}
-        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4"
+        description={detailEntry ? <span className="capitalize">{detailEntry.status} shift breakdown</span> : ""}
+        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5"
       >
         {detailEntry ? (
-          <>
+          <div className="grid gap-4">
+            {/* Solid Status Hero Card */}
+            <div
+              className={`flex items-center justify-between gap-3 rounded-lg p-4 shadow-sm ${
+                detailEntry.status === "approved"
+                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                  : detailEntry.status === "submitted"
+                    ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                    : detailEntry.status === "rejected"
+                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                      : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+              }`}
+            >
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${detailEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                  Timesheet Status
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
+                      detailEntry.status === "approved"
+                        ? "bg-emerald-950/40 text-white border border-emerald-400/30"
+                        : detailEntry.status === "submitted"
+                          ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
+                          : detailEntry.status === "rejected"
+                            ? "bg-rose-950/50 text-white border border-rose-400/30"
+                            : "bg-zinc-200 text-zinc-800 border border-zinc-300"
+                    }`}
+                  >
+                    {detailEntry.status === "approved" ? (
+                      <CheckCircle2 className="size-3 text-emerald-300" />
+                    ) : detailEntry.status === "rejected" ? (
+                      <AlertTriangle className="size-3 text-rose-200" />
+                    ) : (
+                      <Clock className="size-3" />
+                    )}
+                    {detailEntry.status}
+                  </span>
+                  <span className={`text-xs font-bold ${detailEntry.status === "draft" ? "text-zinc-600" : "text-white/90"}`}>
+                    {formatDate(detailEntry.work_date)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${detailEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                  Paid duration
+                </p>
+                <p className="mt-0.5 text-2xl font-black">{formatHours(detailEntry.paid_hours)}</p>
+              </div>
+            </div>
+
+            {/* Time Grid Cards */}
             <div className="grid gap-2 sm:grid-cols-4">
-              <div className="rounded-md border border-border bg-background px-3 py-2">
-                <p className="text-xs text-muted">Clock in</p>
-                <p className="mt-1 font-semibold text-foreground">
+              <div className="rounded-lg border border-border bg-background p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock in</p>
+                <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatTime(detailEntry.clock_in)}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background px-3 py-2">
-                <p className="text-xs text-muted">Lunch</p>
-                <p className="mt-1 font-semibold text-foreground">
+
+              <div className="rounded-lg border border-border bg-background p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch</p>
+                <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatTimeRange(detailEntry.lunch_start, detailEntry.lunch_end)}
                 </p>
               </div>
-              <div className="rounded-md border border-border bg-background px-3 py-2">
-                <p className="text-xs text-muted">Clock out</p>
-                <p className="mt-1 font-semibold text-foreground">
+
+              <div className="rounded-lg border border-border bg-background p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock out</p>
+                <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatTime(detailEntry.clock_out)}
                 </p>
               </div>
-              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
-                <p className="text-xs text-muted">Paid</p>
-                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
+
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Total Paid</p>
+                <p className="mt-1 text-sm font-black text-emerald-950">
                   {formatHours(detailEntry.paid_hours)}
                 </p>
               </div>
             </div>
 
+            {/* Hours Calculation Details */}
             <div className="grid gap-2 sm:grid-cols-4">
-              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
-                <p className="text-xs text-muted">NT</p>
-                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
+              <div className="rounded-lg border border-border bg-background p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Normal (NT)</p>
+                <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatHours(detailEntry.normal_hours)}
                 </p>
               </div>
-              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
-                <p className="text-xs text-muted">OT</p>
-                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-100/70 p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700">Overtime (OT)</p>
+                <p className="mt-1 text-sm font-black text-slate-900">
                   {formatHours(detailEntry.overtime_hours)}
                 </p>
               </div>
-              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
-                <p className="text-xs text-muted">Lunch break</p>
-                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
+
+              <div className="rounded-lg border border-border bg-background p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch break</p>
+                <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatHours(detailEntry.lunch_hours)}
                 </p>
               </div>
-              <div className={`rounded-md px-3 py-2 ${getPaidHoursContainerClass(detailEntry.scheduleValidation)}`}>
-                <p className="text-xs text-muted">Schedule</p>
-                <p className={`mt-1 font-semibold ${getPaidHoursTextClass(detailEntry.scheduleValidation)}`}>
+
+              <div
+                className={`rounded-lg border p-3 text-center ${
+                  detailEntry.scheduleValidation?.isCompliant
+                    ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
+                    : "border-rose-200 bg-rose-50/70 text-rose-950"
+                }`}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider">Schedule Check</p>
+                <p className="mt-1 text-xs font-black">
                   {detailEntry.scheduleValidation?.isCompliant ? "Compliant" : "Needs review"}
                 </p>
               </div>
             </div>
+
+            {/* Schedule issues alert if any */}
             {detailEntry.scheduleValidation && !detailEntry.scheduleValidation.isCompliant && (
-              <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2">
-                <p className="text-xs text-danger font-semibold">Schedule issues:</p>
-                <ul className="mt-1 list-disc list-inside text-xs text-danger">
+              <div className="rounded-lg border border-rose-300 bg-rose-50 p-3.5 text-rose-950">
+                <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-800">
+                  <AlertTriangle className="size-4 text-rose-600" />
+                  Schedule Exceptions Detected
+                </p>
+                <ul className="mt-2 list-disc list-inside space-y-1 text-xs font-medium">
                   {detailEntry.scheduleValidation.issues.map((issue, idx) => (
                     <li key={idx}>{issue}</li>
                   ))}
@@ -1711,47 +1781,50 @@ export default function EmployeeTimesheetCorrections({
               </div>
             )}
 
+            {/* Notes */}
             {detailEntry.notes ? (
-              <div className="rounded-md border border-border bg-background px-3 py-2">
-                <p className="text-xs text-muted">Notes</p>
-                <p className="mt-1 text-sm text-foreground">{detailEntry.notes}</p>
+              <div className="rounded-lg border border-border bg-background p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Shift notes</p>
+                <p className="mt-1 text-xs font-medium text-foreground">{detailEntry.notes}</p>
               </div>
             ) : null}
 
+            {/* Calculation Warning notes */}
             {detailEntry.warning_notes ? (
-              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
-                <p className="text-xs text-warning">Calculation note</p>
-                <p className="mt-1 text-sm font-medium text-warning">
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-amber-950">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Calculation notice</p>
+                <p className="mt-1 text-xs font-medium text-amber-900">
                   {detailEntry.warning_notes}
                 </p>
               </div>
             ) : null}
 
+            {/* Location events history */}
             {detailEntry.locationEvents?.length ? (
-              <div className="rounded-md border border-border bg-background px-3 py-2">
-                <p className="text-xs text-muted">Location history</p>
-                <div className="mt-2 grid gap-2">
+              <div className="rounded-lg border border-border bg-background p-3.5">
+                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                  <MapPin className="size-4 text-accent" />
+                  Location Audit History ({detailEntry.locationEvents.length})
+                </p>
+                <div className="mt-2.5 grid gap-2">
                   {detailEntry.locationEvents.map((event) => (
                     <div
                       key={event.id}
-                      className="grid gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs sm:grid-cols-[130px_1fr_auto] sm:items-center"
+                      className="grid gap-1 rounded-md border border-border bg-surface p-2.5 text-xs sm:grid-cols-[130px_1fr_auto] sm:items-center"
                     >
-                      <p className="font-semibold capitalize text-foreground">
+                      <p className="font-bold capitalize text-foreground">
                         {event.event_type.replaceAll("_", " ")}
                       </p>
                       <p className="text-muted">
                         {event.latitude !== null && event.longitude !== null
-                          ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                          ? `${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`
                           : "No coordinates"}
-                        {event.accuracy_meters !== null
-                          ? ` · ±${Math.round(event.accuracy_meters)}m`
-                          : ""}
                         {event.distance_meters !== null
-                          ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                          ? ` · ${Math.round(event.distance_meters)}m away`
                           : ""}
                       </p>
                       <span
-                        className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
+                        className={`inline-flex w-max items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold ${geofenceClass(event.geofence_status)}`}
                       >
                         <LocateFixed className="size-3" />
                         {geofenceLabel(event.geofence_status)}
@@ -1761,7 +1834,7 @@ export default function EmployeeTimesheetCorrections({
                 </div>
               </div>
             ) : null}
-          </>
+          </div>
         ) : null}
       </ViewportSidebar>
 

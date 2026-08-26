@@ -709,28 +709,71 @@ export default function CompanyLiveWorkforce({
       >
         {selectedColleague ? (
           <div className="grid gap-4">
-            <div className="flex items-center gap-3.5 rounded-lg border border-border bg-surface p-3.5 shadow-sm">
+            {/* Solid Status Hero Card */}
+            <div
+              className={`flex items-center gap-3.5 rounded-lg p-4 shadow-sm ${
+                selectedColleague.status === "working"
+                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                  : selectedColleague.status === "on_lunch"
+                    ? "bg-amber-500 text-white ring-1 ring-amber-600/60"
+                    : selectedColleague.status === "worked"
+                      ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                      : selectedColleague.status === "needs_review"
+                        ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                        : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+              }`}
+            >
               <div className="relative">
                 <EmployeeAvatar
                   name={selectedColleague.knownAs ?? selectedColleague.fullName}
                   src={selectedColleague.avatarUrl}
-                  className="size-14 ring-2 ring-border shadow-xs"
+                  className="size-14 ring-2 ring-white shadow-xs"
                 />
                 <span
-                  className="absolute bottom-0 right-0 block size-3.5 rounded-full ring-2 ring-surface bg-primary"
+                  className={`absolute bottom-0 right-0 block size-3.5 rounded-full ring-2 ${
+                    selectedColleague.status === "working"
+                      ? "bg-emerald-300 ring-emerald-600"
+                      : selectedColleague.status === "on_lunch"
+                        ? "bg-amber-200 ring-amber-500"
+                        : selectedColleague.status === "worked"
+                          ? "bg-emerald-400 ring-slate-800"
+                          : selectedColleague.status === "needs_review"
+                            ? "bg-rose-200 ring-rose-600"
+                            : "bg-zinc-400 ring-zinc-100"
+                  }`}
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-base font-bold text-foreground">
+                <h3 className="truncate text-base font-extrabold">
                   {selectedColleague.knownAs ?? selectedColleague.fullName}
                 </h3>
-                <p className="text-xs text-muted">{selectedColleague.jobTitle ?? "Team Member"}</p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded bg-surface-muted px-2.5 py-0.5 text-xs font-bold text-foreground border border-border">
+                <p className={`text-xs font-medium ${selectedColleague.status === "not_started" ? "text-zinc-600" : "opacity-90"}`}>
+                  {selectedColleague.jobTitle ?? "Team Member"}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
+                      selectedColleague.status === "working"
+                        ? "bg-emerald-950/40 text-white border border-emerald-400/30"
+                        : selectedColleague.status === "on_lunch"
+                          ? "bg-amber-950/40 text-white border border-amber-300/30"
+                          : selectedColleague.status === "worked"
+                            ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
+                            : selectedColleague.status === "needs_review"
+                              ? "bg-rose-950/50 text-white border border-rose-400/30"
+                              : "bg-zinc-200 text-zinc-700 border border-zinc-300"
+                    }`}
+                  >
                     {statusLabel(selectedColleague.status)}
                   </span>
                   {selectedColleague.employeeNumber ? (
-                    <span className="rounded bg-surface-muted px-2 py-0.5 text-xs font-semibold text-muted">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-bold ${
+                        selectedColleague.status === "not_started"
+                          ? "bg-zinc-200 text-zinc-700"
+                          : "bg-black/20 text-white"
+                      }`}
+                    >
                       #{selectedColleague.employeeNumber}
                     </span>
                   ) : null}
@@ -738,9 +781,10 @@ export default function CompanyLiveWorkforce({
               </div>
             </div>
 
+            {/* Department & Workstation Cards */}
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-lg border border-border bg-background p-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
                   Department
                 </p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
@@ -749,7 +793,7 @@ export default function CompanyLiveWorkforce({
               </div>
 
               <div className="rounded-lg border border-border bg-background p-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
                   Workstation
                 </p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
@@ -758,64 +802,66 @@ export default function CompanyLiveWorkforce({
               </div>
             </div>
 
-            <div className="grid gap-2.5 rounded-lg border border-border bg-surface p-3.5 shadow-sm">
+            {/* Shift Breakdown Panel */}
+            <div className="grid gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-accent">
-                  Today&apos;s shift
+                  Today&apos;s shift logs
                 </p>
                 <span className="text-xs font-semibold text-muted">{overview.workDate}</span>
               </div>
 
+              {/* High-Contrast White Time Strip */}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background p-2">
+                <div className="rounded-md border border-border bg-background p-2 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">In</p>
-                  <p className="mt-0.5 text-xs font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
                     {shortTime(selectedColleague.clockIn)}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2">
+                <div className="rounded-md border border-border bg-background p-2 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">Lunch start</p>
-                  <p className="mt-0.5 text-xs font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
                     {shortTime(selectedColleague.lunchStart)}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2">
+                <div className="rounded-md border border-border bg-background p-2 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">Lunch end</p>
-                  <p className="mt-0.5 text-xs font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
                     {shortTime(selectedColleague.lunchEnd)}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2">
+                <div className="rounded-md border border-border bg-background p-2 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">Out</p>
-                  <p className="mt-0.5 text-xs font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
                     {shortTime(selectedColleague.clockOut)}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-md border border-border bg-background p-2.5">
-                  <p className="text-[10px] font-bold uppercase text-muted">Worked duration</p>
-                  <p className="mt-0.5 text-base font-black text-foreground">
+                <div className="rounded-md border border-emerald-200 bg-emerald-50/70 p-3 text-center">
+                  <p className="text-[10px] font-bold uppercase text-emerald-800">Worked duration</p>
+                  <p className="mt-0.5 text-lg font-black text-emerald-950">
                     {selectedColleague.clockOut
                       ? formatHours(selectedColleague.paidHours)
                       : activeDuration(selectedColleague, tick) ?? "--"}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2.5">
-                  <p className="text-[10px] font-bold uppercase text-muted">Overtime</p>
-                  <p className="mt-0.5 text-base font-black text-foreground">
+                <div className="rounded-md border border-slate-200 bg-slate-100/70 p-3 text-center">
+                  <p className="text-[10px] font-bold uppercase text-slate-700">Overtime</p>
+                  <p className="mt-0.5 text-lg font-black text-slate-900">
                     {formatHours(selectedColleague.overtimeHours)}
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-md border border-border bg-background p-2.5">
-                <p className="text-[10px] font-bold uppercase text-muted">Location check</p>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-[10px] font-bold uppercase text-muted">Geofence check</p>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="inline-flex rounded border border-border bg-surface px-2.5 py-0.5 text-xs font-bold text-foreground">
                     {geofenceLabel(selectedColleague)}

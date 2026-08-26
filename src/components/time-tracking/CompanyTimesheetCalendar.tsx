@@ -974,20 +974,11 @@ export default function CompanyTimesheetCalendar({
         open={Boolean(selectedEntry)}
         onClose={closeEntryModal}
         maxWidth="max-w-md"
-        eyebrow={
-          <span className="inline-flex items-center gap-1.5">
-            <span>Timesheet</span>
-            <span
-              className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold capitalize ${selectedEntry ? statusBadgeClass(selectedEntry.status) : ""}`}
-            >
-              {selectedEntry?.status}
-            </span>
-          </span>
-        }
+        eyebrow="Timesheet record"
         title={selectedEntry ? displayName(selectedEntry) : ""}
         description={
           selectedEntry
-            ? `${selectedEntry.workstationName ?? "No workstation"} - ${selectedEntry.work_date}`
+            ? `${selectedEntry.workstationName ?? "No workstation"} · ${selectedEntry.work_date}`
             : ""
         }
         actions={
@@ -995,46 +986,114 @@ export default function CompanyTimesheetCalendar({
             <button
               type="button"
               onClick={startEditing}
-              className="grid size-10 place-items-center rounded-md border border-border bg-background text-foreground hover:bg-accent/10 hover:text-accent"
+              className="grid size-8 place-items-center rounded border border-border bg-surface text-foreground hover:bg-surface-muted"
               aria-label="Edit timesheet"
             >
               <Pencil className="size-4" />
             </button>
           ) : null
         }
-        bodyClassName="flex flex-col overflow-y-auto px-3 py-2"
+        bodyClassName="grid min-h-0 flex-1 gap-3.5 overflow-y-auto p-4"
       >
         {selectedEntry ? (
           <>
+            {/* Solid Status Hero Card */}
+            <div
+              className={`flex items-center justify-between gap-3 rounded-lg p-3.5 shadow-sm ${
+                selectedEntry.status === "approved"
+                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                  : selectedEntry.status === "submitted"
+                    ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                    : selectedEntry.status === "rejected"
+                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                      : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+              }`}
+            >
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${selectedEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                  Timesheet Status
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${
+                      selectedEntry.status === "approved"
+                        ? "bg-emerald-950/40 text-white border border-emerald-400/30"
+                        : selectedEntry.status === "submitted"
+                          ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
+                          : selectedEntry.status === "rejected"
+                            ? "bg-rose-950/50 text-white border border-rose-400/30"
+                            : "bg-zinc-200 text-zinc-800 border border-zinc-300"
+                    }`}
+                  >
+                    {selectedEntry.status}
+                  </span>
+                  <span className={`text-xs font-bold ${selectedEntry.status === "draft" ? "text-zinc-600" : "text-white/90"}`}>
+                    {selectedEntry.work_date}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${selectedEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                  Paid Total
+                </p>
+                <p className="mt-0.5 text-xl font-black">{formatHours(selectedEntry.paid_hours)}</p>
+              </div>
+            </div>
+
             {/* Editable time fields */}
             {editing ? (
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(["clock_in","lunch_start","lunch_end","clock_out"] as const).map((field) => (
-                  <div key={field} className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                    <p className="text-[10px] text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_"," ")}</p>
+                  <div key={field} className="min-w-0 rounded-lg border border-border bg-background p-2">
+                    <p className="text-[10px] font-bold uppercase text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_"," ")}</p>
                     <input
                       type="time"
                       name={field}
                       defaultValue={selectedEntry[field] ?? ""}
                       onChange={(e) => handleTimeChange(field, e.target.value)}
-                      className="h-6 w-full bg-transparent text-xs text-foreground outline-none sm:h-6"
+                      className="mt-1 h-7 w-full rounded border border-border bg-surface px-1 text-xs font-bold text-foreground outline-none"
                     />
                   </div>
                 ))}
               </div>
             ) : (
-              <table className="w-full text-xs">
-                <tbody>
-                  <tr><td className="py-0.5 text-muted pr-4">Clock in</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_in)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Lunch</td><td className="font-semibold text-foreground">{formatTimeRange(selectedEntry.lunch_start, selectedEntry.lunch_end)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Clock out</td><td className="font-semibold text-foreground">{formatTime(selectedEntry.clock_out)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Paid</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.paid_hours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">NT</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.normal_hours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">OT</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.overtime_hours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Paid leave</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.paidTimeOffHours)}</td></tr>
-                  <tr><td className="py-0.5 text-muted pr-4">Lunch break</td><td className={`font-semibold ${getPaidHoursTextClass(selectedEntry.scheduleValidation)}`}>{formatHours(selectedEntry.lunch_hours)}</td></tr>
-                </tbody>
-              </table>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg border border-border bg-background p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted">In</p>
+                  <p className="mt-0.5 text-xs font-extrabold text-foreground">{formatTime(selectedEntry.clock_in)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted">Lunch</p>
+                  <p className="mt-0.5 text-xs font-extrabold text-foreground">{formatTimeRange(selectedEntry.lunch_start, selectedEntry.lunch_end)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted">Out</p>
+                  <p className="mt-0.5 text-xs font-extrabold text-foreground">{formatTime(selectedEntry.clock_out)}</p>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-emerald-800">Paid</p>
+                  <p className="mt-0.5 text-xs font-black text-emerald-950">{formatHours(selectedEntry.paid_hours)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Hours Breakdowns */}
+            {!editing && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg border border-border bg-background p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted">Normal (NT)</p>
+                  <p className="mt-0.5 text-xs font-extrabold text-foreground">{formatHours(selectedEntry.normal_hours)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-100/70 p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-slate-700">Overtime</p>
+                  <p className="mt-0.5 text-xs font-black text-slate-900">{formatHours(selectedEntry.overtime_hours)}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-2.5 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted">Lunch Break</p>
+                  <p className="mt-0.5 text-xs font-extrabold text-foreground">{formatHours(selectedEntry.lunch_hours)}</p>
+                </div>
+              </div>
             )}
 
             {/* Notes */}
