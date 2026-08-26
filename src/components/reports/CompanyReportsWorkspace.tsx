@@ -369,7 +369,7 @@ export default function CompanyReportsWorkspace({
     }
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const ts = new Date().toISOString().slice(0, 10);
     const metadata = {
       Company: companyName,
@@ -419,7 +419,7 @@ export default function CompanyReportsWorkspace({
         r.managerSignOff ?? "--",
         r.complianceNotes ?? "Compliant",
       ]);
-      exportReportToExcel("Timesheet & Payroll Period Report", `Timesheet_Payroll_${ts}`, headers, rows, metadata);
+      await exportReportToExcel("Timesheet & Payroll Period Report", `Timesheet_Payroll_${ts}`, headers, rows, metadata);
     } else if (activeTab === "attendance") {
       const headers = [
         "Employee Name",
@@ -459,7 +459,7 @@ export default function CompanyReportsWorkspace({
         r.geofenceComplianceRate,
         r.complianceScore,
       ]);
-      exportReportToExcel("Attendance & Punctuality Compliance Report", `Attendance_Report_${ts}`, headers, rows, metadata);
+      await exportReportToExcel("Attendance & Punctuality Compliance Report", `Attendance_Report_${ts}`, headers, rows, metadata);
     } else if (activeTab === "accruals") {
       const headers = [
         "Employee Name",
@@ -487,7 +487,7 @@ export default function CompanyReportsWorkspace({
         r.closingBalanceDays,
         r.projectedYearEndHours,
       ]);
-      exportReportToExcel("Leave & Accrual Balance Summary", `Leave_Accrual_Report_${ts}`, headers, rows, metadata);
+      await exportReportToExcel("Leave & Accrual Balance Summary", `Leave_Accrual_Report_${ts}`, headers, rows, metadata);
     } else if (activeTab === "absences") {
       const headers = [
         "Employee Name",
@@ -519,11 +519,11 @@ export default function CompanyReportsWorkspace({
         r.approvedBy ?? "--",
         r.status.toUpperCase(),
       ]);
-      exportReportToExcel("Absence & Leave Log", `Absence_Report_${ts}`, headers, rows, metadata);
+      await exportReportToExcel("Absence & Leave Log", `Absence_Report_${ts}`, headers, rows, metadata);
     }
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     const ts = new Date().toISOString().slice(0, 10);
     const kpiSummary = [
       { label: "Payroll Hours", value: `${kpis.totalPayrollHours}h` },
@@ -563,7 +563,7 @@ export default function CompanyReportsWorkspace({
         formatHours(r.totalPaidHours),
         r.status.toUpperCase(),
       ]);
-      exportReportToPdf("Timesheet & Payroll Period Report", `Timesheet_Payroll_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
+      await exportReportToPdf("Timesheet & Payroll Period Report", `Timesheet_Payroll_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
     } else if (activeTab === "attendance") {
       const headers = [
         "Employee",
@@ -593,7 +593,7 @@ export default function CompanyReportsWorkspace({
         `${r.punctualityRate}%`,
         `${r.complianceScore}/100`,
       ]);
-      exportReportToPdf("Attendance & Compliance Report", `Attendance_Report_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
+      await exportReportToPdf("Attendance & Compliance Report", `Attendance_Report_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
     } else if (activeTab === "accruals") {
       const headers = [
         "Employee",
@@ -619,7 +619,7 @@ export default function CompanyReportsWorkspace({
         `${r.closingBalanceDays}d`,
         formatHours(r.projectedYearEndHours),
       ]);
-      exportReportToPdf("Leave & Accrual Balance Summary", `Leave_Accruals_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
+      await exportReportToPdf("Leave & Accrual Balance Summary", `Leave_Accruals_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
     } else if (activeTab === "absences") {
       const headers = [
         "Employee",
@@ -645,7 +645,7 @@ export default function CompanyReportsWorkspace({
         r.isPaid ? "Paid" : "Unpaid",
         r.status.toUpperCase(),
       ]);
-      exportReportToPdf("Absence & Leave Log", `Absence_Report_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
+      await exportReportToPdf("Absence & Leave Log", `Absence_Report_${ts}`, companyName, periodLabel, headers, rows, kpiSummary);
     }
   };
 

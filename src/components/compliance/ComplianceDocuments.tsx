@@ -1,18 +1,28 @@
 const policies = [
   {
-    title: "Location Data Collection Notice",
+    title: "Live Work-Hours Geolocation & Privacy Policy",
     body: [
-      "ClockWise People collects browser-provided location only when an employee performs a clocking action.",
-      "Location data is used to validate whether the clocking event happened inside the employee's assigned workstation radius.",
-      "Location records may include latitude, longitude, GPS accuracy, workstation, distance from workstation, geofence status, event type, and event time.",
-      "The app does not track employees continuously in the background when the browser is closed.",
+      "ClockWise People tracks live location ONLY during official work hours and ONLY when an employee is actively clocked in.",
+      "When an employee clocks out, is on lunch or rest break, or outside their scheduled work hours, location monitoring is completely disabled and inactive.",
+      "Significant Movement Filter: During an active clocked-in shift, location breadcrumbs are recorded when the employee changes location by at least 25 meters to ensure accurate site verification, client dispatch routing, and workplace safety without draining device battery.",
+      "Zero Off-Duty Tracking: No background location monitoring, geofencing, or GPS polling occurs when employees are off-shift or clocked out.",
+      "Location records captured during active shifts include timestamp, coordinates, estimated accuracy, distance moved (>25m), and proximity to assigned company workstations.",
     ],
   },
   {
-    title: "Employee Monitoring Policy",
+    title: "Location Data Collection Notice",
     body: [
-      "Time, attendance, leave, and geofence records are processed for workforce administration, payroll preparation, compliance checks, and manager review.",
-      "Managers may review submitted timesheets, location status, clocking exceptions, late arrivals, early departures, and missing clocking events.",
+      "ClockWise People collects location via Capacitor Geolocation / mobile sensors only when an employee performs a clocking action or is actively on shift.",
+      "Location data is used to validate whether the clocking event and work duties occurred inside the employee's assigned workstation radius.",
+      "Location records may include latitude, longitude, GPS accuracy, workstation, distance from workstation, geofence status, event type, and event time.",
+      "The app never tracks employees continuously when the browser or app is closed or outside shift hours.",
+    ],
+  },
+  {
+    title: "Employee Monitoring & POPIA Compliance Policy",
+    body: [
+      "Time, attendance, leave, and geofence records are processed solely for workforce administration, payroll preparation, compliance checks, and manager review in accordance with POPIA.",
+      "Managers may review submitted timesheets, visual movement route maps (>25m breadcrumbs), location status, clocking exceptions, late arrivals, early departures, and missing clocking events.",
       "Employees should only clock from their own account and should not share login credentials.",
     ],
   },
@@ -45,7 +55,7 @@ const policies = [
     body: [
       "The app must be used for lawful workforce administration and employee self-service only.",
       "Users may not falsify time, location, leave, or employment information.",
-      "Attempts to bypass geolocation, impersonate another employee, or manipulate records may be handled under company disciplinary processes.",
+      "Attempts to bypass geolocation, spoof GPS coordinates, impersonate another employee, or manipulate records may be handled under company disciplinary processes.",
     ],
   },
 ];

@@ -439,8 +439,8 @@ export default function CompanyTimesheetCalendar({
   const globalMessage = createState.message || loadLeaveState.message || updateState.message || deleteState.message;
   const globalOk = updateState.message ? updateState.ok
     : deleteState.message ? deleteState.ok
-    : createState.message ? createState.ok
-    : loadLeaveState.ok;
+      : createState.message ? createState.ok
+        : loadLeaveState.ok;
 
   return (
     <section className="card">
@@ -458,7 +458,7 @@ export default function CompanyTimesheetCalendar({
           <div className="rounded-lg border border-slate-300 bg-white p-2.5 shadow-2xs">
             <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <CalendarDays className="size-3.5 text-slate-600" />
-              Total Shifts
+              Shifts
             </div>
             <p className="mt-1 text-lg font-black text-slate-900">{totals.total}</p>
           </div>
@@ -511,11 +511,10 @@ export default function CompanyTimesheetCalendar({
                 return (
                   <div
                     key={colleague.employeeId}
-                    className={`flex items-center gap-2 rounded-md border p-1 pr-2.5 shadow-2xs transition-all ${
-                      isOnLunch
+                    className={`flex items-center gap-2 rounded-md border p-1 pr-2.5 shadow-2xs transition-all ${isOnLunch
                         ? "border-amber-300 bg-white hover:bg-amber-50"
                         : "border-emerald-300 bg-white hover:bg-emerald-50"
-                    }`}
+                      }`}
                   >
                     <div className="relative shrink-0">
                       <EmployeeAvatar
@@ -524,9 +523,8 @@ export default function CompanyTimesheetCalendar({
                         className={`size-7 ring-2 ${isOnLunch ? "ring-amber-500" : "ring-emerald-500"}`}
                       />
                       <span
-                        className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white ${
-                          isOnLunch ? "bg-amber-500" : "bg-emerald-500"
-                        }`}
+                        className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white ${isOnLunch ? "bg-amber-500" : "bg-emerald-500"
+                          }`}
                       />
                     </div>
                     <div className="min-w-0 text-left">
@@ -545,11 +543,10 @@ export default function CompanyTimesheetCalendar({
         )}
         {globalMessage ? (
           <div
-            className={`mb-3 rounded-md border px-3 py-2 text-sm font-semibold ${
-              globalOk
+            className={`mb-3 rounded-md border px-3 py-2 text-sm font-semibold ${globalOk
                 ? "border-emerald-300 bg-emerald-50 text-emerald-950"
                 : "border-rose-300 bg-rose-50 text-rose-950"
-            }`}
+              }`}
           >
             {globalMessage}
           </div>
@@ -838,7 +835,7 @@ export default function CompanyTimesheetCalendar({
                     !holidayDates.has(e.work_date) &&
                     !e.notes?.startsWith("Public holiday:"),
                 ).length === 0 &&
-                publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
+                  publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
                     No entries for this day
                   </div>
@@ -1072,15 +1069,14 @@ export default function CompanyTimesheetCalendar({
           <>
             {/* Solid Status Hero Card */}
             <div
-              className={`flex items-center justify-between gap-3 rounded-lg p-3.5 shadow-sm ${
-                selectedEntry.status === "approved"
+              className={`flex items-center justify-between gap-3 rounded-lg p-3.5 shadow-sm ${selectedEntry.status === "approved"
                   ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
                   : selectedEntry.status === "submitted"
                     ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
                     : selectedEntry.status === "rejected"
                       ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
                       : "border border-zinc-300 bg-zinc-100 text-zinc-900"
-              }`}
+                }`}
             >
               <div>
                 <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${selectedEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
@@ -1088,15 +1084,14 @@ export default function CompanyTimesheetCalendar({
                 </p>
                 <div className="mt-1 flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${
-                      selectedEntry.status === "approved"
+                    className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${selectedEntry.status === "approved"
                         ? "bg-emerald-950/40 text-white border border-emerald-400/30"
                         : selectedEntry.status === "submitted"
                           ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
                           : selectedEntry.status === "rejected"
                             ? "bg-rose-950/50 text-white border border-rose-400/30"
                             : "bg-zinc-200 text-zinc-800 border border-zinc-300"
-                    }`}
+                      }`}
                   >
                     {selectedEntry.status}
                   </span>
@@ -1117,9 +1112,9 @@ export default function CompanyTimesheetCalendar({
             {/* Editable time fields */}
             {editing ? (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(["clock_in","lunch_start","lunch_end","clock_out"] as const).map((field) => (
+                {(["clock_in", "lunch_start", "lunch_end", "clock_out"] as const).map((field) => (
                   <div key={field} className="min-w-0 rounded-lg border border-border bg-background p-2">
-                    <p className="text-[10px] font-bold uppercase text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_"," ")}</p>
+                    <p className="text-[10px] font-bold uppercase text-muted leading-none">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_", " ")}</p>
                     <input
                       type="time"
                       name={field}
@@ -1279,8 +1274,8 @@ export default function CompanyTimesheetCalendar({
                               ? ` + ${formatHours(entry.overtime_hours)} OT`
                               : ""}
                             {entry.missing_clocking ||
-                            entry.late_arrival ||
-                            entry.early_departure
+                              entry.late_arrival ||
+                              entry.early_departure
                               ? " · needs review"
                               : ""}
                           </span>
@@ -1318,9 +1313,8 @@ export default function CompanyTimesheetCalendar({
                   </div>
                   {approvalState.message ? (
                     <p
-                      className={`text-[11px] ${
-                        approvalState.ok ? "text-success" : "text-danger"
-                      }`}
+                      className={`text-[11px] ${approvalState.ok ? "text-success" : "text-danger"
+                        }`}
                     >
                       {approvalState.message}
                     </p>

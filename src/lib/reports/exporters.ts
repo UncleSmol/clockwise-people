@@ -1,7 +1,3 @@
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-
 export function exportReportToCsv(
   filename: string,
   headers: string[],
@@ -28,13 +24,14 @@ export function exportReportToCsv(
   URL.revokeObjectURL(url);
 }
 
-export function exportReportToExcel(
+export async function exportReportToExcel(
   reportTitle: string,
   filename: string,
   headers: string[],
   rows: Array<Array<string | number | boolean | null | undefined>>,
   metadata?: Record<string, string | number>,
 ) {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
 
   const dataMatrix: Array<Array<string | number | boolean | null | undefined>> = [
@@ -78,102 +75,111 @@ export function exportReportToPdf(
   rows: Array<Array<string | number | boolean | null | undefined>>,
   kpis?: Array<{ label: string; value: string | number }>,
 ) {
-  const doc = new jsPDF({
-    orientation: headers.length > 7 ? "landscape" : "portrait",
-    unit: "mm",
-    format: "a4",
-  });
-
-  const pageWidth = doc.internal.pageSize.getWidth();
-
-  // Header Banner
-  doc.setFillColor(15, 23, 42); // Slate 900
-  doc.rect(0, 0, pageWidth, 24, "F");
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text(companyName.toUpperCase(), 14, 10);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(203, 213, 225); // Slate 300
-  doc.text(`${reportTitle} · Payroll Period: ${periodLabel}`, 14, 17);
+  const isLandscape = headers.length > 7;
+  const printWindow = window.open("", "_blank");
 
   const generatedDate = new Intl.DateTimeFormat("en-ZA", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date());
 
-  doc.setFontSize(8);
-  doc.text(`Generated: ${generatedDate}`, pageWidth - 14, 17, { align: "right" });
+  const kpisHtml =
+    kpis && kpis.length > 0
+      ? `
+    <div style="display: grid; grid-template-columns: repeat(${Math.min(6, kpis.length)}, 1fr); gap: 8px; margin-bottom: 14px;">
+      ${kpis
+        .map(
+          (k) => `
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+          <div style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase;">${k.label}</div>
+          <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 2px;">${k.value}</div>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+    `
+      : "";
 
-  let startY = 32;
+  const tableHeaderHtml = headers
+    .map(
+      (h) =>
+        `<th style="background: #0f172a; color: #ffffff; font-size: 9.5px; font-weight: 700; text-align: left; padding: 6px 7px; border: 1px solid #1e293b;">${h}</th>`,
+    )
+    .join("");
 
-  // KPI Highlights Strip (if provided)
-  if (kpis && kpis.length > 0) {
-    const kpiCount = kpis.length;
-    const cardWidth = (pageWidth - 28 - (kpiCount - 1) * 4) / kpiCount;
+  const tableRowsHtml = rows
+    .map(
+      (r, idx) => `
+    <tr style="background: ${idx % 2 === 0 ? "#ffffff" : "#f8fafc"};">
+      ${r
+        .map(
+          (cell) =>
+            `<td style="font-size: 9px; color: #1e293b; padding: 4.5px 7px; border: 1px solid #e2e8f0;">${
+              cell === null || cell === undefined ? "--" : String(cell)
+            }</td>`,
+        )
+        .join("")}
+    </tr>
+  `,
+    )
+    .join("");
 
-    kpis.forEach((kpi, idx) => {
-      const cardX = 14 + idx * (cardWidth + 4);
-      doc.setFillColor(248, 250, 252); // Slate 50
-      doc.setDrawColor(226, 232, 240); // Slate 200
-      doc.roundedRect(cardX, startY, cardWidth, 14, 2, 2, "FD");
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${filename}</title>
+        <style>
+          @page {
+            size: A4 ${isLandscape ? "landscape" : "portrait"};
+            margin: 10mm;
+          }
+          * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+          body { margin: 0; padding: 0; color: #0f172a; background: #fff; }
+          .header { background: #0f172a; color: #fff; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+          .title { font-size: 15px; font-weight: 800; margin: 0; }
+          .subtitle { font-size: 10.5px; color: #94a3b8; margin-top: 2px; }
+          .meta { font-size: 9.5px; color: #cbd5e1; text-align: right; }
+          table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+          .footer { margin-top: 14px; font-size: 8.5px; color: #94a3b8; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">${companyName.toUpperCase()}</div>
+            <div class="subtitle">${reportTitle} · Payroll Period: ${periodLabel}</div>
+          </div>
+          <div class="meta">
+            <div>Generated: ${generatedDate}</div>
+            <div>ClockWise People Audit System</div>
+          </div>
+        </div>
+        ${kpisHtml}
+        <table>
+          <thead><tr>${tableHeaderHtml}</tr></thead>
+          <tbody>${tableRowsHtml}</tbody>
+        </table>
+        <div class="footer">
+          <span>ClockWise People Automated Compliance &amp; Payroll Report</span>
+          <span>Official Business Record</span>
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 250);
+          };
+        </script>
+      </body>
+    </html>
+  `;
 
-      doc.setTextColor(100, 116, 139); // Slate 500
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      doc.text(kpi.label.toUpperCase(), cardX + 3, startY + 5);
-
-      doc.setTextColor(15, 23, 42); // Slate 900
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(String(kpi.value), cardX + 3, startY + 11);
-    });
-
-    startY += 20;
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+  } else {
+    window.print();
   }
-
-  // Format table rows
-  const cleanRows = rows.map((r) =>
-    r.map((cell) => (cell === null || cell === undefined ? "--" : String(cell))),
-  );
-
-  // AutoTable Render
-  autoTable(doc, {
-    head: [headers],
-    body: cleanRows,
-    startY,
-    margin: { horizontal: 14 },
-    theme: "grid",
-    headStyles: {
-      fillColor: [15, 23, 42],
-      textColor: [255, 255, 255],
-      fontSize: 8,
-      fontStyle: "bold",
-      halign: "left",
-      cellPadding: 2.5,
-    },
-    bodyStyles: {
-      fontSize: 7.5,
-      textColor: [30, 41, 59],
-      cellPadding: 2,
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-    didDrawPage: (data) => {
-      // Footer page number
-      const str = `Page ${doc.getNumberOfPages()}`;
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text(str, pageWidth - 14, doc.internal.pageSize.getHeight() - 8, {
-        align: "right",
-      });
-      doc.text("ClockWise People Automated Compliance Report", 14, doc.internal.pageSize.getHeight() - 8);
-    },
-  });
-
-  doc.save(`${filename}.pdf`);
 }

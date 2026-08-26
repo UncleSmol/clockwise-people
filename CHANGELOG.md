@@ -5,6 +5,16 @@ All notable changes to the ClockWise People platform are documented in this file
 ## [Unreleased] - 2026-08-26
 
 ### Added
+- **Work-Hours Live Location Tracking & Significant Movement Engine** (`src/lib/geolocation/live-tracker.ts` & `LiveLocationTracker.tsx`):
+  - **Work-Hours Only Tracking**: Location is tracked strictly and exclusively during scheduled work hours when an employee is actively clocked in.
+  - **Automatic Off-Shift & Break Deactivation**: When an employee clocks out, goes on lunch/break, or is outside work hours, location tracking is completely terminated to guarantee employee privacy and POPIA compliance.
+  - **25-Meter Significant Movement Filter**: Dynamically evaluates distance moved using the Haversine formula and logs waypoints only when the employee moves by at least 25 meters, optimizing device battery life and mobile network data.
+  - **Capacitor Geolocation Native Bridge**: Integrates `@capacitor/geolocation` for native mobile execution with seamless web browser fallback.
+- **Admin Timesheet Movement Route Map & Visual Breadcrumbs** (`src/components/time-tracking/TimesheetRouteMap.tsx`):
+  - 1-click interactive Leaflet route map embedded in timesheet cards, approval queues, correction review, and team calendars.
+  - Features color-coded waypoint markers for Clock In (Green), Lunch Events (Amber), Movement Changes >25m (Blue/Cyan), and Clock Out (Red), connected by a chronological polyline route with workstation geofence boundary circles.
+- **Live Location Governance & POPIA Policy** (`src/components/compliance/ComplianceDocuments.tsx`):
+  - Formally documented the Live Work-Hours Geolocation Policy in the **Policies and documents** workspace, establishing zero off-duty monitoring.
 - **Compliance & Payroll Reporting Center** (`src/components/reports/CompanyReportsWorkspace.tsx`):
   - **Timesheets & Payroll Reports**: Pull and audit full timesheet logs by payroll period with breakdown of normal hours, 1.5x overtime, 2.0x Sunday/holiday overtime, holiday hours, gross paid hours, and manager approval sign-offs.
   - **Attendance & Punctuality Analytics**: Track employee scheduled vs worked days, on-time arrivals, late arrivals, missing clockings, geofence compliance rate %, and overall punctuality scores.

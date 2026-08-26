@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Clock,
   FileText,
+  Footprints,
   LocateFixed,
   LogOut,
   MapPin,
@@ -13,10 +14,20 @@ import {
   UtensilsCrossed,
   XCircle,
 } from "lucide-react";
-import { useActionState } from "react";
+import dynamic from "next/dynamic";
+import { useActionState, useState } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewSubmittedTimesheets } from "@/lib/time-tracking/actions";
 import type { CompanySubmittedTimesheet } from "@/lib/time-tracking/schema";
+
+const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-48 w-full items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-slate-400">
+      Loading shift route map...
+    </div>
+  ),
+});
 
 type CompanyTimesheetApprovalQueueProps = {
   timesheets: CompanySubmittedTimesheet[];
@@ -87,6 +98,7 @@ function geofenceClass(status: string | null) {
 export default function CompanyTimesheetApprovalQueue({
   timesheets,
 }: CompanyTimesheetApprovalQueueProps) {
+  const [activeMapEntryId, setActiveMapEntryId] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState(
     reviewSubmittedTimesheets,
     initialState,
@@ -232,12 +244,40 @@ export default function CompanyTimesheetApprovalQueue({
                     </div>
                   </div>
 
-                  {/* Location History Dropdown */}
-                  <details className="rounded-md border border-border/80 bg-white/80">
-                    <summary className="flex cursor-pointer items-center gap-1.5 px-3 py-2 text-xs font-bold text-foreground hover:bg-slate-50">
-                      <MapPin className="size-3.5 text-accent" />
-                      Location history ({timesheet.locationEvents.length})
+                  {/* Location History Dropdown & Visual Route Map */}
+                  <details className="rounded-md border border-border/80 bg-white/80" open={activeMapEntryId === timesheet.id}>
+                    <summary className="flex cursor-pointer items-center justify-between gap-1.5 px-3 py-2 text-xs font-bold text-foreground hover:bg-slate-50">
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="size-3.5 text-accent" />
+                        Location history ({timesheet.locationEvents.length})
+                      </span>
+                      {timesheet.locationEvents.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setActiveMapEntryId((prev) => (prev === timesheet.id ? null : timesheet.id));
+                          }}
+                          className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-800"
+                        >
+                          <Footprints className="size-3 text-emerald-400" />
+                          {activeMapEntryId === timesheet.id ? "Hide Map" : "View Route Map"}
+                        </button>
+                      )}
                     </summary>
+
+                    {/* Interactive Leaflet Route Map */}
+                    {activeMapEntryId === timesheet.id && (
+                      <div className="p-2 border-t border-border bg-slate-950">
+                        <TimesheetRouteMap
+                          employeeName={timesheet.knownAs ?? timesheet.fullName}
+                          workDate={timesheet.work_date}
+                          locationEvents={timesheet.locationEvents}
+                          onClose={() => setActiveMapEntryId(null)}
+                        />
+                      </div>
+                    )}
+
                     <div className="divide-y divide-border border-t border-border bg-surface p-1">
                       {timesheet.locationEvents.length === 0 ? (
                         <p className="p-2.5 text-center text-xs text-muted">

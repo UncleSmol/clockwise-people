@@ -12,6 +12,7 @@ import {
 } from "@/lib/time-tracking/actions";
 import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
 import { useRealtimeEvent } from "@/components/realtime/RealtimeSyncProvider";
+import LiveLocationTracker from "./LiveLocationTracker";
 
 type TodaySchedule = {
   start_time: string | null;
@@ -597,6 +598,14 @@ export default function EmployeeTimeClock({
             review.
           </div>
         ) : null}
+
+        <div className="mb-4">
+          <LiveLocationTracker
+            timeEntryId={displayEntry?.id ?? null}
+            isClockedIn={Boolean(displayEntry?.clock_in && !displayEntry?.clock_out)}
+            isOnLunch={Boolean(displayEntry?.lunch_start && !displayEntry?.lunch_end)}
+          />
+        </div>
 
         <div className="mb-4 rounded-md border border-border bg-background px-3 py-2 text-sm">
           <p className="font-semibold text-foreground">Clocking location</p>

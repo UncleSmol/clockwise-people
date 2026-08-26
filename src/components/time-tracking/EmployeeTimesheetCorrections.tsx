@@ -17,6 +17,7 @@ import {
   Edit3,
   FileQuestion,
   FileText,
+  Footprints,
   LocateFixed,
   LogOut,
   MapPin,
@@ -28,10 +29,20 @@ import {
   UtensilsCrossed,
   X,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
+
+const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-48 w-full items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-slate-400">
+      Loading shift route map...
+    </div>
+  ),
+});
 import {
   createPastDraftTimeEntry,
   deleteDraftTimeEntry,
@@ -414,6 +425,7 @@ export default function EmployeeTimesheetCorrections({
   const [showLegend, setShowLegend] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
+  const [showDetailMap, setShowDetailMap] = useState(false);
   const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(() => new Set());
   const [rangeAnchorId, setRangeAnchorId] = useState<string | null>(null);
@@ -2083,14 +2095,36 @@ export default function EmployeeTimesheetCorrections({
               </div>
             ) : null}
 
-            {/* Location events history */}
+            {/* Location events history & Visual Map */}
             {detailEntry.locationEvents?.length ? (
               <div className="rounded-lg border border-border bg-background p-3.5">
-                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                  <MapPin className="size-4 text-accent" />
-                  Location Audit History ({detailEntry.locationEvents.length})
-                </p>
-                <div className="mt-2.5 grid gap-2">
+                <div className="flex items-center justify-between gap-2 pb-2">
+                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                    <MapPin className="size-4 text-accent" />
+                    Location Audit History ({detailEntry.locationEvents.length})
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetailMap((prev) => !prev)}
+                    className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-800"
+                  >
+                    <Footprints className="size-3 text-emerald-400" />
+                    {showDetailMap ? "Hide Route Map" : "View Route Map"}
+                  </button>
+                </div>
+
+                {showDetailMap && (
+                  <div className="mb-3 overflow-hidden rounded-lg border border-border">
+                    <TimesheetRouteMap
+                      employeeName="Shift Movement"
+                      workDate={detailEntry.work_date}
+                      locationEvents={detailEntry.locationEvents}
+                      onClose={() => setShowDetailMap(false)}
+                    />
+                  </div>
+                )}
+
+                <div className="mt-1 grid gap-2">
                   {detailEntry.locationEvents.map((event) => (
                     <div
                       key={event.id}

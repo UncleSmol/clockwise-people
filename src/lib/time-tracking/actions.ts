@@ -618,3 +618,50 @@ export async function reviewSubmittedTimesheets(
     }.`,
   };
 }
+
+export async function recordLiveLocationBreadcrumb(
+  formData: FormData,
+): Promise<{ ok: boolean; message?: string }> {
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+  const latitude = Number(formData.get("latitude"));
+  const longitude = Number(formData.get("longitude"));
+  const accuracy = formData.get("accuracy") ? Number(formData.get("accuracy")) : null;
+  const speed = formData.get("speed") ? Number(formData.get("speed")) : null;
+  const heading = formData.get("heading") ? Number(formData.get("heading")) : null;
+  const capturedAt = String(formData.get("captured_at") ?? new Date().toISOString()).trim();
+  const distanceMoved = Number(formData.get("distance_moved") ?? 0);
+
+  if (!timeEntryId || isNaN(latitude) || isNaN(longitude)) {
+    return { ok: false, message: "Invalid location breadcrumb data." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) {
+    return { ok: false, message: "Authentication required." };
+  }
+
+  try {
+    await supabase.from("clock_events").insert({
+      time_entry_id: timeEntryId,
+      event_type: "movement_breadcrumb",
+      event_at: capturedAt,
+      local_work_date: capturedAt.slice(0, 10),
+      local_event_time: capturedAt.slice(11, 19),
+      latitude,
+      longitude,
+      accuracy_meters: accuracy,
+      distance_meters: distanceMoved,
+      device_metadata: {
+        source: "capacitor_live_tracker",
+        distance_moved: distanceMoved,
+        speed,
+        heading,
+      },
+    });
+  } catch (e) {
+    console.warn("Breadcrumb insert caught:", e);
+  }
+
+  return { ok: true };
+}
