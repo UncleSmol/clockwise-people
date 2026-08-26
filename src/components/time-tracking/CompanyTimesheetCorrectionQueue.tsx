@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CheckSquare,
   ClipboardList,
+  Clock,
   FileText,
   Square,
   ThumbsDown,
@@ -89,16 +90,17 @@ export default function CompanyTimesheetCorrectionQueue({
   };
 
   return (
-    <section className="card grid gap-3 p-4">
+    <section className="card grid gap-3.5 p-4">
+      {/* Header */}
       <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Management review</p>
-          <h2 className="mt-1 flex items-center gap-2 text-xl font-semibold text-foreground">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Management review</p>
+          <h2 className="mt-1 flex items-center gap-2 text-xl font-extrabold text-foreground">
             <ClipboardList className="size-5 text-accent" />
-            Timesheet requests
+            Timesheet correction requests
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Tick requests to bulk approve or reject them with a single review note.
+            Review proposed employee clocking changes and bulk approve or reject them.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -106,7 +108,7 @@ export default function CompanyTimesheetCorrectionQueue({
             <button
               type="button"
               onClick={toggleSelectAll}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface"
+              className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface shadow-2xs"
             >
               {allSelected ? (
                 <>
@@ -121,7 +123,7 @@ export default function CompanyTimesheetCorrectionQueue({
               )}
             </button>
           ) : null}
-          <span className="w-max rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm">
+          <span className="w-max rounded bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-xs">
             {requests.length} pending
           </span>
         </div>
@@ -129,10 +131,10 @@ export default function CompanyTimesheetCorrectionQueue({
 
       {state.message && (
         <div
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={`rounded-md border px-3 py-2 text-sm font-semibold ${
             state.ok
-              ? "border-accent/30 bg-accent/10 text-foreground"
-              : "border-danger/30 bg-danger/10 text-danger"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+              : "border-rose-300 bg-rose-50 text-rose-950"
           }`}
         >
           {state.message}
@@ -140,16 +142,16 @@ export default function CompanyTimesheetCorrectionQueue({
       )}
 
       {requests.length === 0 ? (
-        <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
+        <p className="rounded-lg border border-border bg-background p-4 text-center text-sm font-medium text-muted">
           No submitted correction requests need review.
         </p>
       ) : (
-        <form action={formAction} className="grid gap-3">
+        <form action={formAction} className="grid gap-3.5">
           {Array.from(selectedIds).map((id) => (
             <input key={id} type="hidden" name="correction_ids" value={id} />
           ))}
 
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             {requests.map((request) => {
               const isSelected = selectedIds.has(request.id);
 
@@ -162,144 +164,153 @@ export default function CompanyTimesheetCorrectionQueue({
                       toggleSelect(request.id);
                     }
                   }}
-                  className={`grid cursor-pointer gap-3 rounded-md border p-3 text-sm shadow-sm transition-colors ${
+                  className={`grid cursor-pointer gap-3 rounded-lg border p-3.5 shadow-sm transition-all ${
                     isSelected
-                      ? "border-accent bg-accent/[0.06]"
-                      : "border-border bg-background hover:border-border/80"
+                      ? "border-slate-900 bg-slate-900/5 ring-2 ring-slate-900"
+                      : "border-amber-300/80 bg-amber-50/40 hover:bg-amber-50/70"
                   }`}
                 >
-                  <div className="grid gap-2 lg:grid-cols-[40px_1fr_auto] lg:items-center">
-                    <label
-                      className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-md lg:mx-auto lg:size-6 lg:rounded-none"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(request.id)}
-                        aria-label={`Select correction request for ${request.knownAs ?? request.fullName} on ${formatDate(request.work_date)}`}
-                        className="size-5 accent-current lg:size-4"
-                      />
-                    </label>
+                  {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <label
+                        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-border bg-white shadow-xs hover:border-slate-400"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(request.id)}
+                          aria-label={`Select correction request for ${request.knownAs ?? request.fullName} on ${formatDate(request.work_date)}`}
+                          className="size-4 accent-slate-900"
+                        />
+                      </label>
 
-                    <div className="flex min-w-0 items-center gap-2">
                       <EmployeeAvatar
                         name={request.knownAs ?? request.fullName}
                         src={request.avatarUrl}
-                        className="size-9 shrink-0"
+                        className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
                       />
                       <div className="min-w-0">
-                        <h3 className="truncate font-semibold text-foreground">
+                        <h3 className="truncate text-sm font-extrabold text-foreground">
                           {request.knownAs ?? request.fullName}
                         </h3>
-                        <p className="mt-1 truncate text-xs text-muted">
-                          {request.workstationName ?? "No workstation"} -{" "}
-                          {formatDate(request.work_date)}
+                        <p className="truncate text-xs font-medium text-muted">
+                          {request.workstationName ?? "Assigned workstation"} ·{" "}
+                          <span className="font-semibold text-foreground">{formatDate(request.work_date)}</span>
                         </p>
                       </div>
                     </div>
 
-                    <span className="w-max rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">
-                      Submitted
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-2xs">
+                      Correction Needed
                     </span>
                   </div>
 
-                  <div className="grid gap-2 text-xs md:grid-cols-2">
-                    <div className="min-w-0 rounded-md border border-border bg-surface p-2.5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                        Original
+                  {/* Side-by-Side Original vs Proposed High-Contrast Grid */}
+                  <div className="grid gap-2.5 md:grid-cols-2">
+                    {/* Original Times Box */}
+                    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-2.5 shadow-2xs">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                        Original Recorded Log
                       </p>
-                      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">In</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_clock_in)}</span>
+                      <div className="mt-1.5 grid grid-cols-4 gap-1 text-center">
+                        <div className="rounded border border-border bg-background p-1.5">
+                          <p className="text-[9px] font-bold text-muted uppercase">In</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground">{formatTime(request.original_clock_in)}</p>
                         </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Lunch start</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_lunch_start)}</span>
+                        <div className="rounded border border-border bg-background p-1.5">
+                          <p className="text-[9px] font-bold text-muted uppercase">Lunch In</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground">{formatTime(request.original_lunch_start)}</p>
                         </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Lunch end</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_lunch_end)}</span>
+                        <div className="rounded border border-border bg-background p-1.5">
+                          <p className="text-[9px] font-bold text-muted uppercase">Lunch Out</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground">{formatTime(request.original_lunch_end)}</p>
                         </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Out</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{formatTime(request.original_clock_out)}</span>
+                        <div className="rounded border border-border bg-background p-1.5">
+                          <p className="text-[9px] font-bold text-muted uppercase">Out</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground">{formatTime(request.original_clock_out)}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="min-w-0 rounded-md border border-accent/30 bg-accent/10 p-2.5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
-                        Proposed
+
+                    {/* Proposed Times Box (High-Contrast Emerald Highlight) */}
+                    <div className="min-w-0 rounded-md border border-emerald-300 bg-emerald-50/90 p-2.5 shadow-2xs">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-emerald-800">
+                        Proposed Correction
                       </p>
-                      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">In</p>
-                          <span className="h-6 w-full bg-transparent text-xs font-semibold text-foreground">{formatTime(request.proposed_clock_in)}</span>
+                      <div className="mt-1.5 grid grid-cols-4 gap-1 text-center">
+                        <div className="rounded border border-emerald-200 bg-white p-1.5">
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase">In</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950">{formatTime(request.proposed_clock_in)}</p>
                         </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Lunch start</p>
-                          <span className="h-6 w-full bg-transparent text-xs font-semibold text-foreground">{formatTime(request.proposed_lunch_start)}</span>
+                        <div className="rounded border border-emerald-200 bg-white p-1.5">
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase">Lunch In</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950">{formatTime(request.proposed_lunch_start)}</p>
                         </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Lunch end</p>
-                          <span className="h-6 w-full bg-transparent text-xs font-semibold text-foreground">{formatTime(request.proposed_lunch_end)}</span>
+                        <div className="rounded border border-emerald-200 bg-white p-1.5">
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase">Lunch Out</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950">{formatTime(request.proposed_lunch_end)}</p>
                         </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Out</p>
-                          <span className="h-6 w-full bg-transparent text-xs font-semibold text-foreground">{formatTime(request.proposed_clock_out)}</span>
+                        <div className="rounded border border-emerald-200 bg-white p-1.5">
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase">Out</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950">{formatTime(request.proposed_clock_out)}</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground">
-                    <span className="font-semibold text-muted">Reason: </span>
-                    {request.reason}
-                  </p>
+                  {/* Reason Box */}
+                  <div className="rounded-md border border-border bg-white p-2.5 text-xs shadow-2xs">
+                    <span className="font-extrabold uppercase tracking-wider text-muted">Reason: </span>
+                    <span className="font-semibold text-foreground">{request.reason}</span>
+                  </div>
                 </article>
               );
             })}
           </div>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Review note</span>
-            <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-              <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-              <textarea
-                name="review_notes"
-                rows={2}
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
-                placeholder="Optional review note or rejection reason applied to selected requests"
-              />
-            </span>
-          </label>
+          {/* Action Box */}
+          <div className="grid gap-3 rounded-lg border border-border bg-background p-3.5">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Review note</span>
+              <span className="flex items-start gap-2 rounded-md border border-border bg-white px-3 pt-2">
+                <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                <textarea
+                  name="review_notes"
+                  rows={2}
+                  className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none resize-none"
+                  placeholder="Optional review note or rejection reason applied to selected requests"
+                />
+              </span>
+            </label>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted">
-              {selectedIds.size > 0
-                ? `${selectedIds.size} of ${requests.length} request${selectedIds.size === 1 ? "" : "s"} selected`
-                : "Tick the checkbox on one or more requests to approve or reject them."}
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                name="decision"
-                value="reject"
-                disabled={pending || selectedIds.size === 0}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-danger/40 bg-surface px-4 py-2 text-sm font-semibold text-danger disabled:opacity-40 sm:min-h-0"
-              >
-                <ThumbsDown className="size-4 shrink-0" />
-                {pending ? "Working..." : selectedIds.size > 0 ? `Reject selected (${selectedIds.size})` : "Reject selected"}
-              </button>
-              <button
-                name="decision"
-                value="approve"
-                disabled={pending || selectedIds.size === 0}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-40 sm:min-h-0"
-              >
-                <ThumbsUp className="size-4 shrink-0" />
-                {pending ? "Working..." : selectedIds.size > 0 ? `Approve selected (${selectedIds.size})` : "Approve selected"}
-              </button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs font-medium text-muted">
+                {selectedIds.size > 0
+                  ? `${selectedIds.size} of ${requests.length} request${selectedIds.size === 1 ? "" : "s"} selected`
+                  : "Tick the checkbox on one or more requests to approve or reject them."}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  name="decision"
+                  value="reject"
+                  disabled={pending || selectedIds.size === 0}
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-rose-400/60 bg-rose-50 px-4 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
+                >
+                  <ThumbsDown className="size-4 shrink-0" />
+                  {pending ? "Working..." : selectedIds.size > 0 ? `Reject selected (${selectedIds.size})` : "Reject selected"}
+                </button>
+                <button
+                  name="decision"
+                  value="approve"
+                  disabled={pending || selectedIds.size === 0}
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-40 shadow-xs"
+                >
+                  <ThumbsUp className="size-4 shrink-0" />
+                  {pending ? "Working..." : selectedIds.size > 0 ? `Approve selected (${selectedIds.size})` : "Approve selected"}
+                </button>
+              </div>
             </div>
           </div>
         </form>
