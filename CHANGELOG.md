@@ -5,6 +5,13 @@ All notable changes to the ClockWise People platform are documented in this file
 ## [Unreleased] - 2026-08-26
 
 ### Added
+- **Compliance & Payroll Reporting Center** (`src/components/reports/CompanyReportsWorkspace.tsx`):
+  - **Timesheets & Payroll Reports**: Pull and audit full timesheet logs by payroll period with breakdown of normal hours, 1.5x overtime, 2.0x Sunday/holiday overtime, holiday hours, gross paid hours, and manager approval sign-offs.
+  - **Attendance & Punctuality Analytics**: Track employee scheduled vs worked days, on-time arrivals, late arrivals, missing clockings, geofence compliance rate %, and overall punctuality scores.
+  - **Leave & TOIL Accruals Summary**: Monitor opening balances, period earned hours, taken hours, adjustments, closing balances in hours/days, and projected year-end accruals.
+  - **Absence & Leave Log**: Review all employee absence history, leave categories, reasons, paid/unpaid statuses, and approval records.
+  - **Top-Tier Multi-Format Exporters**: Built-in 1-click **PDF export** (using `jspdf` and `jspdf-autotable` with company branding, KPI summary strip, and paginated tables), **Excel export** (using `xlsx` with multi-column metadata sheets), **RFC4180 CSV export**, and print-ready views.
+  - **Company Payroll Period Setup Engine** (`src/lib/reports/payroll-periods.ts` & `PayrollPeriodSettingsForm.tsx`): Configure payroll cycles (Monthly, Semi-Monthly, Bi-Weekly, Weekly), anchor dates, start days of month/week, and pay day disbursement offsets with live period previews.
 - **Calendar Direct Draft Editing & Creation** (`src/components/time-tracking/EmployeeTimesheetCorrections.tsx`):
   - Clicking any draft or rejected timesheet on the Detailed Calendar in the **My Time** tab instantly expands and focuses the inline draft editor directly beneath the calendar.
   - Allows full editing of Clock In, Lunch Start, Lunch End, Clock Out, and Notes, with direct Save Draft, Delete, or Submit capabilities.

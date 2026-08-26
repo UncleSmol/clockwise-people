@@ -1,15 +1,16 @@
 "use client";
 
 import {
-  ClipboardCheck,
+  Building2,
+  CalendarRange,
   ChevronDown,
+  ClipboardCheck,
+  FileSpreadsheet,
   LogOut,
   Menu,
   Settings2,
   ShieldCheck,
-  Building2,
   Users,
-  CalendarRange,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/lib/auth/actions";
@@ -27,6 +28,7 @@ type DashboardNavigationProps = {
 
 function navItemIcon(label: string) {
   const key = label.toLowerCase();
+  if (key.includes("report") || key.includes("analytic") || key.includes("payroll")) return FileSpreadsheet;
   if (key.includes("attendance") || key.includes("workforce")) return Users;
   if (key.includes("people") || key.includes("employee")) return Users;
   if (key.includes("approve") || key.includes("review")) return ClipboardCheck;

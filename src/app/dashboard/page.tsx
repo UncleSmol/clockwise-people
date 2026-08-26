@@ -163,6 +163,12 @@ const CompanyRulesForm = dynamic(
     loading: () => <LoadingPanel label="company rules" />,
   },
 );
+const CompanyReportsWorkspace = dynamic(
+  () => import("@/components/reports/CompanyReportsWorkspace"),
+  {
+    loading: () => <LoadingPanel label="reporting center" />,
+  },
+);
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
@@ -509,6 +515,58 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
           ),
         });
+  }
+
+  if (canManageCompany || canReviewTime) {
+    const reportEmployees = (employeesData?.employees ?? []).map((e) => ({
+      id: e.id,
+      full_name: e.full_name,
+      known_as: e.known_as ?? null,
+      avatar_url: e.avatar_url ?? null,
+      employee_number: e.employee_number ?? e.id.slice(0, 8),
+      department_name: e.department_name ?? null,
+      workstation_name: e.workstation_name ?? null,
+      job_title: e.job_title ?? null,
+      daily_hours: 8,
+    }));
+
+    const finalReportEmployees =
+      reportEmployees.length > 0
+        ? reportEmployees
+        : calendarEmployees.map((e) => ({
+            id: e.id,
+            full_name: e.label,
+            known_as: null,
+            avatar_url: null,
+            employee_number: e.id.slice(0, 8),
+            department_name: null,
+            workstation_name: null,
+            job_title: null,
+            daily_hours: 8,
+          }));
+
+    const payrollConfig = (companySettings?.approval_rules as Record<string, unknown> | undefined)
+      ?.payroll_period_config as import("@/lib/reports/payroll-periods").PayrollPeriodConfig | undefined;
+
+    panels.push({
+      key: "reports",
+      label: "Reports and analytics",
+      description: "Audit timesheets by payroll period, analyze attendance punctuality, track leave accruals, and pull compliance exports.",
+      content: (
+        <CompanyReportsWorkspace
+          companyName={company.name}
+          employees={finalReportEmployees}
+          departments={employeesData?.departments ?? []}
+          workstations={geolocationData?.workstations ?? []}
+          timesheetEntries={calendarEntries}
+          leaveRequests={calendarLeaveRequests}
+          leaveTypes={workRulesData?.leaveTypes ?? []}
+          leaveAssignments={workRulesData?.leaveBalances ?? []}
+          publicHolidays={calendarHolidays}
+          payrollConfig={payrollConfig}
+        />
+      ),
+    });
   }
 
   panels.push({

@@ -9,6 +9,7 @@ import {
   ChevronUp,
   ClipboardCheck,
   Clock3,
+  FileSpreadsheet,
   GripVertical,
   Settings2,
   ShieldCheck,
@@ -24,6 +25,7 @@ import ViewportSidebar from "./ViewportSidebar";
 
 function getPanelIcon(key: string) {
   const k = key.toLowerCase();
+  if (k.includes("report") || k.includes("payroll") || k.includes("analytic")) return FileSpreadsheet;
   if (k.includes("attendance") || k.includes("workforce")) return Users;
   if (k.includes("people") || k.includes("employee")) return Users;
   if (k.includes("review") || k.includes("approval")) return ClipboardCheck;
@@ -342,21 +344,23 @@ export default function CalendarWorkspace({
                   const isActive = panel.key === activePanelKey;
                   const Icon = getPanelIcon(panel.key);
                   const shortLabel =
-                    panel.key === "manager-review"
-                      ? "Approvals"
-                      : panel.key === "people"
-                        ? "People"
-                        : panel.key === "leave"
-                          ? "Leave"
-                          : panel.key === "company"
-                            ? "Company"
-                            : panel.key === "account"
-                              ? "Account"
-                              : panel.key === "policies"
-                                ? "Policies"
-                                : panel.key === "attendance"
-                                  ? "Today's Attendance"
-                                  : panel.label.split(" ")[0];
+                    panel.key === "reports"
+                      ? "Reports"
+                      : panel.key === "manager-review"
+                        ? "Approvals"
+                        : panel.key === "people"
+                          ? "People"
+                          : panel.key === "leave"
+                            ? "Leave"
+                            : panel.key === "company"
+                              ? "Company"
+                              : panel.key === "account"
+                                ? "Account"
+                                : panel.key === "policies"
+                                  ? "Policies"
+                                  : panel.key === "attendance"
+                                    ? "Today's Attendance"
+                                    : panel.label.split(" ")[0];
 
                   return (
                     <button
