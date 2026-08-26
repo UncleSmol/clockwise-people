@@ -55,7 +55,7 @@ export default function ViewportSidebar({
   footer,
   maxWidth = "max-w-xl",
   zIndex = "z-50",
-  backdropClassName = "bg-black/45",
+  backdropClassName = "bg-slate-950/50 backdrop-blur-xs",
   panelStyle,
   gutter,
   bodyClassName = "min-h-0 flex-1 overflow-y-auto",
@@ -104,16 +104,16 @@ export default function ViewportSidebar({
         {gutter ? <div className="shrink-0">{gutter}</div> : null}
         {header ? <div className="shrink-0">{header}</div> : null}
         {!header && (eyebrow || title || actions) ? (
-          <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-4 py-4">
+          <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-5 py-4">
             <div className="min-w-0">
               {eyebrow ? (
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
                   {eyebrow}
                 </p>
               ) : null}
-              {title ? <h3 className="mt-1 text-xl font-semibold text-foreground">{title}</h3> : null}
+              {title ? <h3 className="mt-1 text-xl font-extrabold text-foreground">{title}</h3> : null}
               {description ? (
-                <p className="mt-1 text-sm text-muted">{description}</p>
+                <p className="mt-1 text-xs text-muted">{description}</p>
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -121,7 +121,7 @@ export default function ViewportSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="grid size-9 place-items-center rounded-md border border-border bg-background text-foreground"
+                className="grid size-8 place-items-center rounded border border-border bg-surface-muted hover:bg-slate-200 text-foreground transition-colors"
                 aria-label="Close"
               >
                 <X className="size-4" />
@@ -130,7 +130,11 @@ export default function ViewportSidebar({
           </div>
         ) : null}
         <div className={bodyClassName}>{children}</div>
-        {footer ? <div className="shrink-0">{footer}</div> : null}
+        {footer ? (
+          <div className="shrink-0 border-t border-border bg-surface px-5 py-3.5">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,
