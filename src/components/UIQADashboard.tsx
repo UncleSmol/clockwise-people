@@ -52,7 +52,7 @@ export function UIQADashboard() {
             },
           });
         }
-      } catch (error) {
+      } catch {
         console.log('UI QA results not available');
       } finally {
         setLoading(false);
