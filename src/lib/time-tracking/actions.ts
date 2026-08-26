@@ -155,11 +155,16 @@ export async function submitTimesheetCorrection(
   _previousState: CorrectionActionState,
   formData: FormData,
 ): Promise<CorrectionActionState> {
-  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+  const timeEntryIds = [
+    ...formData.getAll("time_entry_ids"),
+    ...formData.getAll("time_entry_id"),
+  ]
+    .map((v) => String(v).trim())
+    .filter(Boolean);
   const reason = String(formData.get("reason") ?? "").trim();
 
-  if (!timeEntryId) {
-    return { ok: false, message: "Choose a time entry to correct." };
+  if (timeEntryIds.length === 0) {
+    return { ok: false, message: "Choose at least one time entry to correct." };
   }
 
   if (!reason) {
@@ -167,23 +172,54 @@ export async function submitTimesheetCorrection(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("submit_timesheet_correction_request", {
+  const proposedClockIn = optionalTime(formData, "proposed_clock_in");
+  const proposedClockOut = optionalTime(formData, "proposed_clock_out");
+  const proposedLunchStart = optionalTime(formData, "proposed_lunch_start");
+  const proposedLunchEnd = optionalTime(formData, "proposed_lunch_end");
+
+  // Try bulk RPC first
+  const { data, error } = await supabase.rpc("submit_timesheet_correction_requests", {
     correction_reason: reason,
-    proposed_clock_in: optionalTime(formData, "proposed_clock_in"),
-    proposed_clock_out: optionalTime(formData, "proposed_clock_out"),
-    proposed_lunch_end: optionalTime(formData, "proposed_lunch_end"),
-    proposed_lunch_start: optionalTime(formData, "proposed_lunch_start"),
-    target_time_entry_id: timeEntryId,
+    proposed_clock_in: proposedClockIn,
+    proposed_clock_out: proposedClockOut,
+    proposed_lunch_end: proposedLunchEnd,
+    proposed_lunch_start: proposedLunchStart,
+    target_time_entry_ids: timeEntryIds,
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    // Fallback to loop over submit_timesheet_correction_request
+    let successCount = 0;
+    for (const tid of timeEntryIds) {
+      const { error: singleError } = await supabase.rpc("submit_timesheet_correction_request", {
+        correction_reason: reason,
+        proposed_clock_in: proposedClockIn,
+        proposed_clock_out: proposedClockOut,
+        proposed_lunch_end: proposedLunchEnd,
+        proposed_lunch_start: proposedLunchStart,
+        target_time_entry_id: tid,
+      });
+      if (!singleError) {
+        successCount++;
+      }
+    }
+
+    if (successCount === 0) {
+      return { ok: false, message: error.message };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      ok: true,
+      message: `${successCount} correction request${successCount === 1 ? "" : "s"} submitted. Locked until a manager reviews.`,
+    };
   }
 
+  const count = Number(data ?? timeEntryIds.length);
   revalidatePath("/dashboard");
   return {
     ok: true,
-    message: "Correction request submitted. It is locked until a manager reviews it.",
+    message: `${count} correction request${count === 1 ? "" : "s"} submitted. Locked until a manager reviews.`,
   };
 }
 

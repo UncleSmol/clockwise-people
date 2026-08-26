@@ -9,6 +9,7 @@ import {
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
+  CheckSquare,
   Clock,
   Clock3,
   ClipboardCheck,
@@ -21,6 +22,7 @@ import {
   Plus,
   Save,
   Send,
+  Square,
   Trash2,
   UtensilsCrossed,
   X,
@@ -371,8 +373,15 @@ export default function EmployeeTimesheetCorrections({
     deleteDraftTimeEntry,
     initialState,
   );
+  const [selectedCorrectionIds, setSelectedCorrectionIds] = useState<Set<string>>(() => new Set());
   const [correctionState, correctionAction, correctionPending] = useActionState(
-    submitTimesheetCorrection,
+    async (prev: CorrectionActionState, formData: FormData) => {
+      const result = await submitTimesheetCorrection(prev, formData);
+      if (result.ok) {
+        setSelectedCorrectionIds(new Set());
+      }
+      return result;
+    },
     initialState,
   );
   const [saveState, saveAction, savePending] = useActionState(
@@ -394,6 +403,38 @@ export default function EmployeeTimesheetCorrections({
 
     return requests;
   }, [correctionRequests]);
+
+  const eligibleCorrectionEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          entry.status === "submitted" &&
+          entry.work_date < currentWorkDate &&
+          latestRequestByEntry.get(entry.id)?.status !== "submitted",
+      ),
+    [entries, currentWorkDate, latestRequestByEntry],
+  );
+
+  const allCorrectionsSelected =
+    eligibleCorrectionEntries.length > 0 &&
+    selectedCorrectionIds.size === eligibleCorrectionEntries.length;
+
+  const toggleCorrectionSelect = (id: string) => {
+    setSelectedCorrectionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllCorrections = () => {
+    if (allCorrectionsSelected) {
+      setSelectedCorrectionIds(new Set());
+    } else {
+      setSelectedCorrectionIds(new Set(eligibleCorrectionEntries.map((e) => e.id)));
+    }
+  };
   const entriesByDate = useMemo(
     () => new Map(entries.map((entry) => [entry.work_date, entry])),
     [entries],
@@ -1177,179 +1218,319 @@ export default function EmployeeTimesheetCorrections({
           {section === "full" ? quickSubmitForm : null}
         </div>
       ) : (
-        <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {submittedEntries.length === 0 ? (
-            <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-              Submit a timesheet first. Then requests will appear here.
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted">
+              Select past submitted timesheets to request time corrections from your manager in bulk.
             </p>
-          ) : null}
-          {submittedEntries.map((entry) => {
-            const correction = latestRequestByEntry.get(entry.id);
-            const hasSubmittedCorrection = correction?.status === "submitted";
-            const canRequestCorrection = entry.work_date < currentWorkDate;
-
-            return (
-              <article
-                key={entry.id}
-                className="grid gap-3 rounded-md border border-border bg-background p-3 text-sm shadow-sm"
+            {eligibleCorrectionEntries.length > 0 ? (
+              <button
+                type="button"
+                onClick={toggleSelectAllCorrections}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface"
               >
-                <div className="grid gap-2 lg:grid-cols-[130px_1fr_auto] lg:items-center">
-                  <div>
-                    <p className="flex items-center gap-2 font-semibold text-foreground">
-                      <Edit3 className="size-4 text-accent" />
-                      {formatDate(entry.work_date)}
-                    </p>
-                    <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
-                      {entry.status}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
-                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                      <Clock className="size-3.5 text-accent" />
-                      <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
-                        {shortTime(entry.clock_in)}
-                      </span>
-                    </span>
-                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                      <UtensilsCrossed className="size-3.5 text-accent" />
-                      <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
-                        {shortLunch(entry.lunch_start, entry.lunch_end)}
-                      </span>
-                    </span>
-                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                      <LogOut className="size-3.5 text-accent" />
-                      <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
-                        {shortTime(entry.clock_out)}
-                      </span>
-                    </span>
-                    <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                      {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
-                        <AlertTriangle className="size-3.5 text-warning" />
-                      ) : (
-                        <CheckCircle2 className="size-3.5 text-success" />
-                      )}
-                      <span className="truncate text-xs font-semibold text-muted">
-                        {entry.missing_clocking || entry.late_arrival || entry.early_departure
-                          ? "Review"
-                          : "Clear"}
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="rounded-md bg-surface-muted px-3 py-2 text-right">
-                    <p className="text-xs text-muted">Paid</p>
-                    <p className="font-semibold text-foreground">
-                      {formatHours(entry.paid_hours)}
-                    </p>
-                  </div>
-                </div>
-
-                {correction ? (
-                  <div className="rounded-md border border-border bg-surface px-3 py-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          Correction request
-                        </p>
-                        <p className="mt-1 text-xs text-muted">
-                          Submitted {new Date(correction.submitted_at).toLocaleString("en-ZA")}
-                        </p>
-                      </div>
-                      <span
-                        className={`w-max rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(correction.status)}`}
-                      >
-                        {correction.status}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-muted">{correction.reason}</p>
-                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                        <p className="text-[10px] text-muted leading-none">In</p>
-                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_in)}</span>
-                      </div>
-                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                        <p className="text-[10px] text-muted leading-none">Lunch start</p>
-                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_start)}</span>
-                      </div>
-                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                        <p className="text-[10px] text-muted leading-none">Lunch end</p>
-                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_end)}</span>
-                      </div>
-                      <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                        <p className="text-[10px] text-muted leading-none">Out</p>
-                        <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_out)}</span>
-                      </div>
-                    </div>
-                    {correction.review_notes ? (
-                      <p className="mt-2 text-sm font-medium text-foreground">
-                        Review note: {correction.review_notes}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {canRequestCorrection && !hasSubmittedCorrection ? (
-                  <details className="rounded-lg border border-border bg-surface">
-                    <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
-                      Request correction
-                    </summary>
-                    <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
-                      <input type="hidden" name="time_entry_id" value={entry.id} />
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="grid gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
-                          <input type="time" name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
-                        </div>
-                        <div className="grid gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
-                          <input type="time" name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
-                        </div>
-                        <div className="grid gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
-                          <input type="time" name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
-                        </div>
-                        <div className="grid gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
-                          <input type="time" name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
-                        </div>
-                      </div>
-
-                      <label className="grid gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
-                        <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                          <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                          <textarea name="reason" required rows={3} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Explain what happened and why these times are correct." />
-                        </span>
-                      </label>
-
-                      <div className="flex flex-col gap-2">
-                        <p className="text-xs text-muted">
-                          Submitted correction requests cannot be edited by employees.
-                        </p>
-                        <button
-                          disabled={correctionPending}
-                          className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                        >
-                          <Send className="size-4" />
-                          {correctionPending ? "Sending..." : "Send request"}
-                        </button>
-                      </div>
-                    </form>
-                  </details>
-                ) : hasSubmittedCorrection ? (
-                  <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
-                    A submitted correction is locked for this record until management reviews it.
-                  </p>
+                {allCorrectionsSelected ? (
+                  <>
+                    <Square className="size-3.5" />
+                    Deselect all
+                  </>
                 ) : (
-                  <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-muted">
-                    Corrections become available after the work date has passed.
-                  </p>
+                  <>
+                    <CheckSquare className="size-3.5" />
+                    Select all ({eligibleCorrectionEntries.length})
+                  </>
                 )}
-              </article>
-            );
-          })}
+              </button>
+            ) : null}
+          </div>
+
+          {selectedCorrectionIds.size > 0 ? (
+            <form action={correctionAction} className="grid gap-3 rounded-lg border border-accent/40 bg-accent/5 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-foreground">
+                    Request correction for {selectedCorrectionIds.size} {selectedCorrectionIds.size === 1 ? "timesheet" : "timesheets"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Selected:{" "}
+                    {Array.from(selectedCorrectionIds)
+                      .map((id) => entries.find((e) => e.id === id)?.work_date)
+                      .filter(Boolean)
+                      .sort()
+                      .map((d) => formatDate(d!))
+                      .join(", ")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCorrectionIds(new Set())}
+                  className="w-max text-xs font-semibold text-muted hover:text-foreground"
+                >
+                  Clear selection
+                </button>
+              </div>
+
+              {Array.from(selectedCorrectionIds).map((id) => (
+                <input key={id} type="hidden" name="time_entry_ids" value={id} />
+              ))}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock in</span>
+                  <input
+                    type="time"
+                    name="proposed_clock_in"
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch start</span>
+                  <input
+                    type="time"
+                    name="proposed_lunch_start"
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch end</span>
+                  <input
+                    type="time"
+                    name="proposed_lunch_end"
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock out</span>
+                  <input
+                    type="time"
+                    name="proposed_clock_out"
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
+                  />
+                </div>
+              </div>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason for correction *</span>
+                <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                  <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                  <textarea
+                    name="reason"
+                    required
+                    rows={2}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
+                    placeholder="Explain what happened and why these times are correct for all selected days."
+                  />
+                </span>
+              </label>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                <button
+                  disabled={correctionPending}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
+                >
+                  <Send className="size-4" />
+                  {correctionPending
+                    ? "Sending..."
+                    : `Send ${selectedCorrectionIds.size} request${selectedCorrectionIds.size === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {submittedEntries.length === 0 ? (
+              <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
+                Submit a timesheet first. Then requests will appear here.
+              </p>
+            ) : null}
+            {submittedEntries.map((entry) => {
+              const correction = latestRequestByEntry.get(entry.id);
+              const hasSubmittedCorrection = correction?.status === "submitted";
+              const canRequestCorrection = entry.work_date < currentWorkDate;
+              const isSelected = selectedCorrectionIds.has(entry.id);
+
+              return (
+                <article
+                  key={entry.id}
+                  className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm transition-colors ${
+                    isSelected
+                      ? "border-accent bg-accent/[0.06]"
+                      : "border-border bg-background"
+                  }`}
+                >
+                  <div className="grid gap-2 lg:grid-cols-[auto_130px_1fr_auto] lg:items-center">
+                    {canRequestCorrection && !hasSubmittedCorrection ? (
+                      <label
+                        className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleCorrectionSelect(entry.id)}
+                          aria-label={`Select timesheet for ${formatDate(entry.work_date)}`}
+                          className="size-4 accent-current"
+                        />
+                      </label>
+                    ) : null}
+
+                    <div>
+                      <p className="flex items-center gap-2 font-semibold text-foreground">
+                        <Edit3 className="size-4 text-accent" />
+                        {formatDate(entry.work_date)}
+                      </p>
+                      <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
+                        {entry.status}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        <Clock className="size-3.5 text-accent" />
+                        <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
+                          {shortTime(entry.clock_in)}
+                        </span>
+                      </span>
+                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        <UtensilsCrossed className="size-3.5 text-accent" />
+                        <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
+                          {shortLunch(entry.lunch_start, entry.lunch_end)}
+                        </span>
+                      </span>
+                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        <LogOut className="size-3.5 text-accent" />
+                        <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
+                          {shortTime(entry.clock_out)}
+                        </span>
+                      </span>
+                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
+                        {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
+                          <AlertTriangle className="size-3.5 text-warning" />
+                        ) : (
+                          <CheckCircle2 className="size-3.5 text-success" />
+                        )}
+                        <span className="truncate text-xs font-semibold text-muted">
+                          {entry.missing_clocking || entry.late_arrival || entry.early_departure
+                            ? "Review"
+                            : "Clear"}
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="rounded-md bg-surface-muted px-3 py-2 text-right">
+                      <p className="text-xs text-muted">Paid</p>
+                      <p className="font-semibold text-foreground">
+                        {formatHours(entry.paid_hours)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {correction ? (
+                    <div className="rounded-md border border-border bg-surface px-3 py-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            Correction request
+                          </p>
+                          <p className="mt-1 text-xs text-muted">
+                            Submitted {new Date(correction.submitted_at).toLocaleString("en-ZA")}
+                          </p>
+                        </div>
+                        <span
+                          className={`w-max rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(correction.status)}`}
+                        >
+                          {correction.status}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-muted">{correction.reason}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                          <p className="text-[10px] text-muted leading-none">In</p>
+                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_in)}</span>
+                        </div>
+                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                          <p className="text-[10px] text-muted leading-none">Lunch start</p>
+                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_start)}</span>
+                        </div>
+                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                          <p className="text-[10px] text-muted leading-none">Lunch end</p>
+                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_end)}</span>
+                        </div>
+                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                          <p className="text-[10px] text-muted leading-none">Out</p>
+                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_out)}</span>
+                        </div>
+                      </div>
+                      {correction.review_notes ? (
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          Review note: {correction.review_notes}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {canRequestCorrection && !hasSubmittedCorrection ? (
+                    <details className="rounded-lg border border-border bg-surface">
+                      <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
+                        Request individual correction
+                      </summary>
+                      <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
+                        <input type="hidden" name="time_entry_id" value={entry.id} />
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="grid gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
+                            <input type="time" name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                          </div>
+                          <div className="grid gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
+                            <input type="time" name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                          </div>
+                          <div className="grid gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
+                            <input type="time" name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                          </div>
+                          <div className="grid gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
+                            <input type="time" name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                          </div>
+                        </div>
+
+                        <label className="grid gap-1">
+                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
+                          <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                            <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                            <textarea name="reason" required rows={3} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Explain what happened and why these times are correct." />
+                          </span>
+                        </label>
+
+                        <div className="flex flex-col gap-2">
+                          <p className="text-xs text-muted">
+                            Submitted correction requests cannot be edited by employees.
+                          </p>
+                          <button
+                            disabled={correctionPending}
+                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                          >
+                            <Send className="size-4" />
+                            {correctionPending ? "Sending..." : "Send request"}
+                          </button>
+                        </div>
+                      </form>
+                    </details>
+                  ) : hasSubmittedCorrection ? (
+                    <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+                      A submitted correction is locked for this record until management reviews it.
+                    </p>
+                  ) : (
+                    <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-muted">
+                      Corrections become available after the work date has passed.
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
         </div>
       )}
         </>
