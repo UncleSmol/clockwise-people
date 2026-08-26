@@ -5,6 +5,9 @@ All notable changes to the ClockWise People platform are documented in this file
 ## [Unreleased] - 2026-08-26
 
 ### Added
+- **Smart Grid Layout System & Text Wrapping Protection**:
+  - Implemented responsive auto-fit container grids (`grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5`) across all queue cards (Timesheet Approvals, Correction Requests, Leave Requests, and Live Workforce).
+  - Upgraded inner metric boxes with container-aware auto-fit layouts (`grid-cols-2 min-[440px]:grid-cols-4 gap-1.5`) and strict `truncate whitespace-nowrap` protection, ensuring labels like `Clock In`, `Lunch`, `Clock Out`, and `Total Paid` never wrap awkwardly or break layout across different screen sizes.
 - **Push Notifications Settings & Device Sync** (`src/components/account/PushNotificationSettings.tsx` & `public/sw.js`):
   - Added push notification management to the **Account & Settings** workspace panel.
   - Allows 1-click permission enrollment with service worker registration, test notification trigger, and customizable preference toggles (Shift Reminders, Timesheet Alerts, Approvals & Leave Updates).

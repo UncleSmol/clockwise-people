@@ -755,14 +755,14 @@ export default function EmployeeTimesheetCorrections({
               )}
               {rejected ? "Rejected" : editable ? "Draft" : entry.status}
             </span>
-            <p className="truncate text-xs font-extrabold text-foreground">
+            <p className="truncate text-xs font-extrabold text-foreground whitespace-nowrap">
               {formatDate(entry.work_date)}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <span
-              className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs ${
+              className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
                 isApproved
                   ? "bg-emerald-950 text-emerald-200"
                   : rejected
@@ -772,7 +772,7 @@ export default function EmployeeTimesheetCorrections({
                       : "bg-amber-950 text-amber-200"
               }`}
             >
-              <Clock3 className="size-3.5" />
+              <Clock3 className="size-3" />
               {formatHours(entry.paid_hours)}
             </span>
 
@@ -780,7 +780,7 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => toggleDraftExpand(entry.id)}
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold transition-all shadow-2xs ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold transition-all shadow-2xs whitespace-nowrap ${
                   isExpanded
                     ? "bg-slate-900 text-white"
                     : isDraft
@@ -808,11 +808,11 @@ export default function EmployeeTimesheetCorrections({
         ) : null}
 
         {editable && isExpanded ? (
-          <form action={saveAction} className="grid gap-2.5">
+          <form action={saveAction} className="grid gap-2.5 min-w-0">
             <input type="hidden" name="time_entry_id" value={entry.id} />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">In</span>
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1.5 min-w-0">
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">In</span>
                 <input
                   type="time"
                   name="clock_in"
@@ -820,8 +820,8 @@ export default function EmployeeTimesheetCorrections({
                   className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Lunch In</span>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch In</span>
                 <input
                   type="time"
                   name="lunch_start"
@@ -829,8 +829,8 @@ export default function EmployeeTimesheetCorrections({
                   className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Lunch Out</span>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch Out</span>
                 <input
                   type="time"
                   name="lunch_end"
@@ -838,8 +838,8 @@ export default function EmployeeTimesheetCorrections({
                   className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Out</span>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Out</span>
                 <input
                   type="time"
                   name="clock_out"
@@ -849,8 +849,8 @@ export default function EmployeeTimesheetCorrections({
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Note</span>
+            <div className="rounded-md border border-border bg-white p-2 shadow-2xs min-w-0">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Note</span>
               <textarea
                 name="notes"
                 rows={1}
@@ -862,7 +862,7 @@ export default function EmployeeTimesheetCorrections({
 
             {renderLocationHistory(entry)}
 
-            <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <button
                 formAction={deleteAction}
                 disabled={deletePending}
@@ -890,24 +890,24 @@ export default function EmployeeTimesheetCorrections({
             </div>
           </form>
         ) : (
-          <div className="grid gap-2">
-            {/* High-Contrast Compact Metric Grid */}
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 text-center">
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Clock In</p>
-                <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortTime(entry.clock_in)}</p>
+          <div className="grid gap-2 min-w-0">
+            {/* High-Contrast Compact Smart Metric Grid */}
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1.5 text-center min-w-0">
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
+                <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_in)}</p>
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Lunch</p>
-                <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
+                <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Clock Out</p>
-                <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortTime(entry.clock_out)}</p>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
+                <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_out)}</p>
               </div>
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 shadow-2xs">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800">Total Paid</p>
-                <p className="mt-0.5 text-xs font-black text-emerald-950">{formatHours(entry.paid_hours)}</p>
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 shadow-2xs min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
+                <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(entry.paid_hours)}</p>
               </div>
             </div>
 

@@ -59,25 +59,25 @@ export default function CompanyLeaveRequestQueue({
           No leave requests need review.
         </p>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5 items-start">
           {requests.map((request) => (
             <article
               key={request.id}
-              className="grid gap-3 rounded-lg border-2 border-indigo-400 bg-indigo-50/40 p-3.5 shadow-2xs transition-all hover:bg-indigo-50/70"
+              className="grid gap-3 rounded-lg border-2 border-indigo-400 bg-indigo-50/40 p-3.5 shadow-2xs transition-all hover:bg-indigo-50/70 min-w-0"
             >
               {/* Top Bar: Avatar, Name & Type Badge */}
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <div className="flex min-w-0 items-center gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <EmployeeAvatar
                     name={request.knownAs ?? request.fullName ?? "Employee"}
                     src={request.avatarUrl}
-                    className="size-9 ring-1 ring-border shadow-2xs"
+                    className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold text-foreground">
+                    <p className="truncate text-xs font-extrabold text-foreground">
                       {request.knownAs ?? request.fullName}
                     </p>
-                    <p className="truncate text-xs font-medium text-muted">
+                    <p className="truncate text-[11px] font-medium text-muted">
                       {request.leaveTypeName ?? "Leave"} ·{" "}
                       <span className="font-semibold text-foreground">
                         {request.start_date} to {request.end_date}
@@ -86,7 +86,7 @@ export default function CompanyLeaveRequestQueue({
                   </div>
                 </div>
 
-                <span className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-2xs">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs whitespace-nowrap">
                   {Number(request.total_hours).toFixed(2)}h Requested
                 </span>
               </div>

@@ -332,7 +332,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
         </form>
       </div>
 
-      <div className="grid gap-2.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
         {state.requests.map((request) => {
           const isApproved = request.status === "approved";
           const isRejected = request.status === "rejected";
@@ -341,7 +341,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
           return (
             <article
               key={request.id}
-              className={`grid gap-2 rounded-lg border-2 p-3.5 text-sm shadow-2xs sm:grid-cols-[1fr_auto] ${
+              className={`flex flex-col justify-between gap-2.5 rounded-lg border-2 p-3.5 text-sm shadow-2xs min-w-0 ${
                 isApproved
                   ? "border-emerald-500 bg-emerald-50/40"
                   : isRejected
@@ -352,8 +352,23 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               }`}
             >
               <div className="min-w-0">
-                <p className="truncate text-xs font-extrabold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
-                <p className="mt-1 text-xs font-medium text-muted">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-xs font-extrabold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
+                  <span
+                    className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs whitespace-nowrap ${
+                      isApproved
+                        ? "bg-emerald-600 text-white"
+                        : isRejected
+                          ? "bg-rose-600 text-white"
+                          : isSubmitted
+                            ? "bg-amber-500 text-white"
+                            : "bg-slate-900 text-white"
+                    }`}
+                  >
+                    {request.status}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs font-medium text-muted truncate">
                   <span className="font-bold text-foreground">{request.start_date} to {request.end_date}</span> ·{" "}
                   <span className="font-extrabold text-foreground">{Number(request.total_hours).toFixed(2)}h</span>
                 </p>
@@ -363,19 +378,6 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
                   </p>
                 ) : null}
               </div>
-              <span
-                className={`h-max w-max rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs ${
-                  isApproved
-                    ? "bg-emerald-600 text-white"
-                    : isRejected
-                      ? "bg-rose-600 text-white"
-                      : isSubmitted
-                        ? "bg-amber-500 text-white"
-                        : "bg-slate-900 text-white"
-                }`}
-              >
-                {request.status}
-              </span>
             </article>
           );
         })}

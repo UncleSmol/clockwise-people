@@ -129,7 +129,7 @@ export default function CompanyTimesheetApprovalQueue({
         </p>
       ) : (
         <form action={formAction} className="grid gap-3.5">
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5 items-start">
             {timesheets.map((timesheet) => {
               const hasWarning =
                 timesheet.missing_clocking ||
@@ -141,15 +141,15 @@ export default function CompanyTimesheetApprovalQueue({
               return (
                 <article
                   key={timesheet.id}
-                  className={`grid gap-3 rounded-lg border-2 p-3.5 shadow-2xs transition-all ${
+                  className={`grid gap-3 rounded-lg border-2 p-3.5 shadow-2xs transition-all min-w-0 ${
                     isCompliant
                       ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
                       : "border-rose-500 bg-rose-50/50 hover:bg-rose-50/70"
                   }`}
                 >
                   {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}
-                  <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <label className="grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-border bg-white shadow-xs hover:border-slate-400">
                         <input
                           type="checkbox"
@@ -165,10 +165,10 @@ export default function CompanyTimesheetApprovalQueue({
                         className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-extrabold text-foreground">
+                        <p className="truncate text-xs font-extrabold text-foreground">
                           {timesheet.knownAs ?? timesheet.fullName}
                         </p>
-                        <p className="truncate text-xs font-medium text-muted">
+                        <p className="truncate text-[11px] font-medium text-muted">
                           {timesheet.workstationName ?? "Assigned workstation"} ·{" "}
                           <span className="font-semibold text-foreground">{formatDate(timesheet.work_date)}</span>
                         </p>
@@ -176,7 +176,7 @@ export default function CompanyTimesheetApprovalQueue({
                     </div>
 
                     <span
-                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${
+                      className={`inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                         isCompliant
                           ? "bg-emerald-600 text-white shadow-2xs"
                           : "bg-rose-600 text-white shadow-2xs"
@@ -191,44 +191,44 @@ export default function CompanyTimesheetApprovalQueue({
                     </span>
                   </div>
 
-                  {/* High-Contrast White Metric Boxes */}
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock In</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortTime(timesheet.clock_in)}</p>
+                  {/* High-Contrast White Metric Boxes (Smart Auto-Fit Grid) */}
+                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1.5 min-w-0">
+                    <div className="rounded-md border border-border bg-white p-1.5 text-center shadow-2xs min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
+                      <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(timesheet.clock_in)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
+                    <div className="rounded-md border border-border bg-white p-1.5 text-center shadow-2xs min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
+                      <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock Out</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortTime(timesheet.clock_out)}</p>
+                    <div className="rounded-md border border-border bg-white p-1.5 text-center shadow-2xs min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
+                      <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(timesheet.clock_out)}</p>
                     </div>
 
-                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-center shadow-2xs">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Total Paid</p>
-                      <p className="mt-0.5 text-xs font-black text-emerald-950">{formatHours(timesheet.paid_hours)}</p>
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 text-center shadow-2xs min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
+                      <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(timesheet.paid_hours)}</p>
                     </div>
                   </div>
 
                   {/* Hours Breakdown Subgrid */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-md border border-border bg-white/90 p-2 text-center">
-                      <p className="text-[10px] font-bold uppercase text-muted">Normal (NT)</p>
-                      <p className="mt-0.5 text-xs font-bold text-foreground">{formatHours(timesheet.normal_hours)}</p>
+                  <div className="grid grid-cols-3 gap-1.5 min-w-0">
+                    <div className="rounded-md border border-border bg-white/90 p-1.5 text-center min-w-0">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate whitespace-nowrap">Normal (NT)</p>
+                      <p className="mt-0.5 text-xs font-bold text-foreground truncate whitespace-nowrap">{formatHours(timesheet.normal_hours)}</p>
                     </div>
 
-                    <div className="rounded-md border border-slate-200 bg-slate-100/80 p-2 text-center">
-                      <p className="text-[10px] font-bold uppercase text-slate-700">Overtime (OT)</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-slate-900">{formatHours(timesheet.overtime_hours)}</p>
+                    <div className="rounded-md border border-slate-200 bg-slate-100/80 p-1.5 text-center min-w-0">
+                      <p className="text-[9px] font-bold uppercase text-slate-700 truncate whitespace-nowrap">Overtime (OT)</p>
+                      <p className="mt-0.5 text-xs font-extrabold text-slate-900 truncate whitespace-nowrap">{formatHours(timesheet.overtime_hours)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white/90 p-2 text-center">
-                      <p className="text-[10px] font-bold uppercase text-muted">Lunch Break</p>
-                      <p className="mt-0.5 text-xs font-bold text-foreground">{formatHours(timesheet.lunch_hours)}</p>
+                    <div className="rounded-md border border-border bg-white/90 p-1.5 text-center min-w-0">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate whitespace-nowrap">Lunch Break</p>
+                      <p className="mt-0.5 text-xs font-bold text-foreground truncate whitespace-nowrap">{formatHours(timesheet.lunch_hours)}</p>
                     </div>
                   </div>
 
