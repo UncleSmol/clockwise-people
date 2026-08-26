@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import GlobalActionLoader from "@/components/GlobalActionLoader";
 import "./globals.css";
 
 const inter = Inter({
@@ -41,7 +40,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <GlobalActionLoader />
       </body>
     </html>
   );

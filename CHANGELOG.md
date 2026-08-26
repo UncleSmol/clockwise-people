@@ -5,6 +5,9 @@ All notable changes to the ClockWise People platform are documented in this file
 ## [Unreleased] - 2026-08-26
 
 ### Added
+- **Live Clocked-In Colleagues on Calendars** (`src/components/time-tracking/EmployeeTimesheetCorrections.tsx` & `CompanyTimesheetCalendar.tsx`):
+  - Added a live attendance strip on both personal timesheets/calendar and team calendar workspace.
+  - Displays colleagues currently active on shift or on lunch with live status badges, avatars, and clock-in times.
 - **Drawer Workspace Quick-Switcher Tab Bar** (`src/components/dashboard/CalendarWorkspace.tsx`):
   - Added an instant top segmented navigation bar in the sidebar drawer header.
   - Allows 1-click switching between workspace panels (**People**, **Approvals**, **Leave**, **Company**, **Policies**, **Account**, **Attendance**) without needing to close the drawer and reopen the user profile avatar menu.
@@ -18,10 +21,14 @@ All notable changes to the ClockWise People platform are documented in this file
 - **Search & Status Filters on Employee Directory** (`src/components/employees/EmployeeTable.tsx`):
   - Added real-time search filtering across name, email, department, role, and payroll ID.
   - Added segmented status filter pills (`All`, `Active`, `Probation`, `On Leave`, `Inactive`) with dynamic counter badges.
+- **In-App App Update Changelog Migration** (`supabase/migrations/20260826194500_design_system_drawer_switcher_and_masonry_timesheets_changelog.sql`):
+  - Pushed database changelog record to Supabase for the in-app `AppUpdateChangelog` notification modal.
 
 ### Changed
-- **Design System & Border Radius Refinement**:
-  - Reduced excessive rounded bubble shapes across all components in favor of restrained, modern `rounded-lg`, `rounded-md`, and `rounded` borders for an authentic app feel.
+- **Removed Global Action Loader Completely** (`src/app/layout.tsx`):
+  - Removed `GlobalActionLoader` and global fetch interceptors completely for faster, non-blocking native navigation.
+- **Uniform Card Styling Across the Entire App**:
+  - Unified all card containers with consistent `border-2`, `rounded-lg`, and solid status colors across Personal Timesheets, Management Approvals, Correction Requests, Leave Requests, and Employee Directories.
 - **Strong Color Distinctions & Solid Status Badges**:
   - Replaced faint/light pastel washes with high-contrast status colors:
     - **Approved / Compliant**: Solid emerald (`bg-emerald-600 text-white`) with high-contrast paid summaries.

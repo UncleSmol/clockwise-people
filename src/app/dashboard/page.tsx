@@ -562,6 +562,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             currentWorkDate={employeeTimeState.currentWorkDate}
             entries={employeeTimeState.recentEntries}
             publicHolidays={employeeTimeState.publicHolidays}
+            liveOverview={liveTimeOverview}
           />
         ) : (
           <section className="card p-6 text-sm text-muted">
@@ -589,6 +590,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 currentWorkDate={employeeTimeState.currentWorkDate}
                 entries={employeeTimeState.recentEntries}
                 publicHolidays={employeeTimeState.publicHolidays}
+                liveOverview={liveTimeOverview}
               />
             }
             timesheetBadge={timesheetBadge}
@@ -618,6 +620,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             entries={calendarEntries}
             leaveRequests={calendarLeaveRequests}
             publicHolidays={calendarHolidays}
+            liveOverview={liveTimeOverview}
           />
         ) : undefined
       }

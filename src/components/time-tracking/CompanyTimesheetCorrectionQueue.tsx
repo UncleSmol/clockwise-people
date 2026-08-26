@@ -164,10 +164,10 @@ export default function CompanyTimesheetCorrectionQueue({
                       toggleSelect(request.id);
                     }
                   }}
-                  className={`grid cursor-pointer gap-3 rounded-lg border p-3.5 shadow-sm transition-all ${
+                  className={`grid cursor-pointer gap-3 rounded-lg border-2 p-3.5 shadow-2xs transition-all ${
                     isSelected
                       ? "border-slate-900 bg-slate-900/5 ring-2 ring-slate-900"
-                      : "border-amber-300/80 bg-amber-50/40 hover:bg-amber-50/70"
+                      : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
                   }`}
                 >
                   {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}

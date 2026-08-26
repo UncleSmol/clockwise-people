@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
 import {
   createPastDraftTimeEntry,
@@ -39,6 +40,7 @@ import {
   submitTimesheetCorrection,
 } from "@/lib/time-tracking/actions";
 import type {
+  CompanyLiveTimeOverview,
   CompanyPublicHoliday,
   TimeEntryRecord,
   TimesheetCorrectionRequest,
@@ -51,6 +53,7 @@ type EmployeeTimesheetCorrectionsProps = {
   currentWorkDate: string;
   entries: TimeEntryRecord[];
   publicHolidays: CompanyPublicHoliday[];
+  liveOverview?: CompanyLiveTimeOverview | null;
 };
 
 type CorrectionActionState = {
@@ -389,7 +392,15 @@ export default function EmployeeTimesheetCorrections({
   currentWorkDate,
   entries,
   publicHolidays,
+  liveOverview = null,
 }: EmployeeTimesheetCorrectionsProps) {
+  const activeColleagues = useMemo(() => {
+    if (!liveOverview?.entries) return [];
+    return liveOverview.entries.filter(
+      (c) => c.status === "working" || c.status === "on_lunch",
+    );
+  }, [liveOverview]);
+
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
     if (typeof window === "undefined") return "month";
@@ -1047,6 +1058,63 @@ export default function EmployeeTimesheetCorrections({
           {entries.length} records
         </span>
       </div>
+
+      {/* Active Colleagues Clocked In Strip */}
+      {activeColleagues.length > 0 && (
+        <div className="rounded-lg border-2 border-emerald-500/40 bg-emerald-50/50 p-3 shadow-2xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
+              </span>
+              <p className="text-xs font-black text-emerald-950">
+                Colleagues on shift right now ({activeColleagues.length})
+              </p>
+            </div>
+            <span className="rounded bg-emerald-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-200">
+              Live Attendance
+            </span>
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {activeColleagues.map((colleague) => {
+              const isOnLunch = colleague.status === "on_lunch";
+              return (
+                <div
+                  key={colleague.employeeId}
+                  className={`flex items-center gap-2 rounded-md border p-1 pr-2.5 shadow-2xs transition-all ${
+                    isOnLunch
+                      ? "border-amber-300 bg-white hover:bg-amber-50"
+                      : "border-emerald-300 bg-white hover:bg-emerald-50"
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <EmployeeAvatar
+                      name={colleague.knownAs ?? colleague.fullName}
+                      src={colleague.avatarUrl}
+                      className={`size-7 ring-2 ${isOnLunch ? "ring-amber-500" : "ring-emerald-500"}`}
+                    />
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white ${
+                        isOnLunch ? "bg-amber-500" : "bg-emerald-500"
+                      }`}
+                    />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <p className="max-w-[120px] truncate text-xs font-extrabold text-foreground">
+                      {colleague.knownAs ?? colleague.fullName}
+                    </p>
+                    <p className="text-[10px] font-semibold text-muted">
+                      {isOnLunch ? "On lunch" : `In ${shortTime(colleague.clockIn)}`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {section !== "records" ? (
         <details className="grid gap-3 rounded-md border border-border bg-background p-3" open={!collapsedCalendar}>

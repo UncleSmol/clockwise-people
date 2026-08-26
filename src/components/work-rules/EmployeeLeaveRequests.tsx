@@ -332,23 +332,53 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
         </form>
       </div>
 
-      <div className="grid gap-2">
-        {state.requests.map((request) => (
-          <div key={request.id} className="grid gap-2 rounded-md border border-border bg-background p-3 text-sm sm:grid-cols-[1fr_auto]">
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
-              <p className="mt-1 text-xs text-muted">
-                {request.start_date} to {request.end_date} - {Number(request.total_hours).toFixed(2)}h
-              </p>
-              {request.rejection_reason ? (
-                <p className="mt-1 text-xs font-medium text-danger">{request.rejection_reason}</p>
-              ) : null}
-            </div>
-            <span className={`h-max w-max rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusClass(request.status)}`}>
-              {request.status}
-            </span>
-          </div>
-        ))}
+      <div className="grid gap-2.5">
+        {state.requests.map((request) => {
+          const isApproved = request.status === "approved";
+          const isRejected = request.status === "rejected";
+          const isSubmitted = request.status === "submitted";
+
+          return (
+            <article
+              key={request.id}
+              className={`grid gap-2 rounded-lg border-2 p-3.5 text-sm shadow-2xs sm:grid-cols-[1fr_auto] ${
+                isApproved
+                  ? "border-emerald-500 bg-emerald-50/40"
+                  : isRejected
+                    ? "border-rose-500 bg-rose-50/50"
+                    : isSubmitted
+                      ? "border-amber-400 bg-amber-50/40"
+                      : "border-border bg-white"
+              }`}
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-extrabold text-foreground">{request.leaveTypeName ?? "Leave"}</p>
+                <p className="mt-1 text-xs font-medium text-muted">
+                  <span className="font-bold text-foreground">{request.start_date} to {request.end_date}</span> ·{" "}
+                  <span className="font-extrabold text-foreground">{Number(request.total_hours).toFixed(2)}h</span>
+                </p>
+                {request.rejection_reason ? (
+                  <p className="mt-1.5 rounded-md border border-rose-300 bg-rose-100/80 p-2 text-xs font-semibold text-rose-950">
+                    Rejection note: {request.rejection_reason}
+                  </p>
+                ) : null}
+              </div>
+              <span
+                className={`h-max w-max rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs ${
+                  isApproved
+                    ? "bg-emerald-600 text-white"
+                    : isRejected
+                      ? "bg-rose-600 text-white"
+                      : isSubmitted
+                        ? "bg-amber-500 text-white"
+                        : "bg-slate-900 text-white"
+                }`}
+              >
+                {request.status}
+              </span>
+            </article>
+          );
+        })}
       </div>
 
       <form action={toilAction} className="grid gap-3 rounded-lg border border-accent/30 bg-accent/5 p-3">

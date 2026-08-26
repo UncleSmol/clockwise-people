@@ -63,7 +63,7 @@ export default function CompanyLeaveRequestQueue({
           {requests.map((request) => (
             <article
               key={request.id}
-              className="grid gap-3 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3.5 shadow-sm transition-all hover:bg-indigo-50/70"
+              className="grid gap-3 rounded-lg border-2 border-indigo-400 bg-indigo-50/40 p-3.5 shadow-2xs transition-all hover:bg-indigo-50/70"
             >
               {/* Top Bar: Avatar, Name & Type Badge */}
               <div className="flex flex-wrap items-center justify-between gap-2.5">

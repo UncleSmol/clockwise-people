@@ -141,10 +141,10 @@ export default function CompanyTimesheetApprovalQueue({
               return (
                 <article
                   key={timesheet.id}
-                  className={`grid gap-3 rounded-lg border p-3.5 shadow-sm transition-all ${
+                  className={`grid gap-3 rounded-lg border-2 p-3.5 shadow-2xs transition-all ${
                     isCompliant
-                      ? "border-emerald-300/80 bg-emerald-50/40 hover:bg-emerald-50/70"
-                      : "border-rose-300 bg-rose-50/40 hover:bg-rose-50/70"
+                      ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
+                      : "border-rose-500 bg-rose-50/50 hover:bg-rose-50/70"
                   }`}
                 >
                   {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}
