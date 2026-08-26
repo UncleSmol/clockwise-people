@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.8.26-hide-holiday-timesheets",
+  "version": "2026.8.26-review-before-submit-layout",
   "private": true,
   "type": "module",
   "scripts": {

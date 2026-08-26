@@ -1152,8 +1152,6 @@ export default function EmployeeTimesheetCorrections({
         </p>
       ) : activeTab === "timesheets" ? (
         <div className="grid gap-3">
-          {section === "full" ? quickSubmitForm : null}
-
           <div className="grid gap-2">
             {shouldGroupWeeks
               ? weekGroups.map((group) => (
@@ -1175,6 +1173,8 @@ export default function EmployeeTimesheetCorrections({
                 ))
               : filteredEntries.map(renderTimesheetEntry)}
           </div>
+
+          {section === "full" ? quickSubmitForm : null}
         </div>
       ) : (
         <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
