@@ -153,34 +153,34 @@ export default function CompanyTimesheetApprovalQueue({
               return (
                 <article
                   key={timesheet.id}
-                  className={`grid gap-3 rounded-lg border-2 p-3.5 shadow-2xs transition-all min-w-0 ${
+                  className={`grid gap-2 sm:gap-3 rounded-lg border-2 p-2.5 sm:p-3.5 shadow-2xs transition-all w-full max-w-full overflow-hidden ${
                     isCompliant
                       ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
                       : "border-rose-500 bg-rose-50/50 hover:bg-rose-50/70"
                   }`}
                 >
                   {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <label className="grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-border bg-white shadow-xs hover:border-slate-400">
+                  <div className="flex items-center justify-between gap-1.5 min-w-0 max-w-full">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <label className="grid size-6 sm:size-7 shrink-0 cursor-pointer place-items-center rounded border border-border bg-white shadow-xs hover:border-slate-400">
                         <input
                           type="checkbox"
                           name="time_entry_ids"
                           value={timesheet.id}
                           aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
-                          className="size-4 accent-slate-900"
+                          className="size-3.5 sm:size-4 accent-slate-900"
                         />
                       </label>
                       <EmployeeAvatar
                         name={timesheet.knownAs ?? timesheet.fullName}
                         src={timesheet.avatarUrl}
-                        className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
+                        className="size-7 sm:size-9 shrink-0 ring-1 ring-border shadow-2xs"
                       />
                       <div className="min-w-0">
                         <p className="truncate text-xs font-extrabold text-foreground">
                           {timesheet.knownAs ?? timesheet.fullName}
                         </p>
-                        <p className="truncate text-[11px] font-medium text-muted">
+                        <p className="truncate text-[10px] sm:text-[11px] font-medium text-muted">
                           {timesheet.workstationName ?? "Assigned workstation"} ·{" "}
                           <span className="font-semibold text-foreground">{formatDate(timesheet.work_date)}</span>
                         </p>
@@ -188,59 +188,59 @@ export default function CompanyTimesheetApprovalQueue({
                     </div>
 
                     <span
-                      className={`inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                      className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
                         isCompliant
                           ? "bg-emerald-600 text-white shadow-2xs"
                           : "bg-rose-600 text-white shadow-2xs"
                       }`}
                     >
                       {isCompliant ? (
-                        <CheckCircle2 className="size-3 text-white" />
+                        <CheckCircle2 className="size-2.5 sm:size-3 text-white" />
                       ) : (
-                        <AlertTriangle className="size-3 text-white" />
+                        <AlertTriangle className="size-2.5 sm:size-3 text-white" />
                       )}
                       {isCompliant ? "Ready" : "Exception"}
                     </span>
                   </div>
 
                   {/* High-Contrast White Metric Boxes (Smart Auto-Fit Grid) */}
-                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1.5 min-w-0">
-                    <div className="rounded-md border border-border bg-white p-1.5 text-center shadow-2xs min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(timesheet.clock_in)}</p>
+                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center min-w-0 w-full">
+                    <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(timesheet.clock_in)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-1.5 text-center shadow-2xs min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
+                    <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-1.5 text-center shadow-2xs min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(timesheet.clock_out)}</p>
+                    <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(timesheet.clock_out)}</p>
                     </div>
 
-                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 text-center shadow-2xs min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
-                      <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(timesheet.paid_hours)}</p>
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1 sm:p-1.5 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(timesheet.paid_hours)}</p>
                     </div>
                   </div>
 
                   {/* Hours Breakdown Subgrid */}
-                  <div className="grid grid-cols-3 gap-1.5 min-w-0">
-                    <div className="rounded-md border border-border bg-white/90 p-1.5 text-center min-w-0">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate whitespace-nowrap">Normal (NT)</p>
-                      <p className="mt-0.5 text-xs font-bold text-foreground truncate whitespace-nowrap">{formatHours(timesheet.normal_hours)}</p>
+                  <div className="grid grid-cols-3 gap-1 text-center min-w-0 w-full">
+                    <div className="rounded-md border border-border bg-white/90 p-1 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase text-muted truncate whitespace-nowrap">Normal</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-bold text-foreground truncate whitespace-nowrap">{formatHours(timesheet.normal_hours)}</p>
                     </div>
 
-                    <div className="rounded-md border border-slate-200 bg-slate-100/80 p-1.5 text-center min-w-0">
-                      <p className="text-[9px] font-bold uppercase text-slate-700 truncate whitespace-nowrap">Overtime (OT)</p>
-                      <p className="mt-0.5 text-xs font-extrabold text-slate-900 truncate whitespace-nowrap">{formatHours(timesheet.overtime_hours)}</p>
+                    <div className="rounded-md border border-slate-200 bg-slate-100/80 p-1 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase text-slate-700 truncate whitespace-nowrap">Overtime</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-slate-900 truncate whitespace-nowrap">{formatHours(timesheet.overtime_hours)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white/90 p-1.5 text-center min-w-0">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate whitespace-nowrap">Lunch Break</p>
-                      <p className="mt-0.5 text-xs font-bold text-foreground truncate whitespace-nowrap">{formatHours(timesheet.lunch_hours)}</p>
+                    <div className="rounded-md border border-border bg-white/90 p-1 shadow-2xs min-w-0">
+                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase text-muted truncate whitespace-nowrap">Lunch</p>
+                      <p className="mt-0.5 text-[11px] sm:text-xs font-bold text-foreground truncate whitespace-nowrap">{formatHours(timesheet.lunch_hours)}</p>
                     </div>
                   </div>
 

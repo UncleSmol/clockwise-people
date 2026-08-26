@@ -738,7 +738,7 @@ export default function EmployeeTimesheetCorrections({
     return (
       <article
         key={entry.id}
-        className={`grid gap-3 rounded-lg border-2 p-3.5 shadow-sm transition-all ${
+        className={`grid gap-2 sm:gap-3 rounded-lg border-2 p-2.5 sm:p-3.5 shadow-sm transition-all w-full max-w-full overflow-hidden ${
           isApproved
             ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
             : rejected
@@ -751,12 +751,12 @@ export default function EmployeeTimesheetCorrections({
         }`}
       >
         {/* Top Header: Date, Status Badge, Paid Hours & Edit Toggle */}
-        <div className="flex items-start justify-between gap-2 border-b border-border/60 pb-2.5 min-w-0">
-          <div className="flex flex-col gap-1.5 min-w-0">
+        <div className="flex items-start justify-between gap-1.5 border-b border-border/60 pb-2 min-w-0 max-w-full">
+          <div className="flex flex-col gap-1 min-w-0 flex-1">
             {/* Top row: Status indicator & Work date */}
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
               <span
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
                   isApproved
                     ? "bg-emerald-600 text-white shadow-2xs"
                     : rejected
@@ -767,22 +767,22 @@ export default function EmployeeTimesheetCorrections({
                 }`}
               >
                 {isDraft ? (
-                  <span className="relative flex size-2 shrink-0">
+                  <span className="relative flex size-1.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-200 opacity-80" />
-                    <span className="relative inline-flex size-2 rounded-full bg-white" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-white" />
                   </span>
                 ) : rejected ? (
-                  <AlertTriangle className="size-3 text-white" />
+                  <AlertTriangle className="size-2.5 text-white" />
                 ) : isApproved ? (
-                  <CheckCircle2 className="size-3 text-white" />
+                  <CheckCircle2 className="size-2.5 text-white" />
                 ) : isSubmitted ? (
-                  <Clock3 className="size-3 text-emerald-400" />
+                  <Clock3 className="size-2.5 text-emerald-400" />
                 ) : (
-                  <Edit3 className="size-3 text-white" />
+                  <Edit3 className="size-2.5 text-white" />
                 )}
                 {rejected ? "Rejected" : editable ? "Draft" : entry.status}
               </span>
-              <p className="truncate text-xs font-extrabold text-foreground whitespace-nowrap">
+              <p className="truncate text-[11px] sm:text-xs font-extrabold text-foreground">
                 {formatDate(entry.work_date)}
               </p>
             </div>
@@ -790,7 +790,7 @@ export default function EmployeeTimesheetCorrections({
             {/* Mobile: Hours appear directly below the status indicator */}
             <div className="flex items-center sm:hidden">
               <span
-                className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
+                className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-black shadow-2xs whitespace-nowrap ${
                   isApproved
                     ? "bg-emerald-950 text-emerald-200"
                     : rejected
@@ -800,13 +800,13 @@ export default function EmployeeTimesheetCorrections({
                         : "bg-amber-950 text-amber-200"
                 }`}
               >
-                <Clock3 className="size-3" />
+                <Clock3 className="size-2.5" />
                 {formatHours(entry.paid_hours)}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {/* Desktop: Hours appear inline on the right */}
             <span
               className={`hidden sm:inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
@@ -827,7 +827,7 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => toggleDraftExpand(entry.id)}
-                className={`inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold transition-all shadow-2xs whitespace-nowrap ${
+                className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs whitespace-nowrap ${
                   isExpanded
                     ? "bg-slate-900 text-white"
                     : isDraft
@@ -839,7 +839,7 @@ export default function EmployeeTimesheetCorrections({
                 <Edit3 className="size-2.5" />
                 {isExpanded ? "Collapse" : "Edit"}
                 <ChevronDown
-                  className={`size-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  className={`size-2.5 sm:size-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                 />
               </button>
             ) : null}
@@ -847,7 +847,7 @@ export default function EmployeeTimesheetCorrections({
         </div>
 
         {rejected ? (
-          <div className="rounded-md border border-rose-300 bg-rose-100/80 p-2.5 text-xs font-semibold text-rose-950 shadow-2xs">
+          <div className="rounded-md border border-rose-300 bg-rose-100/80 p-2 text-[11px] font-semibold text-rose-950 shadow-2xs">
             {managerNote
               ? `Rejected by manager: ${managerNote}`
               : "This timesheet was rejected. Correct the recorded times below, save, and submit."}
@@ -855,111 +855,111 @@ export default function EmployeeTimesheetCorrections({
         ) : null}
 
         {editable && isExpanded ? (
-          <form action={saveAction} className="grid gap-2.5 min-w-0">
+          <form action={saveAction} className="grid gap-2 min-w-0 w-full">
             <input type="hidden" name="time_entry_id" value={entry.id} />
-            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1.5 min-w-0">
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">In</span>
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 min-w-0 w-full">
+              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
+                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">In</span>
                 <input
                   type="time"
                   name="clock_in"
                   defaultValue={inputTime(entry.clock_in)}
-                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch In</span>
+              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
+                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch In</span>
                 <input
                   type="time"
                   name="lunch_start"
                   defaultValue={inputTime(entry.lunch_start)}
-                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch Out</span>
+              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
+                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch Out</span>
                 <input
                   type="time"
                   name="lunch_end"
                   defaultValue={inputTime(entry.lunch_end)}
-                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Out</span>
+              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
+                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Out</span>
                 <input
                   type="time"
                   name="clock_out"
                   defaultValue={inputTime(entry.clock_out)}
-                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-white p-2 shadow-2xs min-w-0">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Note</span>
+            <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0 w-full">
+              <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Note</span>
               <textarea
                 name="notes"
                 rows={1}
                 defaultValue={entry.notes ?? ""}
-                className="mt-0.5 w-full bg-transparent text-xs font-medium text-foreground outline-none resize-none"
+                className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-medium text-foreground outline-none resize-none"
                 placeholder="Optional timesheet note"
               />
             </div>
 
             {renderLocationHistory(entry)}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5">
               <button
                 formAction={deleteAction}
                 disabled={deletePending}
-                className="inline-flex items-center gap-1.5 rounded border border-rose-400/60 bg-rose-50 px-3 py-1.5 text-xs font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded border border-rose-400/60 bg-rose-50 px-2.5 py-1 text-[11px] font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
               >
-                <Trash2 className="size-3.5" />
+                <Trash2 className="size-3" />
                 {deletePending ? "Deleting..." : "Delete"}
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => toggleDraftExpand(entry.id)}
-                  className="inline-flex items-center gap-1 rounded border border-border bg-background px-2.5 py-1.5 text-xs font-bold text-muted hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-1 text-[11px] font-bold text-muted hover:text-foreground"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={savePending}
-                  className="inline-flex items-center justify-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1 rounded bg-emerald-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  <Save className="size-3.5" />
+                  <Save className="size-3" />
                   {savePending ? "Saving..." : "Save Draft"}
                 </button>
               </div>
             </div>
           </form>
         ) : (
-          <div className="grid gap-2 min-w-0">
+          <div className="grid gap-1.5 min-w-0 w-full">
             {/* High-Contrast Compact Smart Metric Grid */}
-            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1.5 text-center min-w-0">
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
-                <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_in)}</p>
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center min-w-0 w-full">
+              <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_in)}</p>
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
-                <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
+              <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
               </div>
-              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
-                <p className="mt-0.5 text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_out)}</p>
+              <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_out)}</p>
               </div>
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 shadow-2xs min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
-                <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(entry.paid_hours)}</p>
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1 sm:p-1.5 shadow-2xs min-w-0">
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(entry.paid_hours)}</p>
               </div>
             </div>
 
             {entry.warning_notes ? (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-1.5 text-xs font-semibold text-amber-950">
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-1.5 text-[11px] font-semibold text-amber-950">
                 {entry.warning_notes}
               </div>
             ) : null}
