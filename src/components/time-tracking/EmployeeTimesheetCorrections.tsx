@@ -751,43 +751,65 @@ export default function EmployeeTimesheetCorrections({
         }`}
       >
         {/* Top Header: Date, Status Badge, Paid Hours & Edit Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                isApproved
-                  ? "bg-emerald-600 text-white shadow-2xs"
-                  : rejected
-                    ? "bg-rose-600 text-white shadow-2xs"
-                    : isSubmitted
-                      ? "bg-slate-900 text-white shadow-2xs"
-                      : "bg-amber-500 text-white shadow-2xs"
-              }`}
-            >
-              {isDraft ? (
-                <span className="relative flex size-2 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-200 opacity-80" />
-                  <span className="relative inline-flex size-2 rounded-full bg-white" />
-                </span>
-              ) : rejected ? (
-                <AlertTriangle className="size-3 text-white" />
-              ) : isApproved ? (
-                <CheckCircle2 className="size-3 text-white" />
-              ) : isSubmitted ? (
-                <Clock3 className="size-3 text-emerald-400" />
-              ) : (
-                <Edit3 className="size-3 text-white" />
-              )}
-              {rejected ? "Rejected" : editable ? "Draft" : entry.status}
-            </span>
-            <p className="truncate text-xs font-extrabold text-foreground whitespace-nowrap">
-              {formatDate(entry.work_date)}
-            </p>
+        <div className="flex items-start justify-between gap-2 border-b border-border/60 pb-2.5 min-w-0">
+          <div className="flex flex-col gap-1.5 min-w-0">
+            {/* Top row: Status indicator & Work date */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                  isApproved
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : rejected
+                      ? "bg-rose-600 text-white shadow-2xs"
+                      : isSubmitted
+                        ? "bg-slate-900 text-white shadow-2xs"
+                        : "bg-amber-500 text-white shadow-2xs"
+                }`}
+              >
+                {isDraft ? (
+                  <span className="relative flex size-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-200 opacity-80" />
+                    <span className="relative inline-flex size-2 rounded-full bg-white" />
+                  </span>
+                ) : rejected ? (
+                  <AlertTriangle className="size-3 text-white" />
+                ) : isApproved ? (
+                  <CheckCircle2 className="size-3 text-white" />
+                ) : isSubmitted ? (
+                  <Clock3 className="size-3 text-emerald-400" />
+                ) : (
+                  <Edit3 className="size-3 text-white" />
+                )}
+                {rejected ? "Rejected" : editable ? "Draft" : entry.status}
+              </span>
+              <p className="truncate text-xs font-extrabold text-foreground whitespace-nowrap">
+                {formatDate(entry.work_date)}
+              </p>
+            </div>
+
+            {/* Mobile: Hours appear directly below the status indicator */}
+            <div className="flex items-center sm:hidden">
+              <span
+                className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
+                  isApproved
+                    ? "bg-emerald-950 text-emerald-200"
+                    : rejected
+                      ? "bg-rose-950 text-rose-200"
+                      : isSubmitted
+                        ? "bg-slate-900 text-emerald-400"
+                        : "bg-amber-950 text-amber-200"
+                }`}
+              >
+                <Clock3 className="size-3" />
+                {formatHours(entry.paid_hours)}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Desktop: Hours appear inline on the right */}
             <span
-              className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
+              className={`hidden sm:inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
                 isApproved
                   ? "bg-emerald-950 text-emerald-200"
                   : rejected
