@@ -365,10 +365,10 @@ export default function CompanyLiveWorkforce({
         </div>
       )}
 
-      {/* Attendance Entries List */}
-      <div className="grid gap-2">
+      {/* Attendance Entries Compact Grid */}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredEntries.length === 0 ? (
-          <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
+          <p className="col-span-full rounded-md border border-border bg-background p-4 text-center text-sm text-muted">
             No colleagues match the selected status filter.
           </p>
         ) : (
@@ -376,76 +376,69 @@ export default function CompanyLiveWorkforce({
             <article
               key={entry.employeeId}
               onClick={() => setSelectedColleague(entry)}
-              className="grid cursor-pointer gap-2 rounded-md border border-border bg-background p-3 shadow-sm transition-colors hover:border-accent/50 xl:grid-cols-[1.2fr_120px_1fr_190px_90px] xl:items-center"
+              className="group flex flex-col justify-between gap-2.5 rounded-lg border border-border bg-surface p-3 shadow-tight transition-all hover:border-accent/60 hover:shadow-soft cursor-pointer"
             >
-              <div className="flex min-w-0 items-center gap-2.5">
-                <div className="relative shrink-0">
-                  <EmployeeAvatar
-                    name={entry.knownAs ?? entry.fullName}
-                    src={entry.avatarUrl}
-                    className="size-9"
-                  />
-                  <span
-                    className={`absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full ring-2 ring-background ${statusDotClass(entry.status)}`}
-                  />
+              {/* Header: Avatar, Name & Status Pill */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="relative shrink-0">
+                    <EmployeeAvatar
+                      name={entry.knownAs ?? entry.fullName}
+                      src={entry.avatarUrl}
+                      className="size-8"
+                    />
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ring-surface ${statusDotClass(entry.status)}`}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-foreground group-hover:text-accent">
+                      {entry.knownAs ?? entry.fullName}
+                    </p>
+                    <p className="truncate text-[11px] text-muted">
+                      {entry.jobTitle ?? "Team Member"}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {entry.knownAs ?? entry.fullName}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-muted">
-                    {entry.workstationName ?? "No workstation"}
-                    {entry.jobTitle ? ` · ${entry.jobTitle}` : ""}
-                  </p>
-                </div>
+
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(entry.status)}`}
+                >
+                  <span className={`size-1.5 rounded-full ${statusDotClass(entry.status)}`} />
+                  {statusLabel(entry.status)}
+                </span>
               </div>
 
-              <span
-                className={`inline-flex w-max items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(entry.status)}`}
-              >
-                <span className={`size-1.5 rounded-full ${statusDotClass(entry.status)}`} />
-                {statusLabel(entry.status)}
-              </span>
-
-              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              {/* Time Stats Compact Row */}
+              <div className="grid grid-cols-3 gap-1 rounded-md border border-border/70 bg-surface-muted/60 p-2 text-center text-xs">
                 <div>
-                  <p className="text-muted">In</p>
+                  <p className="text-[10px] text-muted font-medium">In</p>
                   <p className="font-semibold text-foreground">{shortTime(entry.clockIn)}</p>
                 </div>
                 <div>
-                  <p className="text-muted">Out</p>
+                  <p className="text-[10px] text-muted font-medium">Out</p>
                   <p className="font-semibold text-foreground">{shortTime(entry.clockOut)}</p>
                 </div>
                 <div>
-                  <p className="text-muted">Worked</p>
+                  <p className="text-[10px] text-muted font-medium">Worked</p>
                   <p className="font-semibold text-foreground">
                     {entry.clockOut
                       ? formatHours(entry.paidHours)
                       : activeDuration(entry, tick) ?? "--"}
                   </p>
                 </div>
-                <div>
-                  <p className="text-muted">Overtime</p>
-                  <p className="font-semibold text-foreground">
-                    {formatHours(entry.overtimeHours)}
-                  </p>
-                </div>
               </div>
 
-              <div>
-                <span
-                  className={`inline-flex max-w-full rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${geofenceClass(entry.latestGeofenceStatus)}`}
-                >
-                  <span className="truncate">{geofenceLabel(entry)}</span>
+              {/* Footer: Workstation & Department */}
+              <div className="flex items-center justify-between gap-1.5 text-[11px] text-muted">
+                <span className="truncate" title={entry.workstationName ?? "Assigned workstation"}>
+                  <MapPin className="mr-1 inline size-3 text-muted" />
+                  {entry.workstationName ?? "No workstation"}
                 </span>
-                {entry.workstationName ? (
-                  <p className="mt-1 truncate text-xs text-muted">{entry.workstationName}</p>
-                ) : null}
+                <span className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+                  {entry.departmentName ?? "General"}
+                </span>
               </div>
-
-              <p className="text-right text-xs font-semibold text-muted">
-                {entry.departmentName ?? "General"}
-              </p>
             </article>
           ))
         )}
