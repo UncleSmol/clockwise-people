@@ -1012,8 +1012,8 @@ export default function CompanyReportsWorkspace({
             </div>
           </div>
 
-          {/* High-Contrast Responsive Data Table */}
-          <div className="overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b-2 border-slate-900 bg-slate-900 text-[10px] font-black uppercase tracking-wider text-white">
@@ -1146,6 +1146,100 @@ export default function CompanyReportsWorkspace({
               </table>
             </div>
           </div>
+
+          {/* Mobile Viewport-Fitting Compact Cards */}
+          <div className="grid gap-2.5 md:hidden">
+            {filteredTimesheets.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
+                No timesheet records match the selected period and filters.
+              </div>
+            ) : (
+              filteredTimesheets.map((row) => {
+                const isApproved = row.status === "approved";
+                const isRejected = row.status === "rejected";
+                const isSubmitted = row.status === "submitted";
+
+                return (
+                  <div
+                    key={row.id}
+                    className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
+                  >
+                    {/* Card Header: Employee & Status */}
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                        <p className="text-[10px] font-medium text-muted truncate">
+                          #{row.employeeNumber} · {row.department}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span
+                          className={`inline-flex rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white ${
+                            isApproved
+                              ? "bg-emerald-600"
+                              : isRejected
+                                ? "bg-rose-600"
+                                : isSubmitted
+                                  ? "bg-slate-900"
+                                  : "bg-amber-500"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                        <span className="text-[10px] font-bold text-foreground">
+                          {formatPeriodDate(row.workDate)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4-Box Smart Metric Strip */}
+                    <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center">
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                        <p className="text-[9px] font-bold uppercase text-muted truncate">Clock In</p>
+                        <p className="text-xs font-extrabold text-foreground truncate">{row.clockIn ?? "--"}</p>
+                      </div>
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                        <p className="text-[9px] font-bold uppercase text-muted truncate">Lunch</p>
+                        <p className="text-xs font-extrabold text-foreground truncate">
+                          {row.lunchStart && row.lunchEnd ? `${row.lunchStart}-${row.lunchEnd}` : "--"}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                        <p className="text-[9px] font-bold uppercase text-muted truncate">Clock Out</p>
+                        <p className="text-xs font-extrabold text-foreground truncate">{row.clockOut ?? "--"}</p>
+                      </div>
+                      <div className="rounded-md border border-emerald-300 bg-emerald-50 p-1">
+                        <p className="text-[9px] font-bold uppercase text-emerald-800 truncate">Total Paid</p>
+                        <p className="text-xs font-black text-emerald-950 truncate">{formatHours(row.totalPaidHours)}</p>
+                      </div>
+                    </div>
+
+                    {/* Overtime & Compliance Notes */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 pt-1.5 text-[10px]">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-600">
+                        <span>Norm: {formatHours(row.normalHours)}</span>
+                        {row.overtimeHours15 > 0 && <span className="text-amber-700">· OT 1.5x: {formatHours(row.overtimeHours15)}</span>}
+                        {row.overtimeHours20 > 0 && <span className="text-amber-900">· OT 2.0x: {formatHours(row.overtimeHours20)}</span>}
+                        {row.holidayHours > 0 && <span className="text-purple-700">· Hol: {formatHours(row.holidayHours)}</span>}
+                      </div>
+
+                      {row.hasComplianceFlag ? (
+                        <span className="inline-flex items-center gap-1 font-bold text-rose-700">
+                          <AlertTriangle className="size-3 text-rose-600" />
+                          {row.complianceNotes || "Needs Review"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                          <CheckCircle2 className="size-3 text-emerald-600" />
+                          Compliant
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
 
@@ -1161,7 +1255,8 @@ export default function CompanyReportsWorkspace({
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b-2 border-slate-900 bg-slate-900 text-[10px] font-black uppercase tracking-wider text-white">
@@ -1258,6 +1353,76 @@ export default function CompanyReportsWorkspace({
               </table>
             </div>
           </div>
+
+          {/* Mobile Viewport-Fitting Compact Cards */}
+          <div className="grid gap-2.5 md:hidden">
+            {filteredAttendance.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
+                No employee attendance data available for this filter.
+              </div>
+            ) : (
+              filteredAttendance.map((row) => (
+                <div
+                  key={row.employeeId}
+                  className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
+                >
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0">
+                      <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                      <p className="text-[10px] font-medium text-muted truncate">
+                        #{row.employeeNumber} · {row.department} · {row.workstation}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex rounded px-2 py-0.5 text-[10px] font-black shrink-0 ${
+                        row.complianceScore >= 85
+                          ? "bg-emerald-100 text-emerald-950"
+                          : row.complianceScore >= 70
+                            ? "bg-amber-100 text-amber-950"
+                            : "bg-rose-100 text-rose-950"
+                      }`}
+                    >
+                      Score: {row.complianceScore}/100
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center">
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Days</p>
+                      <p className="text-xs font-extrabold text-foreground truncate">{row.daysWorked}/{row.scheduledDays}d</p>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Total Worked</p>
+                      <p className="text-xs font-black text-foreground truncate">{formatHours(row.totalHoursWorked)}</p>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Punctual %</p>
+                      <p className={`text-xs font-black truncate ${
+                        row.punctualityRate >= 90 ? "text-emerald-700" : row.punctualityRate >= 75 ? "text-amber-700" : "text-rose-700"
+                      }`}>
+                        {row.punctualityRate}%
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Geofence %</p>
+                      <p className="text-xs font-extrabold text-slate-800 truncate">{row.geofenceComplianceRate}%</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-[10px] font-bold text-slate-600">
+                    <span>Overtime: {formatHours(row.overtimeHours)}</span>
+                    <div className="flex items-center gap-2">
+                      {row.lateArrivals > 0 && <span className="text-rose-700">Late: {row.lateArrivals}</span>}
+                      {row.missingClockings > 0 && <span className="text-amber-700">Missing: {row.missingClockings}</span>}
+                      {row.lateArrivals === 0 && row.missingClockings === 0 && (
+                        <span className="text-emerald-700">0 Exceptions</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -1273,7 +1438,8 @@ export default function CompanyReportsWorkspace({
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b-2 border-slate-900 bg-slate-900 text-[10px] font-black uppercase tracking-wider text-white">
@@ -1330,6 +1496,60 @@ export default function CompanyReportsWorkspace({
               </table>
             </div>
           </div>
+
+          {/* Mobile Viewport-Fitting Compact Cards */}
+          <div className="grid gap-2.5 md:hidden">
+            {filteredAccruals.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
+                No leave accrual records found for this filter.
+              </div>
+            ) : (
+              filteredAccruals.map((row, idx) => (
+                <div
+                  key={`${row.employeeId}-${row.leaveType}-${idx}`}
+                  className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
+                >
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0">
+                      <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                      <p className="text-[10px] font-medium text-muted truncate">
+                        #{row.employeeNumber} · {row.department}
+                      </p>
+                    </div>
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-900 border border-slate-200 shrink-0">
+                      {row.leaveType}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center">
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Opening</p>
+                      <p className="text-xs font-bold text-muted truncate">{formatHours(row.openingBalanceHours)}</p>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Accrued</p>
+                      <p className="text-xs font-bold text-emerald-700 truncate">+{formatHours(row.accruedPeriodHours)}</p>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-muted truncate">Taken</p>
+                      <p className="text-xs font-bold text-rose-700 truncate">-{formatHours(row.takenPeriodHours)}</p>
+                    </div>
+                    <div className="rounded-md border border-indigo-300 bg-indigo-50 p-1">
+                      <p className="text-[9px] font-bold uppercase text-indigo-900 truncate">Closing</p>
+                      <p className="text-xs font-black text-indigo-950 truncate">
+                        {formatHours(row.closingBalanceHours)} ({row.closingBalanceDays}d)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-[10px] font-bold text-slate-600">
+                    <span>Projected Year-End:</span>
+                    <span className="font-extrabold text-emerald-800">{formatHours(row.projectedYearEndHours)}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -1345,7 +1565,8 @@ export default function CompanyReportsWorkspace({
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-hidden rounded-xl border-2 border-slate-300 bg-surface shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b-2 border-slate-900 bg-slate-900 text-[10px] font-black uppercase tracking-wider text-white">
@@ -1359,7 +1580,7 @@ export default function CompanyReportsWorkspace({
                     <th className="px-2.5 py-2.5 text-right">Hours</th>
                     <th className="px-2.5 py-2.5 text-center">Pay Type</th>
                     <th className="px-3.5 py-2.5">Reason &amp; Manager Sign-off</th>
-                    <th className="px-3 py-2.5 text-center">Status</th>
+                    <th className="px-3.5 py-2.5 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -1416,6 +1637,63 @@ export default function CompanyReportsWorkspace({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile Viewport-Fitting Compact Cards */}
+          <div className="grid gap-2.5 md:hidden">
+            {filteredAbsences.length === 0 ? (
+              <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
+                No absence or leave records for this period.
+              </div>
+            ) : (
+              filteredAbsences.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
+                >
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0">
+                      <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                      <p className="text-[10px] font-medium text-muted truncate">
+                        #{row.employeeNumber} · {row.department}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-2xs shrink-0 ${
+                        row.status === "approved"
+                          ? "bg-emerald-600"
+                          : row.status === "rejected"
+                            ? "bg-rose-600"
+                            : "bg-amber-500"
+                      }`}
+                    >
+                      {row.status}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
+                    <span className="font-extrabold text-indigo-950">{row.leaveType}</span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                      row.isPaid ? "bg-emerald-100 text-emerald-950" : "bg-slate-200 text-slate-800"
+                    }`}>
+                      {row.isPaid ? "Paid Leave" : "Unpaid Leave"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                    <span>{formatPeriodDate(row.startDate)} → {formatPeriodDate(row.endDate)}</span>
+                    <span className="font-black text-foreground">{row.totalDays}d ({formatHours(row.totalHours)})</span>
+                  </div>
+
+                  {(row.reason || row.approvedBy) && (
+                    <div className="border-t border-slate-100 pt-1.5 text-[10px] text-muted">
+                      {row.reason && <p className="italic">"{row.reason}"</p>}
+                      {row.approvedBy && <p className="font-bold text-emerald-700 mt-0.5">✓ {row.approvedBy}</p>}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
