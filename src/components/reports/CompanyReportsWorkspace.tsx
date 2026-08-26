@@ -131,6 +131,19 @@ export default function CompanyReportsWorkspace({
   const [workstationFilter, setWorkstationFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [expandedMobileRows, setExpandedMobileRows] = useState<Set<string>>(new Set());
+
+  const toggleMobileRow = (id: string) => {
+    setExpandedMobileRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Build structured report datasets
   const aggregatorInput = useMemo(
@@ -700,52 +713,52 @@ export default function CompanyReportsWorkspace({
 
           {/* 1-Click Export Actions Bar */}
           {activeTab !== "settings" && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-rose-700 transition-all"
+                className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs font-extrabold text-white shadow-xs hover:bg-rose-700 transition-all"
                 title="Download formatted audit PDF"
               >
-                <Download className="size-3.5" />
-                Export PDF
+                <Download className="size-3 sm:size-3.5" />
+                <span>PDF</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 transition-all"
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 transition-all"
                 title="Download formatted Excel workbook"
               >
-                <FileSpreadsheet className="size-3.5" />
-                Export Excel (.xlsx)
+                <FileSpreadsheet className="size-3 sm:size-3.5" />
+                <span>Excel</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-extrabold text-slate-200 hover:bg-slate-800 transition-all"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-extrabold text-slate-200 hover:bg-slate-800 transition-all"
                 title="Download CSV for payroll software import"
               >
-                <ArrowDownToLine className="size-3.5" />
-                CSV
+                <ArrowDownToLine className="size-3 sm:size-3.5" />
+                <span>CSV</span>
               </button>
 
               <button
                 type="button"
                 onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-extrabold text-slate-200 hover:bg-slate-800 transition-all"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 sm:px-3 py-1.5 sm:py-2 text-[11px] sm:text-xs font-extrabold text-slate-200 hover:bg-slate-800 transition-all"
                 title="Print report"
               >
-                <Printer className="size-3.5" />
-                Print
+                <Printer className="size-3 sm:size-3.5" />
+                <span>Print</span>
               </button>
             </div>
           )}
         </div>
 
         {/* Global Period & Query Filter Bar */}
-        <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-slate-800 pt-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-800 pt-2.5 lg:grid-cols-4">
           {/* Payroll Period Dropdown */}
           <div className="grid gap-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -851,7 +864,48 @@ export default function CompanyReportsWorkspace({
       </div>
 
       {/* Visual Analytics KPI Highlights Strip */}
-      <div className="grid grid-cols-2 gap-2 min-[540px]:grid-cols-3 lg:grid-cols-6 min-w-0">
+      {/* Mobile: Ultra-Minimal 3-Metric Executive Snapshot */}
+      <div className="grid grid-cols-3 gap-1.5 md:hidden min-w-0">
+        <div className="rounded-lg border border-slate-900 bg-slate-900 px-2.5 py-1.5 text-white shadow-2xs">
+          <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-300 block truncate">
+            Gross Paid
+          </span>
+          <p className="text-sm font-black text-emerald-400 truncate">{kpis.totalPayrollHours}h</p>
+        </div>
+
+        <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-emerald-950 shadow-2xs">
+          <span className="text-[8.5px] font-bold uppercase tracking-wider text-emerald-800 block truncate">
+            Punctual
+          </span>
+          <p className="text-sm font-black text-emerald-900 truncate">{kpis.averagePunctualityRate}%</p>
+        </div>
+
+        <div
+          className={`rounded-lg border px-2.5 py-1.5 shadow-2xs ${
+            kpis.missingClockingCount > 0
+              ? "border-rose-300 bg-rose-50 text-rose-950"
+              : "border-slate-200 bg-white text-foreground"
+          }`}
+        >
+          <span
+            className={`text-[8.5px] font-bold uppercase tracking-wider block truncate ${
+              kpis.missingClockingCount > 0 ? "text-rose-800" : "text-muted"
+            }`}
+          >
+            Exceptions
+          </span>
+          <p
+            className={`text-sm font-black truncate ${
+              kpis.missingClockingCount > 0 ? "text-rose-900" : "text-foreground"
+            }`}
+          >
+            {kpis.missingClockingCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Desktop: Full 6-Card Visual Analytics KPI Highlights Strip */}
+      <div className="hidden md:grid grid-cols-2 gap-2 min-[540px]:grid-cols-3 lg:grid-cols-6 min-w-0">
         {/* Total Payroll Hours */}
         <div className="rounded-xl border-2 border-slate-900 bg-slate-900 p-3 text-white shadow-2xs min-w-0">
           <div className="flex items-center justify-between">
@@ -1147,14 +1201,15 @@ export default function CompanyReportsWorkspace({
             </div>
           </div>
 
-          {/* Mobile Viewport-Fitting Compact Cards */}
-          <div className="grid gap-2.5 md:hidden">
+          {/* Mobile Consolidated Minimal List */}
+          <div className="grid gap-1.5 md:hidden min-w-0">
             {filteredTimesheets.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
                 No timesheet records match the selected period and filters.
               </div>
             ) : (
               filteredTimesheets.map((row) => {
+                const isExpanded = expandedMobileRows.has(row.id);
                 const isApproved = row.status === "approved";
                 const isRejected = row.status === "rejected";
                 const isSubmitted = row.status === "submitted";
@@ -1162,19 +1217,30 @@ export default function CompanyReportsWorkspace({
                 return (
                   <div
                     key={row.id}
-                    className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
+                    className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs text-xs"
                   >
-                    {/* Card Header: Employee & Status */}
-                    <div className="flex items-start justify-between gap-2 min-w-0">
-                      <div className="min-w-0">
-                        <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
-                        <p className="text-[10px] font-medium text-muted truncate">
-                          #{row.employeeNumber} · {row.department}
-                        </p>
+                    <button
+                      type="button"
+                      onClick={() => toggleMobileRow(row.id)}
+                      className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ChevronDown
+                          className={`size-3.5 text-slate-400 shrink-0 transition-transform ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                          <p className="text-[10px] font-medium text-muted truncate">
+                            {formatPeriodDate(row.workDate)} · #{row.employeeNumber}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
+
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <span
-                          className={`inline-flex rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white ${
+                          className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white ${
                             isApproved
                               ? "bg-emerald-600"
                               : isRejected
@@ -1186,55 +1252,47 @@ export default function CompanyReportsWorkspace({
                         >
                           {row.status}
                         </span>
-                        <span className="text-[10px] font-bold text-foreground">
-                          {formatPeriodDate(row.workDate)}
+                        <span className="font-black text-slate-900 text-xs bg-slate-100 rounded px-1.5 py-0.5 border border-slate-200">
+                          {formatHours(row.totalPaidHours)}
                         </span>
                       </div>
-                    </div>
+                    </button>
 
-                    {/* 4-Box Smart Metric Strip */}
-                    <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center">
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                        <p className="text-[9px] font-bold uppercase text-muted truncate">Clock In</p>
-                        <p className="text-xs font-extrabold text-foreground truncate">{row.clockIn ?? "--"}</p>
-                      </div>
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                        <p className="text-[9px] font-bold uppercase text-muted truncate">Lunch</p>
-                        <p className="text-xs font-extrabold text-foreground truncate">
-                          {row.lunchStart && row.lunchEnd ? `${row.lunchStart}-${row.lunchEnd}` : "--"}
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                        <p className="text-[9px] font-bold uppercase text-muted truncate">Clock Out</p>
-                        <p className="text-xs font-extrabold text-foreground truncate">{row.clockOut ?? "--"}</p>
-                      </div>
-                      <div className="rounded-md border border-emerald-300 bg-emerald-50 p-1">
-                        <p className="text-[9px] font-bold uppercase text-emerald-800 truncate">Total Paid</p>
-                        <p className="text-xs font-black text-emerald-950 truncate">{formatHours(row.totalPaidHours)}</p>
-                      </div>
-                    </div>
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/70 p-2.5 grid gap-1.5 text-[11px]">
+                        <div className="grid grid-cols-3 gap-1 text-center">
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Clock In</span>
+                            <span className="font-extrabold text-foreground">{row.clockIn ?? "--"}</span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Lunch</span>
+                            <span className="font-extrabold text-foreground">
+                              {row.lunchStart && row.lunchEnd ? `${row.lunchStart}-${row.lunchEnd}` : "--"}
+                            </span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Clock Out</span>
+                            <span className="font-extrabold text-foreground">{row.clockOut ?? "--"}</span>
+                          </div>
+                        </div>
 
-                    {/* Overtime & Compliance Notes */}
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 pt-1.5 text-[10px]">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-600">
-                        <span>Norm: {formatHours(row.normalHours)}</span>
-                        {row.overtimeHours15 > 0 && <span className="text-amber-700">· OT 1.5x: {formatHours(row.overtimeHours15)}</span>}
-                        {row.overtimeHours20 > 0 && <span className="text-amber-900">· OT 2.0x: {formatHours(row.overtimeHours20)}</span>}
-                        {row.holidayHours > 0 && <span className="text-purple-700">· Hol: {formatHours(row.holidayHours)}</span>}
+                        <div className="flex items-center justify-between text-[10px] font-bold pt-1 border-t border-slate-200/60">
+                          <span className="text-muted">Regular: {formatHours(row.normalHours)} · OT: {formatHours(row.overtimeHours15 + row.overtimeHours20)}</span>
+                          {row.hasComplianceFlag ? (
+                            <span className="text-rose-700 font-extrabold flex items-center gap-1">
+                              <AlertTriangle className="size-2.5" />
+                              {row.complianceNotes || "Needs Review"}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-700 flex items-center gap-1">
+                              <CheckCircle2 className="size-2.5" />
+                              Compliant
+                            </span>
+                          )}
+                        </div>
                       </div>
-
-                      {row.hasComplianceFlag ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-rose-700">
-                          <AlertTriangle className="size-3 text-rose-600" />
-                          {row.complianceNotes || "Needs Review"}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
-                          <CheckCircle2 className="size-3 text-emerald-600" />
-                          Compliant
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
                 );
               })
@@ -1354,73 +1412,94 @@ export default function CompanyReportsWorkspace({
             </div>
           </div>
 
-          {/* Mobile Viewport-Fitting Compact Cards */}
-          <div className="grid gap-2.5 md:hidden">
+          {/* Mobile Consolidated Minimal List */}
+          <div className="grid gap-1.5 md:hidden min-w-0">
             {filteredAttendance.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
                 No employee attendance data available for this filter.
               </div>
             ) : (
-              filteredAttendance.map((row) => (
-                <div
-                  key={row.employeeId}
-                  className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="min-w-0">
-                      <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
-                      <p className="text-[10px] font-medium text-muted truncate">
-                        #{row.employeeNumber} · {row.department} · {row.workstation}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex rounded px-2 py-0.5 text-[10px] font-black shrink-0 ${
-                        row.complianceScore >= 85
-                          ? "bg-emerald-100 text-emerald-950"
-                          : row.complianceScore >= 70
-                            ? "bg-amber-100 text-amber-950"
-                            : "bg-rose-100 text-rose-950"
-                      }`}
+              filteredAttendance.map((row) => {
+                const isExpanded = expandedMobileRows.has(row.employeeId);
+
+                return (
+                  <div
+                    key={row.employeeId}
+                    className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMobileRow(row.employeeId)}
+                      className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-slate-50 transition-colors"
                     >
-                      Score: {row.complianceScore}/100
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ChevronDown
+                          className={`size-3.5 text-slate-400 shrink-0 transition-transform ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                          <p className="text-[10px] font-medium text-muted truncate">
+                            {row.department} · {row.daysWorked}/{row.scheduledDays}d
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center">
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Days</p>
-                      <p className="text-xs font-extrabold text-foreground truncate">{row.daysWorked}/{row.scheduledDays}d</p>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Total Worked</p>
-                      <p className="text-xs font-black text-foreground truncate">{formatHours(row.totalHoursWorked)}</p>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Punctual %</p>
-                      <p className={`text-xs font-black truncate ${
-                        row.punctualityRate >= 90 ? "text-emerald-700" : row.punctualityRate >= 75 ? "text-amber-700" : "text-rose-700"
-                      }`}>
-                        {row.punctualityRate}%
-                      </p>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Geofence %</p>
-                      <p className="text-xs font-extrabold text-slate-800 truncate">{row.geofenceComplianceRate}%</p>
-                    </div>
-                  </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-black ${
+                            row.complianceScore >= 85
+                              ? "bg-emerald-100 text-emerald-950"
+                              : row.complianceScore >= 70
+                                ? "bg-amber-100 text-amber-950"
+                                : "bg-rose-100 text-rose-950"
+                          }`}
+                        >
+                          {row.complianceScore}/100
+                        </span>
+                        <span className="font-black text-slate-900 text-xs bg-slate-100 rounded px-1.5 py-0.5 border border-slate-200">
+                          {formatHours(row.totalHoursWorked)}
+                        </span>
+                      </div>
+                    </button>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-[10px] font-bold text-slate-600">
-                    <span>Overtime: {formatHours(row.overtimeHours)}</span>
-                    <div className="flex items-center gap-2">
-                      {row.lateArrivals > 0 && <span className="text-rose-700">Late: {row.lateArrivals}</span>}
-                      {row.missingClockings > 0 && <span className="text-amber-700">Missing: {row.missingClockings}</span>}
-                      {row.lateArrivals === 0 && row.missingClockings === 0 && (
-                        <span className="text-emerald-700">0 Exceptions</span>
-                      )}
-                    </div>
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/70 p-2.5 grid gap-1.5 text-[11px]">
+                        <div className="grid grid-cols-4 gap-1 text-center">
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">On-Time</span>
+                            <span className={`font-extrabold ${row.punctualityRate >= 90 ? "text-emerald-700" : "text-amber-700"}`}>
+                              {row.punctualityRate}%
+                            </span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Geofence</span>
+                            <span className="font-extrabold text-slate-800">{row.geofenceComplianceRate}%</span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Late</span>
+                            <span className={`font-extrabold ${row.lateArrivals > 0 ? "text-rose-700" : "text-slate-600"}`}>
+                              {row.lateArrivals}
+                            </span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Missing</span>
+                            <span className={`font-extrabold ${row.missingClockings > 0 ? "text-amber-700" : "text-slate-600"}`}>
+                              {row.missingClockings}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] font-bold pt-1 border-t border-slate-200/60 text-muted">
+                          <span>Overtime: {formatHours(row.overtimeHours)}</span>
+                          <span>Workstation: {row.workstation}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -1497,57 +1576,77 @@ export default function CompanyReportsWorkspace({
             </div>
           </div>
 
-          {/* Mobile Viewport-Fitting Compact Cards */}
-          <div className="grid gap-2.5 md:hidden">
+          {/* Mobile Consolidated Minimal List */}
+          <div className="grid gap-1.5 md:hidden min-w-0">
             {filteredAccruals.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
                 No leave accrual records found for this filter.
               </div>
             ) : (
-              filteredAccruals.map((row, idx) => (
-                <div
-                  key={`${row.employeeId}-${row.leaveType}-${idx}`}
-                  className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="min-w-0">
-                      <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
-                      <p className="text-[10px] font-medium text-muted truncate">
-                        #{row.employeeNumber} · {row.department}
-                      </p>
-                    </div>
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-900 border border-slate-200 shrink-0">
-                      {row.leaveType}
-                    </span>
-                  </div>
+              filteredAccruals.map((row, idx) => {
+                const rowKey = `${row.employeeId}-${row.leaveType}-${idx}`;
+                const isExpanded = expandedMobileRows.has(rowKey);
 
-                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center">
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Opening</p>
-                      <p className="text-xs font-bold text-muted truncate">{formatHours(row.openingBalanceHours)}</p>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Accrued</p>
-                      <p className="text-xs font-bold text-emerald-700 truncate">+{formatHours(row.accruedPeriodHours)}</p>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-muted truncate">Taken</p>
-                      <p className="text-xs font-bold text-rose-700 truncate">-{formatHours(row.takenPeriodHours)}</p>
-                    </div>
-                    <div className="rounded-md border border-indigo-300 bg-indigo-50 p-1">
-                      <p className="text-[9px] font-bold uppercase text-indigo-900 truncate">Closing</p>
-                      <p className="text-xs font-black text-indigo-950 truncate">
-                        {formatHours(row.closingBalanceHours)} ({row.closingBalanceDays}d)
-                      </p>
-                    </div>
-                  </div>
+                return (
+                  <div
+                    key={rowKey}
+                    className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMobileRow(rowKey)}
+                      className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ChevronDown
+                          className={`size-3.5 text-slate-400 shrink-0 transition-transform ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                          <p className="text-[10px] font-medium text-muted truncate">
+                            {row.leaveType} · #{row.employeeNumber}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-1.5 text-[10px] font-bold text-slate-600">
-                    <span>Projected Year-End:</span>
-                    <span className="font-extrabold text-emerald-800">{formatHours(row.projectedYearEndHours)}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-extrabold text-indigo-900 border border-indigo-200">
+                          {row.closingBalanceDays}d
+                        </span>
+                        <span className="font-black text-slate-900 text-xs bg-slate-100 rounded px-1.5 py-0.5 border border-slate-200">
+                          {formatHours(row.closingBalanceHours)}
+                        </span>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/70 p-2.5 grid gap-1.5 text-[11px]">
+                        <div className="grid grid-cols-3 gap-1 text-center">
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Opening</span>
+                            <span className="font-bold text-muted">{formatHours(row.openingBalanceHours)}</span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Earned</span>
+                            <span className="font-extrabold text-emerald-700">+{formatHours(row.accruedPeriodHours)}</span>
+                          </div>
+                          <div className="rounded border border-slate-200 bg-white p-1">
+                            <span className="text-[8.5px] font-bold text-muted block uppercase">Taken</span>
+                            <span className="font-extrabold text-rose-700">-{formatHours(row.takenPeriodHours)}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] font-bold pt-1 border-t border-slate-200/60 text-muted">
+                          <span>Department: {row.department}</span>
+                          <span>Year-End Est: <strong className="text-emerald-800">{formatHours(row.projectedYearEndHours)}</strong></span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -1639,60 +1738,82 @@ export default function CompanyReportsWorkspace({
             </div>
           </div>
 
-          {/* Mobile Viewport-Fitting Compact Cards */}
-          <div className="grid gap-2.5 md:hidden">
+          {/* Mobile Consolidated Minimal List */}
+          <div className="grid gap-1.5 md:hidden min-w-0">
             {filteredAbsences.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-border bg-surface p-6 text-center text-xs font-semibold text-muted">
                 No absence or leave records for this period.
               </div>
             ) : (
-              filteredAbsences.map((row) => (
-                <div
-                  key={row.id}
-                  className="grid gap-2 rounded-xl border border-slate-300 bg-white p-3 shadow-2xs text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="min-w-0">
-                      <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
-                      <p className="text-[10px] font-medium text-muted truncate">
-                        #{row.employeeNumber} · {row.department}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-2xs shrink-0 ${
-                        row.status === "approved"
-                          ? "bg-emerald-600"
-                          : row.status === "rejected"
-                            ? "bg-rose-600"
-                            : "bg-amber-500"
-                      }`}
+              filteredAbsences.map((row) => {
+                const isExpanded = expandedMobileRows.has(row.id);
+                const isApproved = row.status === "approved";
+                const isRejected = row.status === "rejected";
+
+                return (
+                  <div
+                    key={row.id}
+                    className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-2xs text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleMobileRow(row.id)}
+                      className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-slate-50 transition-colors"
                     >
-                      {row.status}
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ChevronDown
+                          className={`size-3.5 text-slate-400 shrink-0 transition-transform ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-foreground truncate">{row.employeeName}</p>
+                          <p className="text-[10px] font-medium text-muted truncate">
+                            {formatPeriodDate(row.startDate)} → {formatPeriodDate(row.endDate)}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-2 text-xs">
-                    <span className="font-extrabold text-indigo-950">{row.leaveType}</span>
-                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                      row.isPaid ? "bg-emerald-100 text-emerald-950" : "bg-slate-200 text-slate-800"
-                    }`}>
-                      {row.isPaid ? "Paid Leave" : "Unpaid Leave"}
-                    </span>
-                  </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white ${
+                            isApproved
+                              ? "bg-emerald-600"
+                              : isRejected
+                                ? "bg-rose-600"
+                                : "bg-amber-500"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                        <span className="font-black text-slate-900 text-xs bg-slate-100 rounded px-1.5 py-0.5 border border-slate-200">
+                          {row.totalDays}d
+                        </span>
+                      </div>
+                    </button>
 
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                    <span>{formatPeriodDate(row.startDate)} → {formatPeriodDate(row.endDate)}</span>
-                    <span className="font-black text-foreground">{row.totalDays}d ({formatHours(row.totalHours)})</span>
-                  </div>
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/70 p-2.5 grid gap-1.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-indigo-950">{row.leaveType}</span>
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                            row.isPaid ? "bg-emerald-100 text-emerald-950" : "bg-slate-200 text-slate-800"
+                          }`}>
+                            {row.isPaid ? "Paid Leave" : "Unpaid Leave"} ({formatHours(row.totalHours)})
+                          </span>
+                        </div>
 
-                  {(row.reason || row.approvedBy) && (
-                    <div className="border-t border-slate-100 pt-1.5 text-[10px] text-muted">
-                      {row.reason && <p className="italic">"{row.reason}"</p>}
-                      {row.approvedBy && <p className="font-bold text-emerald-700 mt-0.5">✓ {row.approvedBy}</p>}
-                    </div>
-                  )}
-                </div>
-              ))
+                        {(row.reason || row.approvedBy) && (
+                          <div className="border-t border-slate-200/60 pt-1 text-[10px] text-muted">
+                            {row.reason && <p className="italic">"{row.reason}"</p>}
+                            {row.approvedBy && <p className="font-bold text-emerald-700 mt-0.5">✓ {row.approvedBy}</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
