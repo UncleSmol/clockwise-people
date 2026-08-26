@@ -37,6 +37,10 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setLiveNotifications(notifications);
+  }, [notifications]);
+
+  useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     let refreshTimeout: number | null = null;
 
@@ -48,7 +52,7 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
       refreshTimeout = window.setTimeout(async () => {
         const next = await fetchDashboardNotifications();
         setLiveNotifications(next);
-      }, 800);
+      }, 200);
     };
 
     const channel = supabase

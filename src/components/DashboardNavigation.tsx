@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/lib/auth/actions";
 import NotificationMenu from "@/components/NotificationMenu";
+import { LiveStatusIndicator } from "@/components/realtime/RealtimeSyncProvider";
 import { usePanelBridge } from "@/components/dashboard/panel-bridge";
 import type { DashboardNotification } from "@/lib/dashboard/schema";
 
@@ -57,7 +58,8 @@ export default function DashboardNavigation({
   }, [open]);
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2">
+      <LiveStatusIndicator />
       <NotificationMenu companyId={companyId} notifications={notifications} />
 
       <div ref={containerRef} className="relative">

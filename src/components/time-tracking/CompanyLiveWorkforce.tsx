@@ -137,7 +137,7 @@ export default function CompanyLiveWorkforce({
 
       refreshTimeout = window.setTimeout(() => {
         router.refresh();
-      }, 800);
+      }, 200);
     };
 
     const channel = supabase

@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.8.26-bulk-correction-submit",
+  "version": "2026.8.26-realtime-websockets",
   "private": true,
   "type": "module",
   "scripts": {

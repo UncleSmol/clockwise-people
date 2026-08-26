@@ -11,6 +11,7 @@ import {
   switchWorkstation,
 } from "@/lib/time-tracking/actions";
 import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
+import { useRealtimeEvent } from "@/components/realtime/RealtimeSyncProvider";
 
 type TodaySchedule = {
   start_time: string | null;
@@ -206,9 +207,29 @@ export default function EmployeeTimeClock({
   const switchPendingRef = useRef(false);
   const pendingActionRef = useRef<string | null>(null);
   const noLunchToday = Boolean(todaySchedule && todaySchedule.lunch_minutes <= 0);
+
+  const [liveTodayEntry, setLiveTodayEntry] = useState<TimeEntryRecord | null>(todayEntry);
+
+  useEffect(() => {
+    setLiveTodayEntry(todayEntry);
+  }, [todayEntry]);
+
+  useRealtimeEvent<TimeEntryRecord>("time_entries", (event) => {
+    if (event.new) {
+      if (
+        (liveTodayEntry && event.new.id === liveTodayEntry.id) ||
+        (todayEntry && event.new.id === todayEntry.id) ||
+        (event.new.employee_id && (liveTodayEntry?.employee_id === event.new.employee_id || todayEntry?.employee_id === event.new.employee_id))
+      ) {
+        setLiveTodayEntry((prev) => ({ ...(prev ?? ({} as TimeEntryRecord)), ...event.new }));
+        setOptimistic(null);
+      }
+    }
+  });
+
   const [state, formAction, pending] = useActionState(
     async (previousState: ClockActionState, formData: FormData) => {
-      const currentEntry = previousState.entry ?? optimistic ?? todayEntry;
+      const currentEntry = previousState.entry ?? optimistic ?? liveTodayEntry ?? todayEntry;
       const requestedAt = String(formData.get("requested_at") ?? "").trim() || null;
       const overrideLabel = switchPendingRef.current ? "Switch workstation" : null;
       switchPendingRef.current = false;
@@ -234,11 +255,15 @@ export default function EmployeeTimeClock({
       const result = await currentAction.action(formData);
       setOptimistic(null);
 
+      if (result.entry) {
+        setLiveTodayEntry(result.entry);
+      }
+
       return result;
     },
     initialState,
   );
-  const displayEntry = state.entry ?? optimistic ?? todayEntry;
+  const displayEntry = state.entry ?? optimistic ?? liveTodayEntry ?? todayEntry;
   const availableActions = nextActions(displayEntry, noLunchToday);
   const canClockIn = availableActions.some((action) => action.label === "Clock in");
   const canSwitch =

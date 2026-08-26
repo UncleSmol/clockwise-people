@@ -5,6 +5,7 @@ import { getAccountProfile } from "@/lib/account/queries";
 import { getUnseenAppUpdates } from "@/lib/app-updates/queries";
 import { getDashboardNotifications } from "@/lib/dashboard/queries";
 import { PanelBridgeProvider } from "@/components/dashboard/panel-bridge";
+import { RealtimeSyncProvider } from "@/components/realtime/RealtimeSyncProvider";
 import AppUpdateChangelog from "@/components/AppUpdateChangelog";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
@@ -23,9 +24,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <main className="min-h-screen text-foreground">
-      <PanelBridgeProvider>
-        <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+      <RealtimeSyncProvider companyId={company.id}>
+        <PanelBridgeProvider>
+          <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <Link
               href="/dashboard"
               className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1"
@@ -48,7 +50,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           </div>
         </div>
         {children}
-      </PanelBridgeProvider>
+        </PanelBridgeProvider>
+      </RealtimeSyncProvider>
       <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
       <PwaInstallPrompt />
       {process.env.NODE_ENV === 'development' && <UIQADashboard />}
