@@ -684,12 +684,25 @@ export default function EmployeeTimesheetCorrections({
   const handleDateClick = (arg: DateClickArg) => {
     setSelectedDate(arg.dateStr);
     setCalendarFocusDate(arg.dateStr);
+    const entryForDate = entriesByDate.get(arg.dateStr);
+    if (entryForDate) {
+      setDetailEntry(entryForDate);
+      if (entryForDate.status === "draft" || entryForDate.status === "rejected") {
+        setExpandedDraftIds((prev) => new Set(prev).add(entryForDate.id));
+      }
+    } else {
+      setDetailEntry(null);
+    }
   };
   const handleEventClick = (arg: EventClickArg) => {
     const entry = arg.event.extendedProps.entry as TimeEntryRecord | undefined;
     if (entry) {
+      setSelectedDate(entry.work_date);
       setCalendarFocusDate(entry.work_date);
       setDetailEntry(entry);
+      if (entry.status === "draft" || entry.status === "rejected") {
+        setExpandedDraftIds((prev) => new Set(prev).add(entry.id));
+      }
     }
   };
   const payrollRangeLabel = useMemo(() => {
@@ -1127,6 +1140,18 @@ export default function EmployeeTimesheetCorrections({
               </span>
             </summary>
           ) : null}
+        {message && (
+          <div
+            className={`rounded-md border px-3 py-2 text-sm font-semibold shadow-2xs ${
+              messageOk
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                : "border-rose-300 bg-rose-50 text-rose-950"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="inline-flex items-center gap-2 font-semibold text-foreground">
@@ -1134,7 +1159,7 @@ export default function EmployeeTimesheetCorrections({
               Calendar
             </p>
             <p className="mt-1 text-xs text-muted max-sm:hidden">
-              Select a past work day to create a draft timesheet. Public holidays are displayed on your calendar.
+              Click any day or draft event on the calendar to view, edit, or create draft timesheets.
             </p>
           </div>
           <div className="hidden sm:flex sm:flex-wrap sm:gap-1.5">
@@ -1390,6 +1415,99 @@ export default function EmployeeTimesheetCorrections({
           </div>,
           document.body,
         ) : null}
+
+        {/* Calendar Selected Day Inspector & Draft Editor */}
+        {(() => {
+          const focusedDate = selectedDate || calendarFocusDate;
+          const activeCalendarEntry = (focusedDate ? entriesByDate.get(focusedDate) : null) ?? detailEntry;
+          const activeHoliday = focusedDate
+            ? publicHolidays.find((h) => h.holiday_date === focusedDate)
+            : null;
+          const isPastFocusedDay = Boolean(focusedDate) && focusedDate < currentWorkDate && !activeCalendarEntry && !activeHoliday;
+
+          if (!focusedDate) return null;
+
+          return (
+            <div className="grid gap-2.5 border-t border-border/80 pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="size-4 text-accent" />
+                  <p className="text-xs font-black uppercase tracking-wider text-muted">
+                    Selected Day · <span className="text-foreground">{formatDate(focusedDate)}</span>
+                  </p>
+                </div>
+                {(selectedDate || detailEntry) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate("");
+                      setDetailEntry(null);
+                    }}
+                    className="text-[11px] font-bold text-muted hover:text-foreground underline decoration-dotted"
+                  >
+                    Clear selection
+                  </button>
+                ) : null}
+              </div>
+
+              {activeCalendarEntry ? (
+                <div className="grid gap-2">
+                  {activeCalendarEntry.status === "draft" || activeCalendarEntry.status === "rejected" ? (
+                    <div className="rounded-lg border-2 border-amber-400 bg-amber-50/40 p-3 shadow-2xs">
+                      <div className="mb-2 flex items-center justify-between gap-2 border-b border-amber-200/80 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Edit3 className="size-4 text-amber-600" />
+                          <h4 className="text-xs font-black uppercase tracking-wider text-amber-950">
+                            {activeCalendarEntry.status === "rejected" ? "Correct Rejected Timesheet" : "Edit Draft Timesheet"}
+                          </h4>
+                        </div>
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
+                          Edit Draft Direct
+                        </span>
+                      </div>
+                      {renderTimesheetEntry(activeCalendarEntry)}
+                    </div>
+                  ) : (
+                    <div>
+                      {renderTimesheetEntry(activeCalendarEntry)}
+                    </div>
+                  )}
+                </div>
+              ) : activeHoliday ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-purple-300 bg-purple-50 p-3 text-xs shadow-2xs">
+                  <div>
+                    <span className="font-extrabold text-purple-950">{activeHoliday.name}</span>
+                    <p className="text-[11px] font-medium text-purple-700">Public Holiday · {formatDate(focusedDate)}</p>
+                  </div>
+                  <span className="rounded bg-purple-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
+                    Holiday
+                  </span>
+                </div>
+              ) : isPastFocusedDay ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 p-3.5 shadow-2xs">
+                  <div>
+                    <p className="text-xs font-black text-amber-950">
+                      No timesheet recorded for {formatDate(focusedDate)}
+                    </p>
+                    <p className="text-[11px] font-medium text-amber-800">
+                      Create a past draft timesheet for this day and record your work hours.
+                    </p>
+                  </div>
+                  <form action={createAction}>
+                    <input type="hidden" name="work_date" value={focusedDate} />
+                    <button
+                      disabled={createPending}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50"
+                    >
+                      <Plus className="size-3.5" />
+                      {createPending ? "Creating Draft..." : `Create Draft for ${formatDate(focusedDate)}`}
+                    </button>
+                  </form>
+                </div>
+              ) : null}
+            </div>
+          );
+        })()}
 
         {section === "calendar" ? (
           <div className="grid gap-2">

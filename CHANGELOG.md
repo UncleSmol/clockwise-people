@@ -5,6 +5,10 @@ All notable changes to the ClockWise People platform are documented in this file
 ## [Unreleased] - 2026-08-26
 
 ### Added
+- **Calendar Direct Draft Editing & Creation** (`src/components/time-tracking/EmployeeTimesheetCorrections.tsx`):
+  - Clicking any draft or rejected timesheet on the Detailed Calendar in the **My Time** tab instantly expands and focuses the inline draft editor directly beneath the calendar.
+  - Allows full editing of Clock In, Lunch Start, Lunch End, Clock Out, and Notes, with direct Save Draft, Delete, or Submit capabilities.
+  - Clicking any past work day with no entry enables a 1-click **Create Past Draft** action.
 - **Smart Grid Layout System & Text Wrapping Protection**:
   - Implemented responsive auto-fit container grids (`grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5`) across all queue cards (Timesheet Approvals, Correction Requests, Leave Requests, and Live Workforce).
   - Upgraded inner metric boxes with container-aware auto-fit layouts (`grid-cols-2 min-[440px]:grid-cols-4 gap-1.5`) and strict `truncate whitespace-nowrap` protection, ensuring labels like `Clock In`, `Lunch`, `Clock Out`, and `Total Paid` never wrap awkwardly or break layout across different screen sizes.
