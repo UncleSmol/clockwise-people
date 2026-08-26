@@ -225,6 +225,10 @@ export default function CompanyTimesheetCalendar({
     y: number;
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const holidayDates = useMemo(
+    () => new Set(publicHolidays.map((holiday) => holiday.holiday_date)),
+    [publicHolidays],
+  );
   const dayEventsMap = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const h of publicHolidays) {
@@ -233,12 +237,15 @@ export default function CompanyTimesheetCalendar({
       map.set(h.holiday_date, prev);
     }
     for (const e of entries) {
+      if (holidayDates.has(e.work_date) || e.notes?.startsWith("Public holiday:")) {
+        continue;
+      }
       const prev = map.get(e.work_date) ?? [];
       prev.push(displayName(e));
       map.set(e.work_date, prev);
     }
     return map;
-  }, [entries, publicHolidays]);
+  }, [entries, publicHolidays, holidayDates]);
 
   const [createState, createAction, createPending] = useActionState(
     createManagedDraftTimeEntry,
@@ -272,9 +279,12 @@ export default function CompanyTimesheetCalendar({
     if (!selectedEntry) return [];
     return entries.filter(
       (entry) =>
-        entry.employee_id === selectedEntry.employee_id && entry.status === "submitted",
+        entry.employee_id === selectedEntry.employee_id &&
+        entry.status === "submitted" &&
+        !holidayDates.has(entry.work_date) &&
+        !entry.notes?.startsWith("Public holiday:"),
     );
-  }, [entries, selectedEntry]);
+  }, [entries, selectedEntry, holidayDates]);
 
   const events = useMemo<EventInput[]>(
     () => {
@@ -285,41 +295,55 @@ export default function CompanyTimesheetCalendar({
         allDay: true,
         classNames: ["cw-calendar-holiday"],
       }));
-      const timesheetEvents = entries.map((entry) => ({
-        id: entry.id,
-        title: displayName(entry),
-        start: entry.work_date,
-        allDay: true,
-        classNames: [
-          "cw-company-timesheet-event",
-          entry.missing_clocking || entry.late_arrival || entry.early_departure
-            ? "cw-company-timesheet-event-warning"
-            : "",
-        ],
-        extendedProps: { entry },
-      }));
+      const timesheetEvents = entries
+        .filter(
+          (entry) =>
+            !holidayDates.has(entry.work_date) &&
+            !entry.notes?.startsWith("Public holiday:"),
+        )
+        .map((entry) => ({
+          id: entry.id,
+          title: displayName(entry),
+          start: entry.work_date,
+          allDay: true,
+          classNames: [
+            "cw-company-timesheet-event",
+            entry.missing_clocking || entry.late_arrival || entry.early_departure
+              ? "cw-company-timesheet-event-warning"
+              : "",
+          ],
+          extendedProps: { entry },
+        }));
 
       return [...holidayEvents, ...timesheetEvents];
     },
-    [entries, publicHolidays],
+    [entries, publicHolidays, holidayDates],
   );
 
-  const totals = useMemo(
-    () => ({
-      approved: entries.filter((entry) => entry.status === "approved").length,
-      issues: entries.filter(
+  const totals = useMemo(() => {
+    const validEntries = entries.filter(
+      (entry) =>
+        !holidayDates.has(entry.work_date) &&
+        !entry.notes?.startsWith("Public holiday:"),
+    );
+    return {
+      approved: validEntries.filter((entry) => entry.status === "approved").length,
+      issues: validEntries.filter(
         (entry) => entry.missing_clocking || entry.late_arrival || entry.early_departure,
       ).length,
-      submitted: entries.filter((entry) => entry.status === "submitted").length,
-      total: entries.length,
-    }),
-    [entries],
-  );
+      submitted: validEntries.filter((entry) => entry.status === "submitted").length,
+      total: validEntries.length,
+    };
+  }, [entries, holidayDates]);
 
   const existingEntriesForDate = useMemo(() => {
-    if (!selectedDate) return [];
-    return entries.filter((e) => e.work_date === selectedDate);
-  }, [entries, selectedDate]);
+    if (!selectedDate || holidayDates.has(selectedDate)) return [];
+    return entries.filter(
+      (e) =>
+        e.work_date === selectedDate &&
+        !e.notes?.startsWith("Public holiday:"),
+    );
+  }, [entries, selectedDate, holidayDates]);
 
   const leaveRequestsForDate = useMemo(() => {
     if (!selectedDate) return leaveRequests;
@@ -675,7 +699,12 @@ export default function CompanyTimesheetCalendar({
                     </div>
                   ))}
                 {entries
-                  .filter((e) => e.work_date === calendarFocusDate)
+                  .filter(
+                    (e) =>
+                      e.work_date === calendarFocusDate &&
+                      !holidayDates.has(e.work_date) &&
+                      !e.notes?.startsWith("Public holiday:"),
+                  )
                   .map((entry) => (
                     <button
                       key={entry.id}
@@ -697,7 +726,7 @@ export default function CompanyTimesheetCalendar({
                           ),
                         );
                       }}
-className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${getEntryBorderClass(entry)}`}
+                      className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${getEntryBorderClass(entry)}`}
                       aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -730,7 +759,12 @@ className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${get
                       ) : null}
                     </button>
                   ))}
-                {entries.filter((e) => e.work_date === calendarFocusDate).length === 0 &&
+                {entries.filter(
+                  (e) =>
+                    e.work_date === calendarFocusDate &&
+                    !holidayDates.has(e.work_date) &&
+                    !e.notes?.startsWith("Public holiday:"),
+                ).length === 0 &&
                 publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
                     No entries for this day

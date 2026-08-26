@@ -347,10 +347,6 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     target_company_id: company.id,
     target_year: currentYear,
   });
-  await supabase.rpc("sync_company_public_holiday_time_entries", {
-    target_company_id: company.id,
-    target_year: currentYear,
-  });
 
   const [
     employeeResult,
@@ -466,20 +462,30 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   }
 
   const employeeRow = employeeResult.data as unknown as EmployeeRow;
+  const holidays = (holidaysResult.data ?? []) as CompanyPublicHoliday[];
+  const holidayDateSet = new Set(holidays.map((h) => h.holiday_date));
+
   const todayEntryRow = (todayEntryResult.data as TimeEntryRecord | null) ?? null;
-  const rawRecentEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
+  const isTodayHoliday = todayEntryRow
+    ? (todayEntryRow.notes?.startsWith("Public holiday:") || (holidayDateSet.has(today) && !todayEntryRow.clock_in && !todayEntryRow.clock_out))
+    : false;
+  const effectiveTodayEntryRow = isTodayHoliday ? null : todayEntryRow;
+
+  const rawRecentEntries = ((entriesResult.data ?? []) as TimeEntryRecord[]).filter(
+    (entry) => !entry.notes?.startsWith("Public holiday:") && !holidayDateSet.has(entry.work_date),
+  );
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
     supabase,
     company.id,
     [
-      ...(todayEntryRow ? [todayEntryRow.id] : []),
+      ...(effectiveTodayEntryRow ? [effectiveTodayEntryRow.id] : []),
       ...rawRecentEntries.map((entry) => entry.id),
     ],
   );
-  const todayEntry = todayEntryRow
+  const todayEntry = effectiveTodayEntryRow
     ? {
-        ...todayEntryRow,
-        locationEvents: locationEventsByEntry.get(todayEntryRow.id) ?? [],
+        ...effectiveTodayEntryRow,
+        locationEvents: locationEventsByEntry.get(effectiveTodayEntryRow.id) ?? [],
       }
     : null;
   const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, [access.employeeId]);
@@ -551,10 +557,6 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const workDate = currentDateInTimezone(company.timezone || "UTC");
 
   await supabase.rpc("ensure_current_year_za_public_holidays", {
-    target_company_id: company.id,
-    target_year: Number(workDate.slice(0, 4)),
-  });
-  await supabase.rpc("sync_company_public_holiday_time_entries", {
     target_company_id: company.id,
     target_year: Number(workDate.slice(0, 4)),
   });
@@ -734,7 +736,9 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     throw new Error(error.message);
   }
 
-  const rows = (data ?? []) as unknown as SubmittedTimesheetRow[];
+  const rows = ((data ?? []) as unknown as SubmittedTimesheetRow[]).filter(
+    (entry) => !entry.notes?.startsWith("Public holiday:"),
+  );
   const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
   const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, employeeIds);
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
@@ -785,28 +789,36 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     target_company_id: company.id,
     target_year: currentYear,
   });
-  await supabase.rpc("sync_company_public_holiday_time_entries", {
-    target_company_id: company.id,
-    target_year: currentYear,
-  });
 
-  const { data, error } = await supabase
-    .from("time_entries")
-    .select(
-      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
-    )
-    .eq("company_id", company.id)
-    .is("deleted_at", null)
-    .gte("work_date", `${currentYear}-01-01`)
-    .lte("work_date", `${currentYear}-12-31`)
-    .order("work_date", { ascending: false })
-    .limit(1500);
+  const [{ data, error }, { data: holidaysData }] = await Promise.all([
+    supabase
+      .from("time_entries")
+      .select(
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
+      )
+      .eq("company_id", company.id)
+      .is("deleted_at", null)
+      .gte("work_date", `${currentYear}-01-01`)
+      .lte("work_date", `${currentYear}-12-31`)
+      .order("work_date", { ascending: false })
+      .limit(1500),
+    supabase
+      .from("company_public_holidays")
+      .select("holiday_date")
+      .eq("company_id", company.id)
+      .is("deleted_at", null)
+      .gte("holiday_date", `${currentYear}-01-01`)
+      .lte("holiday_date", `${currentYear}-12-31`),
+  ]);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rows = (data ?? []) as unknown as SubmittedTimesheetRow[];
+  const holidayDateSet = new Set((holidaysData ?? []).map((h) => h.holiday_date));
+  const rows = ((data ?? []) as unknown as SubmittedTimesheetRow[]).filter(
+    (entry) => !entry.notes?.startsWith("Public holiday:") && !holidayDateSet.has(entry.work_date),
+  );
   const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
   const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, employeeIds);
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
@@ -854,10 +866,6 @@ export const getCompanyTimesheetCalendarHolidays = cache(async function getCompa
   const currentYear = Number(workDate.slice(0, 4));
 
   await supabase.rpc("ensure_current_year_za_public_holidays", {
-    target_company_id: company.id,
-    target_year: currentYear,
-  });
-  await supabase.rpc("sync_company_public_holiday_time_entries", {
     target_company_id: company.id,
     target_year: currentYear,
   });

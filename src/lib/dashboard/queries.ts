@@ -147,10 +147,6 @@ export const getDashboardExperienceData = cache(async function getDashboardExper
     target_company_id: company.id,
     target_year: Number(currentWorkDate.slice(0, 4)),
   });
-  await supabase.rpc("sync_company_public_holiday_time_entries", {
-    target_company_id: company.id,
-    target_year: Number(currentWorkDate.slice(0, 4)),
-  });
 
   const [
     holidaysResult,

@@ -341,6 +341,10 @@ export default function EmployeeTimesheetCorrections({
     y: number;
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const holidayDates = useMemo(
+    () => new Set(publicHolidays.map((holiday) => holiday.holiday_date)),
+    [publicHolidays],
+  );
   const dayEventsMap = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const h of publicHolidays) {
@@ -349,14 +353,16 @@ export default function EmployeeTimesheetCorrections({
       map.set(h.holiday_date, prev);
     }
     for (const e of entries) {
+      if (holidayDates.has(e.work_date) || e.notes?.startsWith("Public holiday:")) {
+        continue;
+      }
       const prev = map.get(e.work_date) ?? [];
-      const isHoliday = Boolean(e.notes?.startsWith("Public holiday:"));
-      const label = isHoliday ? "Public holiday" : `${e.status} - ${formatHours(e.paid_hours)}`;
+      const label = `${e.status} - ${formatHours(e.paid_hours)}`;
       prev.push(label);
       map.set(e.work_date, prev);
     }
     return map;
-  }, [entries, publicHolidays]);
+  }, [entries, publicHolidays, holidayDates]);
   const [createState, createAction, createPending] = useActionState(
     createPastDraftTimeEntry,
     initialState,
@@ -392,44 +398,60 @@ export default function EmployeeTimesheetCorrections({
     () => new Map(entries.map((entry) => [entry.work_date, entry])),
     [entries],
   );
-  const holidayDates = useMemo(
-    () => new Set(publicHolidays.map((holiday) => holiday.holiday_date)),
-    [publicHolidays],
-  );
   const calendarEvents = useMemo<EventInput[]>(() => {
-    const timesheetEvents = entries.map((entry) => {
-      const isHoliday = Boolean(entry.notes?.startsWith("Public holiday:"));
-      const needsAttention = entry.missing_clocking || entry.late_arrival || entry.early_departure;
+    const timesheetEvents = entries
+      .filter(
+        (entry) =>
+          !holidayDates.has(entry.work_date) &&
+          !entry.notes?.startsWith("Public holiday:"),
+      )
+      .map((entry) => {
+        const needsAttention = entry.missing_clocking || entry.late_arrival || entry.early_departure;
 
-      return {
-        id: entry.id,
-        title: isHoliday
-          ? "Public holiday"
-          : `${entry.status} - ${formatHours(entry.paid_hours)}`,
-        start: entry.work_date,
-        allDay: true,
-        classNames: [
-          timesheetCalendarClass(entry, isHoliday),
-          needsAttention ? "cw-calendar-attention" : "",
-        ],
-        extendedProps: { entry },
-      };
-    });
-    const entryDates = new Set(entries.map((entry) => entry.work_date));
-    const holidayEvents = publicHolidays
-      .filter((holiday) => !entryDates.has(holiday.holiday_date))
-      .map((holiday) => ({
-        id: `holiday-${holiday.id}`,
-        title: holiday.name,
-        start: holiday.holiday_date,
-        allDay: true,
-        classNames: ["cw-calendar-holiday"],
-      }));
+        return {
+          id: entry.id,
+          title: `${entry.status} - ${formatHours(entry.paid_hours)}`,
+          start: entry.work_date,
+          allDay: true,
+          classNames: [
+            timesheetCalendarClass(entry, false),
+            needsAttention ? "cw-calendar-attention" : "",
+          ],
+          extendedProps: { entry },
+        };
+      });
+    const holidayEvents = publicHolidays.map((holiday) => ({
+      id: `holiday-${holiday.id}`,
+      title: holiday.name,
+      start: holiday.holiday_date,
+      allDay: true,
+      classNames: ["cw-calendar-holiday"],
+    }));
 
     return [...holidayEvents, ...timesheetEvents];
-  }, [entries, publicHolidays]);
-  const editableEntries = entries.filter((entry) => entry.status === "draft" || entry.status === "rejected");
-  const submittedEntries = entries.filter((entry) => entry.status !== "draft" && entry.status !== "rejected");
+  }, [entries, publicHolidays, holidayDates]);
+  const editableEntries = entries.filter(
+    (entry) =>
+      (entry.status === "draft" || entry.status === "rejected") &&
+      !holidayDates.has(entry.work_date) &&
+      !entry.notes?.startsWith("Public holiday:"),
+  );
+  const submittedEntries = entries.filter(
+    (entry) =>
+      entry.status !== "draft" &&
+      entry.status !== "rejected" &&
+      !holidayDates.has(entry.work_date) &&
+      !entry.notes?.startsWith("Public holiday:"),
+  );
+  const filteredEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          !holidayDates.has(entry.work_date) &&
+          !entry.notes?.startsWith("Public holiday:"),
+      ),
+    [entries, holidayDates],
+  );
   const handleRangeSelect = (entryId: string) => {
     setAcknowledgedFlags(false);
 
@@ -485,10 +507,10 @@ export default function EmployeeTimesheetCorrections({
         : saveState.message
           ? saveState.ok
           : submitState.ok;
-  const shouldGroupWeeks = entries.length >= 7;
+  const shouldGroupWeeks = filteredEntries.length >= 7;
   const weekGroups = useMemo(
-    () => groupByWeek(entries),
-    [entries],
+    () => groupByWeek(filteredEntries),
+    [filteredEntries],
   );
   const selectedEntry = selectedDate ? entriesByDate.get(selectedDate) : null;
   const selectedIsHoliday = selectedDate ? holidayDates.has(selectedDate) : false;
@@ -810,7 +832,7 @@ export default function EmployeeTimesheetCorrections({
               Calendar
             </p>
             <p className="mt-1 text-xs text-muted max-sm:hidden">
-              Select a past work day to create a draft timesheet. Public holidays are booked automatically.
+              Select a past work day to create a draft timesheet. Public holidays are displayed on your calendar.
             </p>
           </div>
           <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
@@ -1001,10 +1023,13 @@ export default function EmployeeTimesheetCorrections({
                 </div>
               ))}
             {entries
-              .filter((e) => e.work_date === calendarFocusDate)
+              .filter(
+                (e) =>
+                  e.work_date === calendarFocusDate &&
+                  !holidayDates.has(e.work_date) &&
+                  !e.notes?.startsWith("Public holiday:"),
+              )
               .map((entry) => {
-                const isHoliday = Boolean(entry.notes?.startsWith("Public holiday:"));
-                if (isHoliday) return null;
                 const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
                 return (
                   <button
@@ -1121,7 +1146,7 @@ export default function EmployeeTimesheetCorrections({
         </div>
       )}
 
-      {entries.length === 0 ? (
+      {filteredEntries.length === 0 ? (
         <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
           No time entries yet.
         </p>
@@ -1148,7 +1173,7 @@ export default function EmployeeTimesheetCorrections({
                     </div>
                   </details>
                 ))
-              : entries.map(renderTimesheetEntry)}
+              : filteredEntries.map(renderTimesheetEntry)}
           </div>
         </div>
       ) : (
