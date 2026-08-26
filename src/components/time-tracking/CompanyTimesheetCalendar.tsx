@@ -53,8 +53,8 @@ type CalendarWindow = "day" | "week" | "payroll" | "month";
 
 function viewButtonClass(active: boolean) {
   return active
-    ? "bg-primary text-primary-foreground"
-    : "border border-border bg-background text-foreground";
+    ? "bg-slate-900 text-white shadow-xs font-bold"
+    : "border border-border bg-white text-foreground hover:bg-slate-100 font-semibold";
 }
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
@@ -124,12 +124,12 @@ function getEntryBorderClass(entry: CompanyTimesheetCalendarEntry) {
   const validation = entry.scheduleValidation;
   if (validation) {
     return validation.isCompliant
-      ? "border-success/30 bg-success/[0.05]"
-      : "border-danger/30 bg-danger/[0.07]";
+      ? "border-emerald-300/80 bg-emerald-50/40 hover:bg-emerald-50/70"
+      : "border-rose-300 bg-rose-50/40 hover:bg-rose-50/70";
   }
   return entry.missing_clocking || entry.late_arrival || entry.early_departure
-    ? "border-danger/30 bg-danger/[0.07]"
-    : "border-border bg-background";
+    ? "border-rose-300 bg-rose-50/40 hover:bg-rose-50/70"
+    : "border-border bg-white hover:bg-slate-50";
 }
 
 function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
@@ -141,11 +141,11 @@ function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
 }
 
 function statusBadgeClass(status: CompanyTimesheetCalendarEntry["status"]) {
-  if (status === "draft") return "border-warning/30 bg-warning/10 text-warning";
-  if (status === "approved") return "border-success/30 bg-success/10 text-success";
-  if (status === "rejected") return "border-danger/30 bg-danger/10 text-danger";
-  if (status === "locked") return "border-muted/30 bg-muted/10 text-muted";
-  return "border-primary/30 bg-primary/10 text-primary";
+  if (status === "draft") return "bg-amber-500 text-white shadow-2xs";
+  if (status === "approved") return "bg-emerald-600 text-white shadow-2xs";
+  if (status === "rejected") return "bg-rose-600 text-white shadow-2xs";
+  if (status === "locked") return "bg-slate-500 text-white shadow-2xs";
+  return "bg-slate-900 text-white shadow-2xs";
 }
 
 function canEdit(status: CompanyTimesheetCalendarEntry["status"]) {
@@ -432,39 +432,42 @@ export default function CompanyTimesheetCalendar({
     <section className="card">
       <div className="grid gap-3 border-b border-border px-4 py-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
             Company calendar
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-foreground">Timesheet calendar</h2>
-          <p className="mt-1 text-sm text-muted max-sm:hidden">
-            Click a date to create timesheets or load leave. Click an existing entry to view or edit.
+          <h2 className="mt-1 text-xl font-extrabold text-foreground">Team timesheets</h2>
+          <p className="mt-0.5 text-xs text-muted max-sm:hidden">
+            Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-130">
-          <div className="rounded-md border border-border bg-background px-3 py-2">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <CalendarDays className="size-4" />
-              Total
+          <div className="rounded-lg border border-slate-300 bg-white p-2.5 shadow-2xs">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <CalendarDays className="size-3.5 text-slate-600" />
+              Total Shifts
             </div>
-            <p className="mt-1 font-semibold text-foreground">{totals.total}</p>
+            <p className="mt-1 text-lg font-black text-slate-900">{totals.total}</p>
           </div>
-          <div className="rounded-md border border-border bg-background px-3 py-2">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <Clock3 className="size-4" />
+          <div className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 shadow-2xs text-white">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              <Clock3 className="size-3.5 text-emerald-400" />
               Submitted
             </div>
-            <p className="mt-1 font-semibold text-foreground">{totals.submitted}</p>
+            <p className="mt-1 text-lg font-black text-white">{totals.submitted}</p>
           </div>
-          <div className="rounded-md border border-border bg-background px-3 py-2">
-            <div className="text-xs text-muted">Approved</div>
-            <p className="mt-1 font-semibold text-success">{totals.approved}</p>
-          </div>
-          <div className="rounded-md border border-border bg-background px-3 py-2">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <AlertTriangle className="size-4" />
-              Issues
+          <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 shadow-2xs">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+              <CheckCircle2 className="size-3.5 text-emerald-700" />
+              Approved
             </div>
-            <p className="mt-1 font-semibold text-danger">{totals.issues}</p>
+            <p className="mt-1 text-lg font-black text-emerald-950">{totals.approved}</p>
+          </div>
+          <div className="rounded-lg border border-rose-300 bg-rose-50 p-2.5 shadow-2xs">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-rose-800">
+              <AlertTriangle className="size-3.5 text-rose-700" />
+              Exceptions
+            </div>
+            <p className="mt-1 text-lg font-black text-rose-950">{totals.issues}</p>
           </div>
         </div>
       </div>
@@ -472,28 +475,28 @@ export default function CompanyTimesheetCalendar({
       <div className="px-3 py-3 sm:px-4">
         {globalMessage ? (
           <div
-            className={`mb-3 rounded-md border px-3 py-2 text-sm font-medium ${
+            className={`mb-3 rounded-md border px-3 py-2 text-sm font-semibold ${
               globalOk
-                ? "border-success/30 bg-success/10 text-success"
-                : "border-danger/30 bg-danger/10 text-danger"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                : "border-rose-300 bg-rose-50 text-rose-950"
             }`}
           >
             {globalMessage}
           </div>
         ) : null}
 
-        <div className="mb-3 hidden sm:flex sm:flex-wrap sm:gap-2">
+        <div className="mb-3 hidden sm:flex sm:flex-wrap sm:gap-1.5">
           {([
-            ["day", "Daily"],
-            ["week", "Weekly"],
-            ["payroll", "Payroll period"],
-            ["month", "Monthly"],
+            ["day", "Daily View"],
+            ["week", "Weekly View"],
+            ["payroll", "Payroll Period"],
+            ["month", "Monthly View"],
           ] as const).map(([value, label]) => (
             <button
               key={value}
               type="button"
               onClick={() => setCalendarWindow(value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold max-sm:px-2 max-sm:py-1 max-sm:text-[0.625rem] ${viewButtonClass(calendarWindow === value)}`}
+              className={`rounded-md px-3 py-1.5 text-xs ${viewButtonClass(calendarWindow === value)}`}
             >
               {label}
             </button>
@@ -503,7 +506,7 @@ export default function CompanyTimesheetCalendar({
         <button
           type="button"
           onClick={() => setShowLegend(!showLegend)}
-          className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-muted sm:hidden"
+          className="mb-3 flex items-center gap-1.5 text-xs font-bold text-muted sm:hidden"
         >
           <span
             className="inline-flex size-2 rounded-full"
@@ -516,26 +519,26 @@ export default function CompanyTimesheetCalendar({
         </button>
 
         <div
-          className={`mb-3 flex flex-wrap gap-2 text-xs font-semibold ${showLegend ? "" : "hidden sm:flex"}`}
+          className={`mb-3 flex flex-wrap gap-1.5 text-xs font-bold ${showLegend ? "" : "hidden sm:flex"}`}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-holiday/30 bg-holiday/10 px-2.5 py-1 text-holiday">
-            <span className="size-2 rounded-full bg-holiday" />
-            Public holiday
+          <span className="inline-flex items-center gap-1 rounded border border-purple-300 bg-purple-100/70 px-2 py-0.5 text-[11px] text-purple-900">
+            <span className="size-1.5 rounded-full bg-purple-600" />
+            Public Holiday
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-warning">
-            <span className="size-2 rounded-full bg-warning" />
+          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] text-amber-900">
+            <span className="size-1.5 rounded-full bg-amber-600" />
             Draft
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">
-            <span className="size-2 rounded-full bg-primary" />
+          <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
             Submitted
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-success">
-            <span className="size-2 rounded-full bg-success" />
+          <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] text-emerald-900">
+            <span className="size-1.5 rounded-full bg-emerald-600" />
             Approved
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
-            <span className="size-2 rounded-full bg-danger" />
+          <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
+            <span className="size-1.5 rounded-full bg-rose-600" />
             Rejected
           </span>
         </div>
@@ -746,7 +749,7 @@ export default function CompanyTimesheetCalendar({
                               : ""}
                           </span>
                           <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${statusBadgeClass(entry.status)}`}
+                            className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(entry.status)}`}
                           >
                             {entry.status}
                           </span>

@@ -10,6 +10,7 @@ import {
   CalendarPlus,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
   Clock,
   Clock3,
   ClipboardCheck,
@@ -129,10 +130,10 @@ function inputTime(value: string | null) {
 }
 
 function statusClass(status: TimesheetCorrectionRequest["status"]) {
-  if (status === "submitted") return "bg-warning/10 text-warning";
-  if (status === "approved") return "bg-success/10 text-success";
-  if (status === "rejected") return "bg-danger/10 text-danger";
-  return "bg-surface-muted text-foreground";
+  if (status === "submitted") return "bg-amber-500 text-white font-bold shadow-2xs";
+  if (status === "approved") return "bg-emerald-600 text-white font-bold shadow-2xs";
+  if (status === "rejected") return "bg-rose-600 text-white font-bold shadow-2xs";
+  return "bg-slate-700 text-white font-bold shadow-2xs";
 }
 
 function geofenceLabel(status: string | null | undefined) {
@@ -259,8 +260,8 @@ function addDays(value: string, days: number) {
 
 function viewButtonClass(active: boolean) {
   return active
-    ? "bg-primary text-primary-foreground"
-    : "border border-border bg-background text-foreground";
+    ? "bg-slate-900 text-white shadow-xs font-bold"
+    : "border border-border bg-white text-foreground hover:bg-slate-100 font-semibold";
 }
 
 function dateKey(date: Date) {
@@ -406,6 +407,15 @@ export default function EmployeeTimesheetCorrections({
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(() => new Set());
   const [rangeAnchorId, setRangeAnchorId] = useState<string | null>(null);
   const [acknowledgedFlags, setAcknowledgedFlags] = useState(false);
+  const [expandedDraftIds, setExpandedDraftIds] = useState<Set<string>>(() => new Set());
+  const toggleDraftExpand = (id: string) => {
+    setExpandedDraftIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const [tooltip, setTooltip] = useState<{
     content: string;
     x: number;
@@ -679,138 +689,221 @@ export default function EmployeeTimesheetCorrections({
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
     const editable = entry.status === "draft" || entry.status === "rejected";
+    const isDraft = entry.status === "draft";
     const rejected = entry.status === "rejected";
+    const isApproved = entry.status === "approved";
+    const isSubmitted = entry.status === "submitted";
     const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure || rejected;
     const managerNote = extractManagerNote(entry.notes);
     const validation = entry.scheduleValidation;
     const isCompliant = validation?.isCompliant ?? !hasWarning;
+    const isExpanded = expandedDraftIds.has(entry.id);
 
     return (
       <article
         key={entry.id}
-        className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm ${getEntryBorderClass(entry)}`}
+        className={`grid gap-3 rounded-lg border-2 p-3.5 shadow-sm transition-all ${
+          isApproved
+            ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
+            : rejected
+              ? "border-rose-500 bg-rose-50/50 hover:bg-rose-50/80"
+              : isSubmitted
+                ? "border-slate-700 bg-slate-900/5 hover:bg-slate-900/10"
+                : isDraft
+                  ? "border-amber-400 bg-amber-50/50 ring-2 ring-amber-400/50 shadow-md animate-[pulse_2.5s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+                  : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
+        }`}
       >
-        <div className="flex items-center justify-between gap-2">
-          <p className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
-            {hasWarning ? (
-              <AlertTriangle className="size-4 shrink-0 text-danger" />
-            ) : (
-              <CheckCircle2 className="size-4 shrink-0 text-success" />
-            )}
-            <span className="truncate">{formatDate(entry.work_date)}</span>
-          </p>
-          <span className={`inline-flex w-max shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${getPaidHoursTextClass(validation)}`}>
-            <Clock3 className="size-3.5" />
-            {formatHours(entry.paid_hours)}
-          </span>
+        {/* Top Header: Date, Status Badge, Paid Hours & Edit Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                isApproved
+                  ? "bg-emerald-600 text-white shadow-2xs"
+                  : rejected
+                    ? "bg-rose-600 text-white shadow-2xs"
+                    : isSubmitted
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "bg-amber-500 text-white shadow-2xs"
+              }`}
+            >
+              {isDraft ? (
+                <span className="relative flex size-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-200 opacity-80" />
+                  <span className="relative inline-flex size-2 rounded-full bg-white" />
+                </span>
+              ) : rejected ? (
+                <AlertTriangle className="size-3 text-white" />
+              ) : isApproved ? (
+                <CheckCircle2 className="size-3 text-white" />
+              ) : isSubmitted ? (
+                <Clock3 className="size-3 text-emerald-400" />
+              ) : (
+                <Edit3 className="size-3 text-white" />
+              )}
+              {rejected ? "Rejected" : editable ? "Draft" : entry.status}
+            </span>
+            <p className="truncate text-xs font-extrabold text-foreground">
+              {formatDate(entry.work_date)}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs ${
+                isApproved
+                  ? "bg-emerald-950 text-emerald-200"
+                  : rejected
+                    ? "bg-rose-950 text-rose-200"
+                    : isSubmitted
+                      ? "bg-slate-900 text-emerald-400"
+                      : "bg-amber-950 text-amber-200"
+              }`}
+            >
+              <Clock3 className="size-3.5" />
+              {formatHours(entry.paid_hours)}
+            </span>
+
+            {editable ? (
+              <button
+                type="button"
+                onClick={() => toggleDraftExpand(entry.id)}
+                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-extrabold transition-all shadow-2xs ${
+                  isExpanded
+                    ? "bg-slate-900 text-white"
+                    : isDraft
+                      ? "bg-amber-600 text-white hover:bg-amber-700"
+                      : "bg-slate-800 text-white hover:bg-slate-900"
+                }`}
+                title={isExpanded ? "Collapse time editor" : "Edit times"}
+              >
+                <Edit3 className="size-2.5" />
+                {isExpanded ? "Collapse" : "Edit"}
+                <ChevronDown
+                  className={`size-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                />
+              </button>
+            ) : null}
+          </div>
         </div>
-        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted">
-          {rejected ? "Rejected" : editable ? "Draft" : entry.status}
-        </p>
 
         {rejected ? (
-          <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-medium text-danger">
+          <div className="rounded-md border border-rose-300 bg-rose-100/80 p-2.5 text-xs font-semibold text-rose-950 shadow-2xs">
             {managerNote
-              ? `Rejected by your manager: ${managerNote}`
-              : "This timesheet was rejected. Correct the times below, save, then resubmit."}
-          </p>
+              ? `Rejected by manager: ${managerNote}`
+              : "This timesheet was rejected. Correct the recorded times below, save, and submit."}
+          </div>
         ) : null}
 
-        {editable ? (
-          <form action={saveAction} className="grid gap-2">
+        {editable && isExpanded ? (
+          <form action={saveAction} className="grid gap-2.5">
             <input type="hidden" name="time_entry_id" value={entry.id} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">In</span>
-<div className="rounded-lg border border-border bg-background flex items-center px-3">
-                  <Clock className="size-3.5 mr-2" />
-                  <input type="time" name="clock_in" defaultValue={inputTime(entry.clock_in)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">In</span>
+                <input
+                  type="time"
+                  name="clock_in"
+                  defaultValue={inputTime(entry.clock_in)}
+                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                />
               </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
-                <div className="rounded-lg border border-border bg-background flex items-center px-3">
-                  <Clock className="size-3.5 mr-2" />
-                  <input type="time" name="lunch_start" defaultValue={inputTime(entry.lunch_start)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </div>
+              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Lunch In</span>
+                <input
+                  type="time"
+                  name="lunch_start"
+                  defaultValue={inputTime(entry.lunch_start)}
+                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                />
               </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
-                <div className="rounded-lg border border-border bg-background flex items-center px-3">
-                  <Clock className="size-3.5 mr-2" />
-                  <input type="time" name="lunch_end" defaultValue={inputTime(entry.lunch_end)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </div>
+              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Lunch Out</span>
+                <input
+                  type="time"
+                  name="lunch_end"
+                  defaultValue={inputTime(entry.lunch_end)}
+                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                />
               </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Out</span>
-                <div className="rounded-lg border border-border bg-background flex items-center px-3">
-                  <Clock className="size-3.5 mr-2" />
-                  <input type="time" name="clock_out" defaultValue={inputTime(entry.clock_out)} className="flex-1 bg-transparent text-sm text-foreground outline-none" />
-                </div>
+              <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Out</span>
+                <input
+                  type="time"
+                  name="clock_out"
+                  defaultValue={inputTime(entry.clock_out)}
+                  className="mt-0.5 w-full bg-transparent text-xs font-extrabold text-foreground outline-none"
+                />
               </div>
             </div>
-<div>
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Note</span>
-              <div className="rounded-lg border border-border bg-background flex items-center px-3">
-                <FileText className="size-3.5 mr-2" />
-                <textarea name="notes" rows={2} defaultValue={entry.notes ?? ""} className="flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Optional" />
-              </div>
-</div>
+
+            <div className="rounded-md border border-border bg-white p-2 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">Note</span>
+              <textarea
+                name="notes"
+                rows={1}
+                defaultValue={entry.notes ?? ""}
+                className="mt-0.5 w-full bg-transparent text-xs font-medium text-foreground outline-none resize-none"
+                placeholder="Optional timesheet note"
+              />
+            </div>
+
             {renderLocationHistory(entry)}
-            <div className="flex justify-end">
+
+            <div className="flex items-center justify-between gap-2 pt-1">
               <button
                 formAction={deleteAction}
                 disabled={deletePending}
-                className="mr-auto inline-flex items-center gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded border border-rose-400/60 bg-rose-50 px-3 py-1.5 text-xs font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
               >
-                <Trash2 className="size-4" />
+                <Trash2 className="size-3.5" />
                 {deletePending ? "Deleting..." : "Delete"}
               </button>
-              <button
-                disabled={savePending}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-              >
-                <Save className="size-4" />
-                {savePending ? "Saving..." : "Save"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleDraftExpand(entry.id)}
+                  className="inline-flex items-center gap-1 rounded border border-border bg-background px-2.5 py-1.5 text-xs font-bold text-muted hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={savePending}
+                  className="inline-flex items-center justify-center gap-1.5 rounded bg-emerald-600 px-4 py-1.5 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  <Save className="size-3.5" />
+                  {savePending ? "Saving..." : "Save Draft"}
+                </button>
+              </div>
             </div>
           </form>
         ) : (
           <div className="grid gap-2">
-            <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
-              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                <Clock className="size-3.5 text-accent" />
-                <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
-                  {shortTime(entry.clock_in)}
-                </span>
-              </span>
-              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                <UtensilsCrossed className="size-3.5 text-accent" />
-                <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
-                  {shortLunch(entry.lunch_start, entry.lunch_end)}
-                </span>
-              </span>
-              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                <LogOut className="size-3.5 text-accent" />
-                <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
-                  {shortTime(entry.clock_out)}
-                </span>
-              </span>
-              <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                {hasWarning ? (
-                  <AlertTriangle className="size-3.5 text-warning" />
-                ) : (
-                  <CheckCircle2 className="size-3.5 text-success" />
-                )}
-                <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted">
-                  Submitted
-                </span>
-              </span>
+            {/* High-Contrast Compact Metric Grid */}
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 text-center">
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Clock In</p>
+                <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortTime(entry.clock_in)}</p>
+              </div>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Lunch</p>
+                <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
+              </div>
+              <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-muted">Clock Out</p>
+                <p className="mt-0.5 text-xs font-extrabold text-foreground">{shortTime(entry.clock_out)}</p>
+              </div>
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1.5 shadow-2xs">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800">Total Paid</p>
+                <p className="mt-0.5 text-xs font-black text-emerald-950">{formatHours(entry.paid_hours)}</p>
+              </div>
             </div>
+
             {entry.warning_notes ? (
-              <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-1.5 text-xs font-semibold text-amber-950">
                 {entry.warning_notes}
-              </p>
+              </div>
             ) : null}
           </div>
         )}
@@ -820,12 +913,12 @@ export default function EmployeeTimesheetCorrections({
 
   const quickSubmitForm =
     editableEntries.length > 0 ? (
-      <form action={submitAction} className="rounded-md border border-border bg-surface p-3">
+      <form action={submitAction} className="rounded-lg border border-border bg-surface p-4 shadow-xs">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-semibold text-foreground">Submit ready timesheets</p>
-            <p className="mt-1 text-xs text-muted">
-              Tap a start day, then tap an end day to select the whole range.
+            <p className="text-sm font-extrabold text-foreground">Submit ready timesheets</p>
+            <p className="mt-0.5 text-xs text-muted">
+              Tap a start day, then tap an end day to select the range of shifts to submit for approval.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -833,22 +926,22 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={clearSelection}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-muted hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted hover:text-foreground shadow-2xs"
               >
-                <X className="size-4" />
+                <X className="size-3.5" />
                 Clear ({selectedEntryIds.size})
               </button>
             ) : null}
             <button
               disabled={submitBlocked || submitPending}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
             >
-              <Send className="size-4" />
+              <Send className="size-3.5" />
               {submitPending
                 ? "Submitting..."
                 : hasRejectedSelected
                   ? "Resubmit selected"
-                  : "Submit selected"}
+                  : `Submit selected (${selectedEntryIds.size})`}
             </button>
           </div>
         </div>
@@ -863,7 +956,7 @@ export default function EmployeeTimesheetCorrections({
           : null}
 
         {hasFlaggedSelected ? (
-          <div className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+          <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs font-bold text-amber-950">
             The selected range includes timesheets that need attention:{" "}
             {flaggedSelected.map((entry) => formatDate(entry.work_date)).join(", ")}. Flag them
             below to continue.
@@ -882,45 +975,45 @@ export default function EmployeeTimesheetCorrections({
                 key={entry.id}
                 type="button"
                 onClick={() => handleRangeSelect(entry.id)}
-                className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2.5 rounded-lg border-2 p-2.5 text-left text-xs font-bold transition-all ${
                   isAnchor
-                    ? "border-accent bg-accent/10 text-foreground"
+                    ? "border-slate-900 bg-slate-900 text-white shadow-xs"
                     : isSelected
-                      ? "border-primary bg-primary/10 text-foreground"
+                      ? "border-slate-900 bg-slate-900/10 text-foreground ring-1 ring-slate-900"
                       : isRejected
-                        ? "border-danger/30 bg-danger/[0.07] text-foreground"
+                        ? "border-rose-400 bg-rose-50/70 text-foreground hover:bg-rose-100"
                         : needsAttention
-                          ? "border-danger/30 bg-danger/[0.07] text-foreground"
-                          : "border-border bg-background text-foreground"
+                          ? "border-amber-400 bg-amber-50/70 text-foreground hover:bg-amber-100"
+                          : "border-border bg-white text-foreground hover:bg-slate-50"
                 }`}
               >
                 <span
-                  className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                  className={`inline-flex size-5 shrink-0 items-center justify-center rounded border text-xs font-black ${
                     isSelected
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-surface-muted text-muted"
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-border bg-background text-muted"
                   }`}
                 >
                   {isSelected ? "✓" : isAnchor ? "A" : ""}
                 </span>
-                <span>{formatDate(entry.work_date)}</span>
+                <span className="font-extrabold">{formatDate(entry.work_date)}</span>
                 <span
-                  className={`ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  className={`ml-auto inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                     isRejected
-                      ? "bg-danger/10 text-danger"
+                      ? "bg-rose-600 text-white shadow-2xs"
                       : needsAttention
-                        ? "bg-danger/10 text-danger"
-                        : "bg-success/10 text-success"
+                        ? "bg-amber-500 text-white shadow-2xs"
+                        : "bg-emerald-600 text-white shadow-2xs"
                   }`}
                 >
                   {isRejected ? (
-                    <X className="size-3.5" />
+                    <X className="size-3" />
                   ) : needsAttention ? (
-                    <AlertTriangle className="size-3.5" />
+                    <AlertTriangle className="size-3" />
                   ) : (
-                    <CheckCircle2 className="size-3.5" />
+                    <CheckCircle2 className="size-3" />
                   )}
-                  {isRejected ? "Rejected" : needsAttention ? "Check" : "Good"}
+                  {isRejected ? "Rejected" : needsAttention ? "Review" : "Ready"}
                 </span>
               </button>
             );
@@ -928,14 +1021,14 @@ export default function EmployeeTimesheetCorrections({
         </div>
 
         {hasFlaggedSelected ? (
-          <label className="mt-3 flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs font-medium text-foreground">
+          <label className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/80 p-2.5 text-xs font-semibold text-amber-950">
             <input
               type="checkbox"
               checked={acknowledgedFlags}
               onChange={(event) => setAcknowledgedFlags(event.target.checked)}
-              className="mt-0.5 size-4 accent-current"
+              className="mt-0.5 size-4 accent-amber-600"
             />
-            <span>I understand the flagged days need attention and will be sent for review.</span>
+            <span>I understand the flagged days need attention and will be sent for manager review.</span>
           </label>
         ) : null}
       </form>
@@ -976,18 +1069,18 @@ export default function EmployeeTimesheetCorrections({
               Select a past work day to create a draft timesheet. Public holidays are displayed on your calendar.
             </p>
           </div>
-          <div className="hidden sm:flex sm:flex-wrap sm:gap-2">
+          <div className="hidden sm:flex sm:flex-wrap sm:gap-1.5">
             {([
-              ["day", "Daily"],
-              ["week", "Weekly"],
-              ["payroll", "Payroll period"],
-              ["month", "Monthly"],
+              ["day", "Daily View"],
+              ["week", "Weekly View"],
+              ["payroll", "Payroll Period"],
+              ["month", "Monthly View"],
             ] as const).map(([value, label]) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setCalendarWindow(value)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold max-sm:px-2 max-sm:py-1 max-sm:text-[0.625rem] ${viewButtonClass(calendarWindow === value)}`}
+                className={`rounded-md px-3 py-1.5 text-xs ${viewButtonClass(calendarWindow === value)}`}
               >
                 {label}
               </button>
@@ -995,14 +1088,14 @@ export default function EmployeeTimesheetCorrections({
           </div>
         </div>
         {calendarWindow === "payroll" ? (
-          <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-semibold text-foreground">
+          <p className="rounded-md border border-slate-300 bg-slate-100/70 px-3 py-2 text-xs font-bold text-foreground">
             Payroll period anchored to the selected week: {payrollRangeLabel}
           </p>
         ) : null}
         <button
           type="button"
           onClick={() => setShowLegend(!showLegend)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-muted sm:hidden"
+          className="flex items-center gap-1.5 text-xs font-bold text-muted sm:hidden"
         >
           <span
             className="inline-flex size-2 rounded-full"
@@ -1015,26 +1108,26 @@ export default function EmployeeTimesheetCorrections({
         </button>
 
         <div
-          className={`flex flex-wrap gap-2 text-xs font-semibold ${showLegend ? "" : "hidden sm:flex"}`}
+          className={`flex flex-wrap gap-1.5 text-xs font-bold ${showLegend ? "" : "hidden sm:flex"}`}
         >
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-holiday/30 bg-holiday/10 px-2.5 py-1 text-holiday">
-            <span className="size-2 rounded-full bg-holiday" />
-            Public holiday
+          <span className="inline-flex items-center gap-1 rounded border border-purple-300 bg-purple-100/70 px-2 py-0.5 text-[11px] text-purple-900">
+            <span className="size-1.5 rounded-full bg-purple-600" />
+            Public Holiday
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-warning">
-            <span className="size-2 rounded-full bg-warning" />
+          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] text-amber-900">
+            <span className="size-1.5 rounded-full bg-amber-600" />
             Draft
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">
-            <span className="size-2 rounded-full bg-primary" />
+          <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
             Submitted
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-success">
-            <span className="size-2 rounded-full bg-success" />
+          <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] text-emerald-900">
+            <span className="size-1.5 rounded-full bg-emerald-600" />
             Approved
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-2.5 py-1 text-danger">
-            <span className="size-2 rounded-full bg-danger" />
+          <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
+            <span className="size-1.5 rounded-full bg-rose-600" />
             Rejected
           </span>
         </div>
@@ -1293,8 +1386,12 @@ export default function EmployeeTimesheetCorrections({
         </p>
       ) : activeTab === "timesheets" ? (
         <div className="grid gap-3">
-          <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {paginatedEntries.map(renderTimesheetEntry)}
+          <div className="columns-1 gap-3 sm:columns-2 xl:columns-3 [column-fill:_balance]">
+            {paginatedEntries.map((entry) => (
+              <div key={entry.id} className="break-inside-avoid mb-3">
+                {renderTimesheetEntry(entry)}
+              </div>
+            ))}
           </div>
 
           <PaginationControl
@@ -1428,12 +1525,12 @@ export default function EmployeeTimesheetCorrections({
             </form>
           ) : null}
 
-          <div className="grid content-start gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {submittedEntries.length === 0 ? (
-              <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-                Submit a timesheet first. Then requests will appear here.
-              </p>
-            ) : null}
+          {submittedEntries.length === 0 ? (
+            <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
+              Submit a timesheet first. Then requests will appear here.
+            </p>
+          ) : null}
+          <div className="columns-1 gap-3 sm:columns-2 xl:columns-3 [column-fill:_balance]">
             {paginatedSubmittedEntries.map((entry) => {
               const correction = latestRequestByEntry.get(entry.id);
               const hasSubmittedCorrection = correction?.status === "submitted";
@@ -1441,14 +1538,14 @@ export default function EmployeeTimesheetCorrections({
               const isSelected = selectedCorrectionIds.has(entry.id);
 
               return (
-                <article
-                  key={entry.id}
-                  className={`grid gap-3 rounded-md border p-3 text-sm shadow-sm transition-colors ${
-                    isSelected
-                      ? "border-accent bg-accent/[0.06]"
-                      : "border-border bg-background"
-                  }`}
-                >
+                <div key={entry.id} className="break-inside-avoid mb-3">
+                  <article
+                    className={`grid gap-3 rounded-lg border-2 p-3.5 text-sm shadow-2xs transition-all ${
+                      isSelected
+                        ? "border-slate-900 bg-slate-900/5 ring-1 ring-slate-900"
+                        : "border-border bg-white hover:bg-slate-50"
+                    }`}
+                  >
                   <div className="grid gap-2 lg:grid-cols-[auto_130px_1fr_auto] lg:items-center">
                     {canRequestCorrection && !hasSubmittedCorrection ? (
                       <label
@@ -1460,19 +1557,19 @@ export default function EmployeeTimesheetCorrections({
                           checked={isSelected}
                           onChange={() => toggleCorrectionSelect(entry.id)}
                           aria-label={`Select timesheet for ${formatDate(entry.work_date)}`}
-                          className="size-4 accent-current"
+                          className="size-4 accent-slate-900"
                         />
                       </label>
                     ) : null}
 
                     <div>
-                      <p className="flex items-center gap-2 font-semibold text-foreground">
-                        <Edit3 className="size-4 text-accent" />
+                      <p className="flex items-center gap-1.5 text-xs font-extrabold text-foreground">
+                        <Edit3 className="size-3.5 text-accent" />
                         {formatDate(entry.work_date)}
                       </p>
-                      <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted">
+                      <span className="mt-1 inline-flex rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
                         {entry.status}
-                      </p>
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
@@ -1496,21 +1593,21 @@ export default function EmployeeTimesheetCorrections({
                       </span>
                       <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                         {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
-                          <AlertTriangle className="size-3.5 text-warning" />
+                          <AlertTriangle className="size-3.5 text-amber-500" />
                         ) : (
-                          <CheckCircle2 className="size-3.5 text-success" />
+                          <CheckCircle2 className="size-3.5 text-emerald-600" />
                         )}
-                        <span className="truncate text-xs font-semibold text-muted">
+                        <span className="truncate text-xs font-extrabold text-foreground">
                           {entry.missing_clocking || entry.late_arrival || entry.early_departure
-                            ? "Review"
-                            : "Clear"}
+                            ? "Review Needed"
+                            : "Compliant"}
                         </span>
                       </span>
                     </div>
 
-                    <div className="rounded-md bg-surface-muted px-3 py-2 text-right">
-                      <p className="text-xs text-muted">Paid</p>
-                      <p className="font-semibold text-foreground">
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-right shadow-2xs">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Paid</p>
+                      <p className="text-xs font-black text-emerald-950">
                         {formatHours(entry.paid_hours)}
                       </p>
                     </div>
@@ -1619,9 +1716,10 @@ export default function EmployeeTimesheetCorrections({
                     </p>
                   )}
                 </article>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
+        </div>
 
           <PaginationControl
             currentPage={requestsPage}

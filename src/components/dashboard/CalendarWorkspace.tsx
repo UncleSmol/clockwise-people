@@ -10,6 +10,10 @@ import {
   ClipboardCheck,
   Clock3,
   GripVertical,
+  Settings2,
+  ShieldCheck,
+  Users,
+  X,
 } from "lucide-react";
 import {
   PanelContext,
@@ -17,6 +21,18 @@ import {
 } from "./workspace-context";
 import { usePanelBridge } from "./panel-bridge";
 import ViewportSidebar from "./ViewportSidebar";
+
+function getPanelIcon(key: string) {
+  const k = key.toLowerCase();
+  if (k.includes("attendance") || k.includes("workforce")) return Users;
+  if (k.includes("people") || k.includes("employee")) return Users;
+  if (k.includes("review") || k.includes("approval")) return ClipboardCheck;
+  if (k.includes("leave")) return CalendarDays;
+  if (k.includes("company")) return Building2;
+  if (k.includes("account") || k.includes("settings")) return Settings2;
+  if (k.includes("polic") || k.includes("govern")) return ShieldCheck;
+  return ShieldCheck;
+}
 
 type WorkspacePanel = {
   content: ReactNode;
@@ -204,14 +220,14 @@ export default function CalendarWorkspace({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {isManager && managerCalendar ? (
-              <div className="flex gap-0.5 rounded-full border border-border bg-background p-0.5 text-[10px] font-semibold sm:text-xs">
+              <div className="flex gap-1 rounded-lg border border-border bg-background p-1 text-xs font-bold shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setWorkspaceMode("me")}
-                  className={`rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${
+                  className={`rounded-md px-3 py-1.5 transition-all ${
                     workspaceMode === "me"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:text-accent"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-foreground hover:bg-surface-muted"
                   }`}
                 >
                   My time
@@ -219,13 +235,13 @@ export default function CalendarWorkspace({
                 <button
                   type="button"
                   onClick={() => setWorkspaceMode("team")}
-                  className={`rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${
+                  className={`rounded-md px-3 py-1.5 transition-all ${
                     workspaceMode === "team"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:text-accent"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-foreground hover:bg-surface-muted"
                   }`}
                 >
-                  Team
+                  My Team
                 </button>
               </div>
             ) : null}
@@ -283,7 +299,7 @@ export default function CalendarWorkspace({
         open={Boolean(activePanel)}
         onClose={() => setActivePanelKey(null)}
         maxWidth=""
-        backdropClassName="bg-foreground/15 backdrop-blur-sm"
+        backdropClassName="bg-slate-950/40 backdrop-blur-xs"
         panelStyle={{ width: `${panelWidthPercent}vw` }}
         gutter={
           <div
@@ -293,26 +309,76 @@ export default function CalendarWorkspace({
             <GripVertical className="size-3 text-muted" />
           </div>
         }
-        eyebrow={
-          activePanel
-            ? activePanel.key === "leave"
-              ? "Leave"
-              : activePanel.key === "manager-review"
-                ? "Approvals"
-                : activePanel.key === "people"
-                  ? "People"
-                  : activePanel.key === "company"
-                    ? "Company"
-                    : activePanel.key === "account"
-                      ? "Account"
-                      : activePanel.key === "policies"
-                        ? "Governance"
-                        : "Services"
-            : ""
+        header={
+          <div className="z-10 flex shrink-0 flex-col border-b border-border bg-surface shadow-xs">
+            {/* Top Row: Title, Eyebrow & Close button */}
+            <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-2.5 sm:px-6">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">
+                  Workspace Panel
+                </p>
+                <h3 className="mt-0.5 text-lg font-extrabold text-foreground sm:text-xl">
+                  {activePanel?.label ?? ""}
+                </h3>
+                <p className="mt-0.5 truncate text-xs text-muted">
+                  {activePanel?.description ?? ""}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActivePanelKey(null)}
+                className="grid size-8 shrink-0 place-items-center rounded border border-border bg-background text-foreground hover:bg-surface-muted hover:border-slate-400 transition-colors shadow-2xs"
+                aria-label="Close panel"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Quick Workspace Switcher Tab Bar */}
+            {panels.length > 1 ? (
+              <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border bg-surface-muted/50 px-4 py-2 sm:px-6 scrollbar-none">
+                {panels.map((panel) => {
+                  const isActive = panel.key === activePanelKey;
+                  const Icon = getPanelIcon(panel.key);
+                  const shortLabel =
+                    panel.key === "manager-review"
+                      ? "Approvals"
+                      : panel.key === "people"
+                        ? "People"
+                        : panel.key === "leave"
+                          ? "Leave"
+                          : panel.key === "company"
+                            ? "Company"
+                            : panel.key === "account"
+                              ? "Account"
+                              : panel.key === "policies"
+                                ? "Policies"
+                                : panel.key === "attendance"
+                                  ? "Today's Attendance"
+                                  : panel.label.split(" ")[0];
+
+                  return (
+                    <button
+                      key={panel.key}
+                      type="button"
+                      onClick={() => setActivePanelKey(panel.key)}
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
+                        isActive
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "border border-border bg-white text-foreground hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <Icon className={`size-3.5 ${isActive ? "text-white" : "text-muted"}`} />
+                      {shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         }
-        title={activePanel?.label ?? ""}
-        description={activePanel?.description ?? ""}
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6"
       >
         {activePanel?.content}
       </ViewportSidebar>
