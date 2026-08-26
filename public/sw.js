@@ -24,6 +24,35 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let title = "ClockWise People";
+  let body = "You have a new update.";
+  let url = "/dashboard";
+  let tag = "general";
+
+  try {
+    const json = event.data.json();
+    title = json.title || title;
+    body = json.body || body;
+    url = json.url || url;
+    tag = json.tag || tag;
+  } catch {
+    body = event.data.text() || body;
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      data: { url },
+      icon: "/assets/android-chrome-192x192.png",
+      badge: "/assets/favicon-32x32.png",
+      tag,
+    }),
+  );
+});
+
 self.addEventListener("message", (event) => {
   if (event.data?.type !== "SHOW_NOTIFICATION") return;
 

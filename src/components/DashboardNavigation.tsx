@@ -2,7 +2,9 @@
 
 import {
   ClipboardCheck,
+  ChevronDown,
   LogOut,
+  Menu,
   Settings2,
   ShieldCheck,
   Building2,
@@ -60,22 +62,21 @@ export default function DashboardNavigation({
   }, [open]);
 
   return (
-    <div className="flex items-center gap-1.5 sm:gap-2">
+    <div className="flex items-center gap-2 sm:gap-3">
       <NotificationMenu companyId={companyId} notifications={notifications} />
 
-      <div ref={containerRef} className="relative">
-        <button
-          aria-expanded={open}
-          aria-label="Open account menu"
-          title={
-            isConnected
-              ? "Live WebSockets active"
-              : connectionState === "CONNECTING"
-                ? "Connecting to live WebSockets..."
-                : "Realtime offline"
-          }
-          onClick={() => setOpen((current) => !current)}
-          type="button"
+      {/* Standalone User Profile Avatar with Realtime Status Badge */}
+      <div
+        className="relative flex items-center"
+        title={
+          isConnected
+            ? `${profileName ?? "User"} · Live WebSockets active`
+            : connectionState === "CONNECTING"
+              ? `${profileName ?? "User"} · Connecting to live WebSockets...`
+              : `${profileName ?? "User"} · Realtime offline`
+        }
+      >
+        <div
           className={`relative grid size-8 place-items-center rounded-full bg-background transition-all sm:size-9 ${
             isConnected
               ? "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background"
@@ -112,6 +113,25 @@ export default function DashboardNavigation({
               <span className="absolute inset-0 block size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             ) : null}
           </span>
+        </div>
+      </div>
+
+      {/* Dedicated Menu Button */}
+      <div ref={containerRef} className="relative">
+        <button
+          aria-expanded={open}
+          aria-label="Open main navigation menu"
+          onClick={() => setOpen((current) => !current)}
+          type="button"
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-extrabold transition-all shadow-2xs ${
+            open
+              ? "border-slate-900 bg-slate-900 text-white"
+              : "border-border bg-background text-foreground hover:bg-surface-muted hover:border-slate-400"
+          }`}
+        >
+          <Menu className="size-4" />
+          <span className="hidden xs:inline sm:inline">Menu</span>
+          <ChevronDown className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
 
         {open ? (

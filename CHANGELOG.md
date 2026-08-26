@@ -5,6 +5,12 @@ All notable changes to the ClockWise People platform are documented in this file
 ## [Unreleased] - 2026-08-26
 
 ### Added
+- **Push Notifications Settings & Device Sync** (`src/components/account/PushNotificationSettings.tsx` & `public/sw.js`):
+  - Added push notification management to the **Account & Settings** workspace panel.
+  - Allows 1-click permission enrollment with service worker registration, test notification trigger, and customizable preference toggles (Shift Reminders, Timesheet Alerts, Approvals & Leave Updates).
+- **Dedicated Header Menu Button** (`src/components/DashboardNavigation.tsx`):
+  - Separated menu opening functionality from the user profile avatar into an explicit, accessible **Menu** button (`Menu` icon + label + `ChevronDown`).
+  - Profile avatar is now a clean visual identity badge with live WebSocket connectivity indicators.
 - **Live Clocked-In Colleagues on Calendars** (`src/components/time-tracking/EmployeeTimesheetCorrections.tsx` & `CompanyTimesheetCalendar.tsx`):
   - Added a live attendance strip on both personal timesheets/calendar and team calendar workspace.
   - Displays colleagues currently active on shift or on lunch with live status badges, avatars, and clock-in times.

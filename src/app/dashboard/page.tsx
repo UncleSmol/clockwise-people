@@ -52,6 +52,12 @@ function LoadingPanel({ label }: { label: string }) {
 const ChangePasswordForm = dynamic(() => import("@/components/account/ChangePasswordForm"), {
   loading: () => <LoadingPanel label="password tools" />,
 });
+const PushNotificationSettings = dynamic(
+  () => import("@/components/account/PushNotificationSettings"),
+  {
+    loading: () => <LoadingPanel label="notification preferences" />,
+  },
+);
 const CompanyProfileForm = dynamic(() => import("@/components/account/CompanyProfileForm"), {
   loading: () => <LoadingPanel label="company profile" />,
 });
@@ -508,9 +514,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   panels.push({
       key: "account",
       label: "Account and settings",
-      description: "Maintain profile details and credentials without leaving the calendar.",
+      description: "Maintain profile details, push notifications, and credentials.",
       content: (
         <div className="grid gap-6">
+          <PushNotificationSettings />
           {accountProfile.employee ? (
             <section className="card grid gap-4 p-4 sm:p-6">
               <div>
