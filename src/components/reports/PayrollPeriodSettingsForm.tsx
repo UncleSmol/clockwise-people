@@ -74,18 +74,19 @@ export default function PayrollPeriodSettingsForm({
             <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
               Payroll Cycle Frequency
             </label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {(
                 [
                   ["monthly", "Monthly"],
                   ["semi_monthly", "Semi-Monthly"],
                   ["bi_weekly", "Bi-Weekly (14d)"],
                   ["weekly", "Weekly (7d)"],
+                  ["custom", "Custom"],
                 ] as const
               ).map(([val, label]) => (
                 <label
                   key={val}
-                  className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 p-2.5 text-center text-xs font-extrabold transition-all ${
+                  className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 p-2 text-center text-xs font-extrabold transition-all ${
                     frequency === val
                       ? "border-slate-900 bg-slate-900 text-white shadow-xs"
                       : "border-border bg-background hover:bg-surface-muted text-foreground"
@@ -129,21 +130,42 @@ export default function PayrollPeriodSettingsForm({
             </div>
           )}
 
-          {(frequency === "bi_weekly" || frequency === "weekly") && (
-            <div className="grid gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                Anchor / Start Date
-              </label>
-              <input
-                type="date"
-                name="anchor_date"
-                value={anchorDate}
-                onChange={(e) => setAnchorDate(e.target.value)}
-                className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
-              />
-              <p className="text-[11px] text-muted">
-                The baseline starting date from which recurring {frequency === "bi_weekly" ? "14-day" : "7-day"} periods are anchored.
-              </p>
+          {(frequency === "bi_weekly" || frequency === "weekly" || frequency === "custom") && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                  Anchor / Start Date
+                </label>
+                <input
+                  type="date"
+                  name="anchor_date"
+                  value={anchorDate}
+                  onChange={(e) => setAnchorDate(e.target.value)}
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
+                />
+                <p className="text-[11px] text-muted">
+                  The baseline starting date for recurring periods.
+                </p>
+              </div>
+
+              {frequency === "custom" && (
+                <div className="grid gap-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                    Cycle Length (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={90}
+                    name="custom_cycle_days"
+                    defaultValue={14}
+                    className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
+                  />
+                  <p className="text-[11px] text-muted">
+                    Custom duration per payroll cycle (e.g. 10, 15, 21, 30 days).
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
