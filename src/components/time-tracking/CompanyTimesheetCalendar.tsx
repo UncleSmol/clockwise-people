@@ -443,50 +443,53 @@ export default function CompanyTimesheetCalendar({
         : loadLeaveState.ok;
 
   return (
-    <section className="card">
-      <div className="grid gap-3 border-b border-border px-4 py-4 lg:grid-cols-[1fr_auto] lg:items-center">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
-            Company calendar
-          </p>
-          <h2 className="mt-1 text-xl font-extrabold text-foreground">Team timesheets</h2>
-          <p className="mt-0.5 text-xs text-muted max-sm:hidden">
-            Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-130">
-          <div className="rounded-lg border border-slate-300 bg-white p-2.5 shadow-2xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              <CalendarDays className="size-3.5 text-slate-600" />
-              Shifts
-            </div>
-            <p className="mt-1 text-lg font-black text-slate-900">{totals.total}</p>
+    <section className="grid min-w-0 grid-cols-1 gap-4">
+      {/* Primary Section Heading */}
+      <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
+              Company Calendar
+            </p>
+            <h2 className="mt-0.5 text-xl font-black sm:text-2xl text-primary-foreground">Team Timesheets</h2>
+            <p className="mt-0.5 text-xs text-primary-foreground/85 max-sm:hidden">
+              Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
+            </p>
           </div>
-          <div className="rounded-lg border border-slate-700 bg-slate-900 p-2.5 shadow-2xs text-white">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-300">
-              <Clock3 className="size-3.5 text-emerald-400" />
-              Submitted
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-130">
+            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-2xs backdrop-blur-xs">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-200">
+                <CalendarDays className="size-3.5 text-slate-300" />
+                Shifts
+              </div>
+              <p className="mt-1 text-lg font-black text-white">{totals.total}</p>
             </div>
-            <p className="mt-1 text-lg font-black text-white">{totals.submitted}</p>
-          </div>
-          <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 shadow-2xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-              <CheckCircle2 className="size-3.5 text-emerald-700" />
-              Approved
+            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-2xs text-white backdrop-blur-xs">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                <Clock3 className="size-3.5 text-emerald-400" />
+                Submitted
+              </div>
+              <p className="mt-1 text-lg font-black text-white">{totals.submitted}</p>
             </div>
-            <p className="mt-1 text-lg font-black text-emerald-950">{totals.approved}</p>
-          </div>
-          <div className="rounded-lg border border-rose-300 bg-rose-50 p-2.5 shadow-2xs">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-rose-800">
-              <AlertTriangle className="size-3.5 text-rose-700" />
-              Exceptions
+            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-2xs backdrop-blur-xs">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                <CheckCircle2 className="size-3.5 text-emerald-400" />
+                Approved
+              </div>
+              <p className="mt-1 text-lg font-black text-white">{totals.approved}</p>
             </div>
-            <p className="mt-1 text-lg font-black text-rose-950">{totals.issues}</p>
+            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-2xs backdrop-blur-xs">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-rose-300">
+                <AlertTriangle className="size-3.5 text-rose-400" />
+                Exceptions
+              </div>
+              <p className="mt-1 text-lg font-black text-white">{totals.issues}</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="px-3 py-3 sm:px-4">
+      <div className="grid gap-3">
         {/* Active Colleagues Clocked In Strip */}
         {activeColleagues.length > 0 && (
           <div className="mb-3 rounded-lg border-2 border-emerald-500/40 bg-emerald-50/50 p-3 shadow-2xs">

@@ -105,22 +105,26 @@ export default function CompanyTimesheetApprovalQueue({
   );
 
   return (
-    <section className="card grid gap-3.5 p-4">
+    <section className="grid gap-4 min-w-0">
       {/* Header */}
-      <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Management approval</p>
-          <h2 className="mt-1 flex items-center gap-2 text-xl font-extrabold text-foreground">
-            <ClipboardCheck className="size-5 text-accent" />
-            Submitted timesheets
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            Approve ready timesheets or reject them with a clear note.
-          </p>
+      <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
+              Management Approval
+            </p>
+            <h2 className="mt-0.5 flex items-center gap-2 text-xl font-black text-primary-foreground sm:text-2xl">
+              <ClipboardCheck className="size-5 text-emerald-400" />
+              Submitted Timesheets
+            </h2>
+            <p className="mt-0.5 text-xs text-primary-foreground/85">
+              Approve ready timesheets or reject them with a clear note.
+            </p>
+          </div>
+          <span className="w-max rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white shadow-2xs">
+            {timesheets.length} ready
+          </span>
         </div>
-        <span className="w-max rounded bg-slate-900 px-2.5 py-1 text-xs font-bold text-white shadow-xs">
-          {timesheets.length} ready
-        </span>
       </div>
 
       {state.message && (

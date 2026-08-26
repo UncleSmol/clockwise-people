@@ -90,26 +90,29 @@ export default function CompanyTimesheetCorrectionQueue({
   };
 
   return (
-    <section className="card grid gap-3.5 p-4">
+    <section className="grid gap-4 min-w-0">
       {/* Header */}
-      <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Management review</p>
-          <h2 className="mt-1 flex items-center gap-2 text-xl font-extrabold text-foreground">
-            <ClipboardList className="size-5 text-accent" />
-            Timesheet correction requests
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            Review proposed employee clocking changes and bulk approve or reject them.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {requests.length > 0 ? (
-            <button
-              type="button"
-              onClick={toggleSelectAll}
-              className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface shadow-2xs"
-            >
+      <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
+              Management Review
+            </p>
+            <h2 className="mt-0.5 flex items-center gap-2 text-xl font-black text-primary-foreground sm:text-2xl">
+              <ClipboardList className="size-5 text-amber-400" />
+              Timesheet Correction Requests
+            </h2>
+            <p className="mt-0.5 text-xs text-primary-foreground/85">
+              Review proposed employee clocking changes and bulk approve or reject them.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {requests.length > 0 ? (
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all"
+              >
               {allSelected ? (
                 <>
                   <Square className="size-3.5" />
@@ -128,6 +131,7 @@ export default function CompanyTimesheetCorrectionQueue({
           </span>
         </div>
       </div>
+    </div>
 
       {state.message && (
         <div

@@ -20,7 +20,6 @@ function StepItem({
   icon,
   step,
   title,
-  tone,
   open,
   onToggle,
 }: {
@@ -30,31 +29,20 @@ function StepItem({
   icon: ReactNode;
   step: string;
   title: string;
-  tone: "primary" | "warning" | "holiday";
+  tone?: "primary" | "warning" | "holiday";
   open: boolean;
   onToggle: () => void;
 }) {
-  const toneHeader = {
-    primary: "bg-primary",
-    warning: "bg-warning",
-    holiday: "bg-holiday",
-  }[tone];
-  const toneNumber = {
-    primary: "text-primary",
-    warning: "text-warning",
-    holiday: "text-holiday",
-  }[tone];
-
   return (
-    <section className="card grid min-w-0 grid-cols-1 overflow-hidden">
+    <section className="grid min-w-0 grid-cols-1 overflow-hidden rounded-xl border border-border/80 bg-surface shadow-2xs">
       <button
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className={`flex w-full items-start gap-3 px-4 py-4 text-left text-white transition-[filter] duration-200 hover:brightness-110 sm:items-center sm:px-5 ${toneHeader}`}
+        className="flex w-full items-start gap-3 bg-primary px-4 py-4 text-left text-primary-foreground transition-[filter] duration-200 hover:brightness-110 sm:items-center sm:px-5"
       >
         <span
-          className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold ${toneNumber}`}
+          className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-primary shadow-2xs"
         >
           {step}
         </span>

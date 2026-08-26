@@ -1093,17 +1093,23 @@ export default function EmployeeTimesheetCorrections({
     ) : null;
 
   return (
-    <section className="card grid min-w-0 grid-cols-1 gap-3 p-4">
-      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Timesheets</h2>
-          <p className="mt-1 text-xs text-muted">
-            Use the calendar to add past days, fix drafts, then submit when ready.
-          </p>
+    <section className="grid min-w-0 grid-cols-1 gap-4">
+      {/* Primary Section Heading */}
+      <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
+              Time Records &amp; Adjustments
+            </p>
+            <h2 className="mt-0.5 text-lg font-black sm:text-xl text-primary-foreground">Timesheets</h2>
+            <p className="mt-0.5 text-xs text-primary-foreground/85">
+              Use the calendar to add past days, fix drafts, then submit when ready.
+            </p>
+          </div>
+          <span className="w-max rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white shadow-2xs">
+            {entries.length} records
+          </span>
         </div>
-        <span className="w-max rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
-          {entries.length} records
-        </span>
       </div>
 
       {/* Active Colleagues Clocked In Strip */}
@@ -1163,16 +1169,19 @@ export default function EmployeeTimesheetCorrections({
         </div>
       )}
 
+      {/* Calendar Section (Divided by clean line) */}
       {section !== "records" ? (
-        <details className="grid gap-3 rounded-md border border-border bg-background p-3" open={!collapsedCalendar}>
+        <div className="grid gap-3 border-t border-border pt-4">
           {collapsedCalendar ? (
-            <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden">
-              <CalendarDays className="size-4 text-accent" />
-              Detailed calendar
-              <span className="ml-auto rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-muted">
-                Expand
-              </span>
-            </summary>
+            <details className="grid gap-3" open={false}>
+              <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                <CalendarDays className="size-4 text-accent" />
+                Detailed calendar
+                <span className="ml-auto rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-muted">
+                  Expand
+                </span>
+              </summary>
+            </details>
           ) : null}
         {message && (
           <div
@@ -1556,12 +1565,13 @@ export default function EmployeeTimesheetCorrections({
             {quickSubmitForm}
           </div>
         ) : null}
-      </details>
+        </div>
       ) : null}
 
+      {/* Timesheet Records / Requests Section (Divided by clean line) */}
       {section !== "calendar" ? (
-        <>
-        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
+        <div className="grid gap-3 border-t border-border pt-4">
+          <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
         <button
           type="button"
           onClick={() => setActiveTab("timesheets")}
@@ -1951,7 +1961,7 @@ export default function EmployeeTimesheetCorrections({
           />
         </div>
       )}
-        </>
+        </div>
       ) : null}
 
       <ViewportSidebar
