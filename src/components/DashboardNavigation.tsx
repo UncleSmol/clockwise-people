@@ -25,6 +25,7 @@ type DashboardNavigationProps = {
 
 function navItemIcon(label: string) {
   const key = label.toLowerCase();
+  if (key.includes("attendance") || key.includes("workforce")) return Users;
   if (key.includes("people") || key.includes("employee")) return Users;
   if (key.includes("approve") || key.includes("review")) return ClipboardCheck;
   if (key.includes("leave")) return CalendarRange;

@@ -198,7 +198,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     canManageCompany
       ? getCompanySetup(company.id)
       : Promise.resolve({ workstations: [], departments: [] }),
-    canReviewTime ? getCompanyLiveTimeOverview() : Promise.resolve(null),
+    getCompanyLiveTimeOverview(),
     canReviewTime ? getCompanyTimesheetCalendarEntries() : Promise.resolve([]),
     canReviewTime ? getCompanyCalendarEmployeeOptions() : Promise.resolve([]),
     canReviewTime ? getCompanyTimesheetCalendarHolidays() : Promise.resolve([]),
@@ -274,40 +274,50 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const panels: WorkspacePanel[] = [];
 
+  if (liveTimeOverview) {
+    panels.push({
+      key: "attendance",
+      label: "Today's attendance",
+      description: "Live workforce status and colleagues clocked in today.",
+      tone: "primary" as const,
+      content: <CompanyLiveWorkforce overview={liveTimeOverview} />,
+    });
+  }
+
   if (leaveState || canReviewTime) {
     panels.push({
-          key: "leave",
-          label: "Leave and balances",
-          description: "Submit leave, review balances, and process leave approvals.",
-          tone: "primary" as const,
-          content: (
-            <div className="grid gap-6">
-              {activePanel === "leave" && message ? (
-                <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground">
-                  {message}
-                </div>
-              ) : null}
-              {leaveState ? <EmployeeLeaveRequests state={leaveState} /> : null}
-              {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
+      key: "leave",
+      label: "Leave and balances",
+      description: "Submit leave, review balances, and process leave approvals.",
+      tone: "primary" as const,
+      content: (
+        <div className="grid gap-6">
+          {activePanel === "leave" && message ? (
+            <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground">
+              {message}
             </div>
-          ),
-        });
+          ) : null}
+          {leaveState ? <EmployeeLeaveRequests state={leaveState} /> : null}
+          {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
+        </div>
+      ),
+    });
   }
 
   if (canReviewTime) {
     panels.push({
-          key: "manager-review",
-          label: "Approvals and corrections",
-          description:
-            "Review submitted timesheets, correction requests, and live workforce status.",
-          content: (
-            <div className="grid gap-6">
-              {liveTimeOverview ? <CompanyLiveWorkforce overview={liveTimeOverview} /> : null}
-              <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
-              <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
-            </div>
-          ),
-        });
+      key: "manager-review",
+      label: "Approvals and corrections",
+      description:
+        "Review submitted timesheets, correction requests, and live workforce status.",
+      content: (
+        <div className="grid gap-6">
+          {liveTimeOverview ? <CompanyLiveWorkforce overview={liveTimeOverview} /> : null}
+          <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
+          <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
+        </div>
+      ),
+    });
   }
 
   if (canManageEmployees && employeesData) {

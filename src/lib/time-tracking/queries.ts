@@ -543,9 +543,6 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
 
 function liveStatus(entry: TimeEntryRecord | null): CompanyLiveTimeEntry["status"] {
   if (!entry?.clock_in) return "not_started";
-  if (entry.missing_clocking || entry.late_arrival || entry.early_departure) {
-    return "needs_review";
-  }
   if (entry.clock_out) return "worked";
   if (entry.lunch_start && !entry.lunch_end) return "on_lunch";
   return "working";
@@ -658,7 +655,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     entries,
     totals: {
       activeEmployees: entries.filter((entry) => entry.status === "working").length,
-      needsReview: entries.filter((entry) => entry.status === "needs_review").length,
+      needsReview: entries.filter((entry) => entry.missingClocking || entry.lateArrival || entry.earlyDeparture).length,
       notStarted: entries.filter((entry) => entry.status === "not_started").length,
       onLunch: entries.filter((entry) => entry.status === "on_lunch").length,
       totalEmployees: entries.length,

@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.8.26-realtime-websockets",
+  "version": "2026.8.26-live-attendance-colleagues",
   "private": true,
   "type": "module",
   "scripts": {
