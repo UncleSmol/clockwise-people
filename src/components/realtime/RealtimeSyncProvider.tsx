@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Radio } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type ConnectionStatus = "CONNECTING" | "SUBSCRIBED" | "ERROR" | "CLOSED";
@@ -65,7 +64,14 @@ export function RealtimeSyncProvider({
 
     const supabase = createSupabaseBrowserClient();
 
-    const handlePayload = (table: string, payload: any) => {
+    const handlePayload = (
+      table: string,
+      payload: {
+        eventType: "INSERT" | "UPDATE" | "DELETE" | "*";
+        new: Record<string, unknown>;
+        old: Record<string, unknown>;
+      },
+    ) => {
       // Dispatch browser custom event for reactive client components
       if (typeof window !== "undefined") {
         window.dispatchEvent(
@@ -191,7 +197,10 @@ export function useRealtimeEvent<T = Record<string, unknown>>(
   callback: (event: RealtimeChangeEvent<T>) => void,
 ) {
   const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

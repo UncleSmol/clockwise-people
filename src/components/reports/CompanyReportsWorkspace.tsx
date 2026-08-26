@@ -1805,7 +1805,7 @@ export default function CompanyReportsWorkspace({
 
                         {(row.reason || row.approvedBy) && (
                           <div className="border-t border-slate-200/60 pt-1 text-[10px] text-muted">
-                            {row.reason && <p className="italic">"{row.reason}"</p>}
+                            {row.reason && <p className="italic">&ldquo;{row.reason}&rdquo;</p>}
                             {row.approvedBy && <p className="font-bold text-emerald-700 mt-0.5">✓ {row.approvedBy}</p>}
                           </div>
                         )}

@@ -54,7 +54,7 @@ export function buildTimesheetPayrollReport(input: AggregatorInput): TimesheetPa
     const dayOfWeek = new Date(entry.work_date).getDay(); // 0 = Sunday
     const isSunday = dayOfWeek === 0;
 
-    let normalHours = Math.max(0, paid - ot);
+    const normalHours = Math.max(0, paid - ot);
     let ot15 = 0;
     let ot20 = 0;
     let holidayHours = 0;

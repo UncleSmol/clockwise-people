@@ -29,6 +29,7 @@ function notificationTone(category: string) {
 export default function NotificationMenu({ companyId, notifications }: NotificationMenuProps) {
   const [open, setOpen] = useState(false);
   const [liveNotifications, setLiveNotifications] = useState(notifications);
+  const isInitialMount = useRef(true);
   const [state, action, pending] = useActionState(markDashboardNotificationRead, initialState);
   const [clearState, clearAction, clearPending] = useActionState(
     clearAllDashboardNotifications,
@@ -37,6 +38,10 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     setLiveNotifications(notifications);
   }, [notifications]);
 

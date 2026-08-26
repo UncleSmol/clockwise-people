@@ -624,7 +624,7 @@ export default function ComplianceDocuments() {
       <div className="grid gap-4">
         {filteredPolicies.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-border bg-surface p-8 text-center text-xs font-semibold text-muted">
-            No compliance policy clauses matched your search query "{searchQuery}".
+            No compliance policy clauses matched your search query &ldquo;{searchQuery}&rdquo;.
           </div>
         ) : (
           filteredPolicies.map((policy) => {

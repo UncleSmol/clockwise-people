@@ -35,7 +35,6 @@ export default function LiveLocationTracker({
         clearWatcherRef.current();
         clearWatcherRef.current = null;
       }
-      setIsWatching(false);
       return;
     }
 
@@ -99,7 +98,6 @@ export default function LiveLocationTracker({
         clearWatcherRef.current();
         clearWatcherRef.current = null;
       }
-      setIsWatching(false);
     };
   }, [shouldTrack, timeEntryId]);
 

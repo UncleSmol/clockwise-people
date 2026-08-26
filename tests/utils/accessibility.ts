@@ -70,7 +70,8 @@ export async function expectNoAccessibilityViolations(
     if (options.threshold) {
       const severityOrder = ['minor', 'moderate', 'serious', 'critical'] as const;
       const thresholdIndex = severityOrder.indexOf(options.threshold);
-      return severityOrder.indexOf(v.impact as any) >= thresholdIndex;
+      const impact = v.impact as 'minor' | 'moderate' | 'serious' | 'critical' | undefined;
+      return impact ? severityOrder.indexOf(impact) >= thresholdIndex : false;
     }
     return true;
   });

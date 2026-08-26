@@ -210,8 +210,13 @@ export default function EmployeeTimeClock({
   const noLunchToday = Boolean(todaySchedule && todaySchedule.lunch_minutes <= 0);
 
   const [liveTodayEntry, setLiveTodayEntry] = useState<TimeEntryRecord | null>(todayEntry);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     setLiveTodayEntry(todayEntry);
   }, [todayEntry]);
 

@@ -68,13 +68,11 @@ export default function DashboardNavigation({
   const { isConnected, connectionState } = useRealtime();
   const [open, setOpen] = useState(false);
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => isRunningStandalone());
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setIsInstalled(isRunningStandalone());
-
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setInstallEvent(e as BeforeInstallPromptEvent);

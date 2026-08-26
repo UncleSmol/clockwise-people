@@ -8,6 +8,15 @@ interface UIQAStatus {
   storybookTests: { passed: number; failed: number; lastRun: string };
 }
 
+interface TestSuite {
+  tests: TestCase[];
+}
+
+interface TestCase {
+  title: string;
+  outcome: string;
+}
+
 export function UIQADashboard() {
   const [status, setStatus] = useState<UIQAStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,27 +27,27 @@ export function UIQADashboard() {
         const resultsPath = '/test-results/results.json';
         const response = await fetch(resultsPath);
         if (response.ok) {
-          const data = await response.json();
-          const tests = data.suites.flatMap((s: any) => s.tests);
+          const data = await response.json() as { suites: TestSuite[] };
+          const tests = data.suites.flatMap((s: TestSuite) => s.tests);
           
-          const visual = tests.filter((t: any) => t.title.includes('visual') || t.title.includes('-mobile') || t.title.includes('-tablet') || t.title.includes('-desktop'));
-          const a11y = tests.filter((t: any) => t.title.includes('accessibility') || t.title.includes('a11y'));
-          const storybook = tests.filter((t: any) => t.title.includes('storybook'));
+          const visual = tests.filter((t: TestCase) => t.title.includes('visual') || t.title.includes('-mobile') || t.title.includes('-tablet') || t.title.includes('-desktop'));
+          const a11y = tests.filter((t: TestCase) => t.title.includes('accessibility') || t.title.includes('a11y'));
+          const storybook = tests.filter((t: TestCase) => t.title.includes('storybook'));
           
           setStatus({
             visualTests: {
-              passed: visual.filter((t: any) => t.outcome === 'passed').length,
-              failed: visual.filter((t: any) => t.outcome !== 'passed').length,
+              passed: visual.filter((t: TestCase) => t.outcome === 'passed').length,
+              failed: visual.filter((t: TestCase) => t.outcome !== 'passed').length,
               lastRun: new Date().toLocaleString(),
             },
             accessibilityTests: {
-              passed: a11y.filter((t: any) => t.outcome === 'passed').length,
-              failed: a11y.filter((t: any) => t.outcome !== 'passed').length,
+              passed: a11y.filter((t: TestCase) => t.outcome === 'passed').length,
+              failed: a11y.filter((t: TestCase) => t.outcome !== 'passed').length,
               lastRun: new Date().toLocaleString(),
             },
             storybookTests: {
-              passed: storybook.filter((t: any) => t.outcome === 'passed').length,
-              failed: storybook.filter((t: any) => t.outcome !== 'passed').length,
+              passed: storybook.filter((t: TestCase) => t.outcome === 'passed').length,
+              failed: storybook.filter((t: TestCase) => t.outcome !== 'passed').length,
               lastRun: new Date().toLocaleString(),
             },
           });

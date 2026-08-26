@@ -8,40 +8,45 @@ import {
   CheckCircle2,
   Clock,
   FileCheck,
-  HelpCircle,
   Radio,
   Send,
   ShieldAlert,
 } from "lucide-react";
 
 export default function PushNotificationSettings() {
-  const [supported, setSupported] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [supported] = useState(() => {
+    if (typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator) {
+      return true;
+    }
+    return false;
+  });
+  const [permission, setPermission] = useState<NotificationPermission>(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      return Notification.permission;
+    }
+    return "default";
+  });
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   // Notification Preferences (persisted in localStorage)
-  const [preferences, setPreferences] = useState({
-    clockReminders: true,
-    timesheetAlerts: true,
-    approvals: true,
-  });
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator) {
-      setSupported(true);
-      setPermission(Notification.permission);
-
+  const [preferences, setPreferences] = useState(() => {
+    if (typeof window !== "undefined") {
       const saved = localStorage.getItem("clockwise_push_preferences");
       if (saved) {
         try {
-          setPreferences(JSON.parse(saved));
+          return JSON.parse(saved);
         } catch {
           // ignore corrupted local state
         }
       }
     }
-  }, []);
+    return {
+      clockReminders: true,
+      timesheetAlerts: true,
+      approvals: true,
+    };
+  });
 
   const savePreferences = (next: typeof preferences) => {
     setPreferences(next);
@@ -70,7 +75,7 @@ export default function PushNotificationSettings() {
       } else if (result === "denied") {
         setStatusMessage("Notifications were blocked. Please allow notifications in your browser site settings.");
       }
-    } catch (err) {
+    } catch {
       setStatusMessage("Failed to request permission. Please try again.");
     } finally {
       setLoading(false);
