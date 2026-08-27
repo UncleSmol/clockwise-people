@@ -68,20 +68,21 @@ export default function LiveLocationTracker({
             }
           },
           (err) => {
-            if (isMounted) setErrorMsg(err);
+            if (isMounted) {
+              console.warn("Live location error:", err);
+            }
           },
           25, // 25 meters threshold
         );
 
         if (isMounted) {
           clearWatcherRef.current = watcher.clear;
-          setIsWatching(true);
         } else {
           watcher.clear();
         }
       } catch (err: unknown) {
         if (isMounted) {
-          setErrorMsg(err instanceof Error ? err.message : "Location tracking unavailable");
+          console.warn("Location tracking initialization failed:", err);
         }
       }
     }

@@ -1,5 +1,3 @@
-import type { TimeClockLocationEvent } from "@/lib/time-tracking/schema";
-
 export const MOVEMENT_THRESHOLD_METERS = 25; // 25 meters significant movement filter
 
 /**
