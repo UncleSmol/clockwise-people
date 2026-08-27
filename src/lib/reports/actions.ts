@@ -14,9 +14,12 @@ export async function saveCompanyPayrollSettings(
   formData: FormData,
 ): Promise<PayrollSettingsActionState> {
   const frequency = String(formData.get("frequency") ?? "monthly").trim();
-  const anchorDate = String(formData.get("anchor_date") ?? "2026-01-01").trim();
+  const startDate = String(formData.get("start_date") ?? formData.get("anchor_date") ?? "2026-01-01").trim();
+  const endDate = String(formData.get("end_date") ?? "").trim();
+  const anchorDate = startDate;
   const customCycleDays = Number(formData.get("custom_cycle_days") ?? 14);
   const startDayOfMonth = Number(formData.get("start_day_of_month") ?? 1);
+  const endDayOfMonth = Number(formData.get("end_day_of_month") ?? (startDayOfMonth === 1 ? 31 : startDayOfMonth - 1));
   const startDayOfWeek = Number(formData.get("start_day_of_week") ?? 1);
   const payDayOffsetDays = Number(formData.get("pay_day_offset_days") ?? 3);
 
@@ -44,9 +47,12 @@ export async function saveCompanyPayrollSettings(
 
   const payrollConfig: PayrollPeriodConfig = {
     frequency: frequency as PayrollPeriodConfig["frequency"],
+    startDate,
+    endDate: endDate || undefined,
     anchorDate,
     customCycleDays,
     startDayOfMonth,
+    endDayOfMonth,
     startDayOfWeek,
     payDayOffsetDays,
   };

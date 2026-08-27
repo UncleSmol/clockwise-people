@@ -4,9 +4,12 @@ export type PayrollPeriodConfig = {
   id?: string;
   name?: string;
   frequency: PayrollFrequency;
-  anchorDate: string; // YYYY-MM-DD
+  startDate?: string; // YYYY-MM-DD: Start date of the initial / baseline payroll period
+  endDate?: string; // YYYY-MM-DD: End date of the initial / baseline payroll period
+  anchorDate?: string; // YYYY-MM-DD (legacy / alias for startDate)
   customCycleDays?: number; // For custom cycle lengths e.g. 10, 14, 21, 30 days
   startDayOfMonth?: number; // e.g. 1 or 26 for monthly
+  endDayOfMonth?: number; // e.g. 31 or 25 for monthly
   startDayOfWeek?: number; // 0 for Sun, 1 for Mon
   payDayOffsetDays?: number; // Days after period end when payroll is disbursed
   description?: string;
@@ -17,9 +20,12 @@ export type CustomPayrollRule = {
   id: string;
   name: string;
   frequency: PayrollFrequency;
-  anchorDate: string; // YYYY-MM-DD
+  startDate: string; // YYYY-MM-DD: Start date of the payroll period
+  endDate: string; // YYYY-MM-DD: End date of the payroll period before restarting
+  anchorDate?: string; // YYYY-MM-DD
   customCycleDays?: number;
   startDayOfMonth?: number;
+  endDayOfMonth?: number;
   startDayOfWeek?: number;
   payDayOffsetDays: number;
   description?: string;
@@ -51,11 +57,14 @@ export const defaultPayrollConfig: PayrollPeriodConfig = {
   id: "company-default",
   name: "Company Default Monthly (1st - End)",
   frequency: "monthly",
+  startDate: "2026-01-01",
+  endDate: "2026-01-31",
   anchorDate: "2026-01-01",
   startDayOfMonth: 1,
+  endDayOfMonth: 31,
   startDayOfWeek: 1,
   payDayOffsetDays: 3,
-  description: "Standard monthly calendar payroll cycle with disbursement on 3rd day following month-end.",
+  description: "Standard monthly calendar payroll cycle running from 1st to month-end, restarting on the 1st of every month.",
   assignedEmployeeIds: [],
 };
 
@@ -86,6 +95,52 @@ export function formatPeriodDate(isoStr: string): string {
   }).format(new Date(y, m - 1, d));
 }
 
+export function calculatePeriodEndDate(
+  startDateStr: string,
+  frequency: PayrollFrequency,
+  options?: {
+    customCycleDays?: number;
+    startDayOfMonth?: number;
+    endDayOfMonth?: number;
+  },
+): string {
+  const start = parseIso(startDateStr);
+  const y = start.getFullYear();
+  const m = start.getMonth();
+  const d = start.getDate();
+
+  if (frequency === "monthly") {
+    const startDay = options?.startDayOfMonth ?? d;
+    const endDay = options?.endDayOfMonth ?? (startDay === 1 ? 31 : startDay - 1);
+    if (startDay === 1 || endDay >= 28) {
+      // Month-end of same month
+      return formatIso(new Date(y, m + 1, 0));
+    }
+    // Crosses to next month
+    const candidateEnd = new Date(y, m + 1, endDay);
+    return formatIso(candidateEnd);
+  }
+
+  if (frequency === "semi_monthly") {
+    if (d <= 15) {
+      return formatIso(new Date(y, m, 15));
+    }
+    return formatIso(new Date(y, m + 1, 0));
+  }
+
+  if (frequency === "bi_weekly") {
+    return formatIso(addDays(start, 13));
+  }
+
+  if (frequency === "weekly") {
+    return formatIso(addDays(start, 6));
+  }
+
+  // Custom cycle
+  const days = Math.max(1, options?.customCycleDays ?? 14);
+  return formatIso(addDays(start, days - 1));
+}
+
 export function generatePayrollPeriods(
   config: PayrollPeriodConfig = defaultPayrollConfig,
   currentDateStr: string = formatIso(new Date()),
@@ -97,20 +152,25 @@ export function generatePayrollPeriods(
   const currentMonth = currentDate.getMonth();
   const ruleName = config.name ?? "Standard Payroll";
 
+  const baseStartDateStr = config.startDate || config.anchorDate || "2026-01-01";
+  const baseStartDate = parseIso(baseStartDateStr);
+
   if (config.frequency === "monthly") {
-    const startDay = Math.min(28, Math.max(1, config.startDayOfMonth ?? 1));
+    const startDay = Math.min(28, Math.max(1, config.startDayOfMonth ?? baseStartDate.getDate() ?? 1));
+    const endDay = config.endDayOfMonth ?? (startDay === 1 ? 31 : startDay - 1);
 
     // Generate monthly periods covering past 6 months to next 5 months
     for (let offset = -6; offset <= 5; offset++) {
       let periodStart: Date;
       let periodEnd: Date;
 
-      if (startDay === 1) {
+      if (startDay === 1 || endDay >= 28) {
         periodStart = new Date(currentYear, currentMonth + offset, 1);
         periodEnd = new Date(currentYear, currentMonth + offset + 1, 0); // Last day of month
       } else {
         periodStart = new Date(currentYear, currentMonth + offset - 1, startDay);
-        periodEnd = new Date(currentYear, currentMonth + offset, startDay - 1);
+        // Next period cutoff: day before startDay in the next month
+        periodEnd = new Date(currentYear, currentMonth + offset, endDay);
       }
 
       const startIso = formatIso(periodStart);
@@ -170,62 +230,23 @@ export function generatePayrollPeriods(
         ruleName,
       });
     }
-  } else if (config.frequency === "bi_weekly") {
-    // 14-day cycle anchored to anchorDate
-    const anchor = parseIso(config.anchorDate || "2026-01-01");
-    const diffDays = Math.floor((currentDate.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
-    const cycleLength = 14;
-    const currentCycleIndex = Math.floor(diffDays / cycleLength);
-
-    for (let i = currentCycleIndex - 6; i <= currentCycleIndex + 5; i++) {
-      const pStart = addDays(anchor, i * cycleLength);
-      const pEnd = addDays(pStart, cycleLength - 1);
-      const startIso = formatIso(pStart);
-      const endIso = formatIso(pEnd);
-      const payDate = formatIso(addDays(pEnd, config.payDayOffsetDays ?? 3));
-
-      periods.push({
-        id: `bw-${startIso}-${endIso}`,
-        label: `Bi-Weekly (${formatPeriodDate(startIso)} - ${formatPeriodDate(endIso)})`,
-        startDate: startIso,
-        endDate: endIso,
-        payDate,
-        isCurrent: currentDateStr >= startIso && currentDateStr <= endIso,
-        isClosed: currentDateStr > endIso,
-        frequency: "bi_weekly",
-        ruleName,
-      });
-    }
-  } else if (config.frequency === "weekly") {
-    // Weekly cycle (7 days)
-    const anchor = parseIso(config.anchorDate || "2026-01-05");
-    const diffDays = Math.floor((currentDate.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
-    const cycleLength = 7;
-    const currentCycleIndex = Math.floor(diffDays / cycleLength);
-
-    for (let i = currentCycleIndex - 8; i <= currentCycleIndex + 4; i++) {
-      const pStart = addDays(anchor, i * cycleLength);
-      const pEnd = addDays(pStart, cycleLength - 1);
-      const startIso = formatIso(pStart);
-      const endIso = formatIso(pEnd);
-      const payDate = formatIso(addDays(pEnd, config.payDayOffsetDays ?? 3));
-
-      periods.push({
-        id: `w-${startIso}-${endIso}`,
-        label: `Week (${formatPeriodDate(startIso)} - ${formatPeriodDate(endIso)})`,
-        startDate: startIso,
-        endDate: endIso,
-        payDate,
-        isCurrent: currentDateStr >= startIso && currentDateStr <= endIso,
-        isClosed: currentDateStr > endIso,
-        frequency: "weekly",
-        ruleName,
-      });
-    }
   } else {
-    // Custom Cycle Duration (e.g. 10, 15, 21, 30 days) anchored to anchorDate
-    const cycleLength = Math.max(1, config.customCycleDays ?? 14);
-    const anchor = parseIso(config.anchorDate || "2026-01-01");
+    // Bi-weekly (14d), Weekly (7d), or Custom cycle duration defined by start date and end date
+    let cycleLength = 14;
+    if (config.frequency === "weekly") {
+      cycleLength = 7;
+    } else if (config.frequency === "bi_weekly") {
+      cycleLength = 14;
+    } else if (config.startDate && config.endDate) {
+      const s = parseIso(config.startDate);
+      const e = parseIso(config.endDate);
+      const diff = Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      cycleLength = diff > 0 ? diff : (config.customCycleDays ?? 14);
+    } else {
+      cycleLength = Math.max(1, config.customCycleDays ?? 14);
+    }
+
+    const anchor = baseStartDate;
     const diffDays = Math.floor((currentDate.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
     const currentCycleIndex = Math.floor(diffDays / cycleLength);
 
@@ -236,15 +257,17 @@ export function generatePayrollPeriods(
       const endIso = formatIso(pEnd);
       const payDate = formatIso(addDays(pEnd, config.payDayOffsetDays ?? 3));
 
+      const freqPrefix = config.frequency === "weekly" ? "Week" : config.frequency === "bi_weekly" ? "Bi-Weekly" : config.name ?? "Custom";
+
       periods.push({
-        id: `custom-${startIso}-${endIso}`,
-        label: `${config.name ?? "Custom"} (${formatPeriodDate(startIso)} - ${formatPeriodDate(endIso)})`,
+        id: `${config.frequency}-${startIso}-${endIso}`,
+        label: `${freqPrefix} (${formatPeriodDate(startIso)} - ${formatPeriodDate(endIso)})`,
         startDate: startIso,
         endDate: endIso,
         payDate,
         isCurrent: currentDateStr >= startIso && currentDateStr <= endIso,
         isClosed: currentDateStr > endIso,
-        frequency: "custom",
+        frequency: config.frequency,
         ruleName,
       });
     }

@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Calendar, CheckCircle2, Clock3, Cog, DollarSign, Save } from "lucide-react";
+import { Calendar, CheckCircle2, Cog, Save } from "lucide-react";
 import { saveCompanyPayrollSettings } from "@/lib/reports/actions";
 import {
   type PayrollPeriodConfig,
   type PayrollFrequency,
+  calculatePeriodEndDate,
   defaultPayrollConfig,
   generatePayrollPeriods,
   formatPeriodDate,
@@ -26,18 +27,32 @@ export default function PayrollPeriodSettingsForm({
   const [state, formAction, pending] = useActionState(saveCompanyPayrollSettings, initialState);
 
   const [frequency, setFrequency] = useState<PayrollFrequency>(initialConfig.frequency ?? "monthly");
-  const [anchorDate, setAnchorDate] = useState<string>(initialConfig.anchorDate ?? "2026-01-01");
+  const [startDate, setStartDate] = useState<string>(initialConfig.startDate || initialConfig.anchorDate || "2026-01-01");
+  const [endDate, setEndDate] = useState<string>(
+    initialConfig.endDate ||
+      calculatePeriodEndDate(initialConfig.startDate || initialConfig.anchorDate || "2026-01-01", initialConfig.frequency ?? "monthly", {
+        startDayOfMonth: initialConfig.startDayOfMonth,
+        endDayOfMonth: initialConfig.endDayOfMonth,
+        customCycleDays: initialConfig.customCycleDays,
+      }),
+  );
   const [startDayOfMonth, setStartDayOfMonth] = useState<number>(initialConfig.startDayOfMonth ?? 1);
+  const [endDayOfMonth, setEndDayOfMonth] = useState<number>(initialConfig.endDayOfMonth ?? 31);
   const [startDayOfWeek, setStartDayOfWeek] = useState<number>(initialConfig.startDayOfWeek ?? 1);
+  const [customCycleDays, setCustomCycleDays] = useState<number>(initialConfig.customCycleDays ?? 14);
   const [payDayOffsetDays, setPayDayOffsetDays] = useState<number>(initialConfig.payDayOffsetDays ?? 3);
 
   // Live preview of generated periods based on interactive state
   const previewPeriods = generatePayrollPeriods(
     {
       frequency,
-      anchorDate,
+      startDate,
+      endDate,
+      anchorDate: startDate,
       startDayOfMonth,
+      endDayOfMonth,
       startDayOfWeek,
+      customCycleDays,
       payDayOffsetDays,
     },
     new Date().toISOString().slice(0, 10),
@@ -97,7 +112,15 @@ export default function PayrollPeriodSettingsForm({
                     name="frequency"
                     value={val}
                     checked={frequency === val}
-                    onChange={() => setFrequency(val)}
+                    onChange={() => {
+                      setFrequency(val);
+                      const newEnd = calculatePeriodEndDate(startDate, val, {
+                        startDayOfMonth,
+                        endDayOfMonth,
+                        customCycleDays,
+                      });
+                      setEndDate(newEnd);
+                    }}
                     className="sr-only"
                   />
                   <span>{label}</span>
@@ -106,66 +129,123 @@ export default function PayrollPeriodSettingsForm({
             </div>
           </div>
 
-          {/* Frequency Specific Inputs */}
-          {frequency === "monthly" && (
+          {/* Two Date Values: Start Date & End Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="grid gap-1.5">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                Cycle Start Day of Month
+                Period Start Date
               </label>
-              <select
-                name="start_day_of_month"
-                value={startDayOfMonth}
-                onChange={(e) => setStartDayOfMonth(Number(e.target.value))}
+              <input
+                type="date"
+                name="start_date"
+                value={startDate}
+                onChange={(e) => {
+                  const newStart = e.target.value;
+                  setStartDate(newStart);
+                  const newEnd = calculatePeriodEndDate(newStart, frequency, {
+                    startDayOfMonth,
+                    endDayOfMonth,
+                    customCycleDays,
+                  });
+                  setEndDate(newEnd);
+                }}
                 className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
-              >
-                <option value={1}>1st of Month (Calendar Month 1st - End of Month)</option>
-                <option value={16}>16th of Month (16th - 15th of next month)</option>
-                <option value={20}>20th of Month (20th - 19th of next month)</option>
-                <option value={25}>25th of Month (25th - 24th of next month)</option>
-                <option value={26}>26th of Month (26th - 25th of next month)</option>
-              </select>
-              <p className="text-[11px] text-muted">
-                Controls the start and cutoff date for every monthly payroll timesheet batch.
-              </p>
+                required
+              />
+              <input type="hidden" name="anchor_date" value={startDate} />
             </div>
-          )}
 
-          {(frequency === "bi_weekly" || frequency === "weekly" || frequency === "custom") && (
+            <div className="grid gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                Period End Date
+              </label>
+              <input
+                type="date"
+                name="end_date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Frequency Specific Inputs */}
+          {frequency === "monthly" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="grid gap-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                  Anchor / Start Date
+                  Start Day of Month
                 </label>
-                <input
-                  type="date"
-                  name="anchor_date"
-                  value={anchorDate}
-                  onChange={(e) => setAnchorDate(e.target.value)}
+                <select
+                  name="start_day_of_month"
+                  value={startDayOfMonth}
+                  onChange={(e) => {
+                    const sDay = Number(e.target.value);
+                    setStartDayOfMonth(sDay);
+                    const eDay = sDay === 1 ? 31 : sDay - 1;
+                    setEndDayOfMonth(eDay);
+                    const sStr = `2026-01-${String(sDay).padStart(2, "0")}`;
+                    setStartDate(sStr);
+                    setEndDate(calculatePeriodEndDate(sStr, "monthly", { startDayOfMonth: sDay, endDayOfMonth: eDay }));
+                  }}
                   className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
-                />
-                <p className="text-[11px] text-muted">
-                  The baseline starting date for recurring periods.
-                </p>
+                >
+                  <option value={1}>1st of Month</option>
+                  <option value={16}>16th of Month</option>
+                  <option value={20}>20th of Month</option>
+                  <option value={25}>25th of Month</option>
+                  <option value={26}>26th of Month</option>
+                </select>
               </div>
 
-              {frequency === "custom" && (
-                <div className="grid gap-1.5">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                    Cycle Length (Days)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={90}
-                    name="custom_cycle_days"
-                    defaultValue={14}
-                    className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
-                  />
-                  <p className="text-[11px] text-muted">
-                    Custom duration per payroll cycle (e.g. 10, 15, 21, 30 days).
-                  </p>
-                </div>
-              )}
+              <div className="grid gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                  End Day of Month
+                </label>
+                <input
+                  type="number"
+                  name="end_day_of_month"
+                  min={1}
+                  max={31}
+                  value={endDayOfMonth}
+                  onChange={(e) => setEndDayOfMonth(Number(e.target.value))}
+                  className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Period Restart Informational Card */}
+          <div className="rounded-lg border border-emerald-300 bg-emerald-50/70 p-3 text-xs text-emerald-950">
+            <p className="font-extrabold flex items-center gap-1.5 text-emerald-950">
+              <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+              <span>
+                Current Period: {formatPeriodDate(startDate)} &rarr; {formatPeriodDate(endDate)}
+              </span>
+            </p>
+            <p className="mt-1 text-[11px] text-emerald-800">
+              When this period concludes on {formatPeriodDate(endDate)}, the payroll rule automatically restarts with the next period starting on the following day.
+            </p>
+          </div>
+
+          {frequency === "custom" && (
+            <div className="grid gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                Cycle Length (Days)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={90}
+                name="custom_cycle_days"
+                value={customCycleDays}
+                onChange={(e) => setCustomCycleDays(Number(e.target.value))}
+                className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
+              />
+              <p className="text-[11px] text-muted">
+                Custom duration per payroll cycle (e.g. 10, 15, 21, 30 days).
+              </p>
             </div>
           )}
 

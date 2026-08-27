@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
+  calculatePeriodEndDate,
   defaultPayrollConfig,
+  formatPeriodDate,
   generatePayrollPeriods,
   type CustomPayrollRule,
   type EmployeePayrollAssignment,
@@ -37,11 +39,14 @@ const initialDefaultRule: CustomPayrollRule = {
   id: "company-default",
   name: "Company Default Monthly (1st - End)",
   frequency: "monthly",
+  startDate: "2026-01-01",
+  endDate: "2026-01-31",
   anchorDate: "2026-01-01",
   startDayOfMonth: 1,
+  endDayOfMonth: 31,
   startDayOfWeek: 1,
   payDayOffsetDays: 3,
-  description: "Standard monthly calendar payroll cycle with disbursement on 3rd day following month-end.",
+  description: "Standard monthly calendar payroll cycle running from 1st to month-end, restarting on the 1st of every month.",
   assignedEmployeeIds: [],
 };
 
@@ -67,10 +72,12 @@ export default function CompanyPayrollRulesSection({
         id: "rule-biweekly-contractors",
         name: "Contractors Bi-Weekly (14-Day Cycle)",
         frequency: "bi_weekly",
+        startDate: "2026-01-01",
+        endDate: "2026-01-14",
         anchorDate: "2026-01-01",
         startDayOfWeek: 1,
         payDayOffsetDays: 2,
-        description: "14-day rolling cycle for contractor and external workforce invoicing.",
+        description: "14-day rolling cycle running from start to end date, restarting automatically with the next 14-day period.",
         assignedEmployeeIds: [],
       },
     ];
@@ -91,9 +98,11 @@ export default function CompanyPayrollRulesSection({
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [ruleName, setRuleName] = useState("");
   const [frequency, setFrequency] = useState<PayrollFrequency>("monthly");
-  const [anchorDate, setAnchorDate] = useState("2026-01-01");
+  const [startDate, setStartDate] = useState("2026-01-01");
+  const [endDate, setEndDate] = useState("2026-01-31");
   const [customCycleDays, setCustomCycleDays] = useState(14);
   const [startDayOfMonth, setStartDayOfMonth] = useState(1);
+  const [endDayOfMonth, setEndDayOfMonth] = useState(31);
   const [startDayOfWeek, setStartDayOfWeek] = useState(1);
   const [payDayOffsetDays, setPayDayOffsetDays] = useState(3);
   const [description, setDescription] = useState("");
@@ -109,9 +118,18 @@ export default function CompanyPayrollRulesSection({
     setEditingRuleId(rule.id);
     setRuleName(rule.name);
     setFrequency(rule.frequency);
-    setAnchorDate(rule.anchorDate);
+    setStartDate(rule.startDate || rule.anchorDate || "2026-01-01");
+    setEndDate(
+      rule.endDate ||
+        calculatePeriodEndDate(rule.startDate || rule.anchorDate || "2026-01-01", rule.frequency, {
+          startDayOfMonth: rule.startDayOfMonth,
+          endDayOfMonth: rule.endDayOfMonth,
+          customCycleDays: rule.customCycleDays,
+        }),
+    );
     setCustomCycleDays(rule.customCycleDays ?? 14);
     setStartDayOfMonth(rule.startDayOfMonth ?? 1);
+    setEndDayOfMonth(rule.endDayOfMonth ?? (rule.startDayOfMonth === 1 ? 31 : (rule.startDayOfMonth ?? 1) - 1));
     setStartDayOfWeek(rule.startDayOfWeek ?? 1);
     setPayDayOffsetDays(rule.payDayOffsetDays);
     setDescription(rule.description ?? "");
@@ -122,9 +140,11 @@ export default function CompanyPayrollRulesSection({
     setEditingRuleId(null);
     setRuleName("");
     setFrequency("monthly");
-    setAnchorDate("2026-01-01");
+    setStartDate("2026-01-01");
+    setEndDate("2026-01-31");
     setCustomCycleDays(14);
     setStartDayOfMonth(1);
+    setEndDayOfMonth(31);
     setStartDayOfWeek(1);
     setPayDayOffsetDays(3);
     setDescription("");
@@ -146,9 +166,18 @@ export default function CompanyPayrollRulesSection({
                   ...r,
                   name: ruleName.trim(),
                   frequency,
-                  anchorDate,
+                  startDate,
+                  endDate:
+                    endDate ||
+                    calculatePeriodEndDate(startDate, frequency, {
+                      startDayOfMonth,
+                      endDayOfMonth,
+                      customCycleDays,
+                    }),
+                  anchorDate: startDate,
                   customCycleDays: frequency === "custom" ? customCycleDays : undefined,
                   startDayOfMonth: frequency === "monthly" ? startDayOfMonth : undefined,
+                  endDayOfMonth: frequency === "monthly" ? endDayOfMonth : undefined,
                   startDayOfWeek:
                     frequency === "weekly" || frequency === "bi_weekly" ? startDayOfWeek : undefined,
                   payDayOffsetDays,
@@ -159,13 +188,24 @@ export default function CompanyPayrollRulesSection({
         );
         setStatusMessage({ text: `Payroll rule "${ruleName}" updated successfully!`, ok: true });
       } else {
+        const calculatedEnd =
+          endDate ||
+          calculatePeriodEndDate(startDate, frequency, {
+            startDayOfMonth,
+            endDayOfMonth,
+            customCycleDays,
+          });
+
         const newRule: CustomPayrollRule = {
           id: `custom-rule-${Date.now()}`,
           name: ruleName.trim(),
           frequency,
-          anchorDate,
+          startDate,
+          endDate: calculatedEnd,
+          anchorDate: startDate,
           customCycleDays: frequency === "custom" ? customCycleDays : undefined,
           startDayOfMonth: frequency === "monthly" ? startDayOfMonth : undefined,
+          endDayOfMonth: frequency === "monthly" ? endDayOfMonth : undefined,
           startDayOfWeek:
             frequency === "weekly" || frequency === "bi_weekly" ? startDayOfWeek : undefined,
           payDayOffsetDays,
@@ -355,7 +395,7 @@ export default function CompanyPayrollRulesSection({
                   type="text"
                   value={ruleName}
                   onChange={(e) => setRuleName(e.target.value)}
-                  placeholder="e.g. Executive Monthly, Site Team Bi-Weekly, Custom 10-Day"
+                  placeholder="e.g. Executive Monthly (26th-25th), Contractor Bi-Weekly"
                   className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-bold text-foreground outline-none"
                   required
                 />
@@ -365,10 +405,19 @@ export default function CompanyPayrollRulesSection({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Cycle Frequency</span>
                 <select
                   value={frequency}
-                  onChange={(e) => setFrequency(e.target.value as PayrollFrequency)}
+                  onChange={(e) => {
+                    const newFreq = e.target.value as PayrollFrequency;
+                    setFrequency(newFreq);
+                    const newEnd = calculatePeriodEndDate(startDate, newFreq, {
+                      startDayOfMonth,
+                      endDayOfMonth,
+                      customCycleDays,
+                    });
+                    setEndDate(newEnd);
+                  }}
                   className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-bold text-foreground outline-none"
                 >
-                  <option value="monthly">Monthly (e.g. 1st to End of Month)</option>
+                  <option value="monthly">Monthly (e.g. 26th to 25th, or 1st to Month-End)</option>
                   <option value="semi_monthly">Semi-Monthly (1st-15th &amp; 16th-End)</option>
                   <option value="bi_weekly">Bi-Weekly (14-Day Cycle)</option>
                   <option value="weekly">Weekly (7-Day Cycle)</option>
@@ -376,63 +425,132 @@ export default function CompanyPayrollRulesSection({
                 </select>
               </label>
 
-              {frequency === "monthly" && (
+              {/* Two Date Values: Start Date & End Date of Payroll Period Rule */}
+              <div className="grid grid-cols-2 gap-2">
                 <label className="grid gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Start Day of Month</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                    Period Start Date
+                  </span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      const newStart = e.target.value;
+                      setStartDate(newStart);
+                      const newEnd = calculatePeriodEndDate(newStart, frequency, {
+                        startDayOfMonth,
+                        endDayOfMonth,
+                        customCycleDays,
+                      });
+                      setEndDate(newEnd);
+                    }}
+                    className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                    Period End Date
+                  </span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
+                    required
+                  />
+                </label>
+              </div>
+
+              {/* Monthly Day of Month Presets & Inputs */}
+              {frequency === "monthly" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="grid gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                      Start Day of Month
+                    </span>
+                    <select
+                      value={startDayOfMonth}
+                      onChange={(e) => {
+                        const sDay = Number(e.target.value);
+                        setStartDayOfMonth(sDay);
+                        const eDay = sDay === 1 ? 31 : sDay - 1;
+                        setEndDayOfMonth(eDay);
+                        const sStr = `2026-01-${String(sDay).padStart(2, "0")}`;
+                        setStartDate(sStr);
+                        setEndDate(calculatePeriodEndDate(sStr, "monthly", { startDayOfMonth: sDay, endDayOfMonth: eDay }));
+                      }}
+                      className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
+                    >
+                      <option value={1}>1st of Month</option>
+                      <option value={16}>16th of Month</option>
+                      <option value={20}>20th of Month</option>
+                      <option value={25}>25th of Month</option>
+                      <option value={26}>26th of Month</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                      Cutoff / End Day
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={endDayOfMonth}
+                      onChange={(e) => setEndDayOfMonth(Number(e.target.value))}
+                      className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* Period Restart Informational Banner */}
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50/70 p-2.5 text-[11px] text-emerald-950">
+                <p className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
+                  <span>
+                    Cycle: {formatPeriodDate(startDate)} &rarr; {formatPeriodDate(endDate)}
+                  </span>
+                </p>
+                <p className="mt-1 text-[10px] text-emerald-800">
+                  When this period reaches its end date, the rule automatically restarts for the next cycle on the following day.
+                </p>
+              </div>
+
+              {frequency === "custom" && (
+                <label className="grid gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Cycle Length (Days)</span>
                   <input
                     type="number"
                     min={1}
-                    max={28}
-                    value={startDayOfMonth}
-                    onChange={(e) => setStartDayOfMonth(Number(e.target.value))}
+                    max={90}
+                    value={customCycleDays}
+                    onChange={(e) => setCustomCycleDays(Number(e.target.value))}
                     className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-bold text-foreground outline-none"
                   />
                 </label>
               )}
 
-              {(frequency === "bi_weekly" || frequency === "weekly" || frequency === "custom") && (
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="grid gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Anchor Date</span>
-                    <input
-                      type="date"
-                      value={anchorDate}
-                      onChange={(e) => setAnchorDate(e.target.value)}
-                      className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
-                    />
-                  </label>
-
-                  {frequency === "custom" ? (
-                    <label className="grid gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Cycle Length (Days)</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={90}
-                        value={customCycleDays}
-                        onChange={(e) => setCustomCycleDays(Number(e.target.value))}
-                        className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
-                      />
-                    </label>
-                  ) : (
-                    <label className="grid gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Start Day of Week</span>
-                      <select
-                        value={startDayOfWeek}
-                        onChange={(e) => setStartDayOfWeek(Number(e.target.value))}
-                        className="rounded-md border border-border bg-white px-2 py-1.5 text-xs font-bold text-foreground outline-none"
-                      >
-                        <option value={1}>Monday</option>
-                        <option value={2}>Tuesday</option>
-                        <option value={3}>Wednesday</option>
-                        <option value={4}>Thursday</option>
-                        <option value={5}>Friday</option>
-                        <option value={6}>Saturday</option>
-                        <option value={0}>Sunday</option>
-                      </select>
-                    </label>
-                  )}
-                </div>
+              {frequency === "weekly" && (
+                <label className="grid gap-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Start Day of Week</span>
+                  <select
+                    value={startDayOfWeek}
+                    onChange={(e) => setStartDayOfWeek(Number(e.target.value))}
+                    className="rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-bold text-foreground outline-none"
+                  >
+                    <option value={1}>Monday</option>
+                    <option value={2}>Tuesday</option>
+                    <option value={3}>Wednesday</option>
+                    <option value={4}>Thursday</option>
+                    <option value={5}>Friday</option>
+                    <option value={6}>Saturday</option>
+                    <option value={0}>Sunday</option>
+                  </select>
+                </label>
               )}
 
               <label className="grid gap-1">
@@ -564,9 +682,13 @@ export default function CompanyPayrollRulesSection({
                     </div>
 
                     <div className="rounded-md border border-slate-200 bg-slate-50 p-1">
-                      <span className="text-[8.5px] font-bold uppercase text-muted block truncate">Start / Anchor</span>
+                      <span className="text-[8.5px] font-bold uppercase text-muted block truncate">Cycle Range</span>
                       <span className="font-extrabold text-foreground truncate block text-[11px]">
-                        {rule.frequency === "monthly" ? `Day ${rule.startDayOfMonth ?? 1}` : rule.anchorDate}
+                        {rule.startDate && rule.endDate
+                          ? `${formatPeriodDate(rule.startDate)} → ${formatPeriodDate(rule.endDate)}`
+                          : rule.frequency === "monthly"
+                            ? `Day ${rule.startDayOfMonth ?? 1} → ${rule.endDayOfMonth ?? 31}`
+                            : rule.startDate || rule.anchorDate}
                       </span>
                     </div>
 
