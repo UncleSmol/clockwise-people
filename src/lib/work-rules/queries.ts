@@ -82,7 +82,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         .limit(20),
       supabase
         .from("company_settings")
-        .select("standard_monthly_hours, leave_rules")
+        .select("standard_monthly_hours, leave_rules, approval_rules, default_lunch_minutes")
         .eq("company_id", company.id)
         .maybeSingle(),
   ]);
@@ -95,6 +95,12 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
   if (settingsResult.error) throw new Error(settingsResult.error.message);
 
   const leaveRules = (settingsResult.data?.leave_rules ?? {}) as Record<string, unknown>;
+  const approvalRules = (settingsResult.data?.approval_rules ?? {}) as Record<string, unknown>;
+  const autoEndLunchOnLapse = Boolean(
+    approvalRules.auto_end_lunch_on_lapse ?? approvalRules.auto_clockout_after_lunch,
+  );
+  const defaultLunchMinutes = Number(settingsResult.data?.default_lunch_minutes ?? approvalRules.default_lunch_minutes ?? 60);
+
   const carryOverValue = leaveRules.carry_over_hours;
   const carryOverHours =
     typeof carryOverValue === "number"
@@ -105,6 +111,9 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
   const standardAnnualHours = Number(settingsResult.data?.standard_monthly_hours ?? 173.33) * 12;
 
   return {
+    autoEndLunchOnLapse,
+    autoClockoutAfterLunch: autoEndLunchOnLapse,
+    defaultLunchMinutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
     carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
     employees: (employeesResult.data ?? []).map((employee) => ({
       id: employee.id,

@@ -731,7 +731,7 @@ export default function CompanyPayrollRulesSection({
                   required
                 >
                   <option value="">-- Choose Employee --</option>
-                  <option value="ALL_UNASSIGNED">★ All Unassigned Employees</option>
+                  <option value="ALL_UNASSIGNED">All Unassigned Employees</option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.label}

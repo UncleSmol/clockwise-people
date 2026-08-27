@@ -355,7 +355,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
                   {manualInviteUrl ? <InviteLinkPanel inviteUrl={manualInviteUrl} /> : null}
 
-                  <section className="card grid gap-4 p-4 sm:p-6">
+                  <section className="grid gap-4">
                     <div>
                       <h2 className="text-xl font-semibold text-foreground">Edit employee</h2>
                       <p className="mt-1 text-sm text-muted">
@@ -373,7 +373,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </section>
 
                   {employeeDeactivateAction ? (
-                    <section className="rounded-lg border border-danger/20 bg-danger/8 p-4 sm:p-6">
+                    <section className="rounded-lg border border-danger/20 bg-danger/8 p-4">
                       <h2 className="text-xl font-semibold text-danger">Deactivate employee</h2>
                       <p className="mt-2 max-w-2xl text-sm text-danger">
                         This performs a soft delete by marking the employee inactive and setting
@@ -399,7 +399,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 {employeesData.employees.length > 0 ? (
                   <EmployeeTable employees={employeesData.employees} />
                 ) : (
-                  <div className="card p-4 text-sm text-muted">No employees yet.</div>
+                  <div className="rounded-lg border border-border bg-background p-4 text-sm text-muted">No employees yet.</div>
                 )}
               </section>
             </div>
@@ -421,15 +421,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               ) : null}
 
               {/* Company profile */}
-              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+              <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Company profile</h2>
-                    <p className="mt-0.5 text-sm text-muted">Registration and workspace details.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-white">Company profile</h2>
+                    <p className="mt-0.5 text-xs text-slate-300">Registration and workspace details.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="grid gap-6 border-t border-border p-4 sm:p-6">
+                <div className="grid gap-6 border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyProfileForm company={accountProfile.account.company} />
                   <CompanyLogoForm
                     companyName={accountProfile.account.company.name}
@@ -439,44 +439,44 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </details>
 
               {/* Workstations & Geolocation */}
-              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+              <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Workstations &amp; Geolocation</h2>
-                    <p className="mt-0.5 text-sm text-muted">Manage physical locations and geofence boundaries.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-white">Workstations &amp; Geolocation</h2>
+                    <p className="mt-0.5 text-xs text-slate-300">Manage physical locations and geofence boundaries.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="border-t border-border">
+                <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyGeolocationPanel data={geolocationData} />
                 </div>
               </details>
 
               {/* Work rules & leave */}
-              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+              <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Work rules &amp; leave</h2>
-                    <p className="mt-0.5 text-sm text-muted">Define working hours, overtime rules, and leave policies.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-white">Work rules &amp; leave</h2>
+                    <p className="mt-0.5 text-xs text-slate-300">Define working hours, overtime rules, and leave policies.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="border-t border-border">
+                <div className="border-t border-border p-4 sm:p-6 bg-surface grid gap-6">
                   <CompanyWorkRulesPanel data={workRulesData} />
                   <CompanyLeaveAccrualPanel data={workRulesData} />
                 </div>
               </details>
 
               {/* Departments */}
-              <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+              <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Departments</h2>
-                    <p className="mt-0.5 text-sm text-muted">Organise employees into departments for reporting and filtering.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-white">Departments</h2>
+                    <p className="mt-0.5 text-xs text-slate-300">Organise employees into departments for reporting and filtering.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="border-t border-border">
+                <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyDepartmentPanel
                     workstations={companySetup.workstations}
                     departments={companySetup.departments}
@@ -487,15 +487,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
               {/* Add Employee */}
               {employeesData ? (
-                <details className="group rounded-lg border border-border bg-surface open:shadow-sm">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-6 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
                     <div>
-                      <h2 className="text-lg font-semibold text-foreground">Add employee</h2>
-                      <p className="mt-0.5 text-sm text-muted">Create employee records scoped to the company.</p>
+                      <h2 className="text-base sm:text-lg font-bold text-white">Add employee</h2>
+                      <p className="mt-0.5 text-xs text-slate-300">Create employee records scoped to the company.</p>
                     </div>
-                    <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                    <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                   </summary>
-                  <div className="border-t border-border p-4 sm:p-6">
+                  <div className="border-t border-border p-4 sm:p-6 bg-surface">
                     {employeesData.workstations.length === 0 ? (
                       <div className="rounded-lg border border-warning/20 bg-warning/8 px-4 py-4 text-sm text-warning">
                         Workstation setup is required first.
@@ -577,7 +577,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="grid gap-6">
           <PushNotificationSettings />
           {accountProfile.employee ? (
-            <section className="card grid gap-4 p-4 sm:p-6">
+            <section className="grid gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-foreground">Profile</h2>
                 <p className="mt-1 text-sm text-muted">Update the details people see around the app.</p>
@@ -585,7 +585,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <ProfileForm employee={accountProfile.employee} />
             </section>
           ) : null}
-          <section className="card grid max-w-xl gap-4 p-4 sm:p-6">
+          <section className="grid max-w-xl gap-4">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Change password</h2>
               <p className="mt-1 text-sm text-muted">Use this after receiving temporary credentials.</p>
@@ -617,6 +617,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             workstations={employeeTimeState?.workstations ?? []}
             assignedWorkstationId={employeeTimeState?.assignedWorkstationId ?? null}
             todaySchedule={employeeTimeState?.todaySchedule ?? null}
+            autoEndLunchOnLapse={employeeTimeState?.autoEndLunchOnLapse}
+            autoClockoutAfterLunch={employeeTimeState?.autoClockoutAfterLunch}
+            defaultLunchMinutes={employeeTimeState?.defaultLunchMinutes}
           />
         }
       employeeCalendar={
@@ -645,6 +648,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 workstations={employeeTimeState.workstations ?? []}
                 assignedWorkstationId={employeeTimeState.assignedWorkstationId ?? null}
                 todaySchedule={employeeTimeState.todaySchedule ?? null}
+                autoEndLunchOnLapse={employeeTimeState.autoEndLunchOnLapse}
+                autoClockoutAfterLunch={employeeTimeState.autoClockoutAfterLunch}
+                defaultLunchMinutes={employeeTimeState.defaultLunchMinutes}
               />
             }
             clockBadge={clockBadge}

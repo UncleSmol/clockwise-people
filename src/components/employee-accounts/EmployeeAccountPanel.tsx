@@ -56,7 +56,7 @@ export default function EmployeeAccountPanel({
   const roleLabel = ROLE_OPTIONS.find((o) => o.value === roleKey)?.label ?? roleKey;
 
   return (
-    <section className="card p-4 sm:p-6">
+    <section className="grid min-w-0 gap-4">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <h2 className="text-xl font-bold text-foreground">Account access</h2>

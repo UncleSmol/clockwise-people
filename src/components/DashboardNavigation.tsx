@@ -196,9 +196,9 @@ export default function DashboardNavigation({
           </button>
 
           {open ? (
-            <div className="card fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden p-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 shadow-lg">
+            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-border shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-blueprint-pattern p-0">
               {profileName ? (
-                <div className="border-b border-border bg-surface-muted/60 px-4 py-3">
+                <div className="border-b border-border/80 bg-surface/90 backdrop-blur-xs px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted">
                     Signed in as
                   </p>
@@ -220,7 +220,7 @@ export default function DashboardNavigation({
                         openPanel(item.key);
                         setOpen(false);
                       }}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-surface-muted transition-colors"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-foreground hover:bg-slate-900/10 transition-colors"
                     >
                       <Icon className="size-4 shrink-0 text-muted" />
                       {item.label}
@@ -230,7 +230,7 @@ export default function DashboardNavigation({
               </div>
 
               {/* Download App Action in Menu Drawer */}
-              <div className="border-t border-border bg-surface p-2">
+              <div className="border-t border-border/80 bg-surface/90 backdrop-blur-xs p-2">
                 <button
                   type="button"
                   onClick={handleDownloadClick}

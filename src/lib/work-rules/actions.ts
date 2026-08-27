@@ -607,3 +607,58 @@ export async function reviewLeaveRequest(
     message: `Leave request ${decision === "approve" ? "approved" : "rejected"}.`,
   };
 }
+
+export async function updateLunchBreakRule(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const autoEndLunch =
+    formData.get("auto_end_lunch_on_lapse") === "on" ||
+    formData.get("auto_end_lunch_on_lapse") === "true" ||
+    formData.get("auto_clockout_after_lunch") === "on" ||
+    formData.get("auto_clockout_after_lunch") === "true";
+  const defaultLunchMinutes = Number(formData.get("default_lunch_minutes") ?? 60);
+
+  const { company } = await getActiveCompany();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: currentSettings, error: fetchError } = await supabase
+    .from("company_settings")
+    .select("approval_rules")
+    .eq("company_id", company.id)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { ok: false, message: fetchError.message };
+  }
+
+  const existingApprovalRules = (currentSettings?.approval_rules ?? {}) as Record<string, unknown>;
+  const updatedApprovalRules = {
+    ...existingApprovalRules,
+    auto_end_lunch_on_lapse: autoEndLunch,
+    auto_clockout_after_lunch: autoEndLunch,
+    default_lunch_minutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
+  };
+
+  const { error: updateError } = await supabase
+    .from("company_settings")
+    .update({
+      approval_rules: updatedApprovalRules,
+      default_lunch_minutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
+    })
+    .eq("company_id", company.id);
+
+  if (updateError) {
+    return { ok: false, message: updateError.message };
+  }
+
+  revalidatePath("/dashboard");
+  return {
+    ok: true,
+    message: autoEndLunch
+      ? `Lunch break rule updated: Auto-ends lunch and returns to clocked-in status after ${defaultLunchMinutes} mins.`
+      : "Automatic lunch break lapse rule disabled.",
+  };
+}
+
+export const updateAutoLunchClockoutPolicy = updateLunchBreakRule;

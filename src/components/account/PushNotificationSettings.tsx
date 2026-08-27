@@ -132,7 +132,7 @@ export default function PushNotificationSettings() {
   const isDenied = permission === "denied";
 
   return (
-    <section className="card grid gap-4 rounded-lg border-2 border-border p-4 sm:p-6 shadow-2xs">
+    <section className="grid min-w-0 gap-4">
       {/* Header */}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>

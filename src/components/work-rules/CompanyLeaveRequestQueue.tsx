@@ -24,7 +24,7 @@ export default function CompanyLeaveRequestQueue({
   );
 
   return (
-    <section className="card grid gap-3.5 p-4">
+    <section className="grid min-w-0 gap-4">
       {/* Header */}
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>

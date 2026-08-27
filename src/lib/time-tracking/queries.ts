@@ -130,6 +130,35 @@ function relationName(
   return relation?.name ?? null;
 }
 
+function hasLunchDurationLapsed(lunchStart: string | null | undefined, lunchMinutes: number, timezone: string = "UTC"): boolean {
+  if (!lunchStart) return false;
+  const [h = "0", m = "0", s = "0"] = lunchStart.split(":");
+  const now = new Date();
+  const localTimeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(now);
+  const [currH = "0", currM = "0", currS = "0"] = localTimeStr.split(":");
+
+  const startSec = Number(h) * 3600 + Number(m) * 60 + Number(s);
+  const currSec = Number(currH) * 3600 + Number(currM) * 60 + Number(currS);
+  const durationSec = (lunchMinutes > 0 ? lunchMinutes : 60) * 60;
+
+  return currSec >= startSec + durationSec;
+}
+
+function calculateLapsedLunchEndTime(lunchStart: string, lunchMinutes: number): string {
+  const [h = "0", m = "0", s = "0"] = lunchStart.split(":");
+  const duration = lunchMinutes > 0 ? lunchMinutes : 60;
+  const totalMinutes = Number(h) * 60 + Number(m) + duration;
+  const endH = Math.floor(totalMinutes / 60) % 24;
+  const endM = totalMinutes % 60;
+  return `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 async function getEmployeeSchedules(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   companyId: string,
@@ -357,6 +386,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     holidaysResult,
     workstationsResult,
     assignmentsResult,
+    settingsResult,
   ] = await Promise.all([
     supabase
       .from("employees")
@@ -427,6 +457,11 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .or(`effective_to.is.null,effective_to.gte.${today}`)
       .order("created_at", { ascending: false })
       .limit(1),
+    supabase
+      .from("company_settings")
+      .select("approval_rules, default_lunch_minutes")
+      .eq("company_id", company.id)
+      .maybeSingle(),
   ]);
 
   if (employeeResult.error) {
@@ -502,6 +537,12 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   );
   const assignedWorkstationId = (assignmentsResult.data?.[0]?.workstation_id as string) ?? null;
 
+  const settingsApprovalRules = (settingsResult?.data?.approval_rules ?? {}) as Record<string, unknown>;
+  const autoEndLunchOnLapse = Boolean(
+    settingsApprovalRules.auto_end_lunch_on_lapse ?? settingsApprovalRules.auto_clockout_after_lunch,
+  );
+  const defaultLunchMinutes = Number(settingsResult?.data?.default_lunch_minutes ?? settingsApprovalRules.default_lunch_minutes ?? 60);
+
   let todaySchedule: EmployeeTimeState["todaySchedule"] = null;
   if (employeeRow.work_schedule_id) {
     const { data: scheduleDay } = await supabase
@@ -521,6 +562,39 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     }
   }
 
+  const allottedLunchMinutes = todaySchedule?.lunch_minutes && todaySchedule.lunch_minutes > 0
+    ? todaySchedule.lunch_minutes
+    : defaultLunchMinutes > 0
+      ? defaultLunchMinutes
+      : 60;
+
+  // Auto-end lunch if employee is on lunch and duration has lapsed (returns to clocked-in working status)
+  if (
+    autoEndLunchOnLapse &&
+    effectiveTodayEntryRow?.lunch_start &&
+    !effectiveTodayEntryRow.lunch_end &&
+    !effectiveTodayEntryRow.clock_out &&
+    hasLunchDurationLapsed(effectiveTodayEntryRow.lunch_start, allottedLunchMinutes, company.timezone || "UTC")
+  ) {
+    const lapsedTime = calculateLapsedLunchEndTime(effectiveTodayEntryRow.lunch_start, allottedLunchMinutes);
+    const recordedLunchHours = Number((allottedLunchMinutes / 60).toFixed(2));
+    effectiveTodayEntryRow.lunch_end = lapsedTime;
+    effectiveTodayEntryRow.lunch_hours = recordedLunchHours;
+    effectiveTodayEntryRow.warning_notes = effectiveTodayEntryRow.warning_notes
+      ? `${effectiveTodayEntryRow.warning_notes}; Auto lunch break ended upon lapse`
+      : "Auto lunch break ended upon lapse";
+
+    // Update database and timesheet record
+    void supabase
+      .from("time_entries")
+      .update({
+        lunch_end: lapsedTime,
+        lunch_hours: recordedLunchHours,
+        warning_notes: effectiveTodayEntryRow.warning_notes,
+      })
+      .eq("id", effectiveTodayEntryRow.id);
+  }
+
   return {
     currentWorkDate: today,
     employee: {
@@ -538,6 +612,9 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     workstations,
     assignedWorkstationId,
     todaySchedule,
+    autoEndLunchOnLapse,
+    autoClockoutAfterLunch: autoEndLunchOnLapse,
+    defaultLunchMinutes,
   };
 });
 
@@ -558,7 +635,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     target_year: Number(workDate.slice(0, 4)),
   });
 
-  const [employeesResult, entriesResult, geofenceEventsResult] = await Promise.all([
+  const [employeesResult, entriesResult, geofenceEventsResult, settingsResult] = await Promise.all([
     supabase
       .from("employees")
       .select(
@@ -584,6 +661,11 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
       .eq("local_work_date", workDate)
       .order("event_at", { ascending: false })
       .limit(1000),
+    supabase
+      .from("company_settings")
+      .select("approval_rules, default_lunch_minutes")
+      .eq("company_id", company.id)
+      .maybeSingle(),
   ]);
 
   if (employeesResult.error) {
@@ -598,8 +680,45 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     throw new Error(geofenceEventsResult.error.message);
   }
 
+  const settingsApprovalRules = (settingsResult?.data?.approval_rules ?? {}) as Record<string, unknown>;
+  const autoEndLunchOnLapse = Boolean(
+    settingsApprovalRules.auto_end_lunch_on_lapse ?? settingsApprovalRules.auto_clockout_after_lunch,
+  );
+  const defaultLunchMinutes = Number(
+    settingsResult?.data?.default_lunch_minutes ?? settingsApprovalRules.default_lunch_minutes ?? 60,
+  );
+
+  const rawEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
+  if (autoEndLunchOnLapse) {
+    rawEntries.forEach((entry) => {
+      if (
+        entry.lunch_start &&
+        !entry.lunch_end &&
+        !entry.clock_out &&
+        hasLunchDurationLapsed(entry.lunch_start, defaultLunchMinutes, company.timezone || "UTC")
+      ) {
+        const lapsedTime = calculateLapsedLunchEndTime(entry.lunch_start, defaultLunchMinutes);
+        const recordedLunchHours = Number((defaultLunchMinutes / 60).toFixed(2));
+        entry.lunch_end = lapsedTime;
+        entry.lunch_hours = recordedLunchHours;
+        entry.warning_notes = entry.warning_notes
+          ? `${entry.warning_notes}; Auto lunch break ended upon lapse`
+          : "Auto lunch break ended upon lapse";
+
+        void supabase
+          .from("time_entries")
+          .update({
+            lunch_end: lapsedTime,
+            lunch_hours: recordedLunchHours,
+            warning_notes: entry.warning_notes,
+          })
+          .eq("id", entry.id);
+      }
+    });
+  }
+
   const entriesByEmployee = new Map(
-    ((entriesResult.data ?? []) as TimeEntryRecord[]).map((entry) => [
+    rawEntries.map((entry) => [
       entry.employee_id,
       entry,
     ]),

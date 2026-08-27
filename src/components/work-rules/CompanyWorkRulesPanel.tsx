@@ -14,6 +14,7 @@ import {
   Timer,
   User,
   UserCheck,
+  Utensils,
 } from "lucide-react";
 import { FaCalendarAlt, FaUmbrellaBeach, FaSun } from "react-icons/fa";
 import { useState, useActionState } from "react";
@@ -22,6 +23,7 @@ import {
   createLeaveType,
   createPublicHoliday,
   createWorkSchedule,
+  updateAutoLunchClockoutPolicy,
   updateLeaveType,
   updateWorkSchedule,
 } from "@/lib/work-rules/actions";
@@ -93,13 +95,25 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
     createPublicHoliday,
     initialState,
   );
+  const [lunchPolicyState, lunchPolicyAction, lunchPolicyPending] = useActionState(
+    updateAutoLunchClockoutPolicy,
+    initialState,
+  );
+  const [autoLunchEnabled, setAutoLunchEnabled] = useState(
+    Boolean(data.autoClockoutAfterLunch),
+  );
+  const [lunchDuration, setLunchDuration] = useState(
+    Number(data.defaultLunchMinutes ?? 60),
+  );
+
   const message =
     scheduleState.message ||
     updateScheduleState.message ||
     leaveState.message ||
     updateLeaveState.message ||
     assignState.message ||
-    holidayState.message;
+    holidayState.message ||
+    lunchPolicyState.message;
   const messageOk = scheduleState.message
     ? scheduleState.ok
     : updateScheduleState.message
@@ -110,10 +124,12 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           ? updateLeaveState.ok
           : assignState.message
             ? assignState.ok
-            : holidayState.ok;
+            : holidayState.message
+              ? holidayState.ok
+              : lunchPolicyState.ok;
 
   return (
-    <section className="card grid gap-4 p-4 sm:p-6 min-w-0">
+    <section className="grid min-w-0 gap-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start border-b border-border/70 pb-3.5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Company Governance</p>
@@ -208,6 +224,120 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           {message}
         </p>
       ) : null}
+
+      {/* Lunch Break Rules & Auto-End Policy Card */}
+      {(activeSection === "all" || activeSection === "work_schedules") && (
+        <form
+          action={lunchPolicyAction}
+          className="grid gap-4 rounded-xl border border-border bg-background p-4 shadow-2xs"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-8 place-items-center rounded-lg bg-accent/10 text-accent">
+                <Utensils className="size-4" />
+              </span>
+              <div>
+                <h3 className="font-extrabold text-foreground text-sm sm:text-base">
+                  Lunch Break Rules &amp; Auto-End Policy
+                </h3>
+                <p className="text-xs text-muted">
+                  Automatically clock out of lunch and back to clocked-in status once the lunch duration lapses, updating the timesheet.
+                </p>
+              </div>
+            </div>
+            <span
+              className={`w-max rounded px-2.5 py-1 text-[11px] font-extrabold border ${
+                autoLunchEnabled
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                  : "border-slate-300 bg-slate-100 text-slate-700"
+              }`}
+            >
+              {autoLunchEnabled ? "Auto-End Lunch Active" : "Manual Resumption"}
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 items-start">
+            {/* Toggle Switch */}
+            <div className="rounded-lg border border-border bg-surface p-3.5 flex flex-col justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Auto-End Lunch on Duration Lapse
+                </p>
+                <p className="text-xs text-muted mt-1 leading-relaxed">
+                  When enabled, if an employee remains on lunch beyond the allotted break duration, the system automatically clocks them out of lunch and returns them to clocked-in (working) status, recording the exact lunch hours on their timesheet.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer gap-3 pt-1">
+                <input
+                  type="checkbox"
+                  name="auto_end_lunch_on_lapse"
+                  value="true"
+                  checked={autoLunchEnabled}
+                  onChange={(e) => setAutoLunchEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                <span className="text-xs font-bold text-foreground">
+                  {autoLunchEnabled ? "Enabled (Auto Return to Clocked In)" : "Disabled (Manual Only)"}
+                </span>
+              </label>
+            </div>
+
+            {/* Duration Input & Quick Presets */}
+            <div className="rounded-lg border border-border bg-surface p-3.5 grid gap-3">
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Standard Lunch Duration (Minutes)
+                </span>
+                <p className="text-xs text-muted mt-0.5">
+                  Applied to daily work schedules and timesheet auto-calculations.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  name="default_lunch_minutes"
+                  min={15}
+                  max={240}
+                  step={5}
+                  value={lunchDuration}
+                  onChange={(e) => setLunchDuration(Number(e.target.value))}
+                  className="h-10 w-28 rounded-lg border border-border bg-background px-3 text-sm font-extrabold text-foreground outline-none focus:border-slate-900"
+                />
+                <span className="text-xs font-bold text-muted">minutes</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {[30, 45, 60, 90].map((mins) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => setLunchDuration(mins)}
+                    className={`rounded px-2.5 py-1 text-xs font-extrabold transition-all ${
+                      lunchDuration === mins
+                        ? "bg-slate-900 text-white shadow-2xs"
+                        : "bg-background border border-border text-foreground hover:bg-slate-100"
+                    }`}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <button
+              disabled={lunchPolicyPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-slate-800 disabled:opacity-60 transition-all"
+            >
+              <Save className="size-3.5" />
+              {lunchPolicyPending ? "Saving..." : "Save Lunch Break Rule"}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Payroll Period Rules & Employee Assignments Section */}
       {(activeSection === "all" || activeSection === "payroll_rules") && (

@@ -45,7 +45,7 @@ export default function CompanyDepartmentPanel({
   }
 
   return (
-    <section className="card grid gap-4 p-4 sm:p-6">
+    <section className="grid min-w-0 gap-4">
       <div>
         <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground">
           <Building2 className="size-5" />

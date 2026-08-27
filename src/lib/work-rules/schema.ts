@@ -189,6 +189,9 @@ export type LeaveAccrualEntry = {
 };
 
 export type CompanyWorkRulesData = {
+  autoEndLunchOnLapse?: boolean;
+  autoClockoutAfterLunch?: boolean;
+  defaultLunchMinutes?: number;
   carryOverHours: number | null;
   employees: { id: string; label: string }[];
   leaveBalances: Array<LeaveBalance & { employee_id: string; leave_type_id: string }>;

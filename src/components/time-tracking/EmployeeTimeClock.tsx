@@ -27,6 +27,9 @@ type EmployeeTimeClockProps = {
   workstations?: { id: string; name: string }[];
   assignedWorkstationId?: string | null;
   todaySchedule?: TodaySchedule | null;
+  autoEndLunchOnLapse?: boolean;
+  autoClockoutAfterLunch?: boolean;
+  defaultLunchMinutes?: number;
 };
 
 type ClockActionState = {
@@ -155,7 +158,7 @@ function optimisticEntry(
     lunch_end: null,
     lunch_hours: 0,
     lunch_start: null,
-    missing_clocking: true,
+    missing_clocking: false,
     normal_hours: 0,
     notes: null,
     overtime_hours: 0,
@@ -164,9 +167,13 @@ function optimisticEntry(
     warning_notes: null,
     work_date: localDateValue(),
   };
+
   const isNewShift = eventLabel === "Clock in" && (entry === null || Boolean(entry.clock_out));
   const current = isNewShift ? fresh : { ...(entry ?? fresh) };
-  const next = { ...current };
+  const next: TimeEntryRecord = {
+    ...current,
+    workstation_id: workstationId || current.workstation_id,
+  };
   const time = eventLabel === "Clock in" && requestedAt ? requestedAt : localTimeValue();
 
   if (eventLabel === "Clock in") next.clock_in = time;
@@ -184,7 +191,11 @@ export default function EmployeeTimeClock({
   workstations = [],
   assignedWorkstationId = null,
   todaySchedule = null,
+  autoEndLunchOnLapse = false,
+  autoClockoutAfterLunch = false,
+  defaultLunchMinutes = 60,
 }: EmployeeTimeClockProps) {
+  const isAutoEndLunchActive = autoEndLunchOnLapse || autoClockoutAfterLunch;
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
   const [locationMessage, setLocationMessage] = useState("");
   const [locationDetails, setLocationDetails] = useState<{
@@ -211,6 +222,52 @@ export default function EmployeeTimeClock({
 
   const [liveTodayEntry, setLiveTodayEntry] = useState<TimeEntryRecord | null>(todayEntry);
   const isInitialMount = useRef(true);
+
+  const allottedLunchMinutes =
+    todaySchedule?.lunch_minutes && todaySchedule.lunch_minutes > 0
+      ? todaySchedule.lunch_minutes
+      : defaultLunchMinutes > 0
+        ? defaultLunchMinutes
+        : 60;
+
+  const [lunchRemainingSeconds, setLunchRemainingSeconds] = useState<number | null>(null);
+  const autoLunchEndTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    const entry = liveTodayEntry ?? todayEntry;
+    if (!entry?.lunch_start || entry.lunch_end || entry.clock_out) {
+      setLunchRemainingSeconds(null);
+      autoLunchEndTriggeredRef.current = false;
+      return;
+    }
+
+    const [h = "0", m = "0", s = "0"] = entry.lunch_start.split(":");
+    const now = new Date();
+    const startSec = Number(h) * 3600 + Number(m) * 60 + Number(s);
+    const currSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const totalAllottedSec = allottedLunchMinutes * 60;
+    const remaining = totalAllottedSec - (currSec - startSec);
+
+    setLunchRemainingSeconds(Math.max(0, remaining));
+
+    const interval = setInterval(() => {
+      const currentNow = new Date();
+      const currentCurrSec =
+        currentNow.getHours() * 3600 + currentNow.getMinutes() * 60 + currentNow.getSeconds();
+      const currentRemaining = totalAllottedSec - (currentCurrSec - startSec);
+      setLunchRemainingSeconds(Math.max(0, currentRemaining));
+
+      if (isAutoEndLunchActive && currentRemaining <= 0 && !autoLunchEndTriggeredRef.current) {
+        autoLunchEndTriggeredRef.current = true;
+        if (formRef.current) {
+          pendingActionRef.current = "End lunch";
+          formRef.current.requestSubmit();
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [liveTodayEntry, todayEntry, allottedLunchMinutes, isAutoEndLunchActive]);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -387,7 +444,20 @@ export default function EmployeeTimeClock({
         <div className="flex items-center gap-3">
           <span className={`inline-block size-2.5 rounded-full ${statusDot}`} />
           <div>
-            <p className="text-sm font-semibold text-foreground">{status}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">{status}</p>
+              {status === "On lunch" && lunchRemainingSeconds !== null ? (
+                <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-extrabold text-amber-900">
+                  {Math.floor(lunchRemainingSeconds / 60)}m {lunchRemainingSeconds % 60}s left
+                  {isAutoEndLunchActive ? " (Auto-ends lunch)" : ""}
+                </span>
+              ) : null}
+              {displayEntry?.warning_notes?.includes("Auto lunch break ended") ? (
+                <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                  Auto Lunch Ended (Resumed Shift)
+                </span>
+              ) : null}
+            </div>
             <p className="text-xs text-muted">
               {displayEntry?.work_date ?? "No time record started yet"}
             </p>

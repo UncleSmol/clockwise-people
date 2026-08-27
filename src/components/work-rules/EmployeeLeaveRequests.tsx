@@ -95,7 +95,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
   }
 
   return (
-    <section className="card grid min-w-0 grid-cols-1 gap-3 p-4">
+    <section className="grid min-w-0 grid-cols-1 gap-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <CalendarPlus className="size-5 text-accent" />

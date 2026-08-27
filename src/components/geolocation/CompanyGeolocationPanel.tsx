@@ -133,19 +133,19 @@ export default function CompanyGeolocationPanel({
   }
 
   return (
-    <section className="card grid gap-5 p-4 sm:p-6">
-      <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+    <section className="grid min-w-0 gap-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
             Geolocation
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-foreground">Workstations</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted">
+          <h2 className="mt-1 text-xl font-extrabold text-foreground">Workstations</h2>
+          <p className="mt-1 text-sm text-muted leading-relaxed">
             Set a workstation pin and radius, then assign employees. Clock events capture
             the employee location and whether it was inside the assigned radius.
           </p>
         </div>
-        <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent lg:max-w-56">
+        <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 text-xs font-medium text-foreground lg:max-w-xs shrink-0 leading-relaxed shadow-2xs">
           Browser geolocation is captured when employees clock while using the app. It is not
           background GPS tracking when the browser is closed.
         </div>
@@ -167,7 +167,7 @@ export default function CompanyGeolocationPanel({
         </p>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-5 xl:grid-cols-[1fr_360px] min-w-0">
         <div className="grid min-w-0 gap-3">
           <WorkstationMap
             latitude={position.latitude}
@@ -306,7 +306,7 @@ export default function CompanyGeolocationPanel({
         </form>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-4 xl:grid-cols-[1fr_340px] min-w-0">
         <div className="min-w-0 rounded-md border border-border bg-background">
           <div className="border-b border-border px-4 py-3">
             <h3 className="font-semibold text-foreground">Active workstations</h3>

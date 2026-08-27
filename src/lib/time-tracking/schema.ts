@@ -104,6 +104,9 @@ export type EmployeeTimeState = {
   publicHolidays: CompanyPublicHoliday[];
   workstations: { id: string; name: string }[];
   assignedWorkstationId: string | null;
+  autoEndLunchOnLapse?: boolean;
+  autoClockoutAfterLunch?: boolean;
+  defaultLunchMinutes?: number;
   todaySchedule: {
     start_time: string | null;
     end_time: string | null;

@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Clock,
   ExternalLink,
+  FileText,
   Gavel,
   Layers,
   Lock,
@@ -557,17 +558,21 @@ export default function ComplianceDocuments() {
           <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mr-1">
             Governing Authorities:
           </span>
-          <span className="rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            🏛 Information Regulator (POPIA)
+          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
+            <Building2 className="size-3 text-slate-400" />
+            Information Regulator (POPIA)
           </span>
-          <span className="rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            ⚖ Department of Employment &amp; Labour (BCEA/OHSA)
+          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
+            <Scale className="size-3 text-slate-400" />
+            Department of Employment &amp; Labour (BCEA/OHSA)
           </span>
-          <span className="rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            📜 CCMA (LRA Schedule 8)
+          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
+            <FileText className="size-3 text-slate-400" />
+            CCMA (LRA Schedule 8)
           </span>
-          <span className="rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            🛡 SARS Tax Admin Act (Sec 29)
+          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
+            <ShieldCheck className="size-3 text-slate-400" />
+            SARS Tax Admin Act (Sec 29)
           </span>
         </div>
       </div>

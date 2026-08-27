@@ -79,7 +79,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
   if (employees.length === 0) {
     return (
-      <div className="card px-6 py-10 text-center">
+      <div className="rounded-lg border border-border bg-background px-6 py-10 text-center">
         <Users className="mx-auto size-10 text-muted/60" />
         <p className="mt-2 text-lg font-bold text-foreground">No employees registered</p>
         <p className="mt-1 text-sm text-muted">
@@ -90,9 +90,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
   }
 
   return (
-    <div className="card overflow-hidden">
+    <div className="grid min-w-0 gap-3">
       {/* Top Search & Filter Bar */}
-      <div className="flex flex-col gap-3 border-b border-border bg-surface p-3.5">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <label className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />

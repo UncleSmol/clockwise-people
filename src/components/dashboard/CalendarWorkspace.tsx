@@ -312,7 +312,7 @@ export default function CalendarWorkspace({
           </div>
         }
         header={
-          <div className="z-10 flex shrink-0 flex-col border-b border-border bg-surface shadow-xs">
+          <div className="z-10 flex shrink-0 flex-col border-b border-border bg-surface/90 backdrop-blur-md shadow-xs">
             {/* Top Row: Title, Eyebrow & Close button */}
             <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-2.5 sm:px-6">
               <div className="min-w-0">
@@ -339,7 +339,7 @@ export default function CalendarWorkspace({
 
             {/* Quick Workspace Switcher Tab Bar */}
             {panels.length > 1 ? (
-              <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border bg-surface-muted/50 px-4 py-2 sm:px-6 scrollbar-none">
+              <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border bg-surface-muted/60 backdrop-blur-xs px-4 py-2 sm:px-6 scrollbar-none">
                 {panels.map((panel) => {
                   const isActive = panel.key === activePanelKey;
                   const Icon = getPanelIcon(panel.key);
@@ -382,7 +382,7 @@ export default function CalendarWorkspace({
             ) : null}
           </div>
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 bg-blueprint-pattern"
       >
         {activePanel?.content}
       </ViewportSidebar>

@@ -761,7 +761,7 @@ export default function CompanyReportsWorkspace({
             >
               {generatedPeriods.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.isCurrent ? `★ Current: ${p.label}` : p.label}
+                  {p.isCurrent ? `(Current) ${p.label}` : p.label}
                 </option>
               ))}
               <option value="custom">Custom Date Range...</option>
