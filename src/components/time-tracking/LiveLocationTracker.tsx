@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Compass, Footprints, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { startCapacitorLiveWatch, type LivePosition } from "@/lib/geolocation/live-tracker";
 import { recordLiveLocationBreadcrumb } from "@/lib/time-tracking/actions";
 
@@ -9,22 +9,18 @@ type LiveLocationTrackerProps = {
   timeEntryId: string | null;
   isClockedIn: boolean;
   isOnLunch: boolean;
-  workstationName?: string | null;
 };
 
 export default function LiveLocationTracker({
   timeEntryId,
   isClockedIn,
   isOnLunch,
-  workstationName,
 }: LiveLocationTrackerProps) {
-  const [isWatching, setIsWatching] = useState(false);
   const [lastRecordedMove, setLastRecordedMove] = useState<{
     distance: number;
     time: string;
     coords: string;
   } | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const clearWatcherRef = useRef<(() => void) | null>(null);
 
   const shouldTrack = isClockedIn && !isOnLunch && Boolean(timeEntryId);
