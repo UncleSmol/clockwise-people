@@ -93,77 +93,35 @@ export async function startCapacitorLiveWatch(
     }
   };
 
-  // Try Capacitor Geolocation first
-  try {
-    const { Geolocation } = await import("@capacitor/geolocation");
-
-    // Check permission
-    const perm = await Geolocation.checkPermissions();
-    if (perm.location !== "granted") {
-      await Geolocation.requestPermissions();
-    }
-
-    capacitorWatchId = await Geolocation.watchPosition(
+  // Use standard Web Geolocation API (supported across all modern mobile and desktop browsers)
+  if (typeof window !== "undefined" && "geolocation" in navigator) {
+    webWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        handleNewCoords(
+          position.coords.latitude,
+          position.coords.longitude,
+          position.coords.accuracy ?? null,
+          position.coords.speed ?? null,
+          position.coords.heading ?? null,
+        );
+      },
+      (err) => {
+        onError?.(err.message);
+      },
       {
         enableHighAccuracy: true,
         timeout: 20000,
         maximumAge: 10000,
       },
-      (position, err) => {
-        if (err) {
-          onError?.(err.message);
-          return;
-        }
-        if (position?.coords) {
-          handleNewCoords(
-            position.coords.latitude,
-            position.coords.longitude,
-            position.coords.accuracy ?? null,
-            position.coords.speed ?? null,
-            position.coords.heading ?? null,
-          );
-        }
-      },
     );
 
     return {
       clear: () => {
-        if (capacitorWatchId) {
-          Geolocation.clearWatch({ id: capacitorWatchId }).catch(() => {});
+        if (webWatchId !== null) {
+          navigator.geolocation.clearWatch(webWatchId);
         }
       },
     };
-  } catch {
-    // Fallback to browser navigator.geolocation
-    if (typeof window !== "undefined" && "geolocation" in navigator) {
-      webWatchId = navigator.geolocation.watchPosition(
-        (position) => {
-          handleNewCoords(
-            position.coords.latitude,
-            position.coords.longitude,
-            position.coords.accuracy ?? null,
-            position.coords.speed ?? null,
-            position.coords.heading ?? null,
-          );
-        },
-        (err) => {
-          onError?.(err.message);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 20000,
-          maximumAge: 10000,
-        },
-      );
-
-      return {
-        clear: () => {
-          if (webWatchId !== null) {
-            navigator.geolocation.clearWatch(webWatchId);
-          }
-        },
-      };
-    }
   }
 
   return {
