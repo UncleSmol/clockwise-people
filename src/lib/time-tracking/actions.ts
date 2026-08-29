@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
 import type { ClockEventType, TimeClockLocationEvent, TimeEntryRecord } from "./schema";
 
 type ClockActionState = {
@@ -540,6 +541,12 @@ export async function submitSelectedTimesheets(
     return { ok: false, message: error.message };
   }
 
+  try {
+    await syncEmployeeAccruals();
+  } catch {
+    // Non-blocking background sync
+  }
+
   revalidatePath("/dashboard");
   return {
     ok: true,
@@ -569,6 +576,12 @@ export async function approveSubmittedTimesheets(
 
   if (error) {
     return { ok: false, message: error.message };
+  }
+
+  try {
+    await syncEmployeeAccruals();
+  } catch {
+    // Non-blocking background sync
   }
 
   revalidatePath("/dashboard");
@@ -608,6 +621,14 @@ export async function reviewSubmittedTimesheets(
 
   if (error) {
     return { ok: false, message: error.message };
+  }
+
+  if (decision === "approve") {
+    try {
+      await syncEmployeeAccruals();
+    } catch {
+      // Non-blocking background sync
+    }
   }
 
   revalidatePath("/dashboard");

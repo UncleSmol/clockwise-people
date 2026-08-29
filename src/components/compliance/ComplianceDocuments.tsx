@@ -613,13 +613,13 @@ export default function ComplianceDocuments() {
 
           {/* Search Query Input */}
           <div className="relative min-w-[220px]">
-            <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search compliance clauses..."
-              className="h-8.5 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-xs font-bold text-foreground placeholder:text-muted outline-none focus:border-slate-900"
+              className="h-10 min-h-[40px] w-full rounded-lg border border-border bg-background pl-10 pr-3.5 py-2 text-xs font-bold text-foreground placeholder:text-muted outline-none focus:border-slate-900 leading-normal"
             />
           </div>
         </div>

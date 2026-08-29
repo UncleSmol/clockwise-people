@@ -608,7 +608,7 @@ export async function reviewLeaveRequest(
   };
 }
 
-export async function updateLunchBreakRule(
+export async function updateWorkRuleAutomationPolicy(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -618,6 +618,13 @@ export async function updateLunchBreakRule(
     formData.get("auto_clockout_after_lunch") === "on" ||
     formData.get("auto_clockout_after_lunch") === "true";
   const defaultLunchMinutes = Number(formData.get("default_lunch_minutes") ?? 60);
+
+  const autoClockoutBasedOnSchedule =
+    formData.get("auto_clockout_based_on_schedule") === "on" ||
+    formData.get("auto_clockout_based_on_schedule") === "true" ||
+    formData.get("auto_clockout_after_shift_end") === "on" ||
+    formData.get("auto_clockout_after_shift_end") === "true";
+  const autoClockoutGraceMinutes = Number(formData.get("auto_clockout_grace_minutes") ?? 0);
 
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
@@ -638,6 +645,9 @@ export async function updateLunchBreakRule(
     auto_end_lunch_on_lapse: autoEndLunch,
     auto_clockout_after_lunch: autoEndLunch,
     default_lunch_minutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
+    auto_clockout_based_on_schedule: autoClockoutBasedOnSchedule,
+    auto_clockout_after_shift_end: autoClockoutBasedOnSchedule,
+    auto_clockout_grace_minutes: autoClockoutGraceMinutes >= 0 ? autoClockoutGraceMinutes : 0,
   };
 
   const { error: updateError } = await supabase
@@ -653,12 +663,349 @@ export async function updateLunchBreakRule(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/time");
+
+  const summary = [];
+  if (autoEndLunch) {
+    summary.push(`Auto lunch clock-out / return active (${defaultLunchMinutes}m lapse)`);
+  } else {
+    summary.push("Auto lunch lapse disabled");
+  }
+  if (autoClockoutBasedOnSchedule) {
+    summary.push(
+      `Auto shift clock-out on schedule end${
+        autoClockoutGraceMinutes > 0 ? ` (+${autoClockoutGraceMinutes}m grace)` : ""
+      }`,
+    );
+  } else {
+    summary.push("Auto shift clock-out disabled");
+  }
+
   return {
     ok: true,
-    message: autoEndLunch
-      ? `Lunch break rule updated: Auto-ends lunch and returns to clocked-in status after ${defaultLunchMinutes} mins.`
-      : "Automatic lunch break lapse rule disabled.",
+    message: `Work rule automation updated: ${summary.join(" & ")}.`,
   };
 }
 
-export const updateAutoLunchClockoutPolicy = updateLunchBreakRule;
+export const updateAutoLunchClockoutPolicy = updateWorkRuleAutomationPolicy;
+export const updateLunchBreakRule = updateWorkRuleAutomationPolicy;
+
+/**
+ * Synchronizes and updates employee leave accruals based on the Basic Conditions
+ * of Employment Act (BCEA, Act 75 of 1997) of South Africa:
+ *
+ * 1. Annual Leave (BCEA Section 20(2)(c)):
+ *    - Statutory entitlement of 21 consecutive days (15 working days / 120 hours per annual cycle for 5-day week).
+ *    - Calculated as: 1 hour of paid annual leave for every 17 hours worked / entitled to be paid.
+ *    - Pro-rated yearly formula: yearly_hours * (hours_worked / standard_annual_hours), guaranteed >= statutory 1:17.
+ *
+ * 2. Overtime TOIL (BCEA Section 10(3)(b)):
+ *    - 1.5 hours of paid time-off in lieu (TOIL) for every 1 hour of overtime worked.
+ *
+ * 3. Sick Leave (BCEA Section 22):
+ *    - 1 day per 26 days worked during first 6 months, or 30/36 days over a 36-month cycle.
+ *
+ * 4. Family Responsibility Leave (BCEA Section 27):
+ *    - 3 days (24h) statutory entitlement per annual cycle.
+ */
+export async function syncEmployeeAccruals(
+  targetEmployeeId?: string,
+  targetCompanyId?: string,
+): Promise<{
+  ok: boolean;
+  message: string;
+  affectedCount?: number;
+  details?: Array<{
+    employeeId: string;
+    employeeName: string;
+    totalHoursWorked: number;
+    totalOvertimeHours: number;
+    annualAccrued: number;
+    toilAccrued: number;
+  }>;
+}> {
+  const supabase = await createSupabaseServerClient();
+  let companyId = targetCompanyId;
+  if (!companyId) {
+    const { company } = await getActiveCompany();
+    companyId = company.id;
+  }
+
+  // 1. Fetch company settings
+  const { data: settingsData } = await supabase
+    .from("company_settings")
+    .select("standard_monthly_hours, standard_daily_hours, leave_rules, toil_rules")
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  const standardMonthlyHours = Number(settingsData?.standard_monthly_hours ?? 173.33);
+  const standardDailyHours = Number(settingsData?.standard_daily_hours ?? 8);
+  const standardAnnualHours = Math.max(1, standardMonthlyHours * 12);
+  const leaveRules = (settingsData?.leave_rules ?? {}) as Record<string, unknown>;
+  const toilRules = (settingsData?.toil_rules ?? {}) as Record<string, unknown>;
+  const carryOverCap =
+    typeof leaveRules.carry_over_hours === "number"
+      ? leaveRules.carry_over_hours
+      : typeof leaveRules.carry_over_hours === "string" && leaveRules.carry_over_hours.trim() !== ""
+        ? Number(leaveRules.carry_over_hours)
+        : null;
+  const toilMultiplier = Number(toilRules.accrual_multiplier ?? 1.5);
+
+  // 2. Fetch active leave types
+  const { data: leaveTypes, error: leaveTypesError } = await supabase
+    .from("leave_types")
+    .select("id, name, category, is_paid, accrual_rules")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+
+  if (leaveTypesError || !leaveTypes || leaveTypes.length === 0) {
+    return { ok: false, message: leaveTypesError?.message ?? "No active leave types found." };
+  }
+
+  // 3. Fetch target employees
+  let employeeQuery = supabase
+    .from("employees")
+    .select("id, full_name, employee_number, employment_status, start_date")
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+
+  if (targetEmployeeId) {
+    employeeQuery = employeeQuery.eq("id", targetEmployeeId);
+  } else {
+    employeeQuery = employeeQuery.eq("employment_status", "active");
+  }
+
+  const { data: employees, error: empError } = await employeeQuery;
+  if (empError || !employees || employees.length === 0) {
+    return { ok: false, message: empError?.message ?? "No active employees found." };
+  }
+
+  const employeeIds = employees.map((e) => e.id);
+
+  // 4. Fetch all time entries for these employees
+  const { data: timeEntries, error: timeError } = await supabase
+    .from("time_entries")
+    .select("employee_id, normal_hours, paid_hours, overtime_hours, status, work_date")
+    .eq("company_id", companyId)
+    .in("employee_id", employeeIds)
+    .is("deleted_at", null)
+    .in("status", ["submitted", "approved", "locked"]);
+
+  if (timeError) {
+    return { ok: false, message: timeError.message };
+  }
+
+  // 5. Fetch all approved leave requests to compute taken hours
+  const { data: leaveRequests, error: reqError } = await supabase
+    .from("leave_requests")
+    .select("employee_id, leave_type_id, total_hours, status")
+    .eq("company_id", companyId)
+    .in("employee_id", employeeIds)
+    .eq("status", "approved")
+    .is("deleted_at", null);
+
+  if (reqError) {
+    return { ok: false, message: reqError.message };
+  }
+
+  // 6. Fetch existing leave balances
+  const { data: existingBalances, error: balError } = await supabase
+    .from("leave_balances")
+    .select("id, employee_id, leave_type_id, balance_hours, accrued_hours, taken_hours, adjusted_hours")
+    .eq("company_id", companyId)
+    .in("employee_id", employeeIds);
+
+  if (balError) {
+    return { ok: false, message: balError.message };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const details: Array<{
+    employeeId: string;
+    employeeName: string;
+    totalHoursWorked: number;
+    totalOvertimeHours: number;
+    annualAccrued: number;
+    toilAccrued: number;
+  }> = [];
+
+  let totalUpdated = 0;
+
+  for (const emp of employees) {
+    const empEntries = (timeEntries ?? []).filter((e) => e.employee_id === emp.id);
+    const totalNormalHours = empEntries.reduce((sum, e) => sum + Number(e.normal_hours ?? 0), 0);
+    const totalPaidHours = empEntries.reduce(
+      (sum, e) => sum + Number(e.paid_hours ?? e.normal_hours ?? 0),
+      0,
+    );
+    const totalOvertimeHours = empEntries.reduce(
+      (sum, e) => sum + Number(e.overtime_hours ?? 0),
+      0,
+    );
+    const totalWorkedHours = totalPaidHours > 0 ? totalPaidHours : totalNormalHours;
+
+    let empAnnualAccrued = 0;
+    let empToilAccrued = 0;
+
+    for (const lt of leaveTypes) {
+      // Calculate taken hours from approved leave requests
+      const empLeaveReqs = (leaveRequests ?? []).filter(
+        (r) => r.employee_id === emp.id && r.leave_type_id === lt.id,
+      );
+      const takenHours = Number(
+        empLeaveReqs.reduce((sum, r) => sum + Number(r.total_hours ?? 0), 0).toFixed(2),
+      );
+
+      // Find existing balance
+      const existingBal = (existingBalances ?? []).find(
+        (b) => b.employee_id === emp.id && b.leave_type_id === lt.id,
+      );
+      const adjustedHours = Number(existingBal?.adjusted_hours ?? 0);
+
+      let accruedHours = 0;
+      const accrualRules = (lt.accrual_rules ?? {}) as Record<string, unknown>;
+      const yearlyHours =
+        typeof accrualRules.yearly_hours === "number"
+          ? accrualRules.yearly_hours
+          : Number(accrualRules.yearly_hours ?? 0) || 0;
+
+      if (lt.category === "annual") {
+        // BCEA Section 20(2)(c): 1 hour for every 17 hours worked, or pro-rated against configured yearly entitlement
+        const bceaMinimumAccrual = Number((totalWorkedHours / 17.0).toFixed(2));
+        if (yearlyHours > 0) {
+          const proRataAccrual = Number(
+            ((yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
+          );
+          accruedHours = Math.max(proRataAccrual, bceaMinimumAccrual);
+        } else {
+          accruedHours = bceaMinimumAccrual;
+        }
+        empAnnualAccrued = accruedHours;
+      } else if (lt.category === "toil_taken") {
+        // BCEA Section 10(3)(b): 1.5 hours of TOIL for every 1 hour of overtime
+        accruedHours = Number((totalOvertimeHours * toilMultiplier).toFixed(2));
+        empToilAccrued = accruedHours;
+      } else if (lt.category === "sick") {
+        // BCEA Section 22: Sick leave entitlement
+        if (yearlyHours > 0) {
+          accruedHours = Number(
+            Math.min(yearlyHours, (yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
+          );
+        } else {
+          accruedHours = Number((totalWorkedHours / 26.0).toFixed(2));
+        }
+      } else if (lt.category === "family_responsibility") {
+        // BCEA Section 27: 3 days (24h)
+        accruedHours = yearlyHours > 0 ? yearlyHours : Number((3 * standardDailyHours).toFixed(2));
+      } else {
+        // Custom leave types
+        if (yearlyHours > 0) {
+          accruedHours = Number(
+            ((yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
+          );
+        }
+      }
+
+      // Calculate net balance
+      let balanceHours = Math.max(0, Number((accruedHours + adjustedHours - takenHours).toFixed(2)));
+
+      // Apply carry-over cap if configured
+      if (carryOverCap !== null && Number.isFinite(carryOverCap) && balanceHours > carryOverCap) {
+        balanceHours = carryOverCap;
+      }
+
+      // Upsert into leave_balances
+      if (existingBal?.id) {
+        await supabase
+          .from("leave_balances")
+          .update({
+            accrued_hours: accruedHours,
+            balance_hours: balanceHours,
+            taken_hours: takenHours,
+            as_of_date: today,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingBal.id);
+      } else {
+        await supabase.from("leave_balances").insert({
+          company_id: companyId,
+          employee_id: emp.id,
+          leave_type_id: lt.id,
+          accrued_hours: accruedHours,
+          balance_hours: balanceHours,
+          taken_hours: takenHours,
+          adjusted_hours: 0,
+          as_of_date: today,
+        });
+      }
+      totalUpdated++;
+    }
+
+    details.push({
+      employeeId: emp.id,
+      employeeName: emp.full_name,
+      totalHoursWorked: totalWorkedHours,
+      totalOvertimeHours,
+      annualAccrued: empAnnualAccrued,
+      toilAccrued: empToilAccrued,
+    });
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard/employees");
+
+  return {
+    ok: true,
+    affectedCount: totalUpdated,
+    message: `BCEA South African Labour Law accruals synchronized for ${employees.length} employee${
+      employees.length === 1 ? "" : "s"
+    } (${totalUpdated} balance records updated).`,
+    details,
+  };
+}
+
+export async function autoSyncOwnLeaveAccruals(
+  _previousState?: ActionState,
+  _formData?: FormData,
+): Promise<ActionState> {
+  const { employeeId } = await getCurrentUserAccess();
+  const { company } = await getActiveCompany();
+
+  if (!employeeId) {
+    return { ok: false, message: "No employee profile is linked to this account." };
+  }
+
+  const result = await syncEmployeeAccruals(employeeId, company.id);
+  if (!result.ok) {
+    return { ok: false, message: result.message };
+  }
+
+  const empDetail = result.details?.[0];
+  const summaryMsg = empDetail
+    ? `Accruals synchronized via SA BCEA (1h/17h worked): ${empDetail.totalHoursWorked.toFixed(2)}h worked \u2192 ${empDetail.annualAccrued.toFixed(2)}h annual leave, ${empDetail.totalOvertimeHours.toFixed(2)}h overtime \u2192 ${empDetail.toilAccrued.toFixed(2)}h TOIL.`
+    : result.message;
+
+  return {
+    ok: true,
+    message: summaryMsg,
+  };
+}
+
+export async function autoSyncCompanyLeaveAccruals(
+  _previousState?: ActionState,
+  formData?: FormData,
+): Promise<ActionState> {
+  const { company } = await getActiveCompany();
+  const targetEmployeeId = String(formData?.get("employee_id") ?? "").trim() || undefined;
+
+  const result = await syncEmployeeAccruals(targetEmployeeId, company.id);
+  return {
+    ok: result.ok,
+    message: result.message,
+  };
+}
+

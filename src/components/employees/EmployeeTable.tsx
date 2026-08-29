@@ -95,12 +95,12 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <label className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
             <input
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
               placeholder="Search by name, email, department, or role..."
-              className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-xs font-medium text-foreground outline-none placeholder:text-muted focus:border-slate-900"
+              className="h-10 min-h-[40px] w-full rounded-lg border border-border bg-background pl-10 pr-3.5 py-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted focus:border-slate-900 leading-normal"
             />
           </label>
           <span className="w-max rounded bg-slate-900 px-2.5 py-1 text-xs font-extrabold text-white shadow-2xs">

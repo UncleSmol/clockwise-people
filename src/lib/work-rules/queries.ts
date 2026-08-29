@@ -100,6 +100,12 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     approvalRules.auto_end_lunch_on_lapse ?? approvalRules.auto_clockout_after_lunch,
   );
   const defaultLunchMinutes = Number(settingsResult.data?.default_lunch_minutes ?? approvalRules.default_lunch_minutes ?? 60);
+  const autoClockoutBasedOnSchedule = Boolean(
+    approvalRules.auto_clockout_based_on_schedule ?? approvalRules.auto_clockout_after_shift_end,
+  );
+  const autoClockoutGraceMinutes = Number(
+    approvalRules.auto_clockout_grace_minutes ?? 0,
+  );
 
   const carryOverValue = leaveRules.carry_over_hours;
   const carryOverHours =
@@ -114,6 +120,8 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     autoEndLunchOnLapse,
     autoClockoutAfterLunch: autoEndLunchOnLapse,
     defaultLunchMinutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
+    autoClockoutBasedOnSchedule,
+    autoClockoutGraceMinutes: autoClockoutGraceMinutes >= 0 ? autoClockoutGraceMinutes : 0,
     carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
     employees: (employeesResult.data ?? []).map((employee) => ({
       id: employee.id,

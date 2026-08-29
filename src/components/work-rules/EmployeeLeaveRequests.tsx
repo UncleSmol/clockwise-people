@@ -1,9 +1,10 @@
 "use client";
 
-import { Calendar, CalendarPlus, FileText, Link, List, Send, Sparkles, Timer } from "lucide-react";
+import { Calculator, Calendar, CalendarPlus, FileText, Link, List, Loader2, RefreshCw, Send, Sparkles, Timer } from "lucide-react";
 import { useActionState, useState } from "react";
 import StorageUploadButton from "@/components/StorageUploadButton";
 import {
+  autoSyncOwnLeaveAccruals,
   calculateLeaveAdvisor,
   convertOvertimeToToil,
   submitLeaveRequest,
@@ -78,11 +79,16 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
     initialState,
   );
   const [toilState, toilAction, toilPending] = useActionState(convertOvertimeToToil, initialState);
+  const [syncState, syncAction, syncPending] = useActionState(autoSyncOwnLeaveAccruals, initialState);
   const calculation = calculationState.advisor;
   const holidayDays =
     calculation?.days.filter((day) => day.reason === "public_holiday") ?? [];
-  const visibleMessage = formState.message || calculationState.message;
-  const visibleOk = formState.message ? formState.ok : calculationState.ok;
+  const visibleMessage = formState.message || calculationState.message || syncState.message;
+  const visibleOk = formState.message
+    ? formState.ok
+    : calculationState.message
+      ? calculationState.ok
+      : syncState.ok;
 
   function formatFullDate(value: string | undefined) {
     if (!value) return "—";
@@ -105,6 +111,39 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
           Request leave or check your recent requests.
         </p>
       </div>
+
+      {/* Automated BCEA South African Labour Law Accruals Engine Banner */}
+      <form
+        action={syncAction}
+        className="grid gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-50/70 p-3.5 shadow-2xs"
+      >
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-md bg-emerald-600 text-white shadow-2xs">
+                <Calculator className="size-3.5" />
+              </span>
+              <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">
+                Automated BCEA Leave Accruals
+              </h3>
+              <span className="rounded bg-emerald-950 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-200">
+                SA Labour Law
+              </span>
+            </div>
+            <p className="mt-1 text-xs font-medium text-emerald-900 leading-relaxed">
+              Statutory annual leave accrues automatically at <strong>1 hour per 17 hours worked</strong> (BCEA Section 20), plus <strong>1.5&times; TOIL for overtime</strong> (BCEA Section 10).
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={syncPending}
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-60 transition-all"
+          >
+            {syncPending ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+            <span>{syncPending ? "Syncing..." : "Sync Accruals Now"}</span>
+          </button>
+        </div>
+      </form>
 
       {visibleMessage ? (
         <p

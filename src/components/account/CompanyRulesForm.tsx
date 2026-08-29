@@ -103,8 +103,8 @@ export default function CompanyRulesForm({ settings }: CompanyRulesFormProps) {
           category="approval_rules"
           defaultRules={JSON.stringify(settings.approval_rules, null, 2)}
           icon={<ShieldCheck className="size-4" />}
-          title="Approval rules"
-          description="Auto-approve thresholds, approval chain, and escalation rules."
+          title="Approval & Automation rules"
+          description="Auto lunch break lapse, auto shift clock-out based on work rules, auto-approve thresholds, and escalation rules."
         />
       </div>
     </section>

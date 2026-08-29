@@ -818,13 +818,13 @@ export default function CompanyReportsWorkspace({
               Search Employee
             </label>
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 size-3.5 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Name or employee #..."
-                className="h-9 w-full rounded-lg border border-slate-700 bg-slate-900 pl-8 pr-3 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-emerald-500"
+                className="h-10 min-h-[40px] w-full rounded-lg border border-slate-700 bg-slate-900 pl-10 pr-3.5 py-2 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-emerald-500 leading-normal"
               />
             </div>
           </div>
@@ -839,14 +839,14 @@ export default function CompanyReportsWorkspace({
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="rounded border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs font-bold text-white outline-none"
+                className="h-9 min-h-[36px] rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs font-bold text-white outline-none leading-normal"
               />
               <span className="text-slate-400">to</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="rounded border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs font-bold text-white outline-none"
+                className="h-9 min-h-[36px] rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs font-bold text-white outline-none leading-normal"
               />
             </div>
           </div>
@@ -1045,7 +1045,7 @@ export default function CompanyReportsWorkspace({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-8 rounded-md border border-border bg-background px-2 text-xs font-bold text-foreground outline-none"
+                className="h-9.5 min-h-[38px] rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground outline-none leading-normal"
               >
                 <option value="all">All Statuses</option>
                 <option value="approved">Approved Only</option>

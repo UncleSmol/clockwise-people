@@ -192,6 +192,8 @@ export type CompanyWorkRulesData = {
   autoEndLunchOnLapse?: boolean;
   autoClockoutAfterLunch?: boolean;
   defaultLunchMinutes?: number;
+  autoClockoutBasedOnSchedule?: boolean;
+  autoClockoutGraceMinutes?: number;
   carryOverHours: number | null;
   employees: { id: string; label: string }[];
   leaveBalances: Array<LeaveBalance & { employee_id: string; leave_type_id: string }>;

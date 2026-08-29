@@ -56,6 +56,19 @@
   box-sizing: border-box;
 }
 
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select {
+  line-height: normal;
+}
+
 html {
   background: var(--background);
   overflow-x: clip;

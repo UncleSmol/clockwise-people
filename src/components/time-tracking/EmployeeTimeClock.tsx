@@ -30,6 +30,8 @@ type EmployeeTimeClockProps = {
   autoEndLunchOnLapse?: boolean;
   autoClockoutAfterLunch?: boolean;
   defaultLunchMinutes?: number;
+  autoClockoutBasedOnSchedule?: boolean;
+  autoClockoutGraceMinutes?: number;
 };
 
 type ClockActionState = {
@@ -194,6 +196,8 @@ export default function EmployeeTimeClock({
   autoEndLunchOnLapse = false,
   autoClockoutAfterLunch = false,
   defaultLunchMinutes = 60,
+  autoClockoutBasedOnSchedule = false,
+  autoClockoutGraceMinutes = 0,
 }: EmployeeTimeClockProps) {
   const isAutoEndLunchActive = autoEndLunchOnLapse || autoClockoutAfterLunch;
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);

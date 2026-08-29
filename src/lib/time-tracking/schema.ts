@@ -107,6 +107,8 @@ export type EmployeeTimeState = {
   autoEndLunchOnLapse?: boolean;
   autoClockoutAfterLunch?: boolean;
   defaultLunchMinutes?: number;
+  autoClockoutBasedOnSchedule?: boolean;
+  autoClockoutGraceMinutes?: number;
   todaySchedule: {
     start_time: string | null;
     end_time: string | null;

@@ -620,6 +620,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             autoEndLunchOnLapse={employeeTimeState?.autoEndLunchOnLapse}
             autoClockoutAfterLunch={employeeTimeState?.autoClockoutAfterLunch}
             defaultLunchMinutes={employeeTimeState?.defaultLunchMinutes}
+            autoClockoutBasedOnSchedule={employeeTimeState?.autoClockoutBasedOnSchedule}
+            autoClockoutGraceMinutes={employeeTimeState?.autoClockoutGraceMinutes}
           />
         }
       employeeCalendar={
@@ -651,6 +653,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 autoEndLunchOnLapse={employeeTimeState.autoEndLunchOnLapse}
                 autoClockoutAfterLunch={employeeTimeState.autoClockoutAfterLunch}
                 defaultLunchMinutes={employeeTimeState.defaultLunchMinutes}
+                autoClockoutBasedOnSchedule={employeeTimeState.autoClockoutBasedOnSchedule}
+                autoClockoutGraceMinutes={employeeTimeState.autoClockoutGraceMinutes}
               />
             }
             clockBadge={clockBadge}

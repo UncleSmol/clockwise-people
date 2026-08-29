@@ -1,8 +1,8 @@
 "use client";
 
-import { Calculator, CalendarRange, Clock, Loader2, Save, User } from "lucide-react";
+import { Calculator, CalendarRange, Clock, Loader2, RefreshCw, Save, Sparkles, User } from "lucide-react";
 import { useActionState, useState } from "react";
-import { loadLeaveAccruals, previewLeaveAccruals } from "@/lib/work-rules/actions";
+import { autoSyncCompanyLeaveAccruals, loadLeaveAccruals, previewLeaveAccruals } from "@/lib/work-rules/actions";
 import type { CompanyWorkRulesData } from "@/lib/work-rules/schema";
 
 type CompanyLeaveAccrualPanelProps = {
@@ -45,6 +45,10 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
   const [leaveTypeId, setLeaveTypeId] = useState("");
   const [period, setPeriod] = useState(() => defaultPeriod());
   const [addToBalance, setAddToBalance] = useState(true);
+  const [autoSyncState, autoSyncAction, autoSyncPending] = useActionState(
+    autoSyncCompanyLeaveAccruals,
+    initialState,
+  );
   const [previewState, previewAction, previewPending] = useActionState(
     previewLeaveAccruals,
     initialState,
@@ -53,11 +57,56 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
 
   const previewRows = previewState.preview ?? [];
   const yearlyHours = leaveYearlyHours(data, leaveTypeId);
-  const visibleMessage = loadState.message || previewState.message;
-  const visibleOk = loadState.message ? loadState.ok : previewState.ok;
+  const visibleMessage = autoSyncState.message || loadState.message || previewState.message;
+  const visibleOk = autoSyncState.message
+    ? autoSyncState.ok
+    : loadState.message
+      ? loadState.ok
+      : previewState.ok;
 
   return (
-    <section className="grid gap-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
+    <section className="grid gap-4">
+      {/* 1-Click Automated BCEA South African Labour Law Accruals Card */}
+      <form
+        action={autoSyncAction}
+        className="grid gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-50/70 p-4 shadow-2xs"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-2xs">
+                <Sparkles className="size-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-emerald-950">
+                  Automate All Accruals (BCEA SA Labour Law)
+                </h3>
+                <span className="text-[10px] font-bold text-emerald-800">
+                  Calculates 1h annual leave per 17h worked + 1.5&times; overtime TOIL for all active employees
+                </span>
+              </div>
+            </div>
+            <p className="mt-2 text-xs font-medium text-emerald-900 leading-relaxed">
+              Scans all accumulated timesheets and approved leave requests across the company, calculates statutory BCEA accruals, and updates balances automatically in real time.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={autoSyncPending}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60 transition-all"
+          >
+            {autoSyncPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            <span>{autoSyncPending ? "Automating..." : "Auto-Accrue All"}</span>
+          </button>
+        </div>
+      </form>
+
+      <div className="grid gap-3 rounded-lg border border-accent/30 bg-accent/5 p-3">
       <div>
         <h3 className="flex items-center gap-2 font-semibold text-foreground">
           <Calculator className="size-4 text-accent" />
@@ -232,6 +281,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
           </button>
         </form>
       ) : null}
+      </div>
     </section>
   );
 }

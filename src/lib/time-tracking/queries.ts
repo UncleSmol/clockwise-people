@@ -159,6 +159,46 @@ function calculateLapsedLunchEndTime(lunchStart: string, lunchMinutes: number): 
   return `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function hasShiftEnded(
+  shiftEndTime: string | null | undefined,
+  graceMinutes: number = 0,
+  timezone: string = "UTC",
+): boolean {
+  if (!shiftEndTime) return false;
+  const [h = "0", m = "0", s = "0"] = shiftEndTime.split(":");
+  const now = new Date();
+  const localTimeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(now);
+  const [currH = "0", currM = "0", currS = "0"] = localTimeStr.split(":");
+
+  const endSec = Number(h) * 3600 + Number(m) * 60 + Number(s);
+  const currSec = Number(currH) * 3600 + Number(currM) * 60 + Number(currS);
+  const graceSec = Math.max(0, graceMinutes) * 60;
+
+  return currSec >= endSec + graceSec;
+}
+
+function calculateShiftHours(
+  clockIn: string,
+  clockOut: string,
+  lunchHours: number = 0,
+): { grossHours: number; paidHours: number; normalHours: number } {
+  const [inH = 0, inM = 0] = clockIn.split(":").map(Number);
+  const [outH = 0, outM = 0] = clockOut.split(":").map(Number);
+  const totalInMin = inH * 60 + inM;
+  const totalOutMin = outH * 60 + outM;
+  const grossMinutes = Math.max(0, totalOutMin - totalInMin);
+  const grossHours = Number((grossMinutes / 60).toFixed(2));
+  const paidHours = Number(Math.max(0, grossHours - lunchHours).toFixed(2));
+  const normalHours = Number(Math.min(paidHours, 8).toFixed(2));
+  return { grossHours, paidHours, normalHours };
+}
+
 async function getEmployeeSchedules(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   companyId: string,
@@ -542,6 +582,12 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     settingsApprovalRules.auto_end_lunch_on_lapse ?? settingsApprovalRules.auto_clockout_after_lunch,
   );
   const defaultLunchMinutes = Number(settingsResult?.data?.default_lunch_minutes ?? settingsApprovalRules.default_lunch_minutes ?? 60);
+  const autoClockoutBasedOnSchedule = Boolean(
+    settingsApprovalRules.auto_clockout_based_on_schedule ?? settingsApprovalRules.auto_clockout_after_shift_end,
+  );
+  const autoClockoutGraceMinutes = Number(
+    settingsApprovalRules.auto_clockout_grace_minutes ?? 0,
+  );
 
   let todaySchedule: EmployeeTimeState["todaySchedule"] = null;
   if (employeeRow.work_schedule_id) {
@@ -595,6 +641,39 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .eq("id", effectiveTodayEntryRow.id);
   }
 
+  // Auto-clockout shift if employee is still clocked in and work rule scheduled end time has passed
+  if (
+    autoClockoutBasedOnSchedule &&
+    todaySchedule?.end_time &&
+    effectiveTodayEntryRow?.clock_in &&
+    !effectiveTodayEntryRow.clock_out &&
+    hasShiftEnded(todaySchedule.end_time, autoClockoutGraceMinutes, company.timezone || "UTC")
+  ) {
+    const shiftHours = calculateShiftHours(
+      effectiveTodayEntryRow.clock_in,
+      todaySchedule.end_time,
+      Number(effectiveTodayEntryRow.lunch_hours ?? 0),
+    );
+    effectiveTodayEntryRow.clock_out = todaySchedule.end_time;
+    effectiveTodayEntryRow.gross_hours = shiftHours.grossHours;
+    effectiveTodayEntryRow.paid_hours = shiftHours.paidHours;
+    effectiveTodayEntryRow.normal_hours = shiftHours.normalHours;
+    effectiveTodayEntryRow.warning_notes = effectiveTodayEntryRow.warning_notes
+      ? `${effectiveTodayEntryRow.warning_notes}; Auto clocked out based on schedule end (${todaySchedule.end_time})`
+      : `Auto clocked out based on schedule end (${todaySchedule.end_time})`;
+
+    void supabase
+      .from("time_entries")
+      .update({
+        clock_out: todaySchedule.end_time,
+        gross_hours: shiftHours.grossHours,
+        paid_hours: shiftHours.paidHours,
+        normal_hours: shiftHours.normalHours,
+        warning_notes: effectiveTodayEntryRow.warning_notes,
+      })
+      .eq("id", effectiveTodayEntryRow.id);
+  }
+
   return {
     currentWorkDate: today,
     employee: {
@@ -615,6 +694,8 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     autoEndLunchOnLapse,
     autoClockoutAfterLunch: autoEndLunchOnLapse,
     defaultLunchMinutes,
+    autoClockoutBasedOnSchedule,
+    autoClockoutGraceMinutes: autoClockoutGraceMinutes >= 0 ? autoClockoutGraceMinutes : 0,
   };
 });
 
