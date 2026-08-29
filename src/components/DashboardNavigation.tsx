@@ -196,7 +196,7 @@ export default function DashboardNavigation({
           </button>
 
           {open ? (
-            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-border shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-blueprint-pattern p-0">
+            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-border shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-white p-0">
               {profileName ? (
                 <div className="border-b border-border/80 bg-surface/90 backdrop-blur-xs px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted">

@@ -64,27 +64,41 @@ html {
 body {
   overflow-x: clip;
   background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  margin: 0;
+  position: relative;
+}
+
+/* GPU-composited fixed background layer — eliminates 60fps/120fps repaint lag during scrolling */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--background);
   background-image:
     /* Blueprint-style grid lines */
     linear-gradient(
-      color-mix(in srgb, var(--color-primary) 4%, transparent) 1px,
+      rgba(15, 23, 42, 0.035) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--color-primary) 4%, transparent) 1px,
+      rgba(15, 23, 42, 0.035) 1px,
       transparent 1px
     ),
     /* Dot markers at grid intersections */
     radial-gradient(
       circle,
-      color-mix(in srgb, var(--color-primary) 9%, transparent) 1px,
+      rgba(15, 23, 42, 0.08) 1px,
       transparent 1.6px
     ),
     /* Ambient brand glows */
-    radial-gradient(ellipse at 100% -10%, color-mix(in srgb, var(--color-accent) 7%, transparent) 0%, transparent 55%),
-    radial-gradient(ellipse at -5% 110%, color-mix(in srgb, var(--color-accent) 5%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse at 40% 40%, color-mix(in srgb, var(--color-primary) 4%, transparent) 0%, transparent 65%);
+    radial-gradient(ellipse at 100% -10%, rgba(15, 23, 42, 0.04) 0%, transparent 55%),
+    radial-gradient(ellipse at -5% 110%, rgba(15, 23, 42, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 40% 40%, rgba(15, 23, 42, 0.02) 0%, transparent 65%);
   background-size:
     24px 24px,
     24px 24px,
@@ -92,10 +106,8 @@ body {
     auto,
     auto,
     auto;
-  background-attachment: fixed;
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  margin: 0;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 /* Reusable blueprint pattern matching the global app background */
@@ -188,8 +200,7 @@ textarea {
     background-color 120ms ease,
     border-color 120ms ease,
     color 120ms ease,
-    box-shadow 120ms ease,
-    transform 120ms ease;
+    opacity 120ms ease;
 }
 
 /* Crisp native taps on phones */

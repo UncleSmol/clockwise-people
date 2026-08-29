@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <main className="min-h-screen text-foreground">
       <RealtimeSyncProvider companyId={company.id}>
         <PanelBridgeProvider>
-          <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md">
+          <div className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur-xs">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <Link
               href="/dashboard"

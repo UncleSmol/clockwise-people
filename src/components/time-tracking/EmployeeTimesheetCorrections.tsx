@@ -423,6 +423,7 @@ export default function EmployeeTimesheetCorrections({
   const { openPanel } = usePanel();
 
   const [showLegend, setShowLegend] = useState(false);
+  const [calendarExpanded, setCalendarExpanded] = useState(!collapsedCalendar);
   const [selectedDate, setSelectedDate] = useState("");
   const [detailEntry, setDetailEntry] = useState<TimeEntryRecord | null>(null);
   const [showDetailMap, setShowDetailMap] = useState(false);
@@ -1173,16 +1174,29 @@ export default function EmployeeTimesheetCorrections({
       {section !== "records" ? (
         <div className="grid gap-3 border-t border-border pt-4">
           {collapsedCalendar ? (
-            <details className="grid gap-3" open={false}>
-              <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+            <button
+              type="button"
+              onClick={() => setCalendarExpanded((prev) => !prev)}
+              aria-expanded={calendarExpanded}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/50 px-3.5 py-2.5 text-left transition-colors hover:bg-surface-muted shadow-2xs"
+            >
+              <span className="flex items-center gap-2 font-semibold text-foreground">
                 <CalendarDays className="size-4 text-accent" />
                 Detailed calendar
-                <span className="ml-auto rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-muted">
-                  Expand
-                </span>
-              </summary>
-            </details>
+              </span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+                <span>{calendarExpanded ? "Collapse" : "Expand"}</span>
+                <ChevronDown
+                  className={`size-3.5 transition-transform duration-200 ${
+                    calendarExpanded ? "rotate-180" : ""
+                  }`}
+                />
+              </span>
+            </button>
           ) : null}
+
+          {(!collapsedCalendar || calendarExpanded) && (
+            <div className="grid gap-3">
         {message && (
           <div
             className={`rounded-md border px-3 py-2 text-sm font-semibold shadow-2xs ${
@@ -1565,6 +1579,8 @@ export default function EmployeeTimesheetCorrections({
             {quickSubmitForm}
           </div>
         ) : null}
+            </div>
+          )}
         </div>
       ) : null}
 

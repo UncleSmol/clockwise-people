@@ -109,8 +109,13 @@ export default function CalendarWorkspace({
   const handleSwitcherPointerDown = useCallback((e: PointerEvent) => {
     if ((e.target as HTMLElement).closest("select")) return;
     e.preventDefault();
-    const el = e.target as HTMLElement;
-    el.setPointerCapture(e.pointerId);
+    const el = switcherElRef.current;
+    if (!el) return;
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
     switcherDragRef.current = {
       dragging: true,
       moved: false,
@@ -122,27 +127,55 @@ export default function CalendarWorkspace({
   }, [switcherPos]);
 
   useEffect(() => {
+    let rAFId: number | null = null;
+    let latestX = switcherPos.x;
+    let latestY = switcherPos.y;
+
     const handleMove = (e: globalThis.PointerEvent) => {
       const drag = switcherDragRef.current;
       if (!drag.dragging) return;
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
-      if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true;
-      setSwitcherPos({
-        x: drag.origX + dx,
-        y: drag.origY + dy,
+      if (!drag.moved && Math.hypot(dx, dy) > 4) {
+        drag.moved = true;
+      }
+      if (!drag.moved) return;
+
+      const newX = drag.origX + dx;
+      const newY = drag.origY + dy;
+      const maxX = Math.max(0, window.innerWidth - (switcherElRef.current?.offsetWidth ?? 160));
+      const maxY = Math.max(0, window.innerHeight - (switcherElRef.current?.offsetHeight ?? 48));
+      const clampedX = Math.max(8, Math.min(maxX, newX));
+      const clampedY = Math.max(8, Math.min(maxY, newY));
+
+      latestX = clampedX;
+      latestY = clampedY;
+
+      if (rAFId !== null) cancelAnimationFrame(rAFId);
+      rAFId = requestAnimationFrame(() => {
+        if (switcherElRef.current) {
+          switcherElRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`;
+        }
       });
     };
+
     const handleUp = () => {
-      switcherDragRef.current.dragging = false;
+      const drag = switcherDragRef.current;
+      if (!drag.dragging) return;
+      drag.dragging = false;
+      if (drag.moved) {
+        setSwitcherPos({ x: latestX, y: latestY });
+      }
     };
-    window.addEventListener("pointermove", handleMove);
+
+    window.addEventListener("pointermove", handleMove, { passive: true });
     window.addEventListener("pointerup", handleUp);
     return () => {
+      if (rAFId !== null) cancelAnimationFrame(rAFId);
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
     };
-  }, []);
+  }, [switcherPos.x, switcherPos.y]);
 
   const handleSwitcherClick = useCallback(() => {
     if (switcherDragRef.current.moved) return;
@@ -382,7 +415,7 @@ export default function CalendarWorkspace({
             ) : null}
           </div>
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 bg-blueprint-pattern"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 bg-white"
       >
         {activePanel?.content}
       </ViewportSidebar>
@@ -390,7 +423,12 @@ export default function CalendarWorkspace({
       {isSuperAdmin ? (
         <div
           ref={switcherElRef}
-          style={{ left: switcherPos.x, top: switcherPos.y }}
+          style={{
+            transform: `translate3d(${switcherPos.x}px, ${switcherPos.y}px, 0)`,
+            left: 0,
+            top: 0,
+            willChange: "transform",
+          }}
           className="fixed z-50 touch-none select-none cursor-grab active:cursor-grabbing"
           onPointerDown={handleSwitcherPointerDown}
         >
