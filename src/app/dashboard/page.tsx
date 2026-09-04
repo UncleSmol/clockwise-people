@@ -545,8 +545,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             daily_hours: 8,
           }));
 
-    const payrollConfig = (companySettings?.approval_rules as Record<string, unknown> | undefined)
-      ?.payroll_period_config as import("@/lib/reports/payroll-periods").PayrollPeriodConfig | undefined;
+    const payrollConfig =
+      workRulesData?.payrollConfig ||
+      ((companySettings?.approval_rules as Record<string, unknown> | undefined)
+        ?.payroll_period_config as import("@/lib/reports/payroll-periods").PayrollPeriodConfig | undefined);
 
     panels.push({
       key: "reports",

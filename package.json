@@ -18,7 +18,14 @@
     "ui-qa:all": "node scripts/ui-qa.js all",
     "ui-qa:ci": "node scripts/ui-qa.js ci",
     "ui-qa:report": "node scripts/ui-qa.js report",
-    "ui-qa:install": "node scripts/ui-qa.js install"
+    "ui-qa:install": "node scripts/ui-qa.js install",
+    "supabase:start": "supabase start --ignore-health-check",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:reset": "supabase db reset",
+    "db:start": "supabase start --ignore-health-check",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.21",

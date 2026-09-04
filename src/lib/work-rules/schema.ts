@@ -188,6 +188,8 @@ export type LeaveAccrualEntry = {
   employee_id: string;
 };
 
+import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
+
 export type CompanyWorkRulesData = {
   autoEndLunchOnLapse?: boolean;
   autoClockoutAfterLunch?: boolean;
@@ -201,6 +203,9 @@ export type CompanyWorkRulesData = {
   publicHolidays: PublicHoliday[];
   schedules: WorkSchedule[];
   standardAnnualHours: number;
+  payrollRules?: CustomPayrollRule[];
+  payrollAssignments?: Record<string, string>;
+  payrollConfig?: PayrollPeriodConfig;
 };
 
 export type EmployeeLeaveState = {

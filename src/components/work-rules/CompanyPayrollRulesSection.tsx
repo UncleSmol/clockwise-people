@@ -17,7 +17,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   calculatePeriodEndDate,
   defaultPayrollConfig,
@@ -28,6 +28,7 @@ import {
   type PayrollFrequency,
   type PayrollPeriodConfig,
 } from "@/lib/reports/payroll-periods";
+import { saveCompanyPayrollRulesAction } from "@/lib/work-rules/actions";
 
 function addDaysToDateString(dateStr: string, days: number): string {
   if (!dateStr) return "";
@@ -40,7 +41,8 @@ function calculateDiffDays(startStr: string, endStr: string): number {
   if (!startStr || !endStr) return 0;
   const start = new Date(`${startStr}T00:00:00`).getTime();
   const end = new Date(`${endStr}T00:00:00`).getTime();
-  return Math.max(1, Math.round((end - start) / (1000 * 3600 * 24)) + 1);
+  const diffTime = Math.abs(end - start);
+  return Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
 }
 
 function generateSmartRuleDescription(params: {
@@ -52,19 +54,24 @@ function generateSmartRuleDescription(params: {
   startDayOfMonth?: number;
   endDayOfMonth?: number;
 }): string {
-  const freqLabels: Record<PayrollFrequency, string> = {
-    monthly: "Monthly payroll cycle",
-    semi_monthly: "Semi-monthly payroll cycle (twice per month)",
-    bi_weekly: "Bi-weekly 14-day payroll cycle",
-    weekly: "Weekly 7-day payroll cycle",
-    custom: `Custom ${params.cycleDays}-day payroll cycle`,
-  };
-  const freqText = freqLabels[params.frequency] || "Payroll cycle";
-  const startFormatted = formatPeriodDate(params.startDate);
-  const endFormatted = formatPeriodDate(params.endDate);
-  const payFormatted = formatPeriodDate(params.disbursementDate);
+  const { frequency, startDate, endDate, cycleDays, disbursementDate, startDayOfMonth, endDayOfMonth } = params;
+  const disbFormatted = disbursementDate ? formatPeriodDate(disbursementDate) : "end of cycle";
 
-  return `${freqText} running from ${startFormatted} to ${endFormatted} (${params.cycleDays} days), with salary disbursement on ${payFormatted}. The cycle automatically restarts on the following day.`;
+  if (frequency === "monthly") {
+    const sDay = startDayOfMonth ?? 1;
+    const eDay = endDayOfMonth ?? 31;
+    return `Monthly payroll cycle from the ${sDay} to the ${eDay} (${cycleDays} days), with salary disbursement on ${disbFormatted}. The cycle automatically restarts on the ${sDay} of each month.`;
+  }
+  if (frequency === "semi_monthly") {
+    return `Semi-monthly split cycle (1st-15th & 16th-month end, ${cycleDays} days), disbursing on ${disbFormatted}.`;
+  }
+  if (frequency === "bi_weekly") {
+    return `Bi-weekly 14-day rolling cycle from ${formatPeriodDate(startDate)} to ${formatPeriodDate(endDate)}, disbursing on ${disbFormatted}. Restarts automatically on the following day.`;
+  }
+  if (frequency === "weekly") {
+    return `Weekly 7-day rolling cycle from ${formatPeriodDate(startDate)} to ${formatPeriodDate(endDate)}, disbursing on ${disbFormatted}.`;
+  }
+  return `Custom ${cycleDays}-day payroll cycle from ${formatPeriodDate(startDate)} to ${formatPeriodDate(endDate)}, with payment on ${disbFormatted}. The cycle automatically restarts every ${cycleDays} days.`;
 }
 
 type CompanyPayrollRulesSectionProps = {
@@ -132,6 +139,23 @@ export default function CompanyPayrollRulesSection({
     }
     return map;
   });
+
+  // Synchronize state when initial props update from server
+  useEffect(() => {
+    if (initialCustomRules && initialCustomRules.length > 0) {
+      setRules(initialCustomRules);
+    }
+  }, [initialCustomRules]);
+
+  useEffect(() => {
+    if (initialAssignments && initialAssignments.length > 0) {
+      const map: Record<string, string> = {};
+      for (const a of initialAssignments) {
+        map[a.employeeId] = a.ruleId;
+      }
+      setEmployeeAssignments(map);
+    }
+  }, [initialAssignments]);
 
   // Form State for creating/editing a custom rule
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -331,36 +355,34 @@ export default function CompanyPayrollRulesSection({
       return;
     }
 
-    startTransition(() => {
+    startTransition(async () => {
+      let nextRules: CustomPayrollRule[];
       if (editingRuleId) {
-        setRules((prev) =>
-          prev.map((r) =>
-            r.id === editingRuleId
-              ? {
-                  ...r,
-                  name: ruleName.trim(),
-                  frequency,
-                  startDate,
-                  endDate:
-                    endDate ||
-                    calculatePeriodEndDate(startDate, frequency, {
-                      startDayOfMonth,
-                      endDayOfMonth,
-                      customCycleDays,
-                    }),
-                  anchorDate: startDate,
-                  customCycleDays: frequency === "custom" ? customCycleDays : undefined,
-                  startDayOfMonth: frequency === "monthly" ? startDayOfMonth : undefined,
-                  endDayOfMonth: frequency === "monthly" ? endDayOfMonth : undefined,
-                  startDayOfWeek:
-                    frequency === "weekly" || frequency === "bi_weekly" ? startDayOfWeek : undefined,
-                  payDayOffsetDays,
-                  description: description.trim(),
-                }
-              : r,
-          ),
+        nextRules = rules.map((r) =>
+          r.id === editingRuleId
+            ? {
+                ...r,
+                name: ruleName.trim(),
+                frequency,
+                startDate,
+                endDate:
+                  endDate ||
+                  calculatePeriodEndDate(startDate, frequency, {
+                    startDayOfMonth,
+                    endDayOfMonth,
+                    customCycleDays,
+                  }),
+                anchorDate: startDate,
+                customCycleDays: frequency === "custom" ? customCycleDays : undefined,
+                startDayOfMonth: frequency === "monthly" ? startDayOfMonth : undefined,
+                endDayOfMonth: frequency === "monthly" ? endDayOfMonth : undefined,
+                startDayOfWeek:
+                  frequency === "weekly" || frequency === "bi_weekly" ? startDayOfWeek : undefined,
+                payDayOffsetDays,
+                description: description.trim(),
+              }
+            : r,
         );
-        setStatusMessage({ text: `Payroll rule "${ruleName}" updated successfully!`, ok: true });
       } else {
         const calculatedEnd =
           endDate ||
@@ -386,10 +408,26 @@ export default function CompanyPayrollRulesSection({
           description: description.trim(),
           assignedEmployeeIds: [],
         };
-        setRules((prev) => [...prev, newRule]);
-        setStatusMessage({ text: `Custom payroll rule "${ruleName}" created successfully!`, ok: true });
+        nextRules = [...rules, newRule];
       }
-      resetForm();
+
+      setRules(nextRules);
+      const res = await saveCompanyPayrollRulesAction({
+        rules: nextRules,
+        assignments: employeeAssignments,
+      });
+
+      if (res.ok) {
+        setStatusMessage({
+          text: editingRuleId
+            ? `Payroll rule "${ruleName}" updated and saved globally to database!`
+            : `Custom payroll rule "${ruleName}" created and saved globally to database!`,
+          ok: true,
+        });
+        resetForm();
+      } else {
+        setStatusMessage({ text: `Failed to save rule to database: ${res.message}`, ok: false });
+      }
     });
   };
 
@@ -398,19 +436,29 @@ export default function CompanyPayrollRulesSection({
       setStatusMessage({ text: "Cannot delete the company default payroll rule.", ok: false });
       return;
     }
-    startTransition(() => {
-      setRules((prev) => prev.filter((r) => r.id !== ruleId));
+    startTransition(async () => {
+      const nextRules = rules.filter((r) => r.id !== ruleId);
       // Reassign affected employees to company default
-      setEmployeeAssignments((prev) => {
-        const next = { ...prev };
-        for (const [empId, rId] of Object.entries(next)) {
-          if (rId === ruleId) {
-            next[empId] = "company-default";
-          }
+      const nextAssignments = { ...employeeAssignments };
+      for (const [empId, rId] of Object.entries(nextAssignments)) {
+        if (rId === ruleId) {
+          nextAssignments[empId] = "company-default";
         }
-        return next;
+      }
+
+      setRules(nextRules);
+      setEmployeeAssignments(nextAssignments);
+
+      const res = await saveCompanyPayrollRulesAction({
+        rules: nextRules,
+        assignments: nextAssignments,
       });
-      setStatusMessage({ text: "Custom payroll rule removed.", ok: true });
+
+      if (res.ok) {
+        setStatusMessage({ text: "Custom payroll rule deleted and database updated.", ok: true });
+      } else {
+        setStatusMessage({ text: `Failed to delete rule from database: ${res.message}`, ok: false });
+      }
     });
   };
 
@@ -421,40 +469,62 @@ export default function CompanyPayrollRulesSection({
       return;
     }
 
-    startTransition(() => {
+    startTransition(async () => {
+      let nextAssignments: Record<string, string>;
       if (selectedEmployeeId === "ALL_UNASSIGNED") {
-        setEmployeeAssignments((prev) => {
-          const next = { ...prev };
-          for (const emp of employees) {
-            if (!next[emp.id]) {
-              next[emp.id] = targetRuleId;
-            }
+        nextAssignments = { ...employeeAssignments };
+        for (const emp of employees) {
+          if (!nextAssignments[emp.id]) {
+            nextAssignments[emp.id] = targetRuleId;
           }
-          return next;
-        });
-        setStatusMessage({ text: "All unassigned employees assigned to payroll rule.", ok: true });
+        }
       } else {
-        setEmployeeAssignments((prev) => ({
-          ...prev,
+        nextAssignments = {
+          ...employeeAssignments,
           [selectedEmployeeId]: targetRuleId,
-        }));
-        const empName = employees.find((e) => e.id === selectedEmployeeId)?.label ?? "Employee";
-        const ruleName = rules.find((r) => r.id === targetRuleId)?.name ?? "Payroll Rule";
-        setStatusMessage({ text: `Assigned ${empName} to "${ruleName}".`, ok: true });
+        };
+      }
+
+      setEmployeeAssignments(nextAssignments);
+      const res = await saveCompanyPayrollRulesAction({
+        rules,
+        assignments: nextAssignments,
+      });
+
+      if (res.ok) {
+        const empName =
+          selectedEmployeeId === "ALL_UNASSIGNED"
+            ? "All unassigned employees"
+            : employees.find((e) => e.id === selectedEmployeeId)?.label ?? "Employee";
+        const targetRuleName = rules.find((r) => r.id === targetRuleId)?.name ?? "Payroll Rule";
+        setStatusMessage({ text: `Assigned ${empName} to "${targetRuleName}" (saved globally).`, ok: true });
+      } else {
+        setStatusMessage({ text: `Failed to save assignment: ${res.message}`, ok: false });
       }
       setSelectedEmployeeId("");
     });
   };
 
   const handleQuickReassign = (employeeId: string, ruleId: string) => {
-    startTransition(() => {
-      setEmployeeAssignments((prev) => ({
-        ...prev,
+    startTransition(async () => {
+      const nextAssignments = {
+        ...employeeAssignments,
         [employeeId]: ruleId,
-      }));
-      const empName = employees.find((e) => e.id === employeeId)?.label ?? "Employee";
-      const rName = rules.find((r) => r.id === ruleId)?.name ?? "Payroll Rule";
-      setStatusMessage({ text: `Updated ${empName} to "${rName}".`, ok: true });
+      };
+      setEmployeeAssignments(nextAssignments);
+
+      const res = await saveCompanyPayrollRulesAction({
+        rules,
+        assignments: nextAssignments,
+      });
+
+      if (res.ok) {
+        const empName = employees.find((e) => e.id === employeeId)?.label ?? "Employee";
+        const rName = rules.find((r) => r.id === ruleId)?.name ?? "Payroll Rule";
+        setStatusMessage({ text: `Updated ${empName} to "${rName}" (saved globally).`, ok: true });
+      } else {
+        setStatusMessage({ text: `Failed to update assignment: ${res.message}`, ok: false });
+      }
     });
   };
 

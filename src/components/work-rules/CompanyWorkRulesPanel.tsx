@@ -233,7 +233,21 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
 
       {/* Payroll Period Rules & Employee Assignments Section */}
       {(activeSection === "all" || activeSection === "payroll_rules") && (
-        <CompanyPayrollRulesSection employees={data.employees} />
+        <CompanyPayrollRulesSection
+          employees={data.employees}
+          initialCustomRules={data.payrollRules}
+          initialAssignments={
+            data.payrollAssignments
+              ? Object.entries(data.payrollAssignments).map(([empId, rId]) => ({
+                  employeeId: empId,
+                  employeeName: data.employees.find((e) => e.id === empId)?.label ?? empId,
+                  ruleId: rId,
+                  ruleName: (data.payrollRules ?? []).find((r) => r.id === rId)?.name ?? rId,
+                }))
+              : undefined
+          }
+          initialConfig={data.payrollConfig}
+        />
       )}
 
       {(activeSection === "all" ||

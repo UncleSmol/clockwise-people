@@ -130,7 +130,11 @@ function relationName(
   return relation?.name ?? null;
 }
 
-function hasLunchDurationLapsed(lunchStart: string | null | undefined, lunchMinutes: number, timezone: string = "UTC"): boolean {
+function hasLunchDurationLapsed(
+  lunchStart: string | null | undefined,
+  lunchMinutes: number,
+  timezone: string = "Africa/Johannesburg",
+): boolean {
   if (!lunchStart) return false;
   const [h = "0", m = "0", s = "0"] = lunchStart.split(":");
   const now = new Date();
@@ -162,9 +166,15 @@ function calculateLapsedLunchEndTime(lunchStart: string, lunchMinutes: number): 
 function hasShiftEnded(
   shiftEndTime: string | null | undefined,
   graceMinutes: number = 0,
-  timezone: string = "UTC",
+  timezone: string = "Africa/Johannesburg",
+  workDate?: string | null,
+  currentDate?: string | null,
 ): boolean {
   if (!shiftEndTime) return false;
+  if (workDate && currentDate && workDate < currentDate) {
+    return true;
+  }
+
   const [h = "0", m = "0", s = "0"] = shiftEndTime.split(":");
   const now = new Date();
   const localTimeStr = new Intl.DateTimeFormat("en-GB", {
@@ -393,9 +403,11 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     getActiveCompany(),
   ]);
 
+  const effectiveTimezone = company.timezone || "Africa/Johannesburg";
+
   if (!access.employeeId) {
     return {
-      currentWorkDate: currentDateInTimezone(company.timezone || "UTC"),
+      currentWorkDate: currentDateInTimezone(effectiveTimezone),
       employee: null,
       todayEntry: null,
       recentEntries: [],
@@ -409,7 +421,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   }
 
   const { supabase } = await requireUser();
-  const today = currentDateInTimezone(company.timezone || "UTC");
+  const today = currentDateInTimezone(effectiveTimezone);
   const currentYear = Number(today.slice(0, 4));
 
   await supabase.rpc("ensure_current_year_za_public_holidays", {
@@ -576,7 +588,6 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     (workstation) => ({ id: workstation.id, name: workstation.name }),
   );
   const assignedWorkstationId = (assignmentsResult.data?.[0]?.workstation_id as string) ?? null;
-
   const settingsApprovalRules = (settingsResult?.data?.approval_rules ?? {}) as Record<string, unknown>;
   const autoEndLunchOnLapse = Boolean(
     settingsApprovalRules.auto_end_lunch_on_lapse ?? settingsApprovalRules.auto_clockout_after_lunch,
@@ -590,22 +601,71 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   );
 
   let todaySchedule: EmployeeTimeState["todaySchedule"] = null;
-  if (employeeRow.work_schedule_id) {
+  let scheduleId = employeeRow.work_schedule_id;
+
+  // Fallback to active company schedule if employee doesn't have an explicit schedule assignment
+  if (!scheduleId) {
+    const { data: defaultSchedule } = await supabase
+      .from("work_schedules")
+      .select("id")
+      .eq("company_id", company.id)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (defaultSchedule) {
+      scheduleId = defaultSchedule.id;
+    }
+  }
+
+  if (scheduleId) {
+    const dayOfWeek = new Date(`${today}T00:00:00`).getDay();
     const { data: scheduleDay } = await supabase
       .from("schedule_days")
       .select("start_time, end_time, lunch_minutes, is_working_day")
-      .eq("work_schedule_id", employeeRow.work_schedule_id)
-      .eq("day_of_week", new Date(`${today}T00:00:00`).getDay())
+      .eq("work_schedule_id", scheduleId)
+      .eq("day_of_week", dayOfWeek)
       .maybeSingle();
 
-    if (scheduleDay) {
+    if (scheduleDay && scheduleDay.start_time && scheduleDay.end_time) {
       todaySchedule = {
-        start_time: scheduleDay.start_time ?? null,
-        end_time: scheduleDay.end_time ?? null,
+        start_time: scheduleDay.start_time,
+        end_time: scheduleDay.end_time,
         lunch_minutes: Number(scheduleDay.lunch_minutes ?? 0),
         is_working_day: Boolean(scheduleDay.is_working_day),
       };
+    } else {
+      // Fallback: look for any schedule day with valid start/end times in this schedule
+      const { data: anyDay } = await supabase
+        .from("schedule_days")
+        .select("start_time, end_time, lunch_minutes, is_working_day")
+        .eq("work_schedule_id", scheduleId)
+        .not("start_time", "is", null)
+        .not("end_time", "is", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (anyDay && anyDay.start_time && anyDay.end_time) {
+        todaySchedule = {
+          start_time: anyDay.start_time,
+          end_time: anyDay.end_time,
+          lunch_minutes: Number(anyDay.lunch_minutes ?? defaultLunchMinutes ?? 60),
+          is_working_day: true,
+        };
+      }
     }
+  }
+
+  // If still no schedule found, default standard 08:00 - 17:00 work day
+  if (!todaySchedule) {
+    todaySchedule = {
+      start_time: "08:00:00",
+      end_time: "17:00:00",
+      lunch_minutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
+      is_working_day: true,
+    };
   }
 
   const allottedLunchMinutes = todaySchedule?.lunch_minutes && todaySchedule.lunch_minutes > 0
@@ -620,7 +680,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     effectiveTodayEntryRow?.lunch_start &&
     !effectiveTodayEntryRow.lunch_end &&
     !effectiveTodayEntryRow.clock_out &&
-    hasLunchDurationLapsed(effectiveTodayEntryRow.lunch_start, allottedLunchMinutes, company.timezone || "UTC")
+    hasLunchDurationLapsed(effectiveTodayEntryRow.lunch_start, allottedLunchMinutes, effectiveTimezone)
   ) {
     const lapsedTime = calculateLapsedLunchEndTime(effectiveTodayEntryRow.lunch_start, allottedLunchMinutes);
     const recordedLunchHours = Number((allottedLunchMinutes / 60).toFixed(2));
@@ -647,8 +707,21 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     todaySchedule?.end_time &&
     effectiveTodayEntryRow?.clock_in &&
     !effectiveTodayEntryRow.clock_out &&
-    hasShiftEnded(todaySchedule.end_time, autoClockoutGraceMinutes, company.timezone || "UTC")
+    hasShiftEnded(
+      todaySchedule.end_time,
+      autoClockoutGraceMinutes,
+      effectiveTimezone,
+      effectiveTodayEntryRow.work_date,
+      today,
+    )
   ) {
+    // If lunch was unclosed when shift ended, close lunch
+    if (effectiveTodayEntryRow.lunch_start && !effectiveTodayEntryRow.lunch_end) {
+      const lapsedLunchTime = calculateLapsedLunchEndTime(effectiveTodayEntryRow.lunch_start, allottedLunchMinutes);
+      effectiveTodayEntryRow.lunch_end = lapsedLunchTime;
+      effectiveTodayEntryRow.lunch_hours = Number((allottedLunchMinutes / 60).toFixed(2));
+    }
+
     const shiftHours = calculateShiftHours(
       effectiveTodayEntryRow.clock_in,
       todaySchedule.end_time,
@@ -665,6 +738,8 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     void supabase
       .from("time_entries")
       .update({
+        lunch_end: effectiveTodayEntryRow.lunch_end,
+        lunch_hours: effectiveTodayEntryRow.lunch_hours,
         clock_out: todaySchedule.end_time,
         gross_hours: shiftHours.grossHours,
         paid_hours: shiftHours.paidHours,
@@ -672,6 +747,16 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
         warning_notes: effectiveTodayEntryRow.warning_notes,
       })
       .eq("id", effectiveTodayEntryRow.id);
+
+    void supabase.from("time_clock_events").insert({
+      company_id: company.id,
+      employee_id: employeeRow.id,
+      event_type: "clock_out",
+      event_at: new Date().toISOString(),
+      local_work_date: effectiveTodayEntryRow.work_date,
+      local_event_time: todaySchedule.end_time,
+      device_metadata: { source: "auto_schedule_clockout" },
+    });
   }
 
   return {
@@ -709,7 +794,8 @@ function liveStatus(entry: TimeEntryRecord | null): CompanyLiveTimeEntry["status
 export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTimeOverview(): Promise<CompanyLiveTimeOverview> {
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
-  const workDate = currentDateInTimezone(company.timezone || "UTC");
+  const effectiveTimezone = company.timezone || "Africa/Johannesburg";
+  const workDate = currentDateInTimezone(effectiveTimezone);
 
   await supabase.rpc("ensure_current_year_za_public_holidays", {
     target_company_id: company.id,
@@ -720,7 +806,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     supabase
       .from("employees")
       .select(
-        "id, employee_number, full_name, known_as, avatar_url, workstation_id, department_id, job_title, company_workstations(name), departments(name)",
+        "id, employee_number, full_name, known_as, avatar_url, workstation_id, department_id, work_schedule_id, job_title, company_workstations(name), departments(name)",
       )
       .eq("company_id", company.id)
       .eq("employment_status", "active")
@@ -765,21 +851,90 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const autoEndLunchOnLapse = Boolean(
     settingsApprovalRules.auto_end_lunch_on_lapse ?? settingsApprovalRules.auto_clockout_after_lunch,
   );
+  const autoClockoutBasedOnSchedule = Boolean(
+    settingsApprovalRules.auto_clockout_based_on_schedule ?? settingsApprovalRules.auto_clockout_after_shift_end,
+  );
+  const autoClockoutGraceMinutes = Number(
+    settingsApprovalRules.auto_clockout_grace_minutes ?? 0,
+  );
   const defaultLunchMinutes = Number(
     settingsResult?.data?.default_lunch_minutes ?? settingsApprovalRules.default_lunch_minutes ?? 60,
   );
 
+  const rawEmployees = (employeesResult.data ?? []) as unknown as (EmployeeRow & { work_schedule_id?: string | null })[];
   const rawEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
+
+  // Fetch active company schedules to map schedules to each employee
+  const { data: defaultSchedule } = await supabase
+    .from("work_schedules")
+    .select("id")
+    .eq("company_id", company.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const allScheduleIds = [
+    ...new Set([
+      ...rawEmployees.map((e) => e.work_schedule_id).filter(Boolean),
+      defaultSchedule?.id,
+    ].filter(Boolean)),
+  ] as string[];
+
+  const scheduleDaysMap = new Map<string, { start_time: string | null; end_time: string | null; lunch_minutes: number | null }>();
+  if (allScheduleIds.length > 0) {
+    const dayOfWeek = new Date(`${workDate}T00:00:00`).getDay();
+    const { data: days } = await supabase
+      .from("schedule_days")
+      .select("work_schedule_id, start_time, end_time, lunch_minutes, is_working_day")
+      .in("work_schedule_id", allScheduleIds)
+      .eq("day_of_week", dayOfWeek);
+
+    if (days) {
+      for (const d of days) {
+        if (d.start_time && d.end_time) {
+          scheduleDaysMap.set(d.work_schedule_id, {
+            start_time: d.start_time,
+            end_time: d.end_time,
+            lunch_minutes: Number(d.lunch_minutes ?? defaultLunchMinutes ?? 60),
+          });
+        }
+      }
+    }
+  }
+
+  const employeeScheduleMap = new Map<string, { start_time: string; end_time: string; lunch_minutes: number }>();
+  for (const emp of rawEmployees) {
+    const sId = emp.work_schedule_id || defaultSchedule?.id;
+    const sDay = sId ? scheduleDaysMap.get(sId) : null;
+    if (sDay && sDay.start_time && sDay.end_time) {
+      employeeScheduleMap.set(emp.id, {
+        start_time: sDay.start_time,
+        end_time: sDay.end_time,
+        lunch_minutes: sDay.lunch_minutes ?? defaultLunchMinutes ?? 60,
+      });
+    } else {
+      employeeScheduleMap.set(emp.id, {
+        start_time: "08:00:00",
+        end_time: "17:00:00",
+        lunch_minutes: defaultLunchMinutes > 0 ? defaultLunchMinutes : 60,
+      });
+    }
+  }
+
   if (autoEndLunchOnLapse) {
     rawEntries.forEach((entry) => {
+      const empSched = employeeScheduleMap.get(entry.employee_id);
+      const lunchMin = empSched?.lunch_minutes && empSched.lunch_minutes > 0 ? empSched.lunch_minutes : defaultLunchMinutes;
       if (
         entry.lunch_start &&
         !entry.lunch_end &&
         !entry.clock_out &&
-        hasLunchDurationLapsed(entry.lunch_start, defaultLunchMinutes, company.timezone || "UTC")
+        hasLunchDurationLapsed(entry.lunch_start, lunchMin, effectiveTimezone)
       ) {
-        const lapsedTime = calculateLapsedLunchEndTime(entry.lunch_start, defaultLunchMinutes);
-        const recordedLunchHours = Number((defaultLunchMinutes / 60).toFixed(2));
+        const lapsedTime = calculateLapsedLunchEndTime(entry.lunch_start, lunchMin);
+        const recordedLunchHours = Number((lunchMin / 60).toFixed(2));
         entry.lunch_end = lapsedTime;
         entry.lunch_hours = recordedLunchHours;
         entry.warning_notes = entry.warning_notes
@@ -794,6 +949,62 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
             warning_notes: entry.warning_notes,
           })
           .eq("id", entry.id);
+      }
+    });
+  }
+
+  if (autoClockoutBasedOnSchedule) {
+    rawEntries.forEach((entry) => {
+      const empSched = employeeScheduleMap.get(entry.employee_id);
+      const endTime = empSched?.end_time ?? "17:00:00";
+      const lunchMin = empSched?.lunch_minutes && empSched.lunch_minutes > 0 ? empSched.lunch_minutes : defaultLunchMinutes;
+
+      if (
+        entry.clock_in &&
+        !entry.clock_out &&
+        hasShiftEnded(endTime, autoClockoutGraceMinutes, effectiveTimezone, entry.work_date, workDate)
+      ) {
+        if (entry.lunch_start && !entry.lunch_end) {
+          const lapsedLunchTime = calculateLapsedLunchEndTime(entry.lunch_start, lunchMin);
+          entry.lunch_end = lapsedLunchTime;
+          entry.lunch_hours = Number((lunchMin / 60).toFixed(2));
+        }
+
+        const shiftHours = calculateShiftHours(
+          entry.clock_in,
+          endTime,
+          Number(entry.lunch_hours ?? 0),
+        );
+        entry.clock_out = endTime;
+        entry.gross_hours = shiftHours.grossHours;
+        entry.paid_hours = shiftHours.paidHours;
+        entry.normal_hours = shiftHours.normalHours;
+        entry.warning_notes = entry.warning_notes
+          ? `${entry.warning_notes}; Auto clocked out based on schedule end (${endTime})`
+          : `Auto clocked out based on schedule end (${endTime})`;
+
+        void supabase
+          .from("time_entries")
+          .update({
+            lunch_end: entry.lunch_end,
+            lunch_hours: entry.lunch_hours,
+            clock_out: endTime,
+            gross_hours: shiftHours.grossHours,
+            paid_hours: shiftHours.paidHours,
+            normal_hours: shiftHours.normalHours,
+            warning_notes: entry.warning_notes,
+          })
+          .eq("id", entry.id);
+
+        void supabase.from("time_clock_events").insert({
+          company_id: company.id,
+          employee_id: entry.employee_id,
+          event_type: "clock_out",
+          event_at: new Date().toISOString(),
+          local_work_date: entry.work_date,
+          local_event_time: endTime,
+          device_metadata: { source: "auto_schedule_clockout" },
+        });
       }
     });
   }

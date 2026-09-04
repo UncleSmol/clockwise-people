@@ -92,6 +92,16 @@ function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
 }
 
+function formatRemainingTime(seconds: number): string {
+  if (seconds <= 0) return "0s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 function geofenceLabel(status: string | null | undefined) {
   if (status === "in_range") return "In range";
   if (status === "out_of_range") return "Out of range";
@@ -237,6 +247,9 @@ export default function EmployeeTimeClock({
   const [lunchRemainingSeconds, setLunchRemainingSeconds] = useState<number | null>(null);
   const autoLunchEndTriggeredRef = useRef(false);
 
+  const [shiftRemainingSeconds, setShiftRemainingSeconds] = useState<number | null>(null);
+  const autoShiftEndTriggeredRef = useRef(false);
+
   useEffect(() => {
     const entry = liveTodayEntry ?? todayEntry;
     if (!entry?.lunch_start || entry.lunch_end || entry.clock_out) {
@@ -272,6 +285,46 @@ export default function EmployeeTimeClock({
 
     return () => clearInterval(interval);
   }, [liveTodayEntry, todayEntry, allottedLunchMinutes, isAutoEndLunchActive]);
+
+  useEffect(() => {
+    const entry = liveTodayEntry ?? todayEntry;
+    if (
+      !autoClockoutBasedOnSchedule ||
+      !todaySchedule?.end_time ||
+      !entry?.clock_in ||
+      entry.clock_out
+    ) {
+      setShiftRemainingSeconds(null);
+      autoShiftEndTriggeredRef.current = false;
+      return;
+    }
+
+    const [h = "0", m = "0", s = "0"] = todaySchedule.end_time.split(":");
+    const endSec =
+      Number(h) * 3600 +
+      Number(m) * 60 +
+      Number(s) +
+      Math.max(0, autoClockoutGraceMinutes) * 60;
+
+    const checkShiftEnd = () => {
+      const now = new Date();
+      const currSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const remaining = endSec - currSec;
+      setShiftRemainingSeconds(remaining);
+
+      if (remaining <= 0 && !autoShiftEndTriggeredRef.current) {
+        autoShiftEndTriggeredRef.current = true;
+        if (formRef.current) {
+          pendingActionRef.current = "Clock out";
+          formRef.current.requestSubmit();
+        }
+      }
+    };
+
+    checkShiftEnd();
+    const interval = setInterval(checkShiftEnd, 1000);
+    return () => clearInterval(interval);
+  }, [liveTodayEntry, todayEntry, todaySchedule, autoClockoutBasedOnSchedule, autoClockoutGraceMinutes]);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -443,106 +496,194 @@ export default function EmployeeTimeClock({
       status === "Shift complete" ? "bg-success" :
       "bg-muted";
 
+    const isClockedIn = Boolean(displayEntry?.clock_in) && !displayEntry?.clock_out;
+    const isOnLunch = Boolean(displayEntry?.lunch_start) && !displayEntry?.lunch_end;
+    const hasLunchEnded = Boolean(displayEntry?.lunch_end);
+    const isShiftComplete = Boolean(displayEntry?.clock_out);
+    const canClockInAction = !displayEntry?.clock_in || isShiftComplete;
+
+    const clockInDisabled = !canClockInAction || pending || locating;
+    const isClockInBusy = pendingActionRef.current === "Clock in" && (pending || locating);
+    const clockInLabel = isClockInBusy ? (locating ? "Locating..." : "Saving...") : "Clock in";
+
+    const canLunchAction = isClockedIn && !noLunchToday && (!displayEntry?.lunch_start || isOnLunch);
+    const lunchActionValue = isOnLunch ? "End lunch" : "Start lunch";
+    const lunchDisabled = !canLunchAction || pending || locating;
+    const isLunchBusy =
+      (pendingActionRef.current === "Start lunch" || pendingActionRef.current === "End lunch") &&
+      (pending || locating);
+    const lunchDisplayLabel = isLunchBusy
+      ? locating
+        ? "Locating..."
+        : "Saving..."
+      : isOnLunch
+        ? "End lunch"
+        : isClockedIn && !displayEntry?.lunch_start
+          ? "Start lunch"
+          : hasLunchEnded
+            ? "Lunch ended"
+            : noLunchToday
+              ? "No lunch"
+              : "Lunch";
+
+    const canClockOutAction = isClockedIn;
+    const clockOutDisabled = !canClockOutAction || pending || locating;
+    const isClockOutBusy = pendingActionRef.current === "Clock out" && (pending || locating);
+    const clockOutLabel = isClockOutBusy ? (locating ? "Locating..." : "Saving...") : "Clock out";
+
     return (
-      <section className="card flex flex-wrap items-center gap-3 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className={`inline-block size-2.5 rounded-full ${statusDot}`} />
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">{status}</p>
-              {status === "On lunch" && lunchRemainingSeconds !== null ? (
-                <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-extrabold text-amber-900">
-                  {Math.floor(lunchRemainingSeconds / 60)}m {lunchRemainingSeconds % 60}s left
-                  {isAutoEndLunchActive ? " (Auto-ends lunch)" : ""}
-                </span>
-              ) : null}
-              {displayEntry?.warning_notes?.includes("Auto lunch break ended") ? (
-                <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                  Auto Lunch Ended (Resumed Shift)
-                </span>
-              ) : null}
+      <section className="card flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
+          <div className="flex items-center gap-3">
+            <span className={`inline-block size-2.5 shrink-0 rounded-full ${statusDot}`} />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">{status}</p>
+                {status === "On lunch" && lunchRemainingSeconds !== null ? (
+                  <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-extrabold text-amber-900">
+                    {Math.floor(lunchRemainingSeconds / 60)}m {lunchRemainingSeconds % 60}s left
+                    {isAutoEndLunchActive ? " (Auto-ends lunch)" : ""}
+                  </span>
+                ) : null}
+                {displayEntry?.warning_notes?.includes("Auto lunch break ended") ? (
+                  <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                    Auto Lunch Ended (Resumed Shift)
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted">
+                {displayEntry?.work_date ?? "No time record started yet"}
+              </p>
             </div>
-            <p className="text-xs text-muted">
-              {displayEntry?.work_date ?? "No time record started yet"}
-            </p>
           </div>
+
+          <span className="text-sm font-bold tabular-nums text-foreground sm:hidden">
+            {formatHours(displayEntry?.paid_hours)}
+          </span>
         </div>
 
-        <span className="ml-auto text-sm font-bold tabular-nums text-foreground">
+        <span className="hidden text-sm font-bold tabular-nums text-foreground sm:block sm:ml-auto">
           {formatHours(displayEntry?.paid_hours)}
         </span>
 
-        {availableActions.length > 0 || canSwitch ? (
-          <form
-            action={formAction}
-            onSubmit={handleSubmit}
-            ref={formRef}
-            className="flex flex-wrap items-center gap-2"
-          >
-            <input name="latitude" ref={latitudeRef} type="hidden" />
-            <input name="longitude" ref={longitudeRef} type="hidden" />
-            <input name="accuracy" ref={accuracyRef} type="hidden" />
-            <input name="captured_at" ref={capturedAtRef} type="hidden" />
-            <input name="workstation_id" type="hidden" value={workstationId} />
-            {canClockIn ? (
-              <label className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
-                <Clock className="size-3.5 shrink-0 text-muted" />
-                <input
-                  name="requested_at"
-                  type="time"
-                  defaultValue={localTimeInputValue()}
-                  className="min-w-0 max-w-[7.5rem] bg-transparent text-xs font-semibold text-foreground outline-none"
-                />
-              </label>
-            ) : null}
-            {workstations.length > 0 ? (
-              <label className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1.5">
-                <MapPin className="size-3.5 shrink-0 text-muted" />
-                <select
-                  value={workstationId}
-                  onChange={(event) => setWorkstationId(event.target.value)}
-                  disabled={pending || locating}
-                  className="min-w-0 max-w-[9rem] cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none"
-                >
-                  {workstations.map((workstation) => (
-                    <option key={workstation.id} value={workstation.id}>
-                      {workstation.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {canSwitch ? (
-              <button
-                type="submit"
-                onClick={() => {
-                  switchPendingRef.current = true;
-                }}
-                disabled={pending || locating || !workstationId}
-                className="btn btn-outline"
-              >
-                {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
-              </button>
-            ) : null}
-            {availableActions.map((action) => (
-              <button
-                key={action.label}
-                type="submit"
-                name="clock_action"
-                value={action.label}
-                onClick={() => {
-                  pendingActionRef.current = action.label;
-                }}
-                disabled={pending || locating}
-                className={`btn ${action.tone === "danger" ? "btn-danger" : action.tone === "secondary" ? "btn-outline" : "btn-accent"}`}
-              >
-                {pending ? "Saving..." : locating ? "Locating..." : action.label}
-              </button>
-            ))}
-          </form>
-        ) : (
-          <span className="badge badge-success">Complete</span>
-        )}
+        <form
+          action={formAction}
+          onSubmit={handleSubmit}
+          ref={formRef}
+          className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+        >
+          <input name="latitude" ref={latitudeRef} type="hidden" />
+          <input name="longitude" ref={longitudeRef} type="hidden" />
+          <input name="accuracy" ref={accuracyRef} type="hidden" />
+          <input name="captured_at" ref={capturedAtRef} type="hidden" />
+          <input name="workstation_id" type="hidden" value={workstationId} />
+
+          {canClockIn || workstations.length > 0 ? (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              {canClockIn ? (
+                <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 sm:w-auto sm:px-2 sm:py-1.5">
+                  <Clock className="size-3.5 shrink-0 text-muted" />
+                  <input
+                    name="requested_at"
+                    type="time"
+                    defaultValue={localTimeInputValue()}
+                    className="w-full min-w-0 bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[7.5rem]"
+                  />
+                </label>
+              ) : null}
+              {workstations.length > 0 ? (
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <label className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 sm:flex-initial sm:px-2 sm:py-1.5">
+                    <MapPin className="size-3.5 shrink-0 text-muted" />
+                    <select
+                      value={workstationId}
+                      onChange={(event) => setWorkstationId(event.target.value)}
+                      disabled={pending || locating}
+                      className="w-full min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[9rem] truncate"
+                    >
+                      {workstations.map((workstation) => (
+                        <option key={workstation.id} value={workstation.id}>
+                          {workstation.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {canSwitch ? (
+                    <button
+                      type="submit"
+                      onClick={() => {
+                        switchPendingRef.current = true;
+                      }}
+                      disabled={pending || locating || !workstationId}
+                      className="btn btn-outline shrink-0 px-2.5 py-1.5 text-xs font-medium"
+                    >
+                      {switchPendingRef.current && pending
+                        ? "Saving..."
+                        : switchPendingRef.current && locating
+                          ? "Locating..."
+                          : "Switch"}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
+            <button
+              type="submit"
+              name="clock_action"
+              value="Clock in"
+              onClick={() => {
+                pendingActionRef.current = "Clock in";
+              }}
+              disabled={clockInDisabled}
+              className={`btn px-2 py-2 text-xs font-semibold whitespace-nowrap justify-center text-center sm:px-4 sm:text-sm ${
+                canClockInAction
+                  ? "btn-accent shadow-xs"
+                  : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
+              }`}
+            >
+              {clockInLabel}
+            </button>
+
+            <button
+              type="submit"
+              name="clock_action"
+              value={lunchActionValue}
+              onClick={() => {
+                pendingActionRef.current = lunchActionValue;
+              }}
+              disabled={lunchDisabled}
+              className={`btn px-2 py-2 text-xs font-semibold whitespace-nowrap justify-center text-center sm:px-4 sm:text-sm ${
+                isOnLunch
+                  ? "btn-accent shadow-xs ring-2 ring-warning/50"
+                  : canLunchAction
+                    ? "border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 shadow-xs"
+                    : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
+              }`}
+            >
+              {lunchDisplayLabel}
+            </button>
+
+            <button
+              type="submit"
+              name="clock_action"
+              value="Clock out"
+              onClick={() => {
+                pendingActionRef.current = "Clock out";
+              }}
+              disabled={clockOutDisabled}
+              className={`btn px-2 py-2 text-xs font-semibold whitespace-nowrap justify-center text-center sm:px-4 sm:text-sm ${
+                canClockOutAction
+                  ? "btn-danger shadow-xs"
+                  : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
+              }`}
+            >
+              {clockOutLabel}
+            </button>
+          </div>
+        </form>
 
         {latestGeofenceStatus === "out_of_range" ? (
           <p className="w-full text-xs font-semibold text-danger">
@@ -677,6 +818,41 @@ export default function EmployeeTimeClock({
             review.
           </div>
         ) : null}
+
+        {isAutoEndLunchActive && displayEntry?.lunch_start && !displayEntry?.lunch_end && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
+            <div className="flex items-center gap-2 font-medium">
+              <Clock className="size-4 shrink-0 text-warning" />
+              <span>Lunch Break ({allottedLunchMinutes}m allotted):</span>
+            </div>
+            {lunchRemainingSeconds !== null && (
+              <span className="font-bold whitespace-nowrap">
+                {lunchRemainingSeconds > 0
+                  ? `Auto resume in ${formatRemainingTime(lunchRemainingSeconds)}`
+                  : "Auto resuming..."}
+              </span>
+            )}
+          </div>
+        )}
+
+        {autoClockoutBasedOnSchedule && todaySchedule?.end_time && displayEntry?.clock_in && !displayEntry?.clock_out && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3.5 py-2.5 text-xs text-foreground">
+            <div className="flex items-center gap-2 font-medium">
+              <Clock className="size-4 shrink-0 text-accent" />
+              <span>
+                Work Rule: Scheduled shift ends at <strong>{todaySchedule.end_time.slice(0, 5)}</strong>
+                {autoClockoutGraceMinutes > 0 ? ` (+${autoClockoutGraceMinutes}m grace)` : ""}
+              </span>
+            </div>
+            {shiftRemainingSeconds !== null && (
+              <span className="font-bold text-accent whitespace-nowrap">
+                {shiftRemainingSeconds > 0
+                  ? `Auto clock-out in ${formatRemainingTime(shiftRemainingSeconds)}`
+                  : "Auto clock-out pending..."}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="mb-4">
           <LiveLocationTracker

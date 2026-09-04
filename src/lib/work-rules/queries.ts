@@ -15,6 +15,11 @@ import type {
   PublicHoliday,
   WorkSchedule,
 } from "./schema";
+import {
+  defaultPayrollConfig,
+  type CustomPayrollRule,
+  type PayrollPeriodConfig,
+} from "@/lib/reports/payroll-periods";
 
 type LeaveRequestRow = LeaveRequest & {
   employees?: {
@@ -107,6 +112,29 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     approvalRules.auto_clockout_grace_minutes ?? 0,
   );
 
+  const rawPayrollRules = approvalRules.payroll_rules as CustomPayrollRule[] | undefined;
+  const payrollAssignments = (approvalRules.payroll_assignments as Record<string, string> | undefined) ?? {};
+  const payrollConfig = (approvalRules.payroll_period_config as PayrollPeriodConfig | undefined) ?? defaultPayrollConfig;
+
+  const defaultPayrollRule: CustomPayrollRule = {
+    id: "company-default",
+    name: payrollConfig.name || "Company Default Monthly (1st - End)",
+    frequency: payrollConfig.frequency || "monthly",
+    startDate: payrollConfig.startDate || payrollConfig.anchorDate || "2026-01-01",
+    endDate: payrollConfig.endDate || "2026-01-31",
+    anchorDate: payrollConfig.anchorDate || payrollConfig.startDate || "2026-01-01",
+    customCycleDays: payrollConfig.customCycleDays,
+    startDayOfMonth: payrollConfig.startDayOfMonth,
+    endDayOfMonth: payrollConfig.endDayOfMonth,
+    startDayOfWeek: payrollConfig.startDayOfWeek,
+    payDayOffsetDays: payrollConfig.payDayOffsetDays ?? 3,
+    description: payrollConfig.description || "Standard monthly payroll cycle.",
+    assignedEmployeeIds: [],
+  };
+
+  const payrollRules: CustomPayrollRule[] =
+    rawPayrollRules && rawPayrollRules.length > 0 ? rawPayrollRules : [defaultPayrollRule];
+
   const carryOverValue = leaveRules.carry_over_hours;
   const carryOverHours =
     typeof carryOverValue === "number"
@@ -132,6 +160,9 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     publicHolidays: (holidaysResult.data ?? []) as PublicHoliday[],
     schedules: (schedulesResult.data ?? []) as unknown as WorkSchedule[],
     standardAnnualHours,
+    payrollRules,
+    payrollAssignments,
+    payrollConfig,
   };
 });
 

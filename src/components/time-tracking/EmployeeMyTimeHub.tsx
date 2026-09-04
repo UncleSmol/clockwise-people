@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { CalendarPlus, ChevronDown, Clock3, Send } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import PwaInstallButton from "@/components/PwaInstallButton";
 
 type EmployeeMyTimeHubProps = {
@@ -17,7 +17,6 @@ function StepItem({
   badge,
   children,
   description,
-  icon,
   step,
   title,
   open,
@@ -26,7 +25,6 @@ function StepItem({
   badge?: ReactNode;
   children: ReactNode;
   description: string;
-  icon: ReactNode;
   step: string;
   title: string;
   tone?: "primary" | "warning" | "holiday";
@@ -47,13 +45,10 @@ function StepItem({
           {step}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-2 text-base font-semibold text-white">
-            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg bg-white/20">
-              {icon}
-            </span>
-            <span className="truncate">{title}</span>
+          <span className="block truncate text-base font-semibold text-white">
+            {title}
           </span>
-          <span className="mt-0.5 block text-xs leading-snug text-white/80 sm:pl-8">
+          <span className="mt-0.5 block text-xs leading-snug text-white/80">
             {description}
           </span>
         </span>
@@ -98,7 +93,6 @@ export default function EmployeeMyTimeHub({
         step="1"
         title="Clock in and out"
         description="Record your start, breaks, and end of day from any workstation."
-        icon={<Clock3 className="size-4 text-white" />}
         badge={clockBadge}
         tone="primary"
         open={openSteps["1"]}
@@ -111,7 +105,6 @@ export default function EmployeeMyTimeHub({
         step="2"
         title="Review and adjust"
         description="Fix the times for this period, add past days, then submit when ready."
-        icon={<Send className="size-4 text-white" />}
         badge={timesheetBadge}
         tone="warning"
         open={openSteps["2"]}
@@ -124,7 +117,6 @@ export default function EmployeeMyTimeHub({
         step="3"
         title="Leave and accruals"
         description="Check your balances, plan leave with the advisor, and convert overtime to TOIL."
-        icon={<CalendarPlus className="size-4 text-white" />}
         badge={leaveBadge}
         tone="holiday"
         open={openSteps["3"]}

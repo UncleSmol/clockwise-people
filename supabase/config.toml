@@ -36,7 +36,7 @@ port = 54101
 # Port used by db diff command to initialize the shadow database.
 shadow_port = 54100
 # Maximum amount of time to wait for health check when starting the local database.
-health_timeout = "2m"
+health_timeout = "5m"
 # The database major version to use. This has to be the same as your remote database's. Run `SHOW
 # server_version;` on the remote database to check.
 major_version = 17
@@ -368,7 +368,7 @@ authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [edge_runtime]
-enabled = true
+enabled = false
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).

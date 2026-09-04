@@ -16,6 +16,7 @@ import {
   type LeaveAdvisor,
   type LeaveCalculation,
 } from "./schema";
+import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
 
 type ActionState = {
   calculation?: LeaveCalculation;
@@ -1007,5 +1008,94 @@ export async function autoSyncCompanyLeaveAccruals(
     ok: result.ok,
     message: result.message,
   };
+}
+
+export async function saveCompanyPayrollRulesAction(payload: {
+  rules: CustomPayrollRule[];
+  assignments: Record<string, string>;
+  activeRuleId?: string;
+}): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { company } = await getActiveCompany();
+    const access = await getCurrentUserAccess();
+    if (!access.canManageCompany && !access.canReviewBranchTime && !access.canViewPayroll) {
+      return { ok: false, message: "Only administrators can configure company payroll rules." };
+    }
+
+    const supabase = await createSupabaseServerClient();
+
+    // Fetch existing approval_rules to preserve other settings (e.g. auto lunch, grace period)
+    const { data: currentSettings, error: fetchError } = await supabase
+      .from("company_settings")
+      .select("approval_rules")
+      .eq("company_id", company.id)
+      .maybeSingle();
+
+    if (fetchError) {
+      return { ok: false, message: fetchError.message };
+    }
+
+    const existingApprovalRules = (currentSettings?.approval_rules ?? {}) as Record<string, unknown>;
+
+    // Determine primary/default rule to set company-wide payroll_period_config & payroll_cycle
+    const defaultRule =
+      payload.rules.find((r) => r.id === (payload.activeRuleId ?? "company-default")) ||
+      payload.rules.find((r) => r.id === "company-default") ||
+      payload.rules[0];
+
+    const payrollConfig: PayrollPeriodConfig | undefined = defaultRule
+      ? {
+          id: defaultRule.id,
+          name: defaultRule.name,
+          frequency: defaultRule.frequency,
+          startDate: defaultRule.startDate,
+          endDate: defaultRule.endDate,
+          anchorDate: defaultRule.anchorDate || defaultRule.startDate,
+          customCycleDays: defaultRule.customCycleDays,
+          startDayOfMonth: defaultRule.startDayOfMonth,
+          endDayOfMonth: defaultRule.endDayOfMonth,
+          startDayOfWeek: defaultRule.startDayOfWeek,
+          payDayOffsetDays: defaultRule.payDayOffsetDays,
+          description: defaultRule.description,
+        }
+      : undefined;
+
+    const updatedApprovalRules = {
+      ...existingApprovalRules,
+      payroll_rules: payload.rules,
+      payroll_assignments: payload.assignments,
+      ...(payrollConfig ? { payroll_period_config: payrollConfig } : {}),
+    };
+
+    const { error: updateError } = await supabase
+      .from("company_settings")
+      .upsert(
+        {
+          company_id: company.id,
+          approval_rules: updatedApprovalRules,
+        },
+        { onConflict: "company_id" },
+      );
+
+    if (updateError) {
+      return { ok: false, message: updateError.message };
+    }
+
+    if (defaultRule) {
+      // Also update company.payroll_cycle
+      await supabase
+        .from("companies")
+        .update({ payroll_cycle: defaultRule.frequency })
+        .eq("id", company.id);
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/company");
+    revalidatePath("/dashboard/reports");
+
+    return { ok: true, message: "Payroll rules and employee assignments saved successfully to database." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed to save payroll rules." };
+  }
 }
 
