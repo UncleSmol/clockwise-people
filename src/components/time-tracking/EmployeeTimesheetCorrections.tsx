@@ -413,6 +413,25 @@ export default function EmployeeTimesheetCorrections({
     );
   }, [liveOverview]);
 
+  const [attendanceFilter, setAttendanceFilter] = useState<"working" | "on_lunch" | "worked" | "not_started" | "all">("working");
+
+  const filteredAttendanceColleagues = useMemo(() => {
+    if (!liveOverview?.entries) return [];
+    if (attendanceFilter === "working") {
+      return liveOverview.entries.filter((c) => c.status === "working");
+    }
+    if (attendanceFilter === "on_lunch") {
+      return liveOverview.entries.filter((c) => c.status === "on_lunch");
+    }
+    if (attendanceFilter === "worked") {
+      return liveOverview.entries.filter((c) => c.status === "worked");
+    }
+    if (attendanceFilter === "not_started") {
+      return liveOverview.entries.filter((c) => c.status === "not_started");
+    }
+    return liveOverview.entries;
+  }, [liveOverview, attendanceFilter]);
+
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
     if (typeof window === "undefined") return "month";
@@ -1239,54 +1258,170 @@ export default function EmployeeTimesheetCorrections({
         </div>
       </div>
 
-      {/* Active Colleagues Clocked In Strip */}
-      {activeColleagues.length > 0 && (
-        <div className="rounded-lg border-2 border-emerald-500/40 bg-emerald-50/50 p-3 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-              <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
-            </span>
-            <p className="text-xs font-black text-emerald-950">
-              Colleagues on shift right now ({activeColleagues.length})
-            </p>
+      {/* Today's Attendance Section */}
+      {liveOverview && liveOverview.entries.length > 0 && (
+        <div className="rounded-xl border border-border bg-surface p-3.5 shadow-2xs">
+          {/* Header Row */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-600" />
+              </span>
+              <p className="text-xs font-black text-foreground">
+                Today&apos;s attendance
+              </p>
+              <span className="rounded bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-muted">
+                {liveOverview.workDate}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => openPanel("attendance")}
+              className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline"
+            >
+              View full attendance &rarr;
+            </button>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            {activeColleagues.map((colleague) => {
-              const isOnLunch = colleague.status === "on_lunch";
-              return (
-                <div
-                  key={colleague.employeeId}
-                  className={`flex items-center gap-2 rounded-md border p-1 pr-2.5 shadow-2xs transition-all ${
-                    isOnLunch
-                      ? "border-amber-300 bg-white hover:bg-amber-50"
-                      : "border-emerald-300 bg-white hover:bg-emerald-50"
-                  }`}
-                >
-                  <div className="relative shrink-0">
-                    <EmployeeAvatar
-                      name={colleague.knownAs ?? colleague.fullName}
-                      src={colleague.avatarUrl}
-                      className={`size-7 ring-2 ${isOnLunch ? "ring-amber-500" : "ring-emerald-500"}`}
-                    />
-                    <span
-                      className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white ${
-                        isOnLunch ? "bg-amber-500" : "bg-emerald-500"
-                      }`}
-                    />
-                  </div>
-                  <div className="min-w-0 text-left">
-                    <p className="max-w-[120px] truncate text-xs font-extrabold text-foreground">
-                      {colleague.knownAs ?? colleague.fullName}
-                    </p>
-                    <p className="text-[10px] font-semibold text-muted">
-                      {isOnLunch ? "On lunch" : `In ${shortTime(colleague.clockIn)}`}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Filter Tabs */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-b border-border/60 pb-2.5">
+            <button
+              type="button"
+              onClick={() => setAttendanceFilter("working")}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
+                attendanceFilter === "working"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "border border-emerald-300/80 bg-emerald-50/50 text-emerald-900 hover:bg-emerald-100"
+              }`}
+            >
+              Clocked in ({liveOverview.totals.activeEmployees})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAttendanceFilter("on_lunch")}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
+                attendanceFilter === "on_lunch"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : "border border-amber-300/80 bg-amber-50/50 text-amber-900 hover:bg-amber-100"
+              }`}
+            >
+              Lunch ({liveOverview.totals.onLunch})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAttendanceFilter("worked")}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
+                attendanceFilter === "worked"
+                  ? "bg-slate-800 text-white shadow-xs"
+                  : "border border-slate-300 bg-slate-100/60 text-slate-800 hover:bg-slate-200"
+              }`}
+            >
+              Shift done ({liveOverview.totals.workedToday})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAttendanceFilter("not_started")}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
+                attendanceFilter === "not_started"
+                  ? "bg-zinc-700 text-white shadow-xs"
+                  : "border border-border bg-background text-muted hover:bg-surface-muted"
+              }`}
+            >
+              Not started ({liveOverview.totals.notStarted})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAttendanceFilter("all")}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
+                attendanceFilter === "all"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "border border-border bg-background text-muted hover:bg-surface-muted"
+              }`}
+            >
+              All ({liveOverview.totals.totalEmployees})
+            </button>
+          </div>
+
+          {/* Colleague List */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {filteredAttendanceColleagues.length === 0 ? (
+              <p className="py-2 text-xs font-medium text-muted">
+                No colleagues matching this status right now.
+              </p>
+            ) : (
+              filteredAttendanceColleagues.map((colleague) => {
+                const isWorking = colleague.status === "working";
+                const isOnLunch = colleague.status === "on_lunch";
+                const isWorked = colleague.status === "worked";
+
+                const cardBorder = isWorking
+                  ? "border-emerald-300/80 bg-white hover:bg-emerald-50"
+                  : isOnLunch
+                    ? "border-amber-300/80 bg-white hover:bg-amber-50"
+                    : isWorked
+                      ? "border-slate-300 bg-white hover:bg-slate-50"
+                      : "border-zinc-300/80 bg-zinc-50 hover:bg-zinc-100";
+
+                const avatarRing = isWorking
+                  ? "ring-emerald-500"
+                  : isOnLunch
+                    ? "ring-amber-500"
+                    : isWorked
+                      ? "ring-slate-600"
+                      : "ring-zinc-300";
+
+                const statusDot = isWorking
+                  ? "bg-emerald-500"
+                  : isOnLunch
+                    ? "bg-amber-500"
+                    : isWorked
+                      ? "bg-emerald-500"
+                      : "bg-zinc-400";
+
+                const statusDetail = isWorking
+                  ? `In ${shortTime(colleague.clockIn)}`
+                  : isOnLunch
+                    ? "On lunch"
+                    : isWorked
+                      ? `Shift done · ${formatHours(colleague.paidHours)}`
+                      : "Not started";
+
+                return (
+                  <button
+                    key={colleague.employeeId}
+                    type="button"
+                    onClick={() => openPanel("attendance")}
+                    title={`View today's attendance for ${colleague.knownAs ?? colleague.fullName}`}
+                    className={`flex items-center gap-2 rounded-md border p-1.5 pr-3 shadow-2xs transition-all text-left ${cardBorder}`}
+                  >
+                    <div className="relative shrink-0">
+                      <EmployeeAvatar
+                        name={colleague.knownAs ?? colleague.fullName}
+                        src={colleague.avatarUrl}
+                        className={`size-7 ring-2 ${avatarRing}`}
+                      />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white ${statusDot}`}
+                      />
+                    </div>
+                    <div className="min-w-0 text-left">
+                      <p className="max-w-[130px] truncate text-xs font-extrabold text-foreground">
+                        {colleague.knownAs ?? colleague.fullName}
+                      </p>
+                      <p className="truncate text-[10px] font-semibold text-muted">
+                        {statusDetail}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
       )}

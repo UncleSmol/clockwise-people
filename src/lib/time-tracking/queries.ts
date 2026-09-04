@@ -6,6 +6,7 @@ import {
   getCurrentUserAccess,
   requireUser,
 } from "@/lib/foundation/queries";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   ClockEventRecord,
   ClockEventType,
@@ -794,16 +795,17 @@ function liveStatus(entry: TimeEntryRecord | null): CompanyLiveTimeEntry["status
 export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTimeOverview(): Promise<CompanyLiveTimeOverview> {
   const { company } = await getActiveCompany();
   const { supabase } = await requireUser();
+  const adminClient = createSupabaseAdminClient();
   const effectiveTimezone = company.timezone || "Africa/Johannesburg";
   const workDate = currentDateInTimezone(effectiveTimezone);
 
-  await supabase.rpc("ensure_current_year_za_public_holidays", {
+  await adminClient.rpc("ensure_current_year_za_public_holidays", {
     target_company_id: company.id,
     target_year: Number(workDate.slice(0, 4)),
   });
 
   const [employeesResult, entriesResult, geofenceEventsResult, settingsResult] = await Promise.all([
-    supabase
+    adminClient
       .from("employees")
       .select(
         "id, employee_number, full_name, known_as, avatar_url, workstation_id, department_id, work_schedule_id, job_title, company_workstations(name), departments(name)",
@@ -812,7 +814,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
       .eq("employment_status", "active")
       .is("deleted_at", null)
       .order("full_name"),
-    supabase
+    adminClient
       .from("time_entries")
       .select(
         "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
@@ -821,14 +823,14 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
       .eq("work_date", workDate)
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
-    supabase
+    adminClient
       .from("time_clock_events")
       .select("employee_id, event_type, geofence_status, distance_meters, company_workstations(name)")
       .eq("company_id", company.id)
       .eq("local_work_date", workDate)
       .order("event_at", { ascending: false })
       .limit(1000),
-    supabase
+    adminClient
       .from("company_settings")
       .select("approval_rules, default_lunch_minutes")
       .eq("company_id", company.id)
@@ -865,7 +867,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const rawEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
 
   // Fetch active company schedules to map schedules to each employee
-  const { data: defaultSchedule } = await supabase
+  const { data: defaultSchedule } = await adminClient
     .from("work_schedules")
     .select("id")
     .eq("company_id", company.id)
@@ -885,7 +887,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const scheduleDaysMap = new Map<string, { start_time: string | null; end_time: string | null; lunch_minutes: number | null }>();
   if (allScheduleIds.length > 0) {
     const dayOfWeek = new Date(`${workDate}T00:00:00`).getDay();
-    const { data: days } = await supabase
+    const { data: days } = await adminClient
       .from("schedule_days")
       .select("work_schedule_id, start_time, end_time, lunch_minutes, is_working_day")
       .in("work_schedule_id", allScheduleIds)
@@ -941,7 +943,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
           ? `${entry.warning_notes}; Auto lunch break ended upon lapse`
           : "Auto lunch break ended upon lapse";
 
-        void supabase
+        void adminClient
           .from("time_entries")
           .update({
             lunch_end: lapsedTime,
@@ -983,7 +985,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
           ? `${entry.warning_notes}; Auto clocked out based on schedule end (${endTime})`
           : `Auto clocked out based on schedule end (${endTime})`;
 
-        void supabase
+        void adminClient
           .from("time_entries")
           .update({
             lunch_end: entry.lunch_end,
@@ -996,7 +998,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
           })
           .eq("id", entry.id);
 
-        void supabase.from("time_clock_events").insert({
+        void adminClient.from("time_clock_events").insert({
           company_id: company.id,
           employee_id: entry.employee_id,
           event_type: "clock_out",

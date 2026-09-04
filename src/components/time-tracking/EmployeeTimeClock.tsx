@@ -101,7 +101,9 @@ function parseTimeToDate(timeStr: string, baseDateStr?: string | null): Date {
       d.setFullYear(parts[0], parts[1] - 1, parts[2]);
     }
   }
-  d.setHours(Number(h), Number(m), Number(s), 0);
+  const sec = Math.floor(parseFloat(s) || 0);
+  const ms = Math.floor(((parseFloat(s) || 0) % 1) * 1000);
+  d.setHours(Number(h) || 0, Number(m) || 0, sec, ms);
   return d;
 }
 
@@ -168,9 +170,10 @@ function calculateLiveWorkedHours(
 
 function formatRemainingTime(seconds: number): string {
   if (seconds <= 0) return "0s";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+  const totalSeconds = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
@@ -343,19 +346,20 @@ export default function EmployeeTimeClock({
 
     const [h = "0", m = "0", s = "0"] = entry.lunch_start.split(":");
     const now = new Date();
-    const startSec = Number(h) * 3600 + Number(m) * 60 + Number(s);
-    const currSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const startSec = Math.floor(Number(h) * 3600 + Number(m) * 60 + (parseFloat(s) || 0));
+    const currSec = Math.floor(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
     const totalAllottedSec = allottedLunchMinutes * 60;
-    const remaining = totalAllottedSec - (currSec - startSec);
+    const remaining = Math.max(0, Math.floor(totalAllottedSec - (currSec - startSec)));
 
-    setLunchRemainingSeconds(Math.max(0, remaining));
+    setLunchRemainingSeconds(remaining);
 
     const interval = setInterval(() => {
       const currentNow = new Date();
-      const currentCurrSec =
-        currentNow.getHours() * 3600 + currentNow.getMinutes() * 60 + currentNow.getSeconds();
-      const currentRemaining = totalAllottedSec - (currentCurrSec - startSec);
-      setLunchRemainingSeconds(Math.max(0, currentRemaining));
+      const currentCurrSec = Math.floor(
+        currentNow.getHours() * 3600 + currentNow.getMinutes() * 60 + currentNow.getSeconds(),
+      );
+      const currentRemaining = Math.max(0, Math.floor(totalAllottedSec - (currentCurrSec - startSec)));
+      setLunchRemainingSeconds(currentRemaining);
 
       if (isAutoEndLunchActive && currentRemaining <= 0 && !autoLunchEndTriggeredRef.current) {
         autoLunchEndTriggeredRef.current = true;
@@ -383,16 +387,17 @@ export default function EmployeeTimeClock({
     }
 
     const [h = "0", m = "0", s = "0"] = todaySchedule.end_time.split(":");
-    const endSec =
+    const endSec = Math.floor(
       Number(h) * 3600 +
       Number(m) * 60 +
-      Number(s) +
-      Math.max(0, autoClockoutGraceMinutes) * 60;
+      (parseFloat(s) || 0) +
+      Math.max(0, autoClockoutGraceMinutes) * 60,
+    );
 
     const checkShiftEnd = () => {
       const now = new Date();
-      const currSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-      const remaining = endSec - currSec;
+      const currSec = Math.floor(now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds());
+      const remaining = Math.max(0, Math.floor(endSec - currSec));
       setShiftRemainingSeconds(remaining);
 
       if (remaining <= 0 && !autoShiftEndTriggeredRef.current) {
@@ -623,12 +628,17 @@ export default function EmployeeTimeClock({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm font-semibold text-foreground">{status}</p>
-                {status === "On lunch" && lunchRemainingSeconds !== null ? (
-                  <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-extrabold text-amber-900">
-                    {Math.floor(lunchRemainingSeconds / 60)}m {lunchRemainingSeconds % 60}s left
-                    {isAutoEndLunchActive ? " (Auto-ends lunch)" : ""}
-                  </span>
-                ) : null}
+                {status === "On lunch" && lunchRemainingSeconds !== null ? (() => {
+                  const totalSec = Math.max(0, Math.floor(lunchRemainingSeconds));
+                  const m = Math.floor(totalSec / 60);
+                  const s = totalSec % 60;
+                  return (
+                    <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-extrabold text-amber-900">
+                      {m}m {s}s left
+                      {isAutoEndLunchActive ? " (Auto-ends lunch)" : ""}
+                    </span>
+                  );
+                })() : null}
                 {displayEntry?.warning_notes?.includes("Auto lunch break ended") ? (
                   <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                     Auto Lunch Ended (Resumed Shift)

@@ -56,8 +56,8 @@ function statusLabel(status: CompanyLiveTimeEntry["status"]) {
     needs_review: "Needs review",
     not_started: "Not started",
     on_lunch: "On lunch",
-    worked: "Shift complete",
-    working: "Working",
+    worked: "Shift done",
+    working: "Clocked in",
   }[status];
 }
 
@@ -214,7 +214,7 @@ export default function CompanyLiveWorkforce({
         >
           <div className="flex items-center justify-between">
             <p className={`text-[11px] font-bold uppercase tracking-[0.12em] truncate whitespace-nowrap ${activeFilter === "working" ? "text-emerald-100" : "text-emerald-800"}`}>
-              Working
+              Clocked in
             </p>
             <span className="flex size-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
           </div>
@@ -365,7 +365,7 @@ export default function CompanyLiveWorkforce({
                         <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-300 opacity-75" />
                         <span className="relative inline-flex size-1.5 rounded-full bg-emerald-300" />
                       </span>
-                      Working
+                      Clocked in
                     </span>
                   </div>
 
@@ -503,7 +503,7 @@ export default function CompanyLiveWorkforce({
 
                     <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
                       <CheckCircle2 className="size-2.5 text-emerald-400" />
-                      Done
+                      Shift Done
                     </span>
                   </div>
 
@@ -636,7 +636,7 @@ export default function CompanyLiveWorkforce({
                   </div>
 
                   <span className="inline-flex shrink-0 items-center gap-1 rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-zinc-700 border border-zinc-300 whitespace-nowrap">
-                    Not In
+                    Not Started
                   </span>
                 </div>
 
@@ -644,7 +644,7 @@ export default function CompanyLiveWorkforce({
                 <div className="grid grid-cols-2 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
                   <div className="min-w-0">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate whitespace-nowrap">Status</p>
-                    <p className="font-extrabold text-slate-600 text-xs truncate whitespace-nowrap">Not In</p>
+                    <p className="font-extrabold text-slate-600 text-xs truncate whitespace-nowrap">Not Started</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 truncate whitespace-nowrap">Logged</p>

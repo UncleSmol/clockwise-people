@@ -253,7 +253,20 @@ export default function CalendarWorkspace({
   </p>
 </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
+            {panels.some((p) => p.key === "attendance") ? (
+              <button
+                type="button"
+                onClick={() => handleOpenPanel("attendance")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted hover:border-slate-400 transition-all shadow-2xs"
+                title="Open Today's attendance panel"
+              >
+                <Users className="size-3.5 text-accent" />
+                <span className="hidden sm:inline">Today&apos;s attendance</span>
+                <span className="sm:hidden">Attendance</span>
+              </button>
+            ) : null}
+
             {isManager && managerCalendar ? (
               <div className="flex gap-1 rounded-lg border border-border bg-background p-1 text-xs font-bold shadow-2xs">
                 <button
