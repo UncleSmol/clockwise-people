@@ -493,19 +493,14 @@ export default function CompanyTimesheetCalendar({
         {/* Active Colleagues Clocked In Strip */}
         {activeColleagues.length > 0 && (
           <div className="mb-3 rounded-lg border-2 border-emerald-500/40 bg-emerald-50/50 p-3 shadow-2xs">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                  <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
-                </span>
-                <p className="text-xs font-black text-emerald-950">
-                  Colleagues on shift right now ({activeColleagues.length})
-                </p>
-              </div>
-              <span className="rounded bg-emerald-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-200">
-                Live Attendance
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
               </span>
+              <p className="text-xs font-black text-emerald-950">
+                Colleagues on shift right now ({activeColleagues.length})
+              </p>
             </div>
 
             <div className="mt-2.5 flex flex-wrap items-center gap-2">

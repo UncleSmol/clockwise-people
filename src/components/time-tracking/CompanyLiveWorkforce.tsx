@@ -283,20 +283,15 @@ export default function CompanyLiveWorkforce({
 
       {/* Real-time Clocked In Avatar Strip */}
       {workingColleagues.length > 0 && (
-        <div className="rounded-lg border border-emerald-300/70 bg-emerald-50/50 p-3 shadow-2xs">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
-              </span>
-              <p className="text-xs font-black text-emerald-950">
-                Colleagues on shift right now ({workingColleagues.length})
-              </p>
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
-              Live Attendance
+        <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-50/50 p-4 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="relative flex size-2.5">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-600" />
             </span>
+            <p className="text-xs font-black text-emerald-950">
+              Colleagues on shift right now ({workingColleagues.length})
+            </p>
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2">

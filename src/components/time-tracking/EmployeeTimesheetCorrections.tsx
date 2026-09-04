@@ -30,7 +30,7 @@ import {
   X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
@@ -242,8 +242,9 @@ function renderLocationHistory(entry: TimeEntryRecord) {
   );
 }
 
-function timesheetCalendarClass(entry: TimeEntryRecord, isHoliday: boolean) {
+function timesheetCalendarClass(entry: TimeEntryRecord, isHoliday: boolean, isFixed: boolean = false) {
   if (isHoliday) return "cw-calendar-holiday-booked";
+  if (isFixed) return "cw-calendar-fixed";
   if (entry.status === "draft") return "cw-calendar-draft";
   if (entry.status === "approved") return "cw-calendar-approved";
   if (entry.status === "rejected") return "cw-calendar-rejected";
@@ -451,6 +452,53 @@ export default function EmployeeTimesheetCorrections({
     y: number;
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const [fixedEntryIds, setFixedEntryIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = sessionStorage.getItem("cw_fixed_timesheet_ids");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [modifiedEntryIds, setModifiedEntryIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        "cw_fixed_timesheet_ids",
+        JSON.stringify(Array.from(fixedEntryIds)),
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, [fixedEntryIds]);
+
+  const isEntryFixed = useCallback(
+    (entry: TimeEntryRecord | null | undefined): boolean => {
+      if (!entry) return false;
+      if (
+        entry.status === "submitted" ||
+        entry.status === "approved" ||
+        entry.status === "locked" ||
+        entry.status === "cancelled"
+      ) {
+        return false;
+      }
+      const managerNote = extractManagerNote(entry.notes);
+      const wasRejected = Boolean(managerNote);
+      if (entry.status === "draft" && wasRejected) return true;
+      if (fixedEntryIds.has(entry.id)) return true;
+      if (entry.status === "rejected" && modifiedEntryIds.has(entry.id)) return true;
+      return false;
+    },
+    [fixedEntryIds, modifiedEntryIds],
+  );
+
+  const handleEntryModified = (id: string) => {
+    setModifiedEntryIds((prev) => new Set(prev).add(id));
+  };
+
   const holidayDates = useMemo(
     () => new Set(publicHolidays.map((holiday) => holiday.holiday_date)),
     [publicHolidays],
@@ -467,12 +515,12 @@ export default function EmployeeTimesheetCorrections({
         continue;
       }
       const prev = map.get(e.work_date) ?? [];
-      const label = `${e.status} - ${formatHours(e.paid_hours)}`;
+      const label = `${isEntryFixed(e) ? "fixed" : e.status} - ${formatHours(e.paid_hours)}`;
       prev.push(label);
       map.set(e.work_date, prev);
     }
     return map;
-  }, [entries, publicHolidays, holidayDates]);
+  }, [entries, publicHolidays, holidayDates, isEntryFixed]);
   const [createState, createAction, createPending] = useActionState(
     createPastDraftTimeEntry,
     initialState,
@@ -493,11 +541,36 @@ export default function EmployeeTimesheetCorrections({
     initialState,
   );
   const [saveState, saveAction, savePending] = useActionState(
-    saveDraftTimeEntry,
+    async (prev: CorrectionActionState, formData: FormData) => {
+      const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+      const result = await saveDraftTimeEntry(prev, formData);
+      if (result.ok && timeEntryId) {
+        setFixedEntryIds((current) => new Set(current).add(timeEntryId));
+        setModifiedEntryIds((current) => {
+          const next = new Set(current);
+          next.delete(timeEntryId);
+          return next;
+        });
+      }
+      return result;
+    },
     initialState,
   );
   const [submitState, submitAction, submitPending] = useActionState(
-    submitSelectedTimesheets,
+    async (prev: CorrectionActionState, formData: FormData) => {
+      const result = await submitSelectedTimesheets(prev, formData);
+      if (result.ok) {
+        setSelectedEntryIds(new Set());
+        setFixedEntryIds((current) => {
+          const next = new Set(current);
+          const submittedIds = formData.getAll("time_entry_ids").map(String);
+          submittedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        setModifiedEntryIds(new Set());
+      }
+      return result;
+    },
     initialState,
   );
   const latestRequestByEntry = useMemo(() => {
@@ -555,15 +628,16 @@ export default function EmployeeTimesheetCorrections({
           !entry.notes?.startsWith("Public holiday:"),
       )
       .map((entry) => {
-        const needsAttention = entry.missing_clocking || entry.late_arrival || entry.early_departure;
+        const isFixed = isEntryFixed(entry);
+        const needsAttention = (entry.missing_clocking || entry.late_arrival || entry.early_departure) && !isFixed;
 
         return {
           id: entry.id,
-          title: `${entry.status} - ${formatHours(entry.paid_hours)}`,
+          title: `${isFixed ? "fixed" : entry.status} - ${formatHours(entry.paid_hours)}`,
           start: entry.work_date,
           allDay: true,
           classNames: [
-            timesheetCalendarClass(entry, false),
+            timesheetCalendarClass(entry, false, isFixed),
             needsAttention ? "cw-calendar-attention" : "",
           ],
           extendedProps: { entry },
@@ -578,7 +652,7 @@ export default function EmployeeTimesheetCorrections({
     }));
 
     return [...holidayEvents, ...timesheetEvents];
-  }, [entries, publicHolidays, holidayDates]);
+  }, [entries, publicHolidays, holidayDates, isEntryFixed]);
   const editableEntries = entries.filter(
     (entry) =>
       (entry.status === "draft" || entry.status === "rejected") &&
@@ -659,11 +733,14 @@ export default function EmployeeTimesheetCorrections({
     setAcknowledgedFlags(false);
   };
   const flaggedSelected = editableEntries.filter(
-    (entry) => selectedEntryIds.has(entry.id) && entryNeedsAttention(entry),
+    (entry) => selectedEntryIds.has(entry.id) && entryNeedsAttention(entry) && !isEntryFixed(entry),
   );
   const hasFlaggedSelected = flaggedSelected.length > 0;
+  const hasFixedSelected = editableEntries.some(
+    (entry) => selectedEntryIds.has(entry.id) && isEntryFixed(entry),
+  );
   const hasRejectedSelected = editableEntries.some(
-    (entry) => selectedEntryIds.has(entry.id) && entry.status === "rejected",
+    (entry) => selectedEntryIds.has(entry.id) && entry.status === "rejected" && !isEntryFixed(entry),
   );
   const submitBlocked =
     selectedEntryIds.size === 0 || (hasFlaggedSelected && !acknowledgedFlags);
@@ -725,12 +802,13 @@ export default function EmployeeTimesheetCorrections({
   }, [calendarFocusDate]);
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
+    const isFixed = isEntryFixed(entry);
     const editable = entry.status === "draft" || entry.status === "rejected";
-    const isDraft = entry.status === "draft";
-    const rejected = entry.status === "rejected";
+    const isDraft = entry.status === "draft" && !isFixed;
+    const rejected = entry.status === "rejected" && !isFixed;
     const isApproved = entry.status === "approved";
     const isSubmitted = entry.status === "submitted";
-    const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure || rejected;
+    const hasWarning = (entry.missing_clocking || entry.late_arrival || entry.early_departure || rejected) && !isFixed;
     const managerNote = extractManagerNote(entry.notes);
     const validation = entry.scheduleValidation;
     const isCompliant = validation?.isCompliant ?? !hasWarning;
@@ -742,13 +820,15 @@ export default function EmployeeTimesheetCorrections({
         className={`grid gap-2 sm:gap-3 rounded-lg border-2 p-2.5 sm:p-3.5 shadow-sm transition-all w-full max-w-full overflow-hidden ${
           isApproved
             ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
-            : rejected
-              ? "border-rose-500 bg-rose-50/50 hover:bg-rose-50/80"
-              : isSubmitted
-                ? "border-slate-700 bg-slate-900/5 hover:bg-slate-900/10"
-                : isDraft
-                  ? "border-amber-400 bg-amber-50/50 ring-2 ring-amber-400/50 shadow-md animate-[pulse_2.5s_cubic-bezier(0.4,0,0.6,1)_infinite]"
-                  : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
+            : isFixed
+              ? "border-teal-500 bg-teal-50/60 hover:bg-teal-50/80 ring-2 ring-teal-500/30 shadow-md"
+              : rejected
+                ? "border-rose-500 bg-rose-50/50 hover:bg-rose-50/80"
+                : isSubmitted
+                  ? "border-slate-700 bg-slate-900/5 hover:bg-slate-900/10"
+                  : isDraft
+                    ? "border-amber-400 bg-amber-50/50 ring-2 ring-amber-400/50 shadow-md animate-[pulse_2.5s_cubic-bezier(0.4,0,0.6,1)_infinite]"
+                    : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
         }`}
       >
         {/* Top Header: Date, Status Badge, Paid Hours & Edit Toggle */}
@@ -760,14 +840,18 @@ export default function EmployeeTimesheetCorrections({
                 className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
                   isApproved
                     ? "bg-emerald-600 text-white shadow-2xs"
-                    : rejected
-                      ? "bg-rose-600 text-white shadow-2xs"
-                      : isSubmitted
-                        ? "bg-slate-900 text-white shadow-2xs"
-                        : "bg-amber-500 text-white shadow-2xs"
+                    : isFixed
+                      ? "bg-teal-600 text-white shadow-2xs"
+                      : rejected
+                        ? "bg-rose-600 text-white shadow-2xs"
+                        : isSubmitted
+                          ? "bg-slate-900 text-white shadow-2xs"
+                          : "bg-amber-500 text-white shadow-2xs"
                 }`}
               >
-                {isDraft ? (
+                {isFixed ? (
+                  <CheckCircle2 className="size-2.5 text-white" />
+                ) : isDraft ? (
                   <span className="relative flex size-1.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-200 opacity-80" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-white" />
@@ -781,7 +865,7 @@ export default function EmployeeTimesheetCorrections({
                 ) : (
                   <Edit3 className="size-2.5 text-white" />
                 )}
-                {rejected ? "Rejected" : editable ? "Draft" : entry.status}
+                {isFixed ? "Fixed · Ready to Submit" : rejected ? "Rejected" : editable ? "Draft" : entry.status}
               </span>
               <p className="truncate text-[11px] sm:text-xs font-extrabold text-foreground">
                 {formatDate(entry.work_date)}
@@ -794,11 +878,13 @@ export default function EmployeeTimesheetCorrections({
                 className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-black shadow-2xs whitespace-nowrap ${
                   isApproved
                     ? "bg-emerald-950 text-emerald-200"
-                    : rejected
-                      ? "bg-rose-950 text-rose-200"
-                      : isSubmitted
-                        ? "bg-slate-900 text-emerald-400"
-                        : "bg-amber-950 text-amber-200"
+                    : isFixed
+                      ? "bg-teal-950 text-teal-200"
+                      : rejected
+                        ? "bg-rose-950 text-rose-200"
+                        : isSubmitted
+                          ? "bg-slate-900 text-emerald-400"
+                          : "bg-amber-950 text-amber-200"
                 }`}
               >
                 <Clock3 className="size-2.5" />
@@ -813,11 +899,13 @@ export default function EmployeeTimesheetCorrections({
               className={`hidden sm:inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
                 isApproved
                   ? "bg-emerald-950 text-emerald-200"
-                  : rejected
-                    ? "bg-rose-950 text-rose-200"
-                    : isSubmitted
-                      ? "bg-slate-900 text-emerald-400"
-                      : "bg-amber-950 text-amber-200"
+                  : isFixed
+                    ? "bg-teal-950 text-teal-200"
+                    : rejected
+                      ? "bg-rose-950 text-rose-200"
+                      : isSubmitted
+                        ? "bg-slate-900 text-emerald-400"
+                        : "bg-amber-950 text-amber-200"
               }`}
             >
               <Clock3 className="size-3" />
@@ -831,9 +919,11 @@ export default function EmployeeTimesheetCorrections({
                 className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs whitespace-nowrap ${
                   isExpanded
                     ? "bg-slate-900 text-white"
-                    : isDraft
-                      ? "bg-amber-600 text-white hover:bg-amber-700"
-                      : "bg-slate-800 text-white hover:bg-slate-900"
+                    : isFixed
+                      ? "bg-teal-600 text-white hover:bg-teal-700"
+                      : isDraft
+                        ? "bg-amber-600 text-white hover:bg-amber-700"
+                        : "bg-slate-800 text-white hover:bg-slate-900"
                 }`}
                 title={isExpanded ? "Collapse time editor" : "Edit times"}
               >
@@ -847,7 +937,21 @@ export default function EmployeeTimesheetCorrections({
           </div>
         </div>
 
-        {rejected ? (
+        {isFixed ? (
+          <div className="flex items-center gap-2 rounded-md border border-teal-300 bg-teal-100/80 p-2 text-[11px] font-semibold text-teal-950 shadow-2xs">
+            <CheckCircle2 className="size-3.5 shrink-0 text-teal-700" />
+            <div>
+              <p className="font-extrabold text-teal-950">
+                Timesheet fixed & ready to resubmit
+              </p>
+              {managerNote ? (
+                <p className="text-[10.5px] text-teal-800 font-medium">
+                  Previous manager note: &ldquo;{managerNote}&rdquo;
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : rejected ? (
           <div className="rounded-md border border-rose-300 bg-rose-100/80 p-2 text-[11px] font-semibold text-rose-950 shadow-2xs">
             {managerNote
               ? `Rejected by manager: ${managerNote}`
@@ -865,6 +969,7 @@ export default function EmployeeTimesheetCorrections({
                   type="time"
                   name="clock_in"
                   defaultValue={inputTime(entry.clock_in)}
+                  onChange={() => handleEntryModified(entry.id)}
                   className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
@@ -874,6 +979,7 @@ export default function EmployeeTimesheetCorrections({
                   type="time"
                   name="lunch_start"
                   defaultValue={inputTime(entry.lunch_start)}
+                  onChange={() => handleEntryModified(entry.id)}
                   className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
@@ -883,6 +989,7 @@ export default function EmployeeTimesheetCorrections({
                   type="time"
                   name="lunch_end"
                   defaultValue={inputTime(entry.lunch_end)}
+                  onChange={() => handleEntryModified(entry.id)}
                   className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
@@ -892,6 +999,7 @@ export default function EmployeeTimesheetCorrections({
                   type="time"
                   name="clock_out"
                   defaultValue={inputTime(entry.clock_out)}
+                  onChange={() => handleEntryModified(entry.id)}
                   className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
                 />
               </div>
@@ -903,6 +1011,7 @@ export default function EmployeeTimesheetCorrections({
                 name="notes"
                 rows={1}
                 defaultValue={entry.notes ?? ""}
+                onChange={() => handleEntryModified(entry.id)}
                 className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-medium text-foreground outline-none resize-none"
                 placeholder="Optional timesheet note"
               />
@@ -929,10 +1038,18 @@ export default function EmployeeTimesheetCorrections({
                 </button>
                 <button
                   disabled={savePending}
-                  className="inline-flex items-center justify-center gap-1 rounded bg-emerald-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+                  className={`inline-flex items-center justify-center gap-1 rounded px-3 py-1 text-[11px] font-extrabold text-white shadow-xs disabled:opacity-50 ${
+                    isFixed || entry.status === "rejected"
+                      ? "bg-teal-600 hover:bg-teal-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
                 >
                   <Save className="size-3" />
-                  {savePending ? "Saving..." : "Save Draft"}
+                  {savePending
+                    ? "Saving..."
+                    : isFixed || entry.status === "rejected"
+                      ? "Save Corrections"
+                      : "Save Draft"}
                 </button>
               </div>
             </div>
@@ -998,9 +1115,11 @@ export default function EmployeeTimesheetCorrections({
               <Send className="size-3.5" />
               {submitPending
                 ? "Submitting..."
-                : hasRejectedSelected
-                  ? "Resubmit selected"
-                  : `Submit selected (${selectedEntryIds.size})`}
+                : hasFixedSelected
+                  ? `Resubmit fixed (${selectedEntryIds.size})`
+                  : hasRejectedSelected
+                    ? "Resubmit selected"
+                    : `Submit selected (${selectedEntryIds.size})`}
             </button>
           </div>
         </div>
@@ -1024,10 +1143,11 @@ export default function EmployeeTimesheetCorrections({
 
         <div className="mt-3 grid gap-2">
           {editableEntries.map((entry) => {
-            const needsAttention = entryNeedsAttention(entry);
+            const isFixed = isEntryFixed(entry);
+            const isRejected = entry.status === "rejected" && !isFixed;
+            const needsAttention = entryNeedsAttention(entry) && !isFixed;
             const isSelected = selectedEntryIds.has(entry.id);
             const isAnchor = rangeAnchorId === entry.id;
-            const isRejected = entry.status === "rejected";
 
             return (
               <button
@@ -1039,11 +1159,13 @@ export default function EmployeeTimesheetCorrections({
                     ? "border-slate-900 bg-slate-900 text-white shadow-xs"
                     : isSelected
                       ? "border-slate-900 bg-slate-900/10 text-foreground ring-1 ring-slate-900"
-                      : isRejected
-                        ? "border-rose-400 bg-rose-50/70 text-foreground hover:bg-rose-100"
-                        : needsAttention
-                          ? "border-amber-400 bg-amber-50/70 text-foreground hover:bg-amber-100"
-                          : "border-border bg-white text-foreground hover:bg-slate-50"
+                      : isFixed
+                        ? "border-teal-500 bg-teal-50/70 text-foreground hover:bg-teal-100"
+                        : isRejected
+                          ? "border-rose-400 bg-rose-50/70 text-foreground hover:bg-rose-100"
+                          : needsAttention
+                            ? "border-amber-400 bg-amber-50/70 text-foreground hover:bg-amber-100"
+                            : "border-border bg-white text-foreground hover:bg-slate-50"
                 }`}
               >
                 <span
@@ -1058,21 +1180,25 @@ export default function EmployeeTimesheetCorrections({
                 <span className="font-extrabold">{formatDate(entry.work_date)}</span>
                 <span
                   className={`ml-auto inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                    isRejected
-                      ? "bg-rose-600 text-white shadow-2xs"
-                      : needsAttention
-                        ? "bg-amber-500 text-white shadow-2xs"
-                        : "bg-emerald-600 text-white shadow-2xs"
+                    isFixed
+                      ? "bg-teal-600 text-white shadow-2xs"
+                      : isRejected
+                        ? "bg-rose-600 text-white shadow-2xs"
+                        : needsAttention
+                          ? "bg-amber-500 text-white shadow-2xs"
+                          : "bg-emerald-600 text-white shadow-2xs"
                   }`}
                 >
-                  {isRejected ? (
+                  {isFixed ? (
+                    <CheckCircle2 className="size-3" />
+                  ) : isRejected ? (
                     <X className="size-3" />
                   ) : needsAttention ? (
                     <AlertTriangle className="size-3" />
                   ) : (
                     <CheckCircle2 className="size-3" />
                   )}
-                  {isRejected ? "Rejected" : needsAttention ? "Review" : "Ready"}
+                  {isFixed ? "Fixed" : isRejected ? "Rejected" : needsAttention ? "Review" : "Ready"}
                 </span>
               </button>
             );
@@ -1116,19 +1242,14 @@ export default function EmployeeTimesheetCorrections({
       {/* Active Colleagues Clocked In Strip */}
       {activeColleagues.length > 0 && (
         <div className="rounded-lg border-2 border-emerald-500/40 bg-emerald-50/50 p-3 shadow-2xs">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
-              </span>
-              <p className="text-xs font-black text-emerald-950">
-                Colleagues on shift right now ({activeColleagues.length})
-              </p>
-            </div>
-            <span className="rounded bg-emerald-950 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-200">
-              Live Attendance
+          <div className="flex items-center gap-2">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
             </span>
+            <p className="text-xs font-black text-emerald-950">
+              Colleagues on shift right now ({activeColleagues.length})
+            </p>
           </div>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -1279,6 +1400,10 @@ export default function EmployeeTimesheetCorrections({
           <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
             <span className="size-1.5 rounded-full bg-rose-600" />
             Rejected
+          </span>
+          <span className="inline-flex items-center gap-1 rounded border border-teal-300 bg-teal-100/70 px-2 py-0.5 text-[11px] text-teal-900">
+            <span className="size-1.5 rounded-full bg-teal-600" />
+            Fixed
           </span>
         </div>
         <div ref={calendarRef} className="cw-timesheet-calendar min-w-0 max-sm:hidden">
@@ -1510,17 +1635,48 @@ export default function EmployeeTimesheetCorrections({
               {activeCalendarEntry ? (
                 <div className="grid gap-2">
                   {activeCalendarEntry.status === "draft" || activeCalendarEntry.status === "rejected" ? (
-                    <div className="rounded-lg border-2 border-amber-400 bg-amber-50/40 p-3 shadow-2xs">
-                      <div className="mb-2 flex items-center justify-between gap-2 border-b border-amber-200/80 pb-2">
+                    <div
+                      className={`rounded-lg border-2 p-3 shadow-2xs ${
+                        isEntryFixed(activeCalendarEntry)
+                          ? "border-teal-400 bg-teal-50/40"
+                          : activeCalendarEntry.status === "rejected"
+                            ? "border-rose-400 bg-rose-50/40"
+                            : "border-amber-400 bg-amber-50/40"
+                      }`}
+                    >
+                      <div
+                        className={`mb-2 flex items-center justify-between gap-2 border-b pb-2 ${
+                          isEntryFixed(activeCalendarEntry)
+                            ? "border-teal-200/80"
+                            : activeCalendarEntry.status === "rejected"
+                              ? "border-rose-200/80"
+                              : "border-amber-200/80"
+                        }`}
+                      >
                         <div className="flex items-center gap-2">
-                          <Edit3 className="size-4 text-amber-600" />
-                          <h4 className="text-xs font-black uppercase tracking-wider text-amber-950">
-                            {activeCalendarEntry.status === "rejected" ? "Correct Rejected Timesheet" : "Edit Draft Timesheet"}
+                          {isEntryFixed(activeCalendarEntry) ? (
+                            <CheckCircle2 className="size-4 text-teal-600" />
+                          ) : activeCalendarEntry.status === "rejected" ? (
+                            <AlertTriangle className="size-4 text-rose-600" />
+                          ) : (
+                            <Edit3 className="size-4 text-amber-600" />
+                          )}
+                          <h4
+                            className={`text-xs font-black uppercase tracking-wider ${
+                              isEntryFixed(activeCalendarEntry)
+                                ? "text-teal-950"
+                                : activeCalendarEntry.status === "rejected"
+                                  ? "text-rose-950"
+                                  : "text-amber-950"
+                            }`}
+                          >
+                            {isEntryFixed(activeCalendarEntry)
+                              ? "Fixed Timesheet (Ready to Resubmit)"
+                              : activeCalendarEntry.status === "rejected"
+                                ? "Correct Rejected Timesheet"
+                                : "Edit Draft Timesheet"}
                           </h4>
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
-                          Edit Draft Direct
-                        </span>
                       </div>
                       {renderTimesheetEntry(activeCalendarEntry)}
                     </div>
@@ -1986,7 +2142,7 @@ export default function EmployeeTimesheetCorrections({
         maxWidth="max-w-2xl"
         eyebrow="Timesheet detail"
         title={detailEntry ? formatDate(detailEntry.work_date) : ""}
-        description={detailEntry ? <span className="capitalize">{detailEntry.status} shift breakdown</span> : ""}
+        description={detailEntry ? <span className="capitalize">{isEntryFixed(detailEntry) ? "Fixed timesheet breakdown" : `${detailEntry.status} shift breakdown`}</span> : ""}
         bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5"
       >
         {detailEntry ? (
@@ -1998,13 +2154,15 @@ export default function EmployeeTimesheetCorrections({
                   ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
                   : detailEntry.status === "submitted"
                     ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
-                    : detailEntry.status === "rejected"
-                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
-                      : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+                    : isEntryFixed(detailEntry)
+                      ? "bg-teal-600 text-white ring-1 ring-teal-700/60"
+                      : detailEntry.status === "rejected"
+                        ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                        : "border border-zinc-300 bg-zinc-100 text-zinc-900"
               }`}
             >
               <div>
-                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${detailEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-zinc-500" : "opacity-80"}`}>
                   Timesheet Status
                 </p>
                 <div className="mt-1 flex items-center gap-2">
@@ -2014,21 +2172,25 @@ export default function EmployeeTimesheetCorrections({
                         ? "bg-emerald-950/40 text-white border border-emerald-400/30"
                         : detailEntry.status === "submitted"
                           ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
-                          : detailEntry.status === "rejected"
-                            ? "bg-rose-950/50 text-white border border-rose-400/30"
-                            : "bg-zinc-200 text-zinc-800 border border-zinc-300"
+                          : isEntryFixed(detailEntry)
+                            ? "bg-teal-950/50 text-white border border-teal-400/30"
+                            : detailEntry.status === "rejected"
+                              ? "bg-rose-950/50 text-white border border-rose-400/30"
+                              : "bg-zinc-200 text-zinc-800 border border-zinc-300"
                     }`}
                   >
-                    {detailEntry.status === "approved" ? (
+                    {isEntryFixed(detailEntry) ? (
+                      <CheckCircle2 className="size-3 text-teal-200" />
+                    ) : detailEntry.status === "approved" ? (
                       <CheckCircle2 className="size-3 text-emerald-300" />
                     ) : detailEntry.status === "rejected" ? (
                       <AlertTriangle className="size-3 text-rose-200" />
                     ) : (
                       <Clock className="size-3" />
                     )}
-                    {detailEntry.status}
+                    {isEntryFixed(detailEntry) ? "Fixed" : detailEntry.status}
                   </span>
-                  <span className={`text-xs font-bold ${detailEntry.status === "draft" ? "text-zinc-600" : "text-white/90"}`}>
+                  <span className={`text-xs font-bold ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-zinc-600" : "text-white/90"}`}>
                     {formatDate(detailEntry.work_date)}
                   </span>
                 </div>

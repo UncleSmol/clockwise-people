@@ -92,6 +92,80 @@ function formatHours(value: number | string | null | undefined) {
   return `${Number(value ?? 0).toFixed(2)}h`;
 }
 
+function parseTimeToDate(timeStr: string, baseDateStr?: string | null): Date {
+  const [h = "0", m = "0", s = "0"] = timeStr.split(":");
+  const d = new Date();
+  if (baseDateStr) {
+    const parts = baseDateStr.split("-").map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      d.setFullYear(parts[0], parts[1] - 1, parts[2]);
+    }
+  }
+  d.setHours(Number(h), Number(m), Number(s), 0);
+  return d;
+}
+
+function calculateLiveWorkedHours(
+  entry: TimeEntryRecord | null | undefined,
+  now: Date,
+): { hoursDecimal: string; durationText: string } {
+  if (!entry?.clock_in) {
+    return { hoursDecimal: "0.00h", durationText: "0m" };
+  }
+
+  if (entry.clock_out) {
+    if (entry.paid_hours != null && Number(entry.paid_hours) > 0) {
+      const h = Number(entry.paid_hours);
+      const totalMin = Math.round(h * 60);
+      const durH = Math.floor(totalMin / 60);
+      const durM = totalMin % 60;
+      const durationText = durH > 0 ? `${durH}h ${durM}m` : `${durM}m`;
+      return { hoursDecimal: `${h.toFixed(2)}h`, durationText };
+    }
+    const inDate = parseTimeToDate(entry.clock_in, entry.work_date);
+    const outDate = parseTimeToDate(entry.clock_out, entry.work_date);
+    const grossMs = Math.max(0, outDate.getTime() - inDate.getTime());
+    let lunchMs = 0;
+    if (entry.lunch_start && entry.lunch_end) {
+      const lunchStartDate = parseTimeToDate(entry.lunch_start, entry.work_date);
+      const lunchEndDate = parseTimeToDate(entry.lunch_end, entry.work_date);
+      lunchMs = Math.max(0, lunchEndDate.getTime() - lunchStartDate.getTime());
+    }
+    const netMs = Math.max(0, grossMs - lunchMs);
+    const netSec = Math.floor(netMs / 1000);
+    const netHours = netSec / 3600;
+    const durH = Math.floor(netSec / 3600);
+    const durM = Math.floor((netSec % 3600) / 60);
+    const durationText = durH > 0 ? `${durH}h ${durM}m` : `${durM}m`;
+    return { hoursDecimal: `${netHours.toFixed(2)}h`, durationText };
+  }
+
+  const inDate = parseTimeToDate(entry.clock_in, entry.work_date);
+  let workedMs = 0;
+
+  if (!entry.lunch_start) {
+    workedMs = Math.max(0, now.getTime() - inDate.getTime());
+  } else if (entry.lunch_start && !entry.lunch_end) {
+    const lunchStartDate = parseTimeToDate(entry.lunch_start, entry.work_date);
+    workedMs = Math.max(0, lunchStartDate.getTime() - inDate.getTime());
+  } else if (entry.lunch_start && entry.lunch_end) {
+    const lunchStartDate = parseTimeToDate(entry.lunch_start, entry.work_date);
+    const lunchEndDate = parseTimeToDate(entry.lunch_end, entry.work_date);
+    const beforeLunch = Math.max(0, lunchStartDate.getTime() - inDate.getTime());
+    const afterLunch = Math.max(0, now.getTime() - lunchEndDate.getTime());
+    workedMs = beforeLunch + afterLunch;
+  }
+
+  const netSec = Math.floor(workedMs / 1000);
+  const netHours = netSec / 3600;
+  const durH = Math.floor(netSec / 3600);
+  const durM = Math.floor((netSec % 3600) / 60);
+  const durS = netSec % 60;
+  const durationText = durH > 0 ? `${durH}h ${durM}m` : `${durM}m ${durS}s`;
+
+  return { hoursDecimal: `${netHours.toFixed(2)}h`, durationText };
+}
+
 function formatRemainingTime(seconds: number): string {
   if (seconds <= 0) return "0s";
   const h = Math.floor(seconds / 3600);
@@ -243,6 +317,15 @@ export default function EmployeeTimeClock({
       : defaultLunchMinutes > 0
         ? defaultLunchMinutes
         : 60;
+
+  const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [lunchRemainingSeconds, setLunchRemainingSeconds] = useState<number | null>(null);
   const autoLunchEndTriggeredRef = useRef(false);
@@ -481,6 +564,7 @@ export default function EmployeeTimeClock({
   };
 
   const status = currentStatus(displayEntry);
+  const liveWorked = calculateLiveWorkedHours(displayEntry, currentTime);
   const timeline = [
     { label: "Clock in", value: displayEntry?.clock_in },
     { label: "Lunch start", value: displayEntry?.lunch_start },
@@ -557,14 +641,127 @@ export default function EmployeeTimeClock({
             </div>
           </div>
 
-          <span className="text-sm font-bold tabular-nums text-foreground sm:hidden">
-            {formatHours(displayEntry?.paid_hours)}
-          </span>
+          <div className="flex flex-col items-end sm:hidden">
+            <span className="text-sm font-bold tabular-nums text-foreground">
+              {liveWorked.hoursDecimal}
+            </span>
+            {displayEntry?.clock_in && !displayEntry?.clock_out ? (
+              <span className="text-[10px] font-medium text-muted tabular-nums">
+                {status === "On lunch" ? "Break paused" : liveWorked.durationText}
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <span className="hidden text-sm font-bold tabular-nums text-foreground sm:block sm:ml-auto">
-          {formatHours(displayEntry?.paid_hours)}
-        </span>
+        <div className="hidden sm:flex sm:flex-col sm:items-end sm:ml-auto">
+          <span className="text-sm font-bold tabular-nums text-foreground">
+            {liveWorked.hoursDecimal}
+          </span>
+          {displayEntry?.clock_in && !displayEntry?.clock_out ? (
+            <span className="text-[10px] font-medium text-muted tabular-nums">
+              {status === "On lunch" ? "Break paused" : liveWorked.durationText}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Times recorded today */}
+        <div className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border/80 bg-background/60 p-2 sm:grid-cols-4">
+          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+            <span
+              className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                displayEntry?.clock_in
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-surface-muted text-muted"
+              }`}
+            >
+              1
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+                Clock in
+              </p>
+              <p
+                className={`truncate text-xs font-bold ${
+                  displayEntry?.clock_in ? "text-foreground" : "text-muted"
+                }`}
+              >
+                {formatTime(displayEntry?.clock_in)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+            <span
+              className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                displayEntry?.lunch_start
+                  ? "bg-warning text-white"
+                  : "bg-surface-muted text-muted"
+              }`}
+            >
+              2
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+                Lunch start
+              </p>
+              <p
+                className={`truncate text-xs font-bold ${
+                  displayEntry?.lunch_start ? "text-foreground" : "text-muted"
+                }`}
+              >
+                {formatTime(displayEntry?.lunch_start)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+            <span
+              className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                displayEntry?.lunch_end
+                  ? "bg-warning text-white"
+                  : "bg-surface-muted text-muted"
+              }`}
+            >
+              3
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+                Lunch end
+              </p>
+              <p
+                className={`truncate text-xs font-bold ${
+                  displayEntry?.lunch_end ? "text-foreground" : "text-muted"
+                }`}
+              >
+                {formatTime(displayEntry?.lunch_end)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+            <span
+              className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                displayEntry?.clock_out
+                  ? "bg-danger text-white"
+                  : "bg-surface-muted text-muted"
+              }`}
+            >
+              4
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+                Clock out
+              </p>
+              <p
+                className={`truncate text-xs font-bold ${
+                  displayEntry?.clock_out ? "text-foreground" : "text-muted"
+                }`}
+              >
+                {formatTime(displayEntry?.clock_out)}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <form
           action={formAction}
@@ -930,7 +1127,7 @@ export default function EmployeeTimeClock({
               Paid time
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">
-              {formatHours(displayEntry?.paid_hours)}
+              {liveWorked.hoursDecimal}
             </p>
           </div>
           <div className="card p-3">

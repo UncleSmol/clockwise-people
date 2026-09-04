@@ -126,9 +126,6 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">
                 Automated BCEA Leave Accruals
               </h3>
-              <span className="rounded bg-emerald-950 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-200">
-                SA Labour Law
-              </span>
             </div>
             <p className="mt-1 text-xs font-medium text-emerald-900 leading-relaxed">
               Statutory annual leave accrues automatically at <strong>1 hour per 17 hours worked</strong> (BCEA Section 20), plus <strong>1.5&times; TOIL for overtime</strong> (BCEA Section 10).

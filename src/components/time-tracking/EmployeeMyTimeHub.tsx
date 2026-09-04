@@ -37,7 +37,7 @@ function StepItem({
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className="flex w-full items-start gap-3 bg-primary px-4 py-4 text-left text-primary-foreground transition-[filter] duration-200 hover:brightness-110 sm:items-center sm:px-5"
+        className="flex w-full items-start gap-3 bg-primary px-4 py-4 text-left text-primary-foreground transition-[filter] duration-200 hover:brightness-110 sm:px-5"
       >
         <span
           className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-primary shadow-2xs"
@@ -51,13 +51,13 @@ function StepItem({
           <span className="mt-0.5 block text-xs leading-snug text-white/80">
             {description}
           </span>
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5 sm:flex-row sm:items-center sm:pt-0">
           {badge ? (
-            <span className="inline-flex items-center rounded-full bg-white/25 px-1.5 py-1">
+            <span className="mt-2 inline-flex items-center rounded-full bg-white/25 px-1.5 py-1">
               {badge}
             </span>
           ) : null}
+        </span>
+        <span className="flex shrink-0 items-start pt-1">
           <ChevronDown
             className={`size-4 shrink-0 text-white transition-transform ${open ? "rotate-180" : ""}`}
           />

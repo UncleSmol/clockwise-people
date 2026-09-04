@@ -657,6 +657,12 @@ select {
   background: color-mix(in srgb, var(--color-danger) 20%, var(--color-surface));
 }
 
+.cw-timesheet-calendar .cw-calendar-fixed {
+  border-color: color-mix(in srgb, #0d9488 60%, transparent);
+  background: color-mix(in srgb, #0d9488 20%, var(--color-surface));
+  color: #0f766e;
+}
+
 .cw-timesheet-calendar .cw-calendar-locked {
   border-color: color-mix(in srgb, var(--color-muted) 40%, transparent);
   background: color-mix(in srgb, var(--color-muted) 18%, var(--color-surface));
