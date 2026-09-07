@@ -48,6 +48,7 @@ function isRunningStandalone() {
 
 function navItemIcon(label: string) {
   const key = label.toLowerCase();
+  if (key.includes("sysadmin") || key.includes("system")) return ShieldCheck;
   if (key.includes("report") || key.includes("analytic") || key.includes("payroll")) return FileSpreadsheet;
   if (key.includes("attendance") || key.includes("workforce")) return Users;
   if (key.includes("people") || key.includes("employee")) return Users;

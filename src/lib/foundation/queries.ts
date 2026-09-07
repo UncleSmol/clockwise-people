@@ -59,15 +59,16 @@ export const getActiveCompany = cache(async function getActiveCompany() {
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
 
-  const { data: appUser } = await supabase
+  const { data: appUsers } = await supabase
     .from("users")
     .select("is_super_admin")
     .eq("auth_user_id", user.id)
     .eq("status", "active")
-    .is("deleted_at", null)
-    .single();
+    .is("deleted_at", null);
 
-  if (appUser?.is_super_admin) {
+  const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
+
+  if (isSuperAdmin) {
     const cookieStore = await cookies();
     const preferredId = cookieStore.get("active_company_id")?.value;
     if (preferredId) {

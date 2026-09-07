@@ -163,10 +163,20 @@ const CompanyRulesForm = dynamic(
     loading: () => <LoadingPanel label="company rules" />,
   },
 );
+import {
+  getSysAdminCompaniesOverview,
+  getSysAdminCompanyMetadata,
+} from "@/lib/sysadmin/queries";
 const CompanyReportsWorkspace = dynamic(
   () => import("@/components/reports/CompanyReportsWorkspace"),
   {
     loading: () => <LoadingPanel label="reporting center" />,
+  },
+);
+const SysAdminWorkspace = dynamic(
+  () => import("@/components/sysadmin/SysAdminWorkspace"),
+  {
+    loading: () => <LoadingPanel label="system admin" />,
   },
 );
 
@@ -205,6 +215,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     employeesData,
     selectedEmployee,
     companySettings,
+    sysAdminCompanies,
+    sysAdminMetadata,
   ] = await Promise.all([
     getEmployeeTimeState(),
     canManageCompany
@@ -227,6 +239,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ? getEmployeeDetail(selectedEmployeeId)
       : Promise.resolve(null),
     canManageCompany ? getCompanySettings() : Promise.resolve(null),
+    access.isSuperAdmin
+      ? getSysAdminCompaniesOverview()
+      : Promise.resolve([]),
+    access.isSuperAdmin
+      ? getSysAdminCompanyMetadata()
+      : Promise.resolve({ workstations: [], schedules: [] }),
   ]);
 
   const currentDateLabel = new Intl.DateTimeFormat("en-ZA", {
@@ -566,6 +584,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           leaveAssignments={workRulesData?.leaveBalances ?? []}
           publicHolidays={calendarHolidays}
           payrollConfig={payrollConfig}
+        />
+      ),
+    });
+  }
+
+  if (access.isSuperAdmin) {
+    panels.push({
+      key: "sysadmin",
+      label: "System admin",
+      description:
+        "Cross-tenant company provisioning, employee assignments, RBAC role management, and isolation security.",
+      content: (
+        <SysAdminWorkspace
+          activeCompanyId={company.id}
+          companies={sysAdminCompanies}
+          workstations={sysAdminMetadata.workstations}
+          schedules={sysAdminMetadata.schedules}
         />
       ),
     });

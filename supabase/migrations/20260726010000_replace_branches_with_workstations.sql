@@ -1,3 +1,5 @@
+drop policy if exists "role scoped users can view users" on public.users;
+
 alter table public.employees alter column branch_id drop not null;
 
 alter table public.departments

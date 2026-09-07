@@ -1,15 +1,135 @@
--- Auto-create leave timesheet entries on approval
--- Adds leave_type_id to time_entries for proper identification and styling
+-- Fix remaining references to dropped branch_id on time_entries and employees
 
--- 1. Add leave_type_id column to time_entries
-alter table public.time_entries
-add column if not exists leave_type_id uuid references public.leave_types(id) on delete set null;
+-- 1. Drop obsolete 8-argument overload of upsert_company_workstation that referenced branch_id
+drop function if exists public.upsert_company_workstation(uuid, uuid, uuid, text, text, numeric, numeric, integer);
 
-create index if not exists idx_time_entries_leave_type_id
-on public.time_entries(leave_type_id)
-where leave_type_id is not null;
+-- 2. Fix recalculate_employee_period_fill_up to remove references to te.branch_id and ws.branch_id
+create or replace function public.recalculate_employee_period_fill_up(
+  target_company_id uuid,
+  target_employee_id uuid,
+  target_payroll_period_id uuid,
+  target_work_date date
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  item record;
+  running_shortfall numeric(8,2) := 0;
+  base_normal numeric(8,2);
+  base_overtime numeric(8,2);
+  applied_fill_up numeric(8,2);
+  target_normal numeric(8,2);
+  target_overtime numeric(8,2);
+  clean_warning text;
+begin
+  for item in
+    select
+      te.id,
+      te.paid_hours,
+      te.normal_hours,
+      te.overtime_hours,
+      te.warning_notes,
+      te.notes,
+      coalesce(
+        public.normalized_schedule_paid_hours(sd.start_time, sd.end_time, sd.lunch_minutes, sd.paid_hours, cs.standard_daily_hours),
+        cs.standard_daily_hours,
+        8
+      )::numeric(8,2) as scheduled_nt
+    from public.time_entries te
+    join public.employees e
+      on e.id = te.employee_id
+     and e.company_id = te.company_id
+    left join public.company_settings cs
+      on cs.company_id = te.company_id
+    left join public.schedule_days sd
+      on sd.work_schedule_id = coalesce((
+          select assignments.work_schedule_id
+          from public.employee_work_schedule_assignments assignments
+          join public.work_schedules schedules
+            on schedules.id = assignments.work_schedule_id
+           and schedules.company_id = assignments.company_id
+           and schedules.is_active
+           and schedules.deleted_at is null
+          where assignments.company_id = te.company_id
+            and assignments.employee_id = te.employee_id
+            and assignments.is_active
+            and assignments.deleted_at is null
+            and assignments.effective_from <= te.work_date
+            and (assignments.effective_to is null or assignments.effective_to >= te.work_date)
+          order by assignments.priority, assignments.effective_from desc
+          limit 1
+        ), e.work_schedule_id, (
+          select ws.id
+          from public.work_schedules ws
+          where ws.company_id = te.company_id
+            and ws.scope = 'company'
+            and ws.is_active
+            and ws.deleted_at is null
+          order by ws.created_at desc
+          limit 1
+        ))
+     and sd.day_of_week = extract(dow from te.work_date)::integer
+     and sd.is_working_day
+    where te.company_id = target_company_id
+      and te.employee_id = target_employee_id
+      and te.deleted_at is null
+      and (
+        (target_payroll_period_id is not null and te.payroll_period_id = target_payroll_period_id)
+        or (
+          target_payroll_period_id is null
+          and te.payroll_period_id is null
+          and te.work_date between date_trunc('month', target_work_date)::date
+              and (date_trunc('month', target_work_date)::date + interval '1 month - 1 day')::date
+        )
+      )
+    order by te.work_date, te.created_at, te.id
+  loop
+    base_normal := least(coalesce(item.paid_hours, 0), coalesce(item.scheduled_nt, 8))::numeric(8,2);
+    base_overtime := greatest(coalesce(item.paid_hours, 0) - coalesce(item.scheduled_nt, 8), 0)::numeric(8,2);
+    applied_fill_up := least(base_overtime, running_shortfall)::numeric(8,2);
+    target_normal := (base_normal + applied_fill_up)::numeric(8,2);
+    target_overtime := (base_overtime - applied_fill_up)::numeric(8,2);
+    clean_warning := nullif(
+      btrim(
+        regexp_replace(
+          coalesce(item.warning_notes, ''),
+          'NT fill-up applied: [0-9]+(\.[0-9]+)?h of generated overtime was used to cover earlier normal-time shortfall\.',
+          '',
+          'g'
+        )
+      ),
+      ''
+    );
 
--- 2. Update review_managed_leave_request to auto-create time entries on approval
+    if applied_fill_up > 0 then
+      clean_warning := concat_ws(
+        ' ',
+        clean_warning,
+        'NT fill-up applied: ' || applied_fill_up::text || 'h of generated overtime was used to cover earlier normal-time shortfall.'
+      );
+    end if;
+
+    update public.time_entries
+    set normal_hours = target_normal,
+        overtime_hours = target_overtime,
+        warning_notes = clean_warning,
+        updated_at = now()
+    where id = item.id;
+
+    running_shortfall := greatest(
+      running_shortfall + greatest(coalesce(item.scheduled_nt, 8) - base_normal, 0) - applied_fill_up,
+      0
+    )::numeric(8,2);
+  end loop;
+end;
+$$;
+
+grant execute on function public.recalculate_employee_period_fill_up(uuid, uuid, uuid, date) to authenticated, service_role;
+
+-- 3. Fix review_managed_leave_request to use workstation_id instead of branch_id
 create or replace function public.review_managed_leave_request(
   target_leave_request_id uuid,
   approve_request boolean,
@@ -53,12 +173,13 @@ begin
     into actor
   from public.users
   where auth_user_id = auth.uid()
-    and company_id = existing.company_id
+    and (company_id = existing.company_id or is_super_admin = true)
     and status = 'active'
     and deleted_at is null
+  order by (company_id = existing.company_id) desc, created_at asc
   limit 1;
 
-  if not found or not public.can_manage_time_record(existing.company_id, existing.employee_id) then
+  if not found or not (public.is_super_admin() or public.can_manage_time_record(existing.company_id, existing.employee_id)) then
     raise exception 'You do not have permission to review this leave request';
   end if;
 
@@ -238,21 +359,21 @@ begin
   values (
     reviewed.company_id,
     actor.id,
-    (case when approve_request then 'approve' else 'reject' end)::public.audit_action,
+    'review_leave_request',
     'leave_requests',
     reviewed.id,
     to_jsonb(existing),
     to_jsonb(reviewed),
-    concat('Leave request ', case when approve_request then 'approved' else 'rejected' end)
+    manager_notes
   );
 
   return reviewed;
 end;
 $$;
 
-grant execute on function public.review_managed_leave_request(uuid, boolean, text) to authenticated;
+grant execute on function public.review_managed_leave_request(uuid, boolean, text) to authenticated, service_role;
 
--- 3. Update load_managed_leave_request_time_entries to include leave_type_id
+-- 4. Fix load_managed_leave_request_time_entries to use workstation_id instead of branch_id
 create or replace function public.load_managed_leave_request_time_entries(
   target_leave_request_ids uuid[]
 )
@@ -296,7 +417,7 @@ begin
       continue;
     end if;
 
-    if not public.can_manage_time_record(request.company_id, request.employee_id) then
+    if not (public.is_super_admin() or public.can_manage_time_record(request.company_id, request.employee_id)) then
       raise exception 'You do not have permission to load leave for one or more employees';
     end if;
 
@@ -418,4 +539,4 @@ begin
 end;
 $$;
 
-grant execute on function public.load_managed_leave_request_time_entries(uuid[]) to authenticated;
+grant execute on function public.load_managed_leave_request_time_entries(uuid[]) to authenticated, service_role;

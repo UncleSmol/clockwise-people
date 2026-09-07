@@ -25,6 +25,7 @@ import ViewportSidebar from "./ViewportSidebar";
 
 function getPanelIcon(key: string) {
   const k = key.toLowerCase();
+  if (k.includes("sysadmin") || k.includes("system")) return ShieldCheck;
   if (k.includes("report") || k.includes("payroll") || k.includes("analytic")) return FileSpreadsheet;
   if (k.includes("attendance") || k.includes("workforce")) return Users;
   if (k.includes("people") || k.includes("employee")) return Users;
@@ -242,7 +243,7 @@ export default function CalendarWorkspace({
               : "full"
         }
       >
-    <div className="flex min-h-[calc(100dvh-3.5rem)] min-w-0 flex-col gap-0">
+    <div className="flex min-h-[calc(100dvh-3.5rem)] min-w-0 max-w-full flex-col gap-0 overflow-x-hidden">
       <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
         <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3">
           <div className="flex min-w-0 items-center gap-2">

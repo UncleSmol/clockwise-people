@@ -11,6 +11,35 @@ begin
     insert into public.companies (name, country, timezone, payroll_cycle)
     values ('formalize', 'South Africa', 'Africa/Johannesburg', 'monthly');
   end if;
+
+  if not exists (select 1 from auth.users where id = '5a7c5218-1498-46d7-9172-4ed237fa50e9') then
+    insert into auth.users (
+      id,
+      instance_id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    )
+    values (
+      '5a7c5218-1498-46d7-9172-4ed237fa50e9',
+      '00000000-0000-0000-0000-000000000000',
+      'authenticated',
+      'authenticated',
+      'doctor@formalize.co.za',
+      '$2a$10$w0953aQy9EwKx7MhM8.Pdu6n7c4M4x7gR01v0wN0j9/9h3gBwJ.w6',
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"full_name":"Doctor Khoza"}'::jsonb,
+      now(),
+      now()
+    );
+  end if;
 end;
 $$;
 

@@ -1452,7 +1452,7 @@ export default function EmployeeTimesheetCorrections({
           ) : null}
 
           {(!collapsedCalendar || calendarExpanded) && (
-            <div className="grid gap-3">
+            <div className="grid min-w-0 max-w-full gap-3">
         {message && (
           <div
             className={`rounded-md border px-3 py-2 text-sm font-semibold shadow-2xs ${
@@ -1635,8 +1635,8 @@ export default function EmployeeTimesheetCorrections({
           />
         </div>
 
-        <div className="hidden max-sm:block">
-          <div className="flex items-center gap-3">
+        <div className="hidden max-sm:block min-w-0 max-w-full">
+          <div className="flex items-center gap-3 min-w-0">
             <input
               type="date"
               value={calendarFocusDate}
@@ -1652,16 +1652,16 @@ export default function EmployeeTimesheetCorrections({
             </button>
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-2 min-w-0 max-w-full">
             {publicHolidays
               .filter((h) => h.holiday_date === calendarFocusDate)
               .map((holiday) => (
                 <div
                   key={`holiday-${holiday.id}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5 min-w-0"
                 >
-                  <span className="text-sm font-semibold text-holiday">{holiday.name}</span>
-                  <span className="rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday">
+                  <span className="text-sm font-semibold text-holiday truncate min-w-0">{holiday.name}</span>
+                  <span className="shrink-0 rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday whitespace-nowrap">
                     Holiday
                   </span>
                 </div>
@@ -1683,31 +1683,31 @@ export default function EmployeeTimesheetCorrections({
                       setCalendarFocusDate(entry.work_date);
                       setDetailEntry(entry);
                     }}
-                    className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-colors ${
                       hasWarning
                         ? "border-danger/30 bg-danger/[0.07]"
                         : "border-border bg-background"
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">
+                    <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                      <p className="truncate text-sm font-semibold text-foreground">
                         {entry.status === "draft" ? "Draft" : entry.status}
                       </p>
-                      <span className="text-sm font-semibold text-foreground">
+                      <span className="shrink-0 text-sm font-semibold text-foreground whitespace-nowrap">
                         {formatHours(entry.paid_hours)}
                         {Number(entry.overtime_hours ?? 0) > 0
                           ? ` +${formatHours(entry.overtime_hours)}`
                           : ""}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-xs text-muted">
+                    <p className="mt-0.5 truncate text-xs text-muted">
                       {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
                       {entry.lunch_start || entry.lunch_end
                         ? ` \u00b7 Lunch ${formatTimeRange(entry.lunch_start, entry.lunch_end)}`
                         : ""}
                     </p>
                     {entry.warning_notes || (entry.notes && !entry.notes.startsWith("Public holiday:")) ? (
-                      <p className="mt-1 truncate text-xs text-muted">
+                      <p className="mt-1 text-xs text-muted break-words line-clamp-2">
                         {entry.warning_notes || entry.notes}
                       </p>
                     ) : null}

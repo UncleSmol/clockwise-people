@@ -1,61 +1,62 @@
--- Ensure the shared attachments storage bucket exists and is public.
-insert into storage.buckets (
-  id,
-  name,
-  public,
-  file_size_limit,
-  allowed_mime_types,
-  owner
-)
-values (
-  'attachmnets',
-  'attachmnets',
-  true,
-  5242880,
-  null,
-  null
-)
-on conflict (id) do nothing;
+-- Ensure the shared attachments storage bucket exists and is public (if storage schema tables are provisioned).
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema = 'storage' and table_name = 'buckets') then
+    insert into storage.buckets (
+      id,
+      name,
+      public,
+      file_size_limit,
+      allowed_mime_types,
+      owner
+    )
+    values (
+      'attachmnets',
+      'attachmnets',
+      true,
+      5242880,
+      null,
+      null
+    )
+    on conflict (id) do nothing;
 
--- Storage objects RLS is enabled on storage.objects by default. Public
--- buckets still require explicit policies for authenticated uploads and
--- for anyone (anon + authenticated) to read the objects.
+    drop policy if exists "public can view attachmnets files" on storage.objects;
+    create policy "public can view attachmnets files"
+      on storage.objects
+      for select
+      using (bucket_id = 'attachmnets');
 
-drop policy if exists "public can view attachmnets files" on storage.objects;
-create policy "public can view attachmnets files"
-  on storage.objects
-  for select
-  using (bucket_id = 'attachmnets');
+    drop policy if exists "authenticated can upload attachmnets files" on storage.objects;
+    create policy "authenticated can upload attachmnets files"
+      on storage.objects
+      for insert
+      to authenticated
+      with check (
+        bucket_id = 'attachmnets'
+        and (storage.foldername(name))[1] = (auth.uid())::text
+      );
 
-drop policy if exists "authenticated can upload attachmnets files" on storage.objects;
-create policy "authenticated can upload attachmnets files"
-  on storage.objects
-  for insert
-  to authenticated
-  with check (
-    bucket_id = 'attachmnets'
-    and (storage.foldername(name))[1] = (auth.uid())::text
-  );
+    drop policy if exists "authenticated can update own attachmnets files" on storage.objects;
+    create policy "authenticated can update own attachmnets files"
+      on storage.objects
+      for update
+      to authenticated
+      using (
+        bucket_id = 'attachmnets'
+        and (storage.foldername(name))[1] = (auth.uid())::text
+      );
 
-drop policy if exists "authenticated can update own attachmnets files" on storage.objects;
-create policy "authenticated can update own attachmnets files"
-  on storage.objects
-  for update
-  to authenticated
-  using (
-    bucket_id = 'attachmnets'
-    and (storage.foldername(name))[1] = (auth.uid())::text
-  );
-
-drop policy if exists "authenticated can delete own attachmnets files" on storage.objects;
-create policy "authenticated can delete own attachmnets files"
-  on storage.objects
-  for delete
-  to authenticated
-  using (
-    bucket_id = 'attachmnets'
-    and (storage.foldername(name))[1] = (auth.uid())::text
-  );
+    drop policy if exists "authenticated can delete own attachmnets files" on storage.objects;
+    create policy "authenticated can delete own attachmnets files"
+      on storage.objects
+      for delete
+      to authenticated
+      using (
+        bucket_id = 'attachmnets'
+        and (storage.foldername(name))[1] = (auth.uid())::text
+      );
+  end if;
+end $$;
 
 -- Keep the URL columns compatible with storage URLs. The Supabase storage
 -- endpoint is https://<project>.supabase.co/storage/v1/object/public/..., so
