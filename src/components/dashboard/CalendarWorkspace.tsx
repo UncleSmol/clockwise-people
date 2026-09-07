@@ -2,7 +2,7 @@
 
 import LiveClock from "@/components/LiveClock";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   Building2,
   CalendarDays,
@@ -11,11 +11,13 @@ import {
   Clock3,
   FileSpreadsheet,
   GripVertical,
+  RefreshCw,
   Settings2,
   ShieldCheck,
   Users,
   X,
 } from "lucide-react";
+import { switchActiveCompanyAction } from "@/lib/sysadmin/actions";
 import {
   PanelContext,
   WorkspaceSectionContext,
@@ -104,19 +106,31 @@ export default function CalendarWorkspace({
     startY: 0,
     origX: 0,
     origY: 0,
+    pointerId: -1,
   });
   const switcherElRef = useRef<HTMLDivElement>(null);
 
-  const handleSwitcherPointerDown = useCallback((e: PointerEvent) => {
+  const activeCompany = useMemo(
+    () => companies.find((c) => c.name === companyName) ?? companies[0],
+    [companies, companyName],
+  );
+
+  const [isSwitchingCompany, startSwitchTransition] = useTransition();
+
+  const handleCompanySwitch = useCallback((targetCompanyId: string) => {
+    if (!targetCompanyId || targetCompanyId === activeCompany?.id || isSwitchingCompany) return;
+    startSwitchTransition(async () => {
+      try {
+        await switchActiveCompanyAction(targetCompanyId);
+        router.refresh();
+      } catch (err) {
+        console.error("Failed to switch company:", err);
+      }
+    });
+  }, [activeCompany?.id, isSwitchingCompany, router]);
+
+  const handleSwitcherPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest("select")) return;
-    e.preventDefault();
-    const el = switcherElRef.current;
-    if (!el) return;
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
     switcherDragRef.current = {
       dragging: true,
       moved: false,
@@ -124,6 +138,7 @@ export default function CalendarWorkspace({
       startY: e.clientY,
       origX: switcherPos.x,
       origY: switcherPos.y,
+      pointerId: e.pointerId,
     };
   }, [switcherPos]);
 
@@ -137,8 +152,13 @@ export default function CalendarWorkspace({
       if (!drag.dragging) return;
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
-      if (!drag.moved && Math.hypot(dx, dy) > 4) {
+      if (!drag.moved && Math.hypot(dx, dy) > 6) {
         drag.moved = true;
+        try {
+          switcherElRef.current?.setPointerCapture(drag.pointerId);
+        } catch {
+          // ignore
+        }
       }
       if (!drag.moved) return;
 
@@ -160,12 +180,20 @@ export default function CalendarWorkspace({
       });
     };
 
-    const handleUp = () => {
+    const handleUp = (e: globalThis.PointerEvent) => {
       const drag = switcherDragRef.current;
       if (!drag.dragging) return;
       drag.dragging = false;
       if (drag.moved) {
         setSwitcherPos({ x: latestX, y: latestY });
+        try {
+          switcherElRef.current?.releasePointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
+        setTimeout(() => {
+          drag.moved = false;
+        }, 80);
       }
     };
 
@@ -178,7 +206,8 @@ export default function CalendarWorkspace({
     };
   }, [switcherPos.x, switcherPos.y]);
 
-  const handleSwitcherClick = useCallback(() => {
+  const handleSwitcherClick = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (switcherDragRef.current.moved) return;
     setSwitcherExpanded((value) => !value);
   }, []);
@@ -247,12 +276,35 @@ export default function CalendarWorkspace({
       <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
         <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3">
           <div className="flex min-w-0 items-center gap-2">
-<div className="min-w-0">
-  <h1 className="truncate text-sm font-bold text-foreground sm:text-lg">{companyName}</h1>
-  <p className="truncate text-[10px] text-muted sm:text-xs">
-    {currentDateLabel} · <LiveClock />
-  </p>
-</div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-sm font-bold text-foreground sm:text-lg">{companyName}</h1>
+                {isSuperAdmin && companies.length > 1 ? (
+                  <div className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2 py-0.5 text-xs shadow-2xs">
+                    <Building2 className="size-3 text-accent shrink-0" />
+                    <select
+                      aria-label="Switch company"
+                      value={activeCompany?.id ?? ""}
+                      disabled={isSwitchingCompany}
+                      onChange={(e) => handleCompanySwitch(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer disabled:opacity-60 max-w-[150px] truncate"
+                    >
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id} className="bg-white text-slate-900">
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {isSwitchingCompany ? (
+                      <RefreshCw className="size-3 animate-spin text-accent shrink-0" />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <p className="truncate text-[10px] text-muted sm:text-xs">
+                {currentDateLabel} · <LiveClock />
+              </p>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {panels.some((p) => p.key === "attendance") ? (
@@ -407,7 +459,9 @@ export default function CalendarWorkspace({
                                   ? "Policies"
                                   : panel.key === "attendance"
                                     ? "Today's Attendance"
-                                    : panel.label.split(" ")[0];
+                                    : panel.key === "sysadmin"
+                                      ? "SysAdmin"
+                                      : panel.label.split(" ")[0];
 
                   return (
                     <button
@@ -452,36 +506,33 @@ export default function CalendarWorkspace({
                 type="button"
                 onClick={handleSwitcherClick}
                 aria-label="Collapse company switcher"
-                className="grid size-6 shrink-0 place-items-center rounded-md text-muted hover:bg-surface-muted hover:text-foreground"
+                className="grid size-6 shrink-0 place-items-center rounded-md text-muted hover:bg-surface-muted hover:text-foreground cursor-pointer"
               >
                 <ChevronUp className="size-4" />
               </button>
               <select
-                value={companyName}
-                onChange={(e) => {
-                  const target = e.target as HTMLSelectElement;
-                  const selected = target.options[target.selectedIndex];
-                  const companyId = selected.dataset.companyId;
-                  if (companyId) {
-                    document.cookie = `active_company_id=${companyId}; path=/; max-age=31536000`;
-                    router.refresh();
-                  }
-                }}
-                className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer"
+                aria-label="Switch active company"
+                value={activeCompany?.id ?? ""}
+                disabled={isSwitchingCompany}
+                onChange={(e) => handleCompanySwitch(e.target.value)}
+                className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer disabled:opacity-60"
               >
                 {companies.map((c) => (
-                  <option key={c.id} value={c.name} data-company-id={c.id}>
+                  <option key={c.id} value={c.id} className="bg-white text-slate-900">
                     {c.name}
                   </option>
                 ))}
               </select>
+              {isSwitchingCompany ? (
+                <RefreshCw className="size-3 animate-spin text-accent shrink-0" />
+              ) : null}
             </div>
           ) : (
             <button
               type="button"
               onClick={handleSwitcherClick}
               aria-label="Expand company switcher"
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg"
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg hover:border-slate-400 hover:bg-surface-muted transition-colors cursor-pointer"
             >
               <Building2 className="size-4 text-accent" />
               <span className="pointer-events-none max-w-[140px] truncate text-xs font-semibold text-foreground">

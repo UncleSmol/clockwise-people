@@ -76,51 +76,85 @@ html {
 
 body {
   overflow-x: clip;
-  background-color: var(--background);
+  background-color: transparent;
   color: var(--foreground);
   font-family: var(--font-sans);
   margin: 0;
   position: relative;
 }
 
-/* GPU-composited fixed background layer — eliminates 60fps/120fps repaint lag during scrolling */
+/* GPU-composited fixed animated background gradient layer */
 body::before {
+  content: "";
+  position: fixed;
+  inset: -30%;
+  width: 160%;
+  height: 160%;
+  z-index: -2;
+  pointer-events: none;
+  background-color: var(--background);
+  background-image:
+    /* Floating aurora orbs using defined brand colors */
+    radial-gradient(ellipse 50% 50% at 20% 20%, color-mix(in srgb, var(--color-holiday) 12%, transparent) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 45% at 80% 25%, color-mix(in srgb, var(--color-warning) 11%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 48% 48% at 75% 80%, color-mix(in srgb, var(--color-success) 10%, transparent) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 55% at 25% 75%, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, color-mix(in srgb, var(--color-accent-light) 7%, transparent) 0%, transparent 60%);
+  animation: appGradientDrift 22s ease-in-out infinite alternate;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* GPU-composited blueprint grid & ambient dot overlay */
+body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-color: var(--background);
   background-image:
     /* Blueprint-style grid lines */
     linear-gradient(
-      rgba(15, 23, 42, 0.035) 1px,
+      rgba(15, 23, 42, 0.032) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      rgba(15, 23, 42, 0.035) 1px,
+      rgba(15, 23, 42, 0.032) 1px,
       transparent 1px
     ),
     /* Dot markers at grid intersections */
     radial-gradient(
       circle,
-      rgba(15, 23, 42, 0.08) 1px,
+      rgba(15, 23, 42, 0.075) 1px,
       transparent 1.6px
-    ),
-    /* Ambient brand glows */
-    radial-gradient(ellipse at 100% -10%, rgba(15, 23, 42, 0.04) 0%, transparent 55%),
-    radial-gradient(ellipse at -5% 110%, rgba(15, 23, 42, 0.03) 0%, transparent 60%),
-    radial-gradient(ellipse at 40% 40%, rgba(15, 23, 42, 0.02) 0%, transparent 65%);
+    );
   background-size:
     24px 24px,
     24px 24px,
-    24px 24px,
-    auto,
-    auto,
-    auto;
+    24px 24px;
   transform: translate3d(0, 0, 0);
-  will-change: transform;
+}
+
+@keyframes appGradientDrift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  30% {
+    transform: translate3d(3.5%, 2.5%, 0) rotate(2deg) scale(1.05);
+  }
+  65% {
+    transform: translate3d(-2.5%, 4%, 0) rotate(-2deg) scale(0.98);
+  }
+  100% {
+    transform: translate3d(2%, -3.5%, 0) rotate(3deg) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none !important;
+  }
 }
 
 /* Reusable blueprint pattern matching the global app background */

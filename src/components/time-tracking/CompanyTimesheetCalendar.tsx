@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardCheck,
   Clock3,
   MapPin,
@@ -207,6 +209,18 @@ export default function CompanyTimesheetCalendar({
     );
   }, [liveOverview]);
 
+  const [showAllColleagues, setShowAllColleagues] = useState(false);
+  const [showAllMobileEntries, setShowAllMobileEntries] = useState(false);
+
+  const visibleColleagues = useMemo(() => {
+    if (showAllColleagues || activeColleagues.length <= 6) {
+      return activeColleagues;
+    }
+    return activeColleagues.slice(0, 6);
+  }, [activeColleagues, showAllColleagues]);
+
+  const hiddenColleaguesCount = Math.max(0, activeColleagues.length - 6);
+
   const [selectedEntry, setSelectedEntry] = useState<CompanyTimesheetCalendarEntry | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [showDateActions, setShowDateActions] = useState(false);
@@ -243,6 +257,24 @@ export default function CompanyTimesheetCalendar({
     () => new Set(publicHolidays.map((holiday) => holiday.holiday_date)),
     [publicHolidays],
   );
+
+  const mobileEntriesForFocusDate = useMemo(() => {
+    return entries.filter(
+      (e) =>
+        e.work_date === calendarFocusDate &&
+        !holidayDates.has(e.work_date) &&
+        !e.notes?.startsWith("Public holiday:"),
+    );
+  }, [entries, calendarFocusDate, holidayDates]);
+
+  const visibleMobileEntries = useMemo(() => {
+    if (showAllMobileEntries || mobileEntriesForFocusDate.length <= 6) {
+      return mobileEntriesForFocusDate;
+    }
+    return mobileEntriesForFocusDate.slice(0, 6);
+  }, [mobileEntriesForFocusDate, showAllMobileEntries]);
+
+  const hiddenMobileEntriesCount = Math.max(0, mobileEntriesForFocusDate.length - 6);
   const dayEventsMap = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const h of publicHolidays) {
@@ -493,25 +525,43 @@ export default function CompanyTimesheetCalendar({
       <div className="flex min-w-0 max-w-full flex-col gap-4">
         {activeColleagues.length > 0 && (
           <div className="rounded-lg border border-emerald-500/40 bg-emerald-50/50 p-3 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
-              </span>
-              <p className="text-xs font-black text-emerald-950">
-                Colleagues on shift right now ({activeColleagues.length})
-              </p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
+                </span>
+                <p className="text-xs font-black text-emerald-950">
+                  Colleagues on shift right now ({activeColleagues.length})
+                </p>
+              </div>
+
+              {activeColleagues.length > 6 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllColleagues((prev) => !prev)}
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-white px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100/80 transition-colors cursor-pointer shadow-2xs"
+                  aria-label={showAllColleagues ? "Collapse colleagues list" : `Show ${hiddenColleaguesCount} more colleagues`}
+                >
+                  <span>{showAllColleagues ? "Show less" : `+${hiddenColleaguesCount} more`}</span>
+                  {showAllColleagues ? (
+                    <ChevronUp className="size-3.5" />
+                  ) : (
+                    <ChevronDown className="size-3.5" />
+                  )}
+                </button>
+              ) : null}
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {activeColleagues.map((colleague) => {
+              {visibleColleagues.map((colleague) => {
                 const isOnLunch = colleague.status === "on_lunch";
                 return (
                   <div
                     key={colleague.employeeId}
                     className={`flex items-center gap-2 rounded-md border p-1.5 pr-3 shadow-sm transition-all ${isOnLunch
-                        ? "border-amber-300 bg-white hover:bg-amber-50"
-                        : "border-emerald-300 bg-white hover:bg-emerald-50"
+                      ? "border-amber-300 bg-white hover:bg-amber-50"
+                      : "border-emerald-300 bg-white hover:bg-emerald-50"
                       }`}
                   >
                     <div className="relative shrink-0">
@@ -536,6 +586,28 @@ export default function CompanyTimesheetCalendar({
                   </div>
                 );
               })}
+
+              {!showAllColleagues && hiddenColleaguesCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllColleagues(true)}
+                  className="flex items-center gap-1.5 rounded-md border border-dashed border-emerald-500/50 bg-white/80 px-3 py-2 text-xs font-extrabold text-emerald-900 hover:bg-emerald-100 hover:border-emerald-600 transition-all cursor-pointer shadow-2xs"
+                  aria-label={`Show ${hiddenColleaguesCount} more colleagues`}
+                >
+                  <span>+{hiddenColleaguesCount} more</span>
+                  <ChevronDown className="size-3.5 text-emerald-700" />
+                </button>
+              ) : showAllColleagues && hiddenColleaguesCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllColleagues(false)}
+                  className="flex items-center gap-1.5 rounded-md border border-dashed border-emerald-500/50 bg-white/80 px-3 py-2 text-xs font-extrabold text-emerald-900 hover:bg-emerald-100 hover:border-emerald-600 transition-all cursor-pointer shadow-2xs"
+                  aria-label="Show fewer colleagues"
+                >
+                  <span>Show less</span>
+                  <ChevronUp className="size-3.5 text-emerald-700" />
+                </button>
+              ) : null}
             </div>
           </div>
         )}
@@ -543,8 +615,8 @@ export default function CompanyTimesheetCalendar({
         {globalMessage ? (
           <div
             className={`rounded-md border px-3 py-2 text-sm font-semibold ${globalOk
-                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                : "border-rose-300 bg-rose-50 text-rose-950"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+              : "border-rose-300 bg-rose-50 text-rose-950"
               }`}
           >
             {globalMessage}
@@ -716,18 +788,19 @@ export default function CompanyTimesheetCalendar({
                     buttonText: "Payroll",
                     duration: { days: 14 },
                     type: "dayGrid",
+                    dayMaxEvents: 6,
                   },
                   dayGridMonth: {
-                    dayMaxEventRows: 6,
+                    dayMaxEvents: 6,
                   },
                   dayGridWeek: {
-                    dayMaxEventRows: 6,
+                    dayMaxEvents: 6,
                   },
                 }}
               />
             </div>
 
-            <div className="flex hidden min-w-0 max-w-full flex-col gap-4 max-sm:block">
+            <div className="hidden min-w-0 max-w-full flex-col gap-4 max-sm:flex">
               <div className="flex min-w-0 items-center gap-3">
                 <input
                   type="date"
@@ -767,73 +840,81 @@ export default function CompanyTimesheetCalendar({
                       </span>
                     </div>
                   ))}
-                {entries
-                  .filter(
-                    (e) =>
-                      e.work_date === calendarFocusDate &&
-                      !holidayDates.has(e.work_date) &&
-                      !e.notes?.startsWith("Public holiday:"),
-                  )
-                  .map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => {
-                        setCalendarFocusDate(entry.work_date);
-                        setSelectedEntry(entry);
-                        setEditing(false);
-                        setEditedTimes({});
-                        setSelectedApprovalIds(
-                          new Set(
-                            entries
-                              .filter(
-                                (e) =>
-                                  e.employee_id === entry.employee_id &&
-                                  e.status === "submitted",
-                              )
-                              .map((e) => e.id),
-                          ),
-                        );
-                      }}
-                      className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-colors ${getEntryBorderClass(entry)}`}
-                      aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
-                    >
-                      <div className="flex w-full min-w-0 items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {displayName(entry)}
-                          </p>
-                          <p className="truncate text-xs text-muted">
-                            {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className={`whitespace-nowrap text-sm font-semibold ${getPaidHoursTextClass(entry.scheduleValidation)}`}>
-                            {formatHours(entry.paid_hours)}
-                            {Number(entry.overtime_hours ?? 0) > 0
-                              ? ` +${formatHours(entry.overtime_hours)}`
-                              : ""}
-                          </span>
-                          <span
-                            className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(entry.status)}`}
-                          >
-                            {entry.status}
-                          </span>
-                        </div>
-                      </div>
-                      {entry.warning_notes || entry.notes ? (
-                        <p className="line-clamp-2 mt-1 break-words text-xs text-muted">
-                          {entry.warning_notes || entry.notes}
+                {visibleMobileEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => {
+                      setCalendarFocusDate(entry.work_date);
+                      setSelectedEntry(entry);
+                      setEditing(false);
+                      setEditedTimes({});
+                      setSelectedApprovalIds(
+                        new Set(
+                          entries
+                            .filter(
+                              (e) =>
+                                e.employee_id === entry.employee_id &&
+                                e.status === "submitted",
+                            )
+                            .map((e) => e.id),
+                        ),
+                      );
+                    }}
+                    className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-colors ${getEntryBorderClass(entry)}`}
+                    aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
+                  >
+                    <div className="flex w-full min-w-0 items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {displayName(entry)}
                         </p>
-                      ) : null}
-                    </button>
-                  ))}
-                {entries.filter(
-                  (e) =>
-                    e.work_date === calendarFocusDate &&
-                    !holidayDates.has(e.work_date) &&
-                    !e.notes?.startsWith("Public holiday:"),
-                ).length === 0 &&
+                        <p className="truncate text-xs text-muted">
+                          {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={`whitespace-nowrap text-sm font-semibold ${getPaidHoursTextClass(entry.scheduleValidation)}`}>
+                          {formatHours(entry.paid_hours)}
+                          {Number(entry.overtime_hours ?? 0) > 0
+                            ? ` +${formatHours(entry.overtime_hours)}`
+                            : ""}
+                        </span>
+                        <span
+                          className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(entry.status)}`}
+                        >
+                          {entry.status}
+                        </span>
+                      </div>
+                    </div>
+                    {entry.warning_notes || entry.notes ? (
+                      <p className="line-clamp-2 mt-1 break-words text-xs text-muted">
+                        {entry.warning_notes || entry.notes}
+                      </p>
+                    ) : null}
+                  </button>
+                ))}
+                {hiddenMobileEntriesCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllMobileEntries((prev) => !prev)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface py-2.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-2xs"
+                    aria-label={showAllMobileEntries ? "Collapse users list" : `Show ${hiddenMobileEntriesCount} more users`}
+                  >
+                    {showAllMobileEntries ? (
+                      <>
+                        <span>Show less</span>
+                        <ChevronUp className="size-3.5" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Show {hiddenMobileEntriesCount} more users</span>
+                        <ChevronDown className="size-3.5" />
+                      </>
+                    )}
+                  </button>
+                ) : null}
+                {mobileEntriesForFocusDate.length === 0 &&
                   publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
                     No entries for this day
@@ -1064,12 +1145,12 @@ export default function CompanyTimesheetCalendar({
           <>
             <div
               className={`flex items-center justify-between gap-3 rounded-lg p-3.5 shadow-sm ${selectedEntry.status === "approved"
-                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
-                  : selectedEntry.status === "submitted"
-                    ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
-                    : selectedEntry.status === "rejected"
-                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
-                      : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+                ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                : selectedEntry.status === "submitted"
+                  ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                  : selectedEntry.status === "rejected"
+                    ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                    : "border border-zinc-300 bg-zinc-100 text-zinc-900"
                 }`}
             >
               <div>
@@ -1079,12 +1160,12 @@ export default function CompanyTimesheetCalendar({
                 <div className="mt-1 flex items-center gap-2">
                   <span
                     className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${selectedEntry.status === "approved"
-                        ? "border border-emerald-400/30 bg-emerald-950/40 text-white"
-                        : selectedEntry.status === "submitted"
-                          ? "border border-slate-700 bg-slate-900/80 text-emerald-400"
-                          : selectedEntry.status === "rejected"
-                            ? "border border-rose-400/30 bg-rose-950/50 text-white"
-                            : "border border-zinc-300 bg-zinc-200 text-zinc-800"
+                      ? "border border-emerald-400/30 bg-emerald-950/40 text-white"
+                      : selectedEntry.status === "submitted"
+                        ? "border border-slate-700 bg-slate-900/80 text-emerald-400"
+                        : selectedEntry.status === "rejected"
+                          ? "border border-rose-400/30 bg-rose-950/50 text-white"
+                          : "border border-zinc-300 bg-zinc-200 text-zinc-800"
                       }`}
                   >
                     {selectedEntry.status}
