@@ -4,6 +4,16 @@ All notable changes to the ClockWise People platform are documented in this file
 
 ## [2026.09.17] - 2026-09-17
 
+- **Search Bar Layout Normalization & Overlap Elimination**:
+  - Re-architected all search bars across the platform from legacy absolute-positioned overlays to robust inline flex containers (`flex items-center gap-2.5 ... focus-within:border-...`).
+  - Resolved visual collisions between the search spyglass icon and input text / placeholder across all 6 affected components:
+    - `EmployeeTable.tsx`: Full staff directory global search.
+    - `ReportDataTable.tsx`: Unified reporting and analytics data tables.
+    - `TimesheetMigrationPanel.tsx`: Excel timesheet & leave migration interactive preview table.
+    - `ComplianceDocuments.tsx`: Statutory compliance policies and clauses filter.
+    - `CompanyPayrollRulesSection.tsx`: Custom overtime rules employee assignments search.
+    - `SysAdminWorkspace.tsx`: System administrator multi-tenant company search.
+  - Added dedicated one-click clear (`×`) buttons to clear active search queries instantly without manual backspacing.
 - **Reporting Center Architectural Cleanup & Visual Analytics Suite**:
   - **Re-architected Monolithic Component into Clean Modular Hierarchy**: Decomposed the 1,829-line monolithic `CompanyReportsWorkspace` into specialized, high-performance sub-components with dedicated reporting tables and a visual analytics dashboard.
   - **Interactive Analytics & Statistics Dashboard Powered by Recharts** (`src/components/reports/ReportsOverviewAnalytics.tsx`):

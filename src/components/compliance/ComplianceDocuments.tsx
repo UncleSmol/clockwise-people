@@ -612,15 +612,25 @@ export default function ComplianceDocuments() {
           </div>
 
           {/* Search Query Input */}
-          <div className="relative min-w-[220px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+          <div className="flex h-10 min-h-[40px] min-w-[220px] items-center gap-2.5 rounded-lg border border-border bg-background px-3.5 text-xs font-bold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors">
+            <Search className="size-4 shrink-0 text-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search compliance clauses..."
-              className="h-10 min-h-[40px] w-full rounded-lg border border-border bg-background pl-10 pr-3.5 py-2 text-xs font-bold text-foreground placeholder:text-muted outline-none focus:border-slate-900 leading-normal"
+              className="min-w-0 flex-1 bg-transparent py-2 text-xs font-bold text-foreground placeholder:text-muted outline-none border-0"
             />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="shrink-0 text-xs font-bold text-muted hover:text-foreground px-1"
+                title="Clear search"
+              >
+                ×
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

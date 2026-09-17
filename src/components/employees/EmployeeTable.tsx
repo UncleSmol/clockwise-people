@@ -94,14 +94,24 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
       {/* Top Search & Filter Bar */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <label className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
+          <label className="flex h-10 min-h-[40px] flex-1 items-center gap-2.5 rounded-lg border border-border bg-background px-3.5 text-xs font-semibold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors">
+            <Search className="size-4 shrink-0 text-muted" />
             <input
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
               placeholder="Search by name, email, department, or role..."
-              className="h-10 min-h-[40px] w-full rounded-lg border border-border bg-background pl-10 pr-3.5 py-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted focus:border-slate-900 leading-normal"
+              className="min-w-0 flex-1 bg-transparent py-2 text-xs font-semibold text-foreground placeholder:text-muted outline-none border-0"
             />
+            {globalFilter ? (
+              <button
+                type="button"
+                onClick={() => setGlobalFilter("")}
+                className="shrink-0 text-xs font-bold text-muted hover:text-foreground px-1"
+                title="Clear search"
+              >
+                ×
+              </button>
+            ) : null}
           </label>
           <span className="w-max rounded bg-slate-900 px-2.5 py-1 text-xs font-extrabold text-white shadow-2xs">
             {filteredEmployees.length} of {employees.length} employees

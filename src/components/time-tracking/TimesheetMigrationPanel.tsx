@@ -343,15 +343,25 @@ export default function TimesheetMigrationPanel() {
               </button>
             </div>
 
-            <div className="relative w-full sm:w-64">
-              <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <div className="flex w-full sm:w-64 items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs text-foreground focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-colors">
+              <Search className="size-3.5 shrink-0 text-muted" />
               <input
                 type="text"
                 placeholder="Search date, staff, workstation..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-surface border border-border focus:outline-none focus:border-emerald-500 text-foreground"
+                className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted outline-none border-0 p-0"
               />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="shrink-0 text-xs font-bold text-muted hover:text-foreground px-0.5"
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
           </div>
 
