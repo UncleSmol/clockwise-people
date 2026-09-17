@@ -69,7 +69,18 @@ function formatCoordinate(value: number) {
 export default function CompanyGeolocationPanel({
   data,
 }: CompanyGeolocationPanelProps) {
-  const [selectedWorkstationId, setSelectedWorkstationId] = useState("");
+  // Determine default workstation (user's assigned workstation, or first company workstation)
+  const initialDefaultWorkstation = useMemo(() => {
+    if (data.userAssignedWorkstationId) {
+      const assigned = data.workstations.find((w) => w.id === data.userAssignedWorkstationId);
+      if (assigned) return assigned;
+    }
+    return data.workstations[0] ?? null;
+  }, [data.userAssignedWorkstationId, data.workstations]);
+
+  const [selectedWorkstationId, setSelectedWorkstationId] = useState<string>(
+    () => initialDefaultWorkstation?.id ?? "",
+  );
   const [saveState, saveAction, savePending] = useActionState(
     saveCompanyWorkstation,
     initialState,
@@ -82,23 +93,27 @@ export default function CompanyGeolocationPanel({
   const effectiveWorkstationId =
     selectedWorkstationId === "new"
       ? ""
-      : selectedWorkstationId || (saveState.ok && saveState.workstationId ? saveState.workstationId : "");
+      : selectedWorkstationId || (saveState.ok && saveState.workstationId ? saveState.workstationId : (initialDefaultWorkstation?.id ?? ""));
 
   const selectedWorkstation = useMemo(
     () => data.workstations.find((w) => w.id === effectiveWorkstationId) ?? null,
     [data.workstations, effectiveWorkstationId],
   );
 
-  const [position, setPosition] = useState({
-    latitude: selectedWorkstation?.latitude ?? defaultCenter.latitude,
-    longitude: selectedWorkstation?.longitude ?? defaultCenter.longitude,
-  });
+  const [position, setPosition] = useState(() => ({
+    latitude: initialDefaultWorkstation?.latitude ?? defaultCenter.latitude,
+    longitude: initialDefaultWorkstation?.longitude ?? defaultCenter.longitude,
+  }));
 
-  const [latInput, setLatInput] = useState(formatCoordinate(position.latitude));
-  const [lngInput, setLngInput] = useState(formatCoordinate(position.longitude));
+  const [latInput, setLatInput] = useState(() => formatCoordinate(position.latitude));
+  const [lngInput, setLngInput] = useState(() => formatCoordinate(position.longitude));
   const [radiusMeters, setRadiusMeters] = useState(
-    selectedWorkstation?.radius_meters ?? 150,
+    () => initialDefaultWorkstation?.radius_meters ?? 150,
   );
+
+  // Deletion & removal transition state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPendingDelete, startDeleteTransition] = useTransition();
 
   // Address search & quick location parser state
   const [geocoding, setGeocoding] = useState(false);
@@ -263,7 +278,7 @@ export default function CompanyGeolocationPanel({
   }
 
   function startNewWorkstation() {
-    setSelectedWorkstationId("");
+    setSelectedWorkstationId("new");
     handleMapPositionChange(defaultCenter.latitude, defaultCenter.longitude);
     setRadiusMeters(150);
     if (addressRef.current) {
@@ -272,6 +287,35 @@ export default function CompanyGeolocationPanel({
     setLocationNotice("");
     setSearchFeedback("");
     setGpsAccuracy(null);
+  }
+
+  function handleRemoveWorkstation(workstationId: string, name: string) {
+    if (
+      !window.confirm(
+        `Are you sure you want to remove workstation "${name}"? This will deactivate the workstation and unassign any linked employees.`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(workstationId);
+    startDeleteTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.append("workstation_id", workstationId);
+        await deactivateCompanyWorkstation(formData);
+        setLocationNotice(`Workstation "${name}" was successfully removed.`);
+        if (effectiveWorkstationId === workstationId) {
+          startNewWorkstation();
+        }
+      } catch (err) {
+        setLocationNotice(
+          err instanceof Error ? err.message : "Failed to remove workstation.",
+        );
+      } finally {
+        setDeletingId(null);
+      }
+    });
   }
 
   return (
@@ -286,6 +330,17 @@ export default function CompanyGeolocationPanel({
             Configure workstation locations using exact coordinates, Google Maps URLs, or interactive map pinning.
             Assigned employees are verified against the workstation radius when clocking.
           </p>
+          {data.userAssignedWorkstationId ? (
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success">
+              <MapPin className="size-3.5 shrink-0" />
+              <span>
+                Map defaulted to your assigned workstation:{" "}
+                <strong className="underline underline-offset-2">
+                  {data.workstations.find((w) => w.id === data.userAssignedWorkstationId)?.name ?? "Assigned"}
+                </strong>
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 text-xs font-medium text-foreground lg:max-w-xs shrink-0 leading-relaxed shadow-2xs">
           Tip: You can paste a Google Maps link or enter exact coordinates to achieve pin-point accuracy for large sites.
@@ -576,14 +631,39 @@ export default function CompanyGeolocationPanel({
             </span>
           </label>
 
-          {/* Submit Button */}
-          <button
-            disabled={savePending}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            <Save className="size-4 shrink-0" />
-            {savePending ? "Saving workstation..." : selectedWorkstation ? "Save changes" : "Create workstation"}
-          </button>
+          {/* Submit / Remove Buttons */}
+          {selectedWorkstation ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={savePending || isPendingDelete}
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                <Save className="size-4 shrink-0" />
+                {savePending ? "Saving workstation..." : "Save changes"}
+              </button>
+
+              <button
+                type="button"
+                disabled={isPendingDelete || savePending}
+                onClick={() => handleRemoveWorkstation(selectedWorkstation.id, selectedWorkstation.name)}
+                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger/20 disabled:opacity-60"
+                title="Remove this workstation"
+              >
+                <Trash2 className="size-4 shrink-0" />
+                {deletingId === selectedWorkstation.id ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              disabled={savePending || isPendingDelete}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              <Save className="size-4 shrink-0" />
+              {savePending ? "Saving workstation..." : "Create workstation"}
+            </button>
+          )}
         </form>
       </div>
 
@@ -605,6 +685,7 @@ export default function CompanyGeolocationPanel({
             ) : (
               data.workstations.map((workstation) => {
                 const isSelected = workstation.id === effectiveWorkstationId;
+                const isUserAssigned = workstation.id === data.userAssignedWorkstationId;
                 return (
                   <div
                     key={workstation.id}
@@ -617,9 +698,14 @@ export default function CompanyGeolocationPanel({
                       onClick={() => selectWorkstation(workstation)}
                       className="grid cursor-pointer gap-1 text-left"
                     >
-                      <div className="flex items-center gap-2 font-semibold text-foreground">
-                        <MapPin className="size-4 text-accent" />
+                      <div className="flex flex-wrap items-center gap-2 font-semibold text-foreground">
+                        <MapPin className="size-4 text-accent shrink-0" />
                         <span>{workstation.name}</span>
+                        {isUserAssigned ? (
+                          <span className="rounded border border-success/30 bg-success/15 px-1.5 py-0.5 text-[10px] font-bold text-success">
+                            Your assigned workstation
+                          </span>
+                        ) : null}
                         {isSelected ? (
                           <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
                             Editing
@@ -653,16 +739,16 @@ export default function CompanyGeolocationPanel({
                         Edit
                       </button>
 
-                      <form action={deactivateCompanyWorkstation}>
-                        <input name="workstation_id" type="hidden" value={workstation.id} />
-                        <button
-                          type="submit"
-                          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs font-semibold text-danger hover:bg-danger/20"
-                        >
-                          <Trash2 className="size-3.5 shrink-0" />
-                          Deactivate
-                        </button>
-                      </form>
+                      <button
+                        type="button"
+                        disabled={deletingId === workstation.id || isPendingDelete}
+                        onClick={() => handleRemoveWorkstation(workstation.id, workstation.name)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs font-semibold text-danger hover:bg-danger/20 disabled:opacity-50"
+                        title="Remove workstation"
+                      >
+                        <Trash2 className="size-3.5 shrink-0" />
+                        {deletingId === workstation.id ? "Removing..." : "Remove"}
+                      </button>
                     </div>
                   </div>
                 );

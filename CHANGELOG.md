@@ -4,7 +4,14 @@ All notable changes to the ClockWise People platform are documented in this file
 
 ## [2026.09.17] - 2026-09-17
 
-### Added
+- **Default Workstation Map View to Assigned Workstation**:
+  - Automatically queries the active logged-in employee's workstation assignment and sets the map position, marker, geofence radius, and address inputs to their assigned workstation by default on initial page load (with fallback to the company's first workstation).
+  - Added visual indicator showing active assignment and "Your assigned workstation" badge in the configured workstations list.
+- **Admin Workstation Removal & Clean Unlinking**:
+  - Added prominent "Remove" workstation action directly within the workstation edit form and list.
+  - Includes browser confirmation dialog, soft deletion (`is_active = false, deleted_at = now()`), automatic unlinking of employee assignments, and graceful state reset.
+- **Header Company Switcher Cleanup**:
+  - Removed duplicate company selector in calendar workspace, retaining only the free-floating switcher.
 - **Direct Coordinate Editing for Workstations** (`src/components/geolocation/CompanyGeolocationPanel.tsx`):
   - Added dedicated, fully interactive Latitude and Longitude input fields with real-time two-way synchronization to the Leaflet map marker and geofence radius.
   - Supports standard decimal degrees with high-precision input, direct typing, and validation.

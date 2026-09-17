@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getActiveCompany } from "@/lib/foundation/queries";
 import {
   isValidCoordinate,
   parseCoordinates,
@@ -115,18 +116,55 @@ export async function deactivateCompanyWorkstation(formData: FormData) {
     return;
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("deactivate_company_workstation", {
-    target_workstation_id: workstationId,
-  });
+  const [{ company }, supabase] = await Promise.all([
+    getActiveCompany(),
+    createSupabaseServerClient(),
+  ]);
 
-  if (error) {
-    if (isMissingGeolocationRpc(error)) {
-      throw new Error(migrationMessage);
+  const nowIso = new Date().toISOString();
+
+  // 1. Direct update on company_workstations scoped to current active company
+  const { error: updateError } = await supabase
+    .from("company_workstations")
+    .update({
+      is_active: false,
+      deleted_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("id", workstationId)
+    .eq("company_id", company.id);
+
+  if (updateError) {
+    // 2. Fallback to RPC if direct table update has policy issues
+    const { error: rpcError } = await supabase.rpc("deactivate_company_workstation", {
+      target_workstation_id: workstationId,
+    });
+
+    if (rpcError) {
+      if (isMissingGeolocationRpc(rpcError)) {
+        throw new Error(migrationMessage);
+      }
+      throw new Error(rpcError.message);
     }
-
-    throw new Error(error.message);
   }
+
+  // 3. Clear employee assignments linked to this workstation
+  await supabase
+    .from("employee_workstation_assignments")
+    .update({
+      is_active: false,
+      deleted_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("workstation_id", workstationId)
+    .eq("company_id", company.id);
+
+  // 4. Clear workstation_id foreign key on employees if any
+  await supabase
+    .from("employees")
+    .update({ workstation_id: null })
+    .eq("workstation_id", workstationId)
+    .eq("company_id", company.id);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/company");

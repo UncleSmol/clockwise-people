@@ -25,4 +25,5 @@ export type CompanyGeolocationData = {
   employees: WorkstationEmployeeOption[];
   assignments: EmployeeWorkstationAssignment[];
   workstations: CompanyWorkstation[];
+  userAssignedWorkstationId?: string | null;
 };

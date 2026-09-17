@@ -22,7 +22,7 @@ function isMissingGeolocationSchema(error: { code?: string; message?: string } |
 }
 
 export const getCompanyGeolocationData = cache(async function getCompanyGeolocationData(): Promise<CompanyGeolocationData> {
-  const [{ company }, { supabase }] = await Promise.all([
+  const [{ company }, { supabase, user }] = await Promise.all([
     getActiveCompany(),
     requireUser(),
   ]);
@@ -83,6 +83,32 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
     assignments.map((assignment) => [assignment.employee_id, assignment.workstation_id]),
   );
 
+  const { data: currentAppUser } = await supabase
+    .from("users")
+    .select("employee_id")
+    .eq("auth_user_id", user.id)
+    .eq("company_id", company.id)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  const currentEmployeeId = currentAppUser?.employee_id ?? null;
+  let userAssignedWorkstationId: string | null = null;
+  if (currentEmployeeId) {
+    userAssignedWorkstationId = assignmentsByEmployee.get(currentEmployeeId) ?? null;
+    if (!userAssignedWorkstationId) {
+      const { data: empRecord } = await supabase
+        .from("employees")
+        .select("workstation_id")
+        .eq("id", currentEmployeeId)
+        .maybeSingle();
+      if (empRecord?.workstation_id) {
+        userAssignedWorkstationId = empRecord.workstation_id;
+      }
+    }
+  }
+
   return {
     assignments,
     employees: (employeesResult.data ?? []).map((employee) => ({
@@ -99,5 +125,6 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
         radius_meters: Number(workstation.radius_meters),
       }),
     ),
+    userAssignedWorkstationId,
   };
 });
