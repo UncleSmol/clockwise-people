@@ -279,27 +279,6 @@ export default function CalendarWorkspace({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-sm font-bold text-foreground sm:text-lg">{companyName}</h1>
-                {isSuperAdmin && companies.length > 1 ? (
-                  <div className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2 py-0.5 text-xs shadow-2xs">
-                    <Building2 className="size-3 text-accent shrink-0" />
-                    <select
-                      aria-label="Switch company"
-                      value={activeCompany?.id ?? ""}
-                      disabled={isSwitchingCompany}
-                      onChange={(e) => handleCompanySwitch(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-foreground outline-none cursor-pointer disabled:opacity-60 max-w-[150px] truncate"
-                    >
-                      {companies.map((c) => (
-                        <option key={c.id} value={c.id} className="bg-white text-slate-900">
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    {isSwitchingCompany ? (
-                      <RefreshCw className="size-3 animate-spin text-accent shrink-0" />
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
               <p className="truncate text-[10px] text-muted sm:text-xs">
                 {currentDateLabel} · <LiveClock />
