@@ -68,20 +68,21 @@ export const getActiveCompany = cache(async function getActiveCompany() {
 
   const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
 
-  if (isSuperAdmin) {
-    const cookieStore = await cookies();
-    const preferredId = cookieStore.get("active_company_id")?.value;
-    if (preferredId) {
-      const preferred = companies.find((c) => c.id === preferredId);
-      if (preferred) return { companies, company: preferred };
-    }
+  const cookieStore = await cookies();
+  const preferredId = cookieStore.get("active_company_id")?.value;
+  if (preferredId) {
+    const preferred = companies.find((c) => c.id === preferredId);
+    if (preferred) return { companies, company: preferred };
   }
 
   return { companies, company: companies[0] };
 });
 
 export const getCurrentUserAccess = cache(async function getCurrentUserAccess() {
-  const { supabase, user } = await requireUser();
+  const [{ supabase, user }, { company: activeCompany }] = await Promise.all([
+    requireUser(),
+    getActiveCompany(),
+  ]);
 
   const { data: appUsers, error: userError } = await supabase
     .from("users")
@@ -95,7 +96,6 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   }
 
   const companyIds = (appUsers ?? []).map((appUser) => appUser.company_id);
-  const appUserIds = (appUsers ?? []).map((appUser) => appUser.id);
 
   if (companyIds.length === 0) {
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
@@ -103,11 +103,34 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
 
   const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
 
+  const targetAppUser =
+    appUsers?.find((u) => u.company_id === activeCompany.id) ??
+    (isSuperAdmin ? appUsers?.[0] : null) ??
+    appUsers?.[0] ??
+    null;
+
+  let activeEmployeeId = targetAppUser?.employee_id ?? null;
+  if (!activeEmployeeId) {
+    const { data: empRecord } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("company_id", activeCompany.id)
+      .eq("employment_status", "active")
+      .is("deleted_at", null)
+      .or(`user_id.eq.${targetAppUser?.id ?? ""},email.eq.${user.email ?? ""}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (empRecord) {
+      activeEmployeeId = empRecord.id;
+    }
+  }
+
   const { data: roles, error: rolesError } = await supabase
     .from("user_roles")
     .select("company_id, roles(key)")
-    .in("company_id", companyIds)
-    .in("user_id", appUserIds)
+    .eq("company_id", activeCompany.id)
+    .in("user_id", (appUsers ?? []).map((u) => u.id))
     .is("revoked_at", null);
 
   if (rolesError) {
@@ -122,13 +145,12 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     }
   });
 
-  const currentAppUser = appUsers?.[0] ?? null;
-  const directReportsResult = currentAppUser?.employee_id
+  const directReportsResult = activeEmployeeId
     ? await supabase
         .from("employees")
         .select("id", { count: "exact", head: true })
-        .eq("company_id", currentAppUser.company_id)
-        .eq("manager_employee_id", currentAppUser.employee_id)
+        .eq("company_id", activeCompany.id)
+        .eq("manager_employee_id", activeEmployeeId)
         .is("deleted_at", null)
     : null;
 
@@ -139,8 +161,8 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   const canManageDirectReports = Number(directReportsResult?.count ?? 0) > 0;
 
   return {
-    appUserId: currentAppUser?.id ?? null,
-    employeeId: currentAppUser?.employee_id ?? null,
+    appUserId: targetAppUser?.id ?? null,
+    employeeId: activeEmployeeId,
     roles: Array.from(roleKeys),
     isSuperAdmin,
     isOwner: isSuperAdmin || roleKeys.has("owner"),

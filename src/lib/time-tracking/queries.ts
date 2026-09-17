@@ -494,7 +494,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .order("holiday_date", { ascending: true }),
     supabase
       .from("company_workstations")
-      .select("id, name")
+      .select("id, name, latitude, longitude, radius_meters")
       .eq("company_id", company.id)
       .eq("is_active", true)
       .is("deleted_at", null)
@@ -585,10 +585,23 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     scheduleValidation: validateTimesAgainstSchedule(entry, employeeScheduleDays),
   }));
 
-  const workstations = ((workstationsResult.data ?? []) as { id: string; name: string }[]).map(
-    (workstation) => ({ id: workstation.id, name: workstation.name }),
-  );
-  const assignedWorkstationId = (assignmentsResult.data?.[0]?.workstation_id as string) ?? null;
+  const workstations = ((workstationsResult.data ?? []) as {
+    id: string;
+    name: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    radius_meters?: number | null;
+  }[]).map((workstation) => ({
+    id: workstation.id,
+    name: workstation.name,
+    latitude: workstation.latitude != null ? Number(workstation.latitude) : undefined,
+    longitude: workstation.longitude != null ? Number(workstation.longitude) : undefined,
+    radius_meters: workstation.radius_meters != null ? Number(workstation.radius_meters) : undefined,
+  }));
+  const assignedWorkstationId =
+    (assignmentsResult.data?.[0]?.workstation_id as string) ??
+    (employeeRow as { workstation_id?: string | null })?.workstation_id ??
+    null;
   const settingsApprovalRules = (settingsResult?.data?.approval_rules ?? {}) as Record<string, unknown>;
   const autoEndLunchOnLapse = Boolean(
     settingsApprovalRules.auto_end_lunch_on_lapse ?? settingsApprovalRules.auto_clockout_after_lunch,

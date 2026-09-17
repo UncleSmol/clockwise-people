@@ -101,9 +101,15 @@ export type EmployeeTimeState = {
   recentEntries: TimeEntryRecord[];
   recentEvents: ClockEventRecord[];
   correctionRequests: TimesheetCorrectionRequest[];
+  workstations: {
+    id: string;
+    name: string;
+    latitude?: number;
+    longitude?: number;
+    radius_meters?: number;
+  }[];
+  assignedWorkstationId?: string | null;
   publicHolidays: CompanyPublicHoliday[];
-  workstations: { id: string; name: string }[];
-  assignedWorkstationId: string | null;
   autoEndLunchOnLapse?: boolean;
   autoClockoutAfterLunch?: boolean;
   defaultLunchMinutes?: number;

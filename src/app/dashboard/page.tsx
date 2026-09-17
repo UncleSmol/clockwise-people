@@ -466,7 +466,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
-                  <CompanyGeolocationPanel data={geolocationData} />
+                  <CompanyGeolocationPanel key={company.id} data={geolocationData} />
                 </div>
               </details>
 
@@ -649,6 +649,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       currentDateLabel={currentDateLabel}
         employeeClock={
           <EmployeeTimeClock
+            key={company.id}
             todayEntry={employeeTimeState?.todayEntry ?? null}
             variant="strip"
             workstations={employeeTimeState?.workstations ?? []}
@@ -682,6 +683,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <EmployeeMyTimeHub
             clock={
               <EmployeeTimeClock
+                key={company.id}
                 todayEntry={employeeTimeState.todayEntry ?? null}
                 variant="strip"
                 workstations={employeeTimeState.workstations ?? []}

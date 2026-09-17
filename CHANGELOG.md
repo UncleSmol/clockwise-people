@@ -4,6 +4,14 @@ All notable changes to the ClockWise People platform are documented in this file
 
 ## [2026.09.17] - 2026-09-17
 
+- **Strict Multi-Company Workstation Isolation & Database Scoping**:
+  - Re-engineered remote database procedures (`upsert_company_workstation` and `record_employee_time_event`) to enforce `target_company_id` scoping rather than resolving the user's first created company. Workstations, radius rules, and clock events are now strictly isolated per company.
+  - Migrated misplaced workstation records (e.g. Alora Dental Care) to their correct company scope and purged cross-tenant duplicates.
+  - Scoped active company resolution in `getActiveCompany()` and `getCurrentUserAccess()` to cookie-based tenancy for all multi-company members.
+  - Bound component keys to `company.id` (`<CompanyGeolocationPanel key={company.id} />` & `<EmployeeTimeClock key={company.id} />`) to ensure instantaneous, clean state reset and prevent stale workstation state when switching companies.
+- **Dynamic Real-Time Geofence Distance Readout & Accuracy Feedback**:
+  - Added live distance evaluation (`liveDistanceMeters`) and geofence boundary validation (`liveIsInRange`) in `EmployeeTimeClock` (both strip and card views).
+  - Displays real-time proximity in meters to the selected workstation with allowed radius limits prior to clocking, eliminating accidental out-of-range events.
 - **Default Workstation Map View to Assigned Workstation**:
   - Automatically queries the active logged-in employee's workstation assignment and sets the map position, marker, geofence radius, and address inputs to their assigned workstation by default on initial page load (with fallback to the company's first workstation).
   - Added visual indicator showing active assignment and "Your assigned workstation" badge in the configured workstations list.

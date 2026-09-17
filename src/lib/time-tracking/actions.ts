@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getActiveCompany } from "@/lib/foundation/queries";
 import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
 import type { ClockEventType, TimeClockLocationEvent, TimeEntryRecord } from "./schema";
 
@@ -38,7 +39,10 @@ export async function recordClockEvent(
   eventType: ClockEventType,
   formData?: FormData,
 ): Promise<ClockActionState> {
-  const supabase = await createSupabaseServerClient();
+  const [{ company }, supabase] = await Promise.all([
+    getActiveCompany(),
+    createSupabaseServerClient(),
+  ]);
   const latitude = String(formData?.get("latitude") ?? "").trim();
   const longitude = String(formData?.get("longitude") ?? "").trim();
   const accuracy = String(formData?.get("accuracy") ?? "").trim();
@@ -57,6 +61,7 @@ export async function recordClockEvent(
     requested_event: eventType,
     workstation_id: workstationId || null,
     requested_at: requestedAt,
+    target_company_id: company.id,
     device_metadata: {
       location:
         latitude && longitude

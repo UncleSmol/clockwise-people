@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Clock, LocateFixed, MapPin } from "lucide-react";
 import {
   clockIn,
@@ -24,7 +24,13 @@ type TodaySchedule = {
 type EmployeeTimeClockProps = {
   todayEntry: TimeEntryRecord | null;
   variant?: "card" | "compact" | "strip";
-  workstations?: { id: string; name: string }[];
+  workstations?: {
+    id: string;
+    name: string;
+    latitude?: number;
+    longitude?: number;
+    radius_meters?: number;
+  }[];
   assignedWorkstationId?: string | null;
   todaySchedule?: TodaySchedule | null;
   autoEndLunchOnLapse?: boolean;
@@ -225,6 +231,25 @@ function localDateValue() {
   const day = String(now.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function computeDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 function optimisticEntry(
@@ -458,7 +483,7 @@ export default function EmployeeTimeClock({
       }
 
       setOptimistic(
-        optimisticEntry(currentEntry, currentAction.label, workstationId, requestedAt),
+        optimisticEntry(currentEntry, currentAction.label, effectiveWorkstationId, requestedAt),
       );
       const result = await currentAction.action(formData);
       setOptimistic(null);
@@ -477,6 +502,44 @@ export default function EmployeeTimeClock({
   const canSwitch =
     Boolean(displayEntry?.clock_in) && !displayEntry?.clock_out && workstations.length > 0;
   const latestGeofenceStatus = displayEntry?.locationEvents?.at(-1)?.geofence_status ?? null;
+
+  const effectiveWorkstationId = useMemo(() => {
+    if (workstationId && workstations.some((w) => w.id === workstationId)) {
+      return workstationId;
+    }
+    if (assignedWorkstationId && workstations.some((w) => w.id === assignedWorkstationId)) {
+      return assignedWorkstationId;
+    }
+    return workstations[0]?.id ?? "";
+  }, [workstationId, assignedWorkstationId, workstations]);
+
+  const selectedWorkstation = useMemo(
+    () => workstations.find((w) => w.id === effectiveWorkstationId) ?? null,
+    [workstations, effectiveWorkstationId],
+  );
+
+  const liveDistanceMeters = useMemo(() => {
+    if (
+      !locationDetails ||
+      selectedWorkstation?.latitude == null ||
+      selectedWorkstation?.longitude == null
+    ) {
+      return null;
+    }
+    return Math.round(
+      computeDistanceMeters(
+        locationDetails.latitude,
+        locationDetails.longitude,
+        selectedWorkstation.latitude,
+        selectedWorkstation.longitude,
+      ),
+    );
+  }, [locationDetails, selectedWorkstation]);
+
+  const liveIsInRange = useMemo(() => {
+    if (liveDistanceMeters === null || selectedWorkstation?.radius_meters == null) return null;
+    return liveDistanceMeters <= selectedWorkstation.radius_meters;
+  }, [liveDistanceMeters, selectedWorkstation]);
 
   useEffect(() => {
     if (hasLoadedInitialLocationRef.current || typeof navigator === "undefined") {
@@ -783,7 +846,7 @@ export default function EmployeeTimeClock({
           <input name="longitude" ref={longitudeRef} type="hidden" />
           <input name="accuracy" ref={accuracyRef} type="hidden" />
           <input name="captured_at" ref={capturedAtRef} type="hidden" />
-          <input name="workstation_id" type="hidden" value={workstationId} />
+          <input name="workstation_id" type="hidden" value={effectiveWorkstationId} />
 
           {canClockIn || workstations.length > 0 ? (
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -803,7 +866,7 @@ export default function EmployeeTimeClock({
                   <label className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 sm:flex-initial sm:px-2 sm:py-1.5">
                     <MapPin className="size-3.5 shrink-0 text-muted" />
                     <select
-                      value={workstationId}
+                      value={effectiveWorkstationId}
                       onChange={(event) => setWorkstationId(event.target.value)}
                       disabled={pending || locating}
                       className="w-full min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[9rem] truncate"
@@ -821,7 +884,7 @@ export default function EmployeeTimeClock({
                       onClick={() => {
                         switchPendingRef.current = true;
                       }}
-                      disabled={pending || locating || !workstationId}
+                      disabled={pending || locating || !effectiveWorkstationId}
                       className="btn btn-outline shrink-0 px-2.5 py-1.5 text-xs font-medium"
                     >
                       {switchPendingRef.current && pending
@@ -892,7 +955,20 @@ export default function EmployeeTimeClock({
           </div>
         </form>
 
-        {latestGeofenceStatus === "out_of_range" ? (
+        {liveDistanceMeters !== null && selectedWorkstation ? (
+          <div className="flex w-full items-center gap-2 text-xs">
+            <span
+              className={`inline-block size-2 shrink-0 rounded-full ${
+                liveIsInRange ? "bg-emerald-500" : "bg-danger animate-pulse"
+              }`}
+            />
+            <span className={liveIsInRange ? "text-muted font-medium" : "text-danger font-semibold"}>
+              {liveIsInRange
+                ? `Within geofence: ~${liveDistanceMeters}m from ${selectedWorkstation.name} (limit: ${selectedWorkstation.radius_meters ?? 100}m)`
+                : `Outside workstation radius: ~${liveDistanceMeters}m from ${selectedWorkstation.name} (limit: ${selectedWorkstation.radius_meters ?? 100}m). Clocking will be flagged.`}
+            </span>
+          </div>
+        ) : latestGeofenceStatus === "out_of_range" ? (
           <p className="w-full text-xs font-semibold text-danger">
             You are outside your selected workstation radius. This event will be flagged.
           </p>
@@ -934,7 +1010,7 @@ export default function EmployeeTimeClock({
             <input name="longitude" ref={longitudeRef} type="hidden" />
             <input name="accuracy" ref={accuracyRef} type="hidden" />
             <input name="captured_at" ref={capturedAtRef} type="hidden" />
-            <input name="workstation_id" type="hidden" value={workstationId} />
+            <input name="workstation_id" type="hidden" value={effectiveWorkstationId} />
             {canClockIn ? (
               <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
                 <Clock className="size-4 shrink-0 opacity-80" />
@@ -950,7 +1026,7 @@ export default function EmployeeTimeClock({
               <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
                 <MapPin className="size-4 shrink-0 opacity-80" />
                 <select
-                  value={workstationId}
+                  value={effectiveWorkstationId}
                   onChange={(event) => setWorkstationId(event.target.value)}
                   disabled={pending || locating}
                   className="h-9 min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold text-primary-foreground outline-none"
@@ -970,7 +1046,7 @@ export default function EmployeeTimeClock({
                   onClick={() => {
                     switchPendingRef.current = true;
                   }}
-                  disabled={pending || locating || !workstationId}
+                  disabled={pending || locating || !effectiveWorkstationId}
                   className="rounded-md border border-primary-foreground/30 bg-primary-foreground/10 px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                 >
                   {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
@@ -1019,7 +1095,27 @@ export default function EmployeeTimeClock({
           </div>
         ) : null}
 
-        {latestGeofenceStatus === "out_of_range" ? (
+        {liveDistanceMeters !== null && selectedWorkstation ? (
+          <div
+            className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3.5 py-2.5 text-xs font-medium ${
+              liveIsInRange
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                : "border-danger/30 bg-danger/10 text-danger"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="size-4 shrink-0" />
+              <span>
+                Workstation: <strong>{selectedWorkstation.name}</strong> · Distance:{" "}
+                <strong>~{liveDistanceMeters}m</strong> (Radius limit:{" "}
+                {selectedWorkstation.radius_meters ?? 100}m)
+              </span>
+            </div>
+            <span className="font-bold whitespace-nowrap">
+              {liveIsInRange ? "Within Geofence" : "Outside Radius (Will Flag)"}
+            </span>
+          </div>
+        ) : latestGeofenceStatus === "out_of_range" ? (
           <div className="mb-4 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-medium text-danger">
             You are outside your selected workstation radius. This event will be flagged for
             review.
@@ -1076,9 +1172,10 @@ export default function EmployeeTimeClock({
           </p>
           {workstations.length > 0 ? (
             <p className="mt-2 text-xs font-semibold text-foreground">
-              Selected workstation:{" "}
-              {workstations.find((workstation) => workstation.id === workstationId)?.name ??
-                "Default"}
+              Selected workstation: {selectedWorkstation?.name ?? "Default"}
+              {liveDistanceMeters !== null
+                ? ` · ~${liveDistanceMeters}m away (${liveIsInRange ? "in range" : "out of range"})`
+                : ""}
             </p>
           ) : null}
           {locationDetails ? (

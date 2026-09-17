@@ -77,25 +77,90 @@ export async function saveCompanyWorkstation(
     return { ok: false, message: "Radius must be between 25m and 5000m." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("upsert_company_workstation", {
-    target_workstation_id: workstationId,
-    workstation_address: String(formData.get("address") ?? "").trim() || null,
-    workstation_latitude: latitude,
-    workstation_longitude: longitude,
-    workstation_name: name,
-    workstation_radius_meters: Math.round(radiusMeters),
-  });
+  const [{ company }, supabase] = await Promise.all([
+    getActiveCompany(),
+    createSupabaseServerClient(),
+  ]);
 
-  if (error) {
-    if (isMissingGeolocationRpc(error)) {
-      return { ok: false, message: migrationMessage };
+  const nowIso = new Date().toISOString();
+  let savedId = workstationId;
+
+  if (workstationId) {
+    const { data: updated, error: updateError } = await supabase
+      .from("company_workstations")
+      .update({
+        name,
+        address: String(formData.get("address") ?? "").trim() || null,
+        latitude,
+        longitude,
+        radius_meters: Math.round(radiusMeters),
+        is_active: true,
+        deleted_at: null,
+        updated_at: nowIso,
+      })
+      .eq("id", workstationId)
+      .eq("company_id", company.id)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError) {
+      const { data: rpcId, error: rpcError } = await supabase.rpc("upsert_company_workstation", {
+        target_workstation_id: workstationId,
+        workstation_address: String(formData.get("address") ?? "").trim() || null,
+        workstation_latitude: latitude,
+        workstation_longitude: longitude,
+        workstation_name: name,
+        workstation_radius_meters: Math.round(radiusMeters),
+        target_company_id: company.id,
+      });
+
+      if (rpcError) {
+        if (isMissingGeolocationRpc(rpcError)) {
+          return { ok: false, message: migrationMessage };
+        }
+        return { ok: false, message: rpcError.message };
+      }
+      savedId = (rpcId as string) || workstationId;
+    } else {
+      savedId = updated?.id ?? workstationId;
     }
+  } else {
+    const { data: inserted, error: insertError } = await supabase
+      .from("company_workstations")
+      .insert({
+        company_id: company.id,
+        name,
+        address: String(formData.get("address") ?? "").trim() || null,
+        latitude,
+        longitude,
+        radius_meters: Math.round(radiusMeters),
+        is_active: true,
+      })
+      .select("id")
+      .single();
 
-    return { ok: false, message: error.message };
+    if (insertError) {
+      const { data: rpcId, error: rpcError } = await supabase.rpc("upsert_company_workstation", {
+        target_workstation_id: null,
+        workstation_address: String(formData.get("address") ?? "").trim() || null,
+        workstation_latitude: latitude,
+        workstation_longitude: longitude,
+        workstation_name: name,
+        workstation_radius_meters: Math.round(radiusMeters),
+        target_company_id: company.id,
+      });
+
+      if (rpcError) {
+        if (isMissingGeolocationRpc(rpcError)) {
+          return { ok: false, message: migrationMessage };
+        }
+        return { ok: false, message: rpcError.message };
+      }
+      savedId = rpcId as string;
+    } else {
+      savedId = inserted.id;
+    }
   }
-
-  const savedId = (data as string) || workstationId;
 
   // Revalidate the dashboard and all pages showing workstations
   revalidatePath("/dashboard");
@@ -176,15 +241,20 @@ export async function assignEmployeeWorkstation(
   formData: FormData,
 ): Promise<ActionState> {
   const employeeId = optionalUuid(formData, "employee_id");
+  const targetWorkstationId = optionalUuid(formData, "workstation_id");
 
   if (!employeeId) {
     return { ok: false, message: "Choose an employee." };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const [{ company }, supabase] = await Promise.all([
+    getActiveCompany(),
+    createSupabaseServerClient(),
+  ]);
+
   const { error } = await supabase.rpc("assign_employee_workstation", {
     target_employee_id: employeeId,
-    target_workstation_id: optionalUuid(formData, "workstation_id"),
+    target_workstation_id: targetWorkstationId,
   });
 
   if (error) {
@@ -194,6 +264,13 @@ export async function assignEmployeeWorkstation(
 
     return { ok: false, message: error.message };
   }
+
+  // Keep employee table foreign key in sync
+  await supabase
+    .from("employees")
+    .update({ workstation_id: targetWorkstationId })
+    .eq("id", employeeId)
+    .eq("company_id", company.id);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/company");
