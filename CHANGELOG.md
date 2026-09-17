@@ -4,6 +4,20 @@ All notable changes to the ClockWise People platform are documented in this file
 
 ## [2026.09.17] - 2026-09-17
 
+- **Reporting Center Architectural Cleanup & Visual Analytics Suite**:
+  - **Re-architected Monolithic Component into Clean Modular Hierarchy**: Decomposed the 1,829-line monolithic `CompanyReportsWorkspace` into specialized, high-performance sub-components with dedicated reporting tables and a visual analytics dashboard.
+  - **Interactive Analytics & Statistics Dashboard Powered by Recharts** (`src/components/reports/ReportsOverviewAnalytics.tsx`):
+    - *Daily Attendance & Hours Worked Timeline*: Responsive AreaChart tracking normal regular hours, overtime surges (1.5x/2.0x), and active staff headcount over the selected cycle.
+    - *Clocking & Punctuality Distribution*: Donut PieChart depicting on-time arrivals, late arrivals (>5m), early departures, and missing clocking events with percentage breakdowns.
+    - *Statutory Leave Utilization*: Vertical BarChart displaying leave hours and days taken across Annual Leave, Sick Leave, Family Responsibility Leave, and Public Holidays.
+    - *Workload & Labor Allocation Comparison*: Dual-mode BarChart comparing normal hours and overtime distribution across company departments and workstations.
+    - *Executive KPI Cards*: Real-time metrics for total payroll hours, overtime ratio, average punctuality rate, attendance rate, total absence days, and missing clocking compliance flags.
+  - **High-Performance Data Tables Powered by @tanstack/react-table** (`src/components/reports/ReportDataTable.tsx`):
+    - Reusable generic data table providing client-side column sorting (ascending/descending), global text filtering/search, configurable pagination (10, 25, 50, 100 rows), and grand totals summary footers.
+    - Implemented dedicated table modules: `TimesheetPayrollReportTable`, `AttendanceReportTable`, `LeaveAccrualReportTable`, and `AbsenceReportTable`.
+  - **Comprehensive Multi-Sheet Audit Pack Export** (`src/lib/reports/exporters.ts`):
+    - Added `exportCompleteAuditPackExcel` enabling 1-click download of a unified, professional Excel workbook containing 5 formatted sheets: `Summary`, `Timesheets`, `Attendance`, `Leave_Accruals`, and `Absence_Logs`.
+    - Maintained streaming PDF, single-report CSV, and browser printing capabilities.
 - **Database Architecture & Operational Lifecycles Blueprint** (`database_structure.json`):
   - Placed authoritative, comprehensive JSON document on the app root detailing all 33 PostgreSQL tables, primary keys, foreign keys, check constraints, default values, and nullable constraints.
   - Documents 9 domain modules (Foundation, Users, Employees, Attendance, Work Rules, Geolocation, Documents, Integrations, Audit) and 7 operational lifecycles (multi-tenant switching, geofence clocking, automated overtime calculation, leave reconciliation, corrections, migration pipeline, and realtime events).

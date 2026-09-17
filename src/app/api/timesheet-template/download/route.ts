@@ -4,11 +4,20 @@ import path from "node:path";
 
 export async function GET() {
   try {
-    const templatePath = path.join(
+    const userTemplatePath = path.join(
+      process.cwd(),
+      "workforce-clockins",
+      "ClockWise_Import.xlsx",
+    );
+    const fallbackTemplatePath = path.join(
       process.cwd(),
       "workforce-clockins",
       "clockwise_timesheets_template_with_leave.xlsx",
     );
+
+    const templatePath = fs.existsSync(userTemplatePath)
+      ? userTemplatePath
+      : fallbackTemplatePath;
 
     if (!fs.existsSync(templatePath)) {
       return new NextResponse("Template file not found", { status: 404 });

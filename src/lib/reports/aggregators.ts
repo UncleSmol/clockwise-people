@@ -4,6 +4,11 @@ import type {
   AccrualReportRow,
   AbsenceReportRow,
   ReportKPIs,
+  DailyAttendanceStat,
+  ComplianceDistributionStat,
+  LeaveCategoryStat,
+  DepartmentWorkloadStat,
+  WorkstationWorkloadStat,
 } from "./types";
 import type { CompanyTimesheetCalendarEntry, CompanyPublicHoliday } from "@/lib/time-tracking/schema";
 import type { CompanyCalendarLeaveRequest } from "@/lib/time-tracking/schema";
@@ -358,4 +363,181 @@ export function calculateReportKPIs(
     totalAbsenceDays,
     totalToilAccruedHours: Number(toilAccrued.toFixed(2)),
   };
+}
+
+export function buildDailyAttendanceStats(
+  timesheets: TimesheetPayrollRow[],
+): DailyAttendanceStat[] {
+  const map = new Map<
+    string,
+    { normal: number; ot: number; total: number; staff: Set<string> }
+  >();
+
+  for (const row of timesheets) {
+    if (!row.workDate) continue;
+    const cur = map.get(row.workDate) || {
+      normal: 0,
+      ot: 0,
+      total: 0,
+      staff: new Set(),
+    };
+    cur.normal += row.normalHours;
+    cur.ot += row.overtimeHours15 + row.overtimeHours20;
+    cur.total += row.totalPaidHours;
+    if (row.employeeId) cur.staff.add(row.employeeId);
+    map.set(row.workDate, cur);
+  }
+
+  const sortedDates = Array.from(map.keys()).sort();
+  return sortedDates.map((date) => {
+    const d = map.get(date)!;
+    const parts = date.split("-");
+    const formattedDate =
+      parts.length === 3 ? `${parts[1]}/${parts[2]}` : date;
+    return {
+      date,
+      formattedDate,
+      normalHours: Number(d.normal.toFixed(2)),
+      overtimeHours: Number(d.ot.toFixed(2)),
+      totalHours: Number(d.total.toFixed(2)),
+      headcount: d.staff.size,
+    };
+  });
+}
+
+export function buildComplianceDistributionStats(
+  attendance: AttendanceReportRow[],
+): ComplianceDistributionStat[] {
+  let onTime = 0;
+  let late = 0;
+  let early = 0;
+  let missing = 0;
+
+  for (const a of attendance) {
+    onTime += a.onTimeArrivals;
+    late += a.lateArrivals;
+    early += a.earlyDepartures;
+    missing += a.missingClockings;
+  }
+
+  const result: ComplianceDistributionStat[] = [
+    { name: "On-Time Shifts", value: onTime, color: "#10b981" }, // emerald
+    { name: "Late Arrivals", value: late, color: "#f59e0b" }, // amber
+    { name: "Early Departures", value: early, color: "#6366f1" }, // indigo
+    { name: "Missing Clockings", value: missing, color: "#ef4444" }, // red
+  ];
+
+  return result.filter((r) => r.value > 0);
+}
+
+export function buildLeaveCategoryStats(
+  absences: AbsenceReportRow[],
+): LeaveCategoryStat[] {
+  const categoryColors: Record<string, string> = {
+    annual: "#0ea5e9", // sky
+    sick: "#f43f5e", // rose
+    family_responsibility: "#8b5cf6", // purple
+    maternity: "#ec4899", // pink
+    unpaid: "#64748b", // slate
+    other: "#14b8a6", // teal
+  };
+
+  const map = new Map<
+    string,
+    { name: string; hours: number; days: number; color: string }
+  >();
+
+  for (const a of absences) {
+    if (a.status !== "approved") continue;
+    const cat = a.leaveCategory || "other";
+    const name = a.leaveType || "Leave";
+    const cur = map.get(name) || {
+      name,
+      hours: 0,
+      days: 0,
+      color: categoryColors[cat] || "#10b981",
+    };
+    cur.hours += a.totalHours;
+    cur.days += a.totalDays;
+    map.set(name, cur);
+  }
+
+  return Array.from(map.entries()).map(([cat, val]) => ({
+    category: cat,
+    name: val.name,
+    hours: Number(val.hours.toFixed(2)),
+    days: val.days,
+    color: val.color,
+  }));
+}
+
+export function buildDepartmentWorkloadStats(
+  timesheets: TimesheetPayrollRow[],
+): DepartmentWorkloadStat[] {
+  const map = new Map<
+    string,
+    { normal: number; ot: number; total: number; staff: Set<string> }
+  >();
+
+  for (const r of timesheets) {
+    const dept = r.department || "General";
+    const cur = map.get(dept) || {
+      normal: 0,
+      ot: 0,
+      total: 0,
+      staff: new Set(),
+    };
+    cur.normal += r.normalHours;
+    cur.ot += r.overtimeHours15 + r.overtimeHours20;
+    cur.total += r.totalPaidHours;
+    if (r.employeeId) cur.staff.add(r.employeeId);
+    map.set(dept, cur);
+  }
+
+  return Array.from(map.entries())
+    .map(([dept, val]) => ({
+      department: dept,
+      normalHours: Number(val.normal.toFixed(2)),
+      overtimeHours: Number(val.ot.toFixed(2)),
+      totalHours: Number(val.total.toFixed(2)),
+      employeeCount: val.staff.size,
+    }))
+    .sort((a, b) => b.totalHours - a.totalHours);
+}
+
+export function buildWorkstationWorkloadStats(
+  timesheets: TimesheetPayrollRow[],
+  attendance: AttendanceReportRow[],
+): WorkstationWorkloadStat[] {
+  const map = new Map<string, { hours: number; shifts: number }>();
+
+  for (const r of timesheets) {
+    const ws = r.workstation || "Assigned";
+    const cur = map.get(ws) || { hours: 0, shifts: 0 };
+    cur.hours += r.totalPaidHours;
+    cur.shifts += 1;
+    map.set(ws, cur);
+  }
+
+  const puncMap = new Map<string, { total: number; count: number }>();
+  for (const a of attendance) {
+    const ws = a.workstation || "Assigned";
+    const cur = puncMap.get(ws) || { total: 0, count: 0 };
+    cur.total += a.punctualityRate;
+    cur.count += 1;
+    puncMap.set(ws, cur);
+  }
+
+  return Array.from(map.entries())
+    .map(([ws, val]) => {
+      const p = puncMap.get(ws);
+      const punctualityRate = p && p.count > 0 ? Math.round(p.total / p.count) : 100;
+      return {
+        workstation: ws,
+        totalHours: Number(val.hours.toFixed(2)),
+        shiftsCount: val.shifts,
+        punctualityRate,
+      };
+    })
+    .sort((a, b) => b.totalHours - a.totalHours);
 }

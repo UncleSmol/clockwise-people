@@ -1,5 +1,3 @@
-import type { PayrollPeriod } from "./payroll-periods";
-
 export type TimesheetPayrollRow = {
   id: string;
   employeeId: string;
@@ -101,4 +99,42 @@ export type ReportFilterState = {
   employeeId?: string;
   searchTerm?: string;
   statusFilter?: string;
+};
+
+export type DailyAttendanceStat = {
+  date: string;
+  formattedDate: string;
+  normalHours: number;
+  overtimeHours: number;
+  totalHours: number;
+  headcount: number;
+};
+
+export type ComplianceDistributionStat = {
+  name: string;
+  value: number;
+  color: string;
+};
+
+export type LeaveCategoryStat = {
+  category: string;
+  name: string;
+  hours: number;
+  days: number;
+  color: string;
+};
+
+export type DepartmentWorkloadStat = {
+  department: string;
+  normalHours: number;
+  overtimeHours: number;
+  totalHours: number;
+  employeeCount: number;
+};
+
+export type WorkstationWorkloadStat = {
+  workstation: string;
+  totalHours: number;
+  shiftsCount: number;
+  punctualityRate: number;
 };

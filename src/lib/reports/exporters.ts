@@ -183,3 +183,113 @@ export function exportReportToPdf(
     window.print();
   }
 }
+
+export type CompleteAuditPackData = {
+  companyName: string;
+  periodLabel: string;
+  metadata: Record<string, string | number>;
+  timesheets: {
+    headers: string[];
+    rows: Array<Array<string | number | boolean | null | undefined>>;
+  };
+  attendance: {
+    headers: string[];
+    rows: Array<Array<string | number | boolean | null | undefined>>;
+  };
+  accruals: {
+    headers: string[];
+    rows: Array<Array<string | number | boolean | null | undefined>>;
+  };
+  absences: {
+    headers: string[];
+    rows: Array<Array<string | number | boolean | null | undefined>>;
+  };
+};
+
+export async function exportCompleteAuditPackExcel(
+  pack: CompleteAuditPackData,
+  filename: string,
+) {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
+
+  // Helper to build a styled sheet
+  const appendSheet = (
+    sheetTitle: string,
+    sheetName: string,
+    headers: string[],
+    rows: Array<Array<string | number | boolean | null | undefined>>,
+  ) => {
+    const dataMatrix: Array<Array<string | number | boolean | null | undefined>> = [
+      [sheetTitle.toUpperCase()],
+      [`Company: ${pack.companyName}`, `Period: ${pack.periodLabel}`, `Generated: ${new Date().toLocaleString("en-ZA")}`],
+      [],
+      headers,
+      ...rows,
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(dataMatrix);
+
+    const colWidths = headers.map((h, i) => {
+      let max = h.length;
+      for (const r of rows) {
+        const cellLen = String(r[i] ?? "").length;
+        if (cellLen > max) max = cellLen;
+      }
+      return { wch: Math.min(45, Math.max(12, max + 3)) };
+    });
+    ws["!cols"] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  };
+
+  // 1. Summary Sheet
+  const summaryRows: Array<Array<string | number | boolean | null | undefined>> = [
+    ["CLOCKWISE PEOPLE - COMPLETE AUDIT & PAYROLL REPORT PACK"],
+    [`Company: ${pack.companyName}`],
+    [`Payroll Cycle: ${pack.periodLabel}`],
+    [`Generated: ${new Date().toLocaleString("en-ZA")}`],
+    [],
+    ["EXECUTIVE METRICS", "VALUE"],
+  ];
+  for (const [k, v] of Object.entries(pack.metadata)) {
+    summaryRows.push([k, v]);
+  }
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
+  summaryWs["!cols"] = [{ wch: 35 }, { wch: 25 }];
+  XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
+
+  // 2. Timesheets Sheet
+  appendSheet(
+    "Timesheet & Shift Payroll Audit",
+    "Timesheets",
+    pack.timesheets.headers,
+    pack.timesheets.rows,
+  );
+
+  // 3. Attendance Sheet
+  appendSheet(
+    "Attendance & Punctuality Report",
+    "Attendance",
+    pack.attendance.headers,
+    pack.attendance.rows,
+  );
+
+  // 4. Accruals Sheet
+  appendSheet(
+    "Leave Accrual & Balance Ledger",
+    "Leave_Accruals",
+    pack.accruals.headers,
+    pack.accruals.rows,
+  );
+
+  // 5. Absences Sheet
+  appendSheet(
+    "Absence & Leave Logs",
+    "Absence_Logs",
+    pack.absences.headers,
+    pack.absences.rows,
+  );
+
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+}
