@@ -1,0 +1,3638 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "meta": {
+    "project_name": "ClockWise People",
+    "database_engine": "PostgreSQL 15+ (Supabase Managed)",
+    "architecture_pattern": "Multi-Tenant B2B Workforce Management with Row-Level Security (RLS) & Security Definer Procedures",
+    "primary_isolation_key": "company_id (UUID)",
+    "generated_at": "2026-09-17",
+    "total_tables": 33,
+    "total_modules": 9
+  },
+  "architecture_summary": {
+    "tenancy_model": "Shared Database, Shared Schema with strict Row-Level Security (RLS) and company_id scoping across every relational table. Each tenant (company) is strictly partitioned.",
+    "auth_binding": "Supabase GoTrue auth.users stores global credentials. Each user profile in public.users is company-scoped (unique per company_id + auth_user_id), enabling a single physical individual to participate in multiple companies with distinct roles and employee identities.",
+    "business_logic_execution": "Complex operations (geofence radius evaluation, overtime computation, timesheet correction reviews, leave deduction, time clock event logging) run via PostgreSQL Security Definer functions with SET search_path = public to guarantee ACID transactions and prevent client-side tampering.",
+    "realtime_architecture": "Key operational tables (time_entries, app_notifications, company_public_holidays) broadcast PostgreSQL change-data-capture (CDC) payloads via supabase_realtime publication to dynamic client subscribers."
+  },
+  "domain_modules": {
+    "organization_and_tenancy": {
+      "title": "Tenancy & Organization",
+      "description": "Foundational organizational boundaries, legal company entities, global company settings, department units, and physical workstation geofences.",
+      "tables": [
+        "companies",
+        "company_settings",
+        "company_employee_number_counters",
+        "departments",
+        "company_workstations"
+      ]
+    },
+    "authentication_and_rbac": {
+      "title": "Authentication & Access Control",
+      "description": "User accounts mapped to Supabase auth, company-level roles, granular permissions, role bindings, and onboarding invitations.",
+      "tables": [
+        "users",
+        "roles",
+        "user_roles",
+        "permissions",
+        "role_permissions",
+        "user_invitations"
+      ]
+    },
+    "workforce_and_employees": {
+      "title": "Workforce & Employee Profiles",
+      "description": "Employee employment master records, employee numbers, job titles, manager relationships, compensation structures, and active workstation assignments.",
+      "tables": [
+        "employees",
+        "employee_workstation_assignments"
+      ]
+    },
+    "work_schedules_and_rules": {
+      "title": "Work Schedules & Shift Rules",
+      "description": "Weekly recurring work schedules, daily start/end hours, lunch break allocations, Saturday rules, and employee-to-schedule priority assignments.",
+      "tables": [
+        "work_schedules",
+        "schedule_days",
+        "employee_work_schedule_assignments"
+      ]
+    },
+    "time_tracking_and_geofencing": {
+      "title": "Time Tracking & Geofencing",
+      "description": "Live GPS clock events, geofence radius checks, daily shift entries, parent timesheets, timesheet correction requests, and payroll periods.",
+      "tables": [
+        "timesheets",
+        "time_entries",
+        "time_clock_events",
+        "timesheet_correction_requests",
+        "payroll_periods"
+      ]
+    },
+    "leave_and_holidays": {
+      "title": "Leave Management & Public Holidays",
+      "description": "Statutory and discretionary leave categories, leave balance ledgers, time-off requests, statutory public holidays, and Time Off in Lieu (TOIL).",
+      "tables": [
+        "leave_types",
+        "leave_balances",
+        "leave_requests",
+        "company_public_holidays",
+        "toil_transactions"
+      ]
+    },
+    "overtime_and_summaries": {
+      "title": "Overtime & Monthly Aggregations",
+      "description": "1.5x standard overtime, 2.0x Sunday/Public Holiday double time, and periodic monthly attendance hour summaries.",
+      "tables": [
+        "overtime_records",
+        "monthly_summaries"
+      ]
+    },
+    "compliance_and_governance": {
+      "title": "Compliance, Governance & Audit",
+      "description": "Formal multi-level approval queues and immutable audit trail capturing IP addresses, actors, and state diffs for POPIA/BCEA compliance.",
+      "tables": [
+        "approval_requests",
+        "audit_logs"
+      ]
+    },
+    "notifications_and_changelog": {
+      "title": "In-App Notifications & Version Changelog",
+      "description": "Real-time user notification delivery, system updates, release changelogs, and user read receipts.",
+      "tables": [
+        "app_notifications",
+        "app_updates",
+        "app_update_reads"
+      ]
+    }
+  },
+  "tables": {
+    "companies": {
+      "table_name": "companies",
+      "module": "organization_and_tenancy",
+      "description": "Stores tenant company accounts. Acts as the primary root entity for all tenant-scoped data in the application.",
+      "primary_key": "id",
+      "foreign_keys": [],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary unique identifier for the company."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Legal or trading company name."
+        },
+        "registration_number": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Company registration / CIPC number."
+        },
+        "tax_number": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "SARS tax reference number."
+        },
+        "contact_email": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Primary administrative contact email."
+        },
+        "contact_phone": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Primary business phone number."
+        },
+        "address": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Physical headquarters street address."
+        },
+        "logo_url": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Storage URL or public asset path for company logo."
+        },
+        "timezone": {
+          "type": "text",
+          "nullable": false,
+          "default": "'Africa/Johannesburg'",
+          "description": "Default IANA timezone for local timestamp calculations."
+        },
+        "currency": {
+          "type": "text",
+          "nullable": false,
+          "default": "'ZAR'",
+          "description": "Operating currency code (e.g. ZAR, USD)."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Indicates whether tenant subscription and account access is active."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Timestamp when the company was provisioned."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Timestamp of last modification."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-deletion timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "CHECK (btrim(name) <> '')"
+      ]
+    },
+    "company_settings": {
+      "table_name": "company_settings",
+      "module": "organization_and_tenancy",
+      "description": "Global policy configurations per company, including standard work hours, overtime thresholds, approval rules, and lunch policies.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "one_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company foreign key (unique per company)."
+        },
+        "standard_monthly_hours": {
+          "type": "numeric(8,2)",
+          "nullable": true,
+          "default": "173.33",
+          "description": "Standard monthly working hours baseline (BCEA standard is 173.33 for 40h/week)."
+        },
+        "standard_daily_hours": {
+          "type": "numeric(5,2)",
+          "nullable": true,
+          "default": "8.00",
+          "description": "Default standard shift hours per day before overtime starts."
+        },
+        "default_lunch_minutes": {
+          "type": "integer",
+          "nullable": false,
+          "default": "60",
+          "description": "Default unpaid lunch duration in minutes."
+        },
+        "overtime_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Configuration object for overtime rates (1.5x daily/weekly thresholds, 2.0x Sunday)."
+        },
+        "toil_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Time Off in Lieu conversion factors and expiration limits."
+        },
+        "leave_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Company-wide leave accrual intervals, carry-over caps, and negative balance permissions."
+        },
+        "approval_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Managerial approval hierarchies and auto-approval timeouts."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Record creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Last update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id)"
+      ]
+    },
+    "company_employee_number_counters": {
+      "table_name": "company_employee_number_counters",
+      "module": "organization_and_tenancy",
+      "description": "Atomic sequence generator ensuring unique, monotonic employee numbers (e.g. EMP-0001) per company without concurrency collisions.",
+      "primary_key": "company_id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "one_to_one"
+        }
+      ],
+      "columns": {
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "next_number": {
+          "type": "integer",
+          "nullable": false,
+          "default": "1",
+          "description": "Next sequential integer to allocate for new employees."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Timestamp of last counter increment."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (company_id)"
+      ]
+    },
+    "departments": {
+      "table_name": "departments",
+      "module": "organization_and_tenancy",
+      "description": "Organizational business units (e.g. Sales, Clinical, Administration, Operations) within a company.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "workstation_id",
+          "references_table": "company_workstations",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Department name (e.g. Nursing, Logistics)."
+        },
+        "code": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Short code or cost center identifier (e.g. DEPT-01)."
+        },
+        "workstation_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Default physical workstation linked to this department."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Active state flag."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Last update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, name)",
+        "CHECK (btrim(name) <> '')"
+      ]
+    },
+    "company_workstations": {
+      "table_name": "company_workstations",
+      "module": "organization_and_tenancy",
+      "description": "Defines physical branches, job sites, and practices with GPS coordinates and geofence radii for clock-in validation.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Company that owns this workstation. Strictly isolated per tenant."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Workstation or branch name (e.g. Piet Retief Branch, Alora Dental Care)."
+        },
+        "address": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Physical street address."
+        },
+        "latitude": {
+          "type": "numeric(10,7)",
+          "nullable": false,
+          "default": null,
+          "description": "High-precision GPS latitude in decimal degrees."
+        },
+        "longitude": {
+          "type": "numeric(10,7)",
+          "nullable": false,
+          "default": null,
+          "description": "High-precision GPS longitude in decimal degrees."
+        },
+        "radius_meters": {
+          "type": "integer",
+          "nullable": false,
+          "default": "100",
+          "description": "Allowed geofence boundary radius around coordinates in meters."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Active flag."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Record creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Last update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "CHECK (radius_meters > 0)",
+        "CHECK (latitude between -90 and 90)",
+        "CHECK (longitude between -180 and 180)"
+      ]
+    },
+    "users": {
+      "table_name": "users",
+      "module": "authentication_and_rbac",
+      "description": "Application user profile scoped to a specific company. Bridges Supabase Auth (auth.users) with application permissions and optional employee identity.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "auth_user_id",
+          "references_table": "auth.users",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "one_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Company under which this user profile operates."
+        },
+        "auth_user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Supabase authentication UUID."
+        },
+        "full_name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Display name of the user."
+        },
+        "email": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "User login email address."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Link to employee record in this company, enabling employee time clocking."
+        },
+        "is_super_admin": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "description": "System-wide administrator privilege flag."
+        },
+        "status": {
+          "type": "employment_status",
+          "nullable": false,
+          "default": "'active'",
+          "description": "Account status: active, suspended, terminated, on_leave."
+        },
+        "last_seen_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Timestamp of most recent activity in this company."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Last update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, auth_user_id)",
+        "UNIQUE (company_id, email)"
+      ]
+    },
+    "roles": {
+      "table_name": "roles",
+      "module": "authentication_and_rbac",
+      "description": "Defines access security roles within a company (e.g. company_admin, manager, employee, payroll_officer).",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Human-readable role title."
+        },
+        "key": {
+          "type": "app_role",
+          "nullable": false,
+          "default": null,
+          "description": "Role enum key: company_admin, manager, employee, super_admin."
+        },
+        "description": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Detailed explanation of role responsibilities."
+        },
+        "is_system": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "description": "True if built-in system role that cannot be deleted."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, key)"
+      ]
+    },
+    "user_roles": {
+      "table_name": "user_roles",
+      "module": "authentication_and_rbac",
+      "description": "Associates company users with roles.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "role_id",
+          "references_table": "roles",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "assigned_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target user."
+        },
+        "role_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target role."
+        },
+        "assigned_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who granted the role."
+        },
+        "assigned_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Assignment timestamp."
+        },
+        "revoked_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Timestamp when role was revoked, if applicable."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "permissions": {
+      "table_name": "permissions",
+      "module": "authentication_and_rbac",
+      "description": "Atomic system permission keys (e.g. time.clock, time.approve, leave.manage).",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "key": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Unique permission key string."
+        },
+        "description": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Permission description."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, key)"
+      ]
+    },
+    "role_permissions": {
+      "table_name": "role_permissions",
+      "module": "authentication_and_rbac",
+      "description": "Many-to-many junction mapping permissions to roles.",
+      "primary_key": [
+        "role_id",
+        "permission_id"
+      ],
+      "foreign_keys": [
+        {
+          "column": "role_id",
+          "references_table": "roles",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "permission_id",
+          "references_table": "permissions",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "role_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Role reference."
+        },
+        "permission_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Permission reference."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (role_id, permission_id)"
+      ]
+    },
+    "user_invitations": {
+      "table_name": "user_invitations",
+      "module": "authentication_and_rbac",
+      "description": "Tracks pending email invitations sent to employees or managers to join the company.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "email": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Invitee email address."
+        },
+        "role": {
+          "type": "text",
+          "nullable": false,
+          "default": "'employee'",
+          "description": "Role to be granted upon acceptance."
+        },
+        "token": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Secure random verification token."
+        },
+        "expires_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": null,
+          "description": "Token expiration timestamp."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Send timestamp."
+        },
+        "accepted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Timestamp when invitee finalized signup."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "employees": {
+      "table_name": "employees",
+      "module": "workforce_and_employees",
+      "description": "Core workforce master record. Stores contractual, payroll, department, workstation, and schedule affiliations.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "one_to_one"
+        },
+        {
+          "column": "department_id",
+          "references_table": "departments",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "workstation_id",
+          "references_table": "company_workstations",
+          "references_column": "id",
+          "on_delete": "RESTRICT",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "work_schedule_id",
+          "references_table": "work_schedules",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "manager_employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Linked user account enabling dashboard clocking."
+        },
+        "employee_number": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Unique company employee code (e.g. EMP-0001)."
+        },
+        "full_name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Full legal name."
+        },
+        "known_as": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Preferred nickname or first name."
+        },
+        "email": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Work or personal notification email."
+        },
+        "phone_number": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Contact telephone number."
+        },
+        "department_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Department affiliation."
+        },
+        "workstation_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Primary assigned physical workstation for geofence validation."
+        },
+        "job_title": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Job designation (e.g. Dental Assistant, Office Manager)."
+        },
+        "employment_type": {
+          "type": "employment_type",
+          "nullable": false,
+          "default": "'full_time'",
+          "description": "full_time, part_time, contractor, intern."
+        },
+        "employment_status": {
+          "type": "employment_status",
+          "nullable": false,
+          "default": "'active'",
+          "description": "active, suspended, terminated, on_leave."
+        },
+        "start_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Employment start date."
+        },
+        "end_date": {
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "description": "Employment termination date if applicable."
+        },
+        "work_schedule_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Default work schedule rule."
+        },
+        "manager_employee_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Reports-to manager employee record."
+        },
+        "compensation_type": {
+          "type": "compensation_type",
+          "nullable": false,
+          "default": "'monthly'",
+          "description": "monthly salary or hourly rate."
+        },
+        "hourly_rate": {
+          "type": "numeric(12,2)",
+          "nullable": true,
+          "default": null,
+          "description": "Hourly wage rate."
+        },
+        "monthly_salary": {
+          "type": "numeric(12,2)",
+          "nullable": true,
+          "default": null,
+          "description": "Gross monthly salary."
+        },
+        "leave_profile": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Custom employee leave overrides."
+        },
+        "payroll_identifier": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Third-party payroll export reference."
+        },
+        "avatar_url": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Profile image URL."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Last update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, employee_number)",
+        "UNIQUE (company_id, email)",
+        "CHECK (end_date IS NULL OR end_date >= start_date)"
+      ]
+    },
+    "employee_workstation_assignments": {
+      "table_name": "employee_workstation_assignments",
+      "module": "workforce_and_employees",
+      "description": "Historical and multi-site assignment junction linking employees to authorized workstations with effective dates.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "workstation_id",
+          "references_table": "company_workstations",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Company reference."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Employee reference."
+        },
+        "workstation_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Workstation reference."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Active status."
+        },
+        "effective_from": {
+          "type": "date",
+          "nullable": false,
+          "default": "current_date",
+          "description": "Date assignment takes effect."
+        },
+        "effective_to": {
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "description": "Date assignment terminates if temporary."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "work_schedules": {
+      "table_name": "work_schedules",
+      "module": "work_schedules_and_rules",
+      "description": "Work schedule definition defining baseline daily hours, monthly standard hours, and working day rules.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Schedule name (e.g. Standard 40h Office, Clinical Shift A)."
+        },
+        "scope": {
+          "type": "schedule_scope",
+          "nullable": false,
+          "default": "'company'",
+          "description": "company-wide or employee-specific."
+        },
+        "standard_monthly_hours": {
+          "type": "numeric(8,2)",
+          "nullable": true,
+          "default": null,
+          "description": "Target monthly hours."
+        },
+        "standard_daily_hours": {
+          "type": "numeric(5,2)",
+          "nullable": true,
+          "default": null,
+          "description": "Standard daily shift hours."
+        },
+        "saturday_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Saturday overtime or normal-time pay rules."
+        },
+        "public_holiday_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Public holiday work rate rules (e.g. 2.0x double time)."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Active flag."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "schedule_days": {
+      "table_name": "schedule_days",
+      "module": "work_schedules_and_rules",
+      "description": "Day-by-day timetable (0=Sunday to 6=Saturday) within a work schedule, defining planned start, end, and lunch duration.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "work_schedule_id",
+          "references_table": "work_schedules",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "work_schedule_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Parent work schedule."
+        },
+        "day_of_week": {
+          "type": "integer",
+          "nullable": false,
+          "default": null,
+          "description": "0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday."
+        },
+        "start_time": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Planned shift start time (e.g. 08:00)."
+        },
+        "end_time": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Planned shift end time (e.g. 17:00)."
+        },
+        "lunch_minutes": {
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "description": "Allotted lunch duration in minutes."
+        },
+        "paid_hours": {
+          "type": "numeric(5,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Scheduled paid shift hours."
+        },
+        "is_working_day": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Whether this day is a rostered working day."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (work_schedule_id, day_of_week)",
+        "CHECK (day_of_week BETWEEN 0 AND 6)"
+      ]
+    },
+    "employee_work_schedule_assignments": {
+      "table_name": "employee_work_schedule_assignments",
+      "module": "work_schedules_and_rules",
+      "description": "Assigns employees to customized or rotating work schedules with date ranges and override priority.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "work_schedule_id",
+          "references_table": "work_schedules",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Employee assigned."
+        },
+        "work_schedule_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Assigned schedule."
+        },
+        "effective_from": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Start date for schedule rules."
+        },
+        "effective_to": {
+          "type": "date",
+          "nullable": true,
+          "default": null,
+          "description": "End date if temporary."
+        },
+        "priority": {
+          "type": "integer",
+          "nullable": false,
+          "default": "0",
+          "description": "Priority order for resolving multiple active schedules."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Active flag."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "payroll_periods": {
+      "table_name": "payroll_periods",
+      "module": "time_tracking_and_geofencing",
+      "description": "Defined payroll cycle windows (e.g. Monthly, Fortnightly, Weekly) used for locking timesheets and generating payroll exports.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "reviewed_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "approved_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "locked_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Period title (e.g. March 2026 Payroll)."
+        },
+        "period_start": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Cycle start date."
+        },
+        "period_end": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Cycle end date."
+        },
+        "status": {
+          "type": "payroll_period_status",
+          "nullable": false,
+          "default": "'open'",
+          "description": "open, under_review, approved, locked, reopened."
+        },
+        "reviewed_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who completed manager review."
+        },
+        "reviewed_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Review completion timestamp."
+        },
+        "approved_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who signed off for payroll."
+        },
+        "approved_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Approval timestamp."
+        },
+        "locked_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who locked the period."
+        },
+        "locked_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Lock timestamp."
+        },
+        "reopened_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who authorized reopening."
+        },
+        "reopened_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Reopen timestamp."
+        },
+        "reopen_reason": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Audited justification for reopening a locked period."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, period_start, period_end)",
+        "CHECK (period_end >= period_start)"
+      ]
+    },
+    "timesheets": {
+      "table_name": "timesheets",
+      "module": "time_tracking_and_geofencing",
+      "description": "Parent timesheet container grouping daily time entries for an employee over a payroll period or batch migration.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "payroll_period_id",
+          "references_table": "payroll_periods",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target employee."
+        },
+        "payroll_period_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Associated payroll period."
+        },
+        "status": {
+          "type": "approval_status",
+          "nullable": false,
+          "default": "'draft'",
+          "description": "draft, submitted, approved, rejected, cancelled, locked."
+        },
+        "submitted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Submission timestamp."
+        },
+        "submitted_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who submitted."
+        },
+        "approved_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Manager who approved."
+        },
+        "approved_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Approval timestamp."
+        },
+        "rejected_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Manager who rejected."
+        },
+        "rejected_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Rejection timestamp."
+        },
+        "rejection_reason": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Rejection justification."
+        },
+        "notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Audit notes (e.g. 'Migrated from legacy time tracker')."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "time_entries": {
+      "table_name": "time_entries",
+      "module": "time_tracking_and_geofencing",
+      "description": "Daily timesheet shift record. Stores clock-in, lunch intervals, clock-out, paid hours, calculated overtime, and leave links.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "timesheet_id",
+          "references_table": "timesheets",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "workstation_id",
+          "references_table": "company_workstations",
+          "references_column": "id",
+          "on_delete": "RESTRICT",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "leave_type_id",
+          "references_table": "leave_types",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "timesheet_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Parent timesheet reference."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Employee reference."
+        },
+        "payroll_period_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Payroll period reference."
+        },
+        "work_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Date of the shift or leave day."
+        },
+        "workstation_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Workstation where shift occurred."
+        },
+        "clock_in": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Shift start time (e.g. 08:00)."
+        },
+        "lunch_start": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Lunch break start time (e.g. 13:00)."
+        },
+        "lunch_end": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Lunch break end time (e.g. 14:00)."
+        },
+        "clock_out": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Shift end time (e.g. 17:00)."
+        },
+        "gross_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total duration elapsed from clock_in to clock_out."
+        },
+        "lunch_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Unpaid lunch break duration subtracted."
+        },
+        "paid_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total compensable hours (normal_hours + overtime_hours)."
+        },
+        "normal_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Standard shift hours credited toward regular pay."
+        },
+        "overtime_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Overtime hours worked above standard threshold."
+        },
+        "missing_clocking": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "description": "Flag indicating employee missed clocking in or out."
+        },
+        "late_arrival": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "description": "Flag indicating clock_in was after scheduled start time."
+        },
+        "early_departure": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "description": "Flag indicating clock_out was before scheduled end time."
+        },
+        "warning_notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "System flags (e.g. 'Left Geofence', 'Out of range: ~124m away')."
+        },
+        "notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "User or supervisor notes."
+        },
+        "status": {
+          "type": "approval_status",
+          "nullable": false,
+          "default": "'draft'",
+          "description": "draft, submitted, approved, rejected."
+        },
+        "submitted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Submission timestamp."
+        },
+        "approved_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Approving manager user ID."
+        },
+        "approved_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Approval timestamp."
+        },
+        "device_metadata": {
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "description": "Device, browser, and GPS payload recorded at clocking."
+        },
+        "leave_type_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Foreign key to leave_types if this entry represents approved leave."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "CHECK (gross_hours >= 0 AND lunch_hours >= 0 AND paid_hours >= 0 AND normal_hours >= 0 AND overtime_hours >= 0)"
+      ]
+    },
+    "time_clock_events": {
+      "table_name": "time_clock_events",
+      "module": "time_tracking_and_geofencing",
+      "description": "Immutable log of every individual clocking punch (clock_in, lunch_start, lunch_end, clock_out, switch_workstation) with exact GPS coordinates and geofence verification.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "time_entry_id",
+          "references_table": "time_entries",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "workstation_id",
+          "references_table": "company_workstations",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target employee."
+        },
+        "time_entry_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Linked daily time_entries row."
+        },
+        "event_type": {
+          "type": "clock_event_type",
+          "nullable": false,
+          "default": null,
+          "description": "clock_in, lunch_start, lunch_end, clock_out, switch_workstation."
+        },
+        "event_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "UTC timestamp when event was captured."
+        },
+        "local_work_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Local date in company timezone."
+        },
+        "local_event_time": {
+          "type": "time",
+          "nullable": false,
+          "default": null,
+          "description": "Local time string (e.g. 08:05:22)."
+        },
+        "source": {
+          "type": "text",
+          "nullable": false,
+          "default": "'web'",
+          "description": "Capture channel: web, mobile_app, automated."
+        },
+        "device_metadata": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Client IP, user-agent, mobile battery, GPS accuracy."
+        },
+        "created_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who initiated the action."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "latitude": {
+          "type": "numeric(10,7)",
+          "nullable": true,
+          "default": null,
+          "description": "GPS latitude at moment of clocking."
+        },
+        "longitude": {
+          "type": "numeric(10,7)",
+          "nullable": true,
+          "default": null,
+          "description": "GPS longitude at moment of clocking."
+        },
+        "accuracy_meters": {
+          "type": "numeric(8,2)",
+          "nullable": true,
+          "default": null,
+          "description": "Horizontal GPS accuracy reported by hardware (e.g. ±10m)."
+        },
+        "workstation_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Selected workstation evaluated against."
+        },
+        "distance_meters": {
+          "type": "numeric(10,2)",
+          "nullable": true,
+          "default": null,
+          "description": "Calculated Haversine distance in meters to workstation."
+        },
+        "geofence_status": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "within_range, out_of_range, or unknown."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "timesheet_correction_requests": {
+      "table_name": "timesheet_correction_requests",
+      "module": "time_tracking_and_geofencing",
+      "description": "Employee requests to adjust past clock times with reason, audited manager approval, and automatic timesheet update.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "time_entry_id",
+          "references_table": "time_entries",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "reviewed_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Employee requesting correction."
+        },
+        "time_entry_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target time_entries row to modify."
+        },
+        "payroll_period_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Payroll period."
+        },
+        "work_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Work date being corrected."
+        },
+        "original_clock_in": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Original clock-in before edit."
+        },
+        "original_lunch_start": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Original lunch start."
+        },
+        "original_lunch_end": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Original lunch end."
+        },
+        "original_clock_out": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Original clock-out."
+        },
+        "proposed_clock_in": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Requested clock-in."
+        },
+        "proposed_lunch_start": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Requested lunch start."
+        },
+        "proposed_lunch_end": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Requested lunch end."
+        },
+        "proposed_clock_out": {
+          "type": "time",
+          "nullable": true,
+          "default": null,
+          "description": "Requested clock-out."
+        },
+        "reason": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Employee justification for adjustment."
+        },
+        "status": {
+          "type": "approval_status",
+          "nullable": false,
+          "default": "'submitted'",
+          "description": "submitted, approved, rejected."
+        },
+        "submitted_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User submitting request."
+        },
+        "submitted_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Submission timestamp."
+        },
+        "reviewed_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Manager reviewing request."
+        },
+        "reviewed_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Review decision timestamp."
+        },
+        "review_notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Manager decision notes."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "leave_types": {
+      "table_name": "leave_types",
+      "module": "leave_and_holidays",
+      "description": "Configurable leave policy definitions (Annual Leave, Sick Leave, Family Responsibility, Maternity, Unpaid Leave).",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Owning company."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Leave title (e.g. Annual Leave, Sick Leave)."
+        },
+        "category": {
+          "type": "leave_category",
+          "nullable": false,
+          "default": null,
+          "description": "annual, sick, family_responsibility, maternity, unpaid, toil_taken, other."
+        },
+        "is_paid": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Whether employee receives full compensation during leave."
+        },
+        "requires_attachment": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "false",
+          "description": "Whether medical certificate or proof document is mandatory."
+        },
+        "accrual_rules": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Accrual rate per month/cycle and annual entitlement hours."
+        },
+        "is_active": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Active flag."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, name)"
+      ]
+    },
+    "leave_balances": {
+      "table_name": "leave_balances",
+      "module": "leave_and_holidays",
+      "description": "Per-employee running ledger of accrued hours, taken hours, and remaining balance for each leave type.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "leave_type_id",
+          "references_table": "leave_types",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target employee."
+        },
+        "leave_type_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target leave type."
+        },
+        "balance_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Available remaining balance in hours."
+        },
+        "accrued_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total hours accrued to date."
+        },
+        "taken_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total approved leave hours consumed."
+        },
+        "adjusted_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Manual admin adjustments in hours."
+        },
+        "as_of_date": {
+          "type": "date",
+          "nullable": false,
+          "default": "current_date",
+          "description": "Effective balance date."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, employee_id, leave_type_id)"
+      ]
+    },
+    "leave_requests": {
+      "table_name": "leave_requests",
+      "module": "leave_and_holidays",
+      "description": "Employee leave applications from start date to end date with reason, proof attachments, and manager sign-off workflow.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "leave_type_id",
+          "references_table": "leave_types",
+          "references_column": "id",
+          "on_delete": "RESTRICT",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "payroll_period_id",
+          "references_table": "payroll_periods",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "approved_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Employee requesting leave."
+        },
+        "leave_type_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Category of leave."
+        },
+        "payroll_period_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Optional payroll period reference."
+        },
+        "start_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "First day of leave."
+        },
+        "end_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Final day of leave."
+        },
+        "total_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": null,
+          "description": "Calculated total work hours requested off."
+        },
+        "reason": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Reason for leave."
+        },
+        "attachment_url": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Medical note / document URL in Supabase Storage."
+        },
+        "status": {
+          "type": "approval_status",
+          "nullable": false,
+          "default": "'submitted'",
+          "description": "draft, submitted, approved, rejected, cancelled."
+        },
+        "submitted_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Application timestamp."
+        },
+        "submitted_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who submitted."
+        },
+        "approved_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Manager who approved."
+        },
+        "approved_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Approval timestamp."
+        },
+        "rejected_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Manager who rejected."
+        },
+        "rejected_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Rejection timestamp."
+        },
+        "rejection_reason": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Rejection explanation."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "CHECK (end_date >= start_date)"
+      ]
+    },
+    "company_public_holidays": {
+      "table_name": "company_public_holidays",
+      "module": "leave_and_holidays",
+      "description": "Calendar of recognized statutory South African public holidays per company for payroll calculation.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "holiday_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Date of the public holiday."
+        },
+        "name": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Holiday name (e.g. Freedom Day, Worker's Day, Heritage Day)."
+        },
+        "is_paid": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Whether employee receives full standard pay when not working."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, holiday_date)"
+      ]
+    },
+    "toil_transactions": {
+      "table_name": "toil_transactions",
+      "module": "leave_and_holidays",
+      "description": "Time Off in Lieu ledger tracking overtime converted to leave hours, hours taken, and adjustments.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target employee."
+        },
+        "transaction_type": {
+          "type": "toil_transaction_type",
+          "nullable": false,
+          "default": null,
+          "description": "opening_balance, overtime_converted, toil_taken, manual_adjustment."
+        },
+        "hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": null,
+          "description": "Hours added or deducted."
+        },
+        "balance_after": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": null,
+          "description": "TOIL balance remaining after this transaction."
+        },
+        "reference_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Linked time_entry or leave_request ID."
+        },
+        "notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Transaction explanation."
+        },
+        "effective_date": {
+          "type": "date",
+          "nullable": false,
+          "default": "current_date",
+          "description": "Date transaction applies."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "overtime_records": {
+      "table_name": "overtime_records",
+      "module": "overtime_and_summaries",
+      "description": "Granular breakdown of overtime hours earned per shift, separating 1.5x regular overtime from 2.0x Sunday/Holiday double time.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "time_entry_id",
+          "references_table": "time_entries",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target employee."
+        },
+        "time_entry_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Shift time entry."
+        },
+        "work_date": {
+          "type": "date",
+          "nullable": false,
+          "default": null,
+          "description": "Date of overtime."
+        },
+        "overtime_1_5_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Hours paid at 1.5x (normal overtime)."
+        },
+        "overtime_2_0_hours": {
+          "type": "numeric(6,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Hours paid at 2.0x (Sunday or public holiday double time)."
+        },
+        "status": {
+          "type": "approval_status",
+          "nullable": false,
+          "default": "'submitted'",
+          "description": "draft, submitted, approved, rejected."
+        },
+        "notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Overtime remarks."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (time_entry_id)"
+      ]
+    },
+    "monthly_summaries": {
+      "table_name": "monthly_summaries",
+      "module": "overtime_and_summaries",
+      "description": "Pre-computed monthly totals of worked, normal, overtime, and leave hours for high-performance payroll and analytics reporting.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target employee."
+        },
+        "month_year": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Month string in YYYY-MM format (e.g. 2026-03)."
+        },
+        "total_worked_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total gross worked hours in the month."
+        },
+        "total_normal_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total normal hours credited."
+        },
+        "total_overtime_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total overtime hours (1.5x + 2.0x)."
+        },
+        "total_leave_hours": {
+          "type": "numeric(8,2)",
+          "nullable": false,
+          "default": "0",
+          "description": "Total paid and unpaid leave hours."
+        },
+        "status": {
+          "type": "text",
+          "nullable": false,
+          "default": "'draft'",
+          "description": "draft, approved, finalized."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, employee_id, month_year)"
+      ]
+    },
+    "approval_requests": {
+      "table_name": "approval_requests",
+      "module": "compliance_and_governance",
+      "description": "Unified inbox for pending supervisor actions across timesheets, corrections, leave requests, and schedule changes.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "submitted_by",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "approver_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "request_type": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "timesheet, timesheet_correction, leave_request, schedule_assignment."
+        },
+        "request_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Primary key of target entity."
+        },
+        "submitted_by": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "User who submitted the request."
+        },
+        "approver_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Assigned manager user ID."
+        },
+        "status": {
+          "type": "approval_status",
+          "nullable": false,
+          "default": "'submitted'",
+          "description": "submitted, approved, rejected, cancelled."
+        },
+        "notes": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Reviewer comments."
+        },
+        "submitted_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Submission timestamp."
+        },
+        "actioned_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Decision timestamp."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        },
+        "deleted_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Soft-delete timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "audit_logs": {
+      "table_name": "audit_logs",
+      "module": "compliance_and_governance",
+      "description": "Immutable audit record for regulatory POPIA/BCEA compliance. Captures actor, action, table, prior state, new state, and IP.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "SET NULL",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Company under which action occurred."
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Authenticated user who performed the operation."
+        },
+        "action": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Action performed: create, update, delete, approve, reject, clock."
+        },
+        "affected_table": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Name of database table modified."
+        },
+        "record_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Primary key of record altered."
+        },
+        "old_value": {
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "description": "JSON snapshot of data prior to modification."
+        },
+        "new_value": {
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "description": "JSON snapshot of data after modification."
+        },
+        "reason": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Human-readable justification or context."
+        },
+        "ip_address": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Client IP address."
+        },
+        "device_metadata": {
+          "type": "jsonb",
+          "nullable": true,
+          "default": null,
+          "description": "Browser, platform, or GPS metadata."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Timestamp of audit event."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "app_notifications": {
+      "table_name": "app_notifications",
+      "module": "notifications_and_changelog",
+      "description": "User notifications delivered via dashboard header bell and realtime websockets (e.g. shift reminders, leave reviews, timesheet sign-offs).",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "employee_id",
+          "references_table": "employees",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Target company."
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Recipient user."
+        },
+        "employee_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Recipient employee profile if applicable."
+        },
+        "category": {
+          "type": "text",
+          "nullable": false,
+          "default": "'system'",
+          "description": "Notification category (time, leave, approval, security, system)."
+        },
+        "title": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Notification headline."
+        },
+        "body": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Full notification message body."
+        },
+        "target_type": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Target resource entity (e.g. timesheet, leave_request)."
+        },
+        "target_id": {
+          "type": "uuid",
+          "nullable": true,
+          "default": null,
+          "description": "Target resource ID."
+        },
+        "target_href": {
+          "type": "text",
+          "nullable": true,
+          "default": null,
+          "description": "Deep link URI (e.g. /dashboard?panel=leave)."
+        },
+        "metadata": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb",
+          "description": "Extra payload parameters."
+        },
+        "read_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Timestamp when recipient viewed/read the notification."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "expires_at": {
+          "type": "timestamptz",
+          "nullable": true,
+          "default": null,
+          "description": "Expiration date."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "app_updates": {
+      "table_name": "app_updates",
+      "module": "notifications_and_changelog",
+      "description": "System release changelog entries published to users upon new deployments.",
+      "primary_key": "id",
+      "foreign_keys": [],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "version": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Release semver or date string (e.g. 2026.09.17)."
+        },
+        "title": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Release highlight title."
+        },
+        "summary": {
+          "type": "text",
+          "nullable": false,
+          "default": null,
+          "description": "Executive summary of updates."
+        },
+        "changes": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb",
+          "description": "List of change items, bugfixes, and feature descriptions."
+        },
+        "published_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Publication timestamp."
+        },
+        "is_published": {
+          "type": "boolean",
+          "nullable": false,
+          "default": "true",
+          "description": "Visible to users flag."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        },
+        "updated_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Update timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (version)"
+      ]
+    },
+    "app_update_reads": {
+      "table_name": "app_update_reads",
+      "module": "notifications_and_changelog",
+      "description": "Tracks which changelog updates a user has already seen to avoid duplicate popups.",
+      "primary_key": "id",
+      "foreign_keys": [
+        {
+          "column": "company_id",
+          "references_table": "companies",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "user_id",
+          "references_table": "users",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        },
+        {
+          "column": "update_id",
+          "references_table": "app_updates",
+          "references_column": "id",
+          "on_delete": "CASCADE",
+          "relationship": "many_to_one"
+        }
+      ],
+      "columns": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "description": "Primary key."
+        },
+        "company_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Company reference."
+        },
+        "user_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "User reference."
+        },
+        "update_id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": null,
+          "description": "Release update reference."
+        },
+        "seen_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Timestamp when user viewed changelog."
+        },
+        "created_at": {
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()",
+          "description": "Creation timestamp."
+        }
+      },
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "UNIQUE (company_id, user_id, update_id)"
+      ]
+    }
+  },
+  "data_workflows_and_lifecycles": {
+    "1_multi_tenant_isolation_and_company_switching": {
+      "name": "Multi-Tenant Isolation & Company Switching",
+      "description": "How the database partitions records across companies and handles users belonging to multiple organizations.",
+      "steps": [
+        "1. Supabase Authentication validates user credentials via GoTrue (auth.users).",
+        "2. The client application passes active tenant selection via cookie 'active_company_id'.",
+        "3. Server function getActiveCompany() verifies the user has an active membership row in public.users matching company_id = active_company_id.",
+        "4. Every subsequent database query and stored procedure explicitly injects or filters by target_company_id.",
+        "5. Database RPC procedures (e.g. upsert_company_workstation, record_employee_time_event) enforce company_id scoping rather than querying by auth_user_id alone, ensuring workstations and timesheets from one company never bleed into another."
+      ]
+    },
+    "2_employee_time_clocking_and_geofence_lifecycle": {
+      "name": "Employee Time Clocking & Geofence Verification",
+      "description": "End-to-end data lifecycle from user GPS capture to immutable event logging and timesheet state updates.",
+      "steps": [
+        "1. Employee clicks 'Clock in', 'Start lunch', 'End lunch', or 'Clock out' in EmployeeTimeClock.",
+        "2. Hardware GPS captures current latitude, longitude, and accuracy (e.g. ±12m).",
+        "3. Server action recordClockEvent() passes requested_event, coordinates, accuracy, and active company_id into record_employee_time_event() RPC.",
+        "4. SQL RPC computes Haversine spherical distance between employee GPS and picked workstation coordinates.",
+        "5. If distance <= radius_meters, geofence_status is marked 'within_range'; if distance > radius_meters, marked 'out_of_range' and flagged.",
+        "6. Immutable punch record is inserted into public.time_clock_events.",
+        "7. Target daily shift row in public.time_entries is created or updated with the recorded local time.",
+        "8. Trigger automatically invokes refresh_time_entry_calculations(time_entry.id) to recompute paid and overtime hours."
+      ]
+    },
+    "3_automated_timesheet_calculation_and_overtime_pipeline": {
+      "name": "Timesheet Hours & Overtime Calculation Pipeline",
+      "description": "How the SQL procedure refresh_time_entry_calculations processes gross hours, lunch deductions, normal hours, and overtime rates.",
+      "steps": [
+        "1. Procedure looks up employee's active work schedule assignment in employee_work_schedule_assignments and schedule_days for the day of week.",
+        "2. Evaluates gross elapsed time between clock_in and clock_out.",
+        "3. Computes lunch deduction: net elapsed time between lunch_start and lunch_end, defaulting to schedule lunch_minutes if clock punches are omitted.",
+        "4. Paid hours = gross_hours - lunch_hours.",
+        "5. Checks if work_date is Sunday or a recognized company_public_holidays date: if yes, overtime is paid at 2.0x double time.",
+        "6. If regular day, hours up to standard_daily_hours are classified as normal_hours, and remainder is classified as overtime_hours (1.5x regular overtime).",
+        "7. Checks scheduled start/end times: sets late_arrival = true if clock_in > scheduled_start, and early_departure = true if clock_out < scheduled_end."
+      ]
+    },
+    "4_leave_request_approval_and_timesheet_reconciliation": {
+      "name": "Leave Request Approval & Timesheet Reconciliation",
+      "description": "How leave applications flow from employee submission to manager review, balance deduction, and timesheet auto-population.",
+      "steps": [
+        "1. Employee applies for leave specifying start_date, end_date, and leave_type_id in public.leave_requests.",
+        "2. Manager reviews application via review_managed_leave_request() RPC.",
+        "3. Upon approval (status = 'approved'), the system updates public.leave_balances: taken_hours increments and balance_hours decrements.",
+        "4. System automatically generates daily time_entries rows for each working day within the leave span.",
+        "5. Each generated leave time entry sets leave_type_id to the approved type, sets clock_in/out to NULL, sets paid_hours = standard daily hours (if paid), and marks status = 'approved'.",
+        "6. Timesheet calendar immediately displays the day as approved leave without requiring manual clock-in."
+      ]
+    },
+    "5_timesheet_corrections_workflow": {
+      "name": "Timesheet Corrections Workflow",
+      "description": "How employees resolve missed clockings or punch mistakes with full audit governance.",
+      "steps": [
+        "1. Employee selects an existing time_entries row and submits proposed punch times and reason in public.timesheet_correction_requests.",
+        "2. Manager receives an alert and reviews proposed changes in the Review Queue.",
+        "3. Manager approves or rejects via review_timesheet_correction_request() RPC.",
+        "4. On approval, target time_entries row is updated with proposed_clock_in, proposed_lunch, and proposed_clock_out.",
+        "5. Procedure executes refresh_time_entry_calculations() to recompute hours based on the approved punches.",
+        "6. Immutable audit log is recorded in public.audit_logs capturing prior punches, approved punches, reviewer, and timestamp."
+      ]
+    },
+    "6_timesheet_spreadsheet_migration_pipeline": {
+      "name": "Timesheet Spreadsheet Migration Pipeline",
+      "description": "How external historical timesheets (such as QuickBooks Time / TSheets exports or standard templates) are ingested and mapped.",
+      "steps": [
+        "1. Administrator uploads an Excel (.xlsx) or CSV file via the Timesheet Data Migration panel.",
+        "2. Server parser inspects headers: detects Standard ClockWise Template vs QuickBooks Time / TSheets Export.",
+        "3. For QuickBooks exports (e.g. Tsepang.xlsx): groups interval rows by (employee, date), stitches 'Lunch break' rows into lunch_start and lunch_end, extracts shift boundaries into clock_in and clock_out, and extracts leave jobcodes (Annual, Sick, Holiday).",
+        "4. Matches employee email or employee number to public.employees in active company.",
+        "5. Matches workstation names to public.company_workstations.",
+        "6. Admin reviews interactive preview table and selects conflict handling (skip vs overwrite).",
+        "7. Batch transaction creates parent public.timesheets and inserts public.time_entries.",
+        "8. Triggers refresh_time_entry_calculations() on all imported entries to populate normal hours, overtime, and work schedule alignments automatically."
+      ]
+    },
+    "7_audit_logging_and_realtime_events": {
+      "name": "Audit Logging & Realtime Event Broadcasting",
+      "description": "How ClockWise People ensures POPIA/BCEA regulatory compliance and live UI responsiveness.",
+      "steps": [
+        "1. Critical mutations (role changes, timesheet edits, workstation removals, leave approvals) write structured JSON snapshots to public.audit_logs.",
+        "2. Audit logs capture user_id, action, affected_table, record_id, old_value, new_value, and client IP.",
+        "3. Supabase Realtime listens to PostgreSQL WAL (Write-Ahead Log) for changes to time_entries and app_notifications.",
+        "4. Connected browser clients receive instant websocket events and re-render time clock status, live shift timers, and alert badges without page refreshes."
+      ]
+    }
+  }
+}

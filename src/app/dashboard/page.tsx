@@ -133,6 +133,12 @@ const EmployeeMyTimeHub = dynamic(
     loading: () => <LoadingPanel label="my time" />,
   },
 );
+const TimesheetMigrationPanel = dynamic(
+  () => import("@/components/time-tracking/TimesheetMigrationPanel"),
+  {
+    loading: () => <LoadingPanel label="timesheet migration tools" />,
+  },
+);
 const CompanyLeaveRequestQueue = dynamic(
   () => import("@/components/work-rules/CompanyLeaveRequestQueue"),
   {
@@ -530,6 +536,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </div>
                 </details>
               ) : null}
+
+              {/* Timesheet & Leave Spreadsheet Migration */}
+              <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-bold text-white">Timesheet &amp; leave migration</h2>
+                    <p className="mt-0.5 text-xs text-slate-300">Import historical attendance shifts and leave records from Excel spreadsheets.</p>
+                  </div>
+                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-border p-4 sm:p-6 bg-surface">
+                  <TimesheetMigrationPanel />
+                </div>
+              </details>
             </div>
           ),
         });
