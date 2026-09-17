@@ -2,7 +2,34 @@
 
 All notable changes to the ClockWise People platform are documented in this file.
 
-## [Unreleased] - 2026-08-26
+## [2026.09.17] - 2026-09-17
+
+### Added
+- **Direct Coordinate Editing for Workstations** (`src/components/geolocation/CompanyGeolocationPanel.tsx`):
+  - Added dedicated, fully interactive Latitude and Longitude input fields with real-time two-way synchronization to the Leaflet map marker and geofence radius.
+  - Supports standard decimal degrees with high-precision input, direct typing, and validation.
+- **Map URL & Coordinates Fallback Parser** (`src/lib/geolocation/location-parser.ts` & `src/lib/geolocation/actions.ts`):
+  - Added unified location input parser supporting Google Maps URLs (including mobile `maps.app.goo.gl` short links resolved server-side), OpenStreetMap, Apple Maps, and Waze links.
+  - Added support for Degrees Minutes Seconds (DMS), labeled coordinates (`lat: ..., lon: ...`), and cardinal coordinates (`S 26.2041, E 28.0473`).
+- **Multi-Engine Resilient Address Search & Fallback**:
+  - Integrated OpenStreetMap Nominatim with proper `User-Agent` headers and South Africa country bias.
+  - Added secondary fallback to Komoot Photon geocoding engine for resilient POI, landmark, and building search with typo tolerance.
+  - Automatic detection of coordinate pairs or map URLs pasted directly into the address search box.
+- **One-Click Reverse Geocoding ("Get Address from Pin")**:
+  - Automatically fetches street address, suburb, and city when moving the map pin, using GPS, or entering coordinates.
+- **High-Accuracy GPS "Locate Me" Control** (`src/components/geolocation/WorkstationMap.tsx`):
+  - Added on-site GPS location button with accuracy measurement readout (`±8m GPS accuracy`).
+- **Workstation Selection & Re-Editing**:
+  - Highlights currently selected workstation in the active workstations list with clear "Editing" indicator and "Edit" action button.
+  - Displays coordinates and radius directly on workstation cards.
+
+### Fixed
+- **Workstation Server Cache Revalidation**:
+  - Fixed cache invalidation in `saveCompanyWorkstation`, `deactivateCompanyWorkstation`, and `assignEmployeeWorkstation` to revalidate `/dashboard` alongside `/dashboard/company`, ensuring edited or newly created workstations reflect immediately without requiring a hard refresh.
+- **Leaflet Map Rendering Glitch**:
+  - Added `MapResizer` to call `invalidateSize()` when the Workstations `<details>` accordion expands, eliminating gray or misaligned map tiles.
+
+## [2026.08.26] - 2026-08-26
 
 ### Added
 - **Work-Hours Live Location Tracking & Significant Movement Engine** (`src/lib/geolocation/live-tracker.ts` & `LiveLocationTracker.tsx`):

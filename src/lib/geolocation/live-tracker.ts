@@ -46,7 +46,6 @@ export async function startCapacitorLiveWatch(
 ): Promise<WatcherHandle> {
   let lastLat: number | null = null;
   let lastLon: number | null = null;
-  let capacitorWatchId: string | null = null;
   let webWatchId: number | null = null;
 
   const handleNewCoords = (
