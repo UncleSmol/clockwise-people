@@ -142,12 +142,15 @@ export default function PayrollPeriodSettingsForm({
                 onChange={(e) => {
                   const newStart = e.target.value;
                   setStartDate(newStart);
+                  const parsedDay = Number(newStart.split("-")[2] || 1);
+                  setStartDayOfMonth(parsedDay);
                   const newEnd = calculatePeriodEndDate(newStart, frequency, {
-                    startDayOfMonth,
-                    endDayOfMonth,
+                    startDayOfMonth: parsedDay,
+                    endDayOfMonth: parsedDay === 1 ? 31 : parsedDay - 1,
                     customCycleDays,
                   });
                   setEndDate(newEnd);
+                  setEndDayOfMonth(Number(newEnd.split("-")[2] || 31));
                 }}
                 className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
                 required
@@ -163,7 +166,11 @@ export default function PayrollPeriodSettingsForm({
                 type="date"
                 name="end_date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  const newEnd = e.target.value;
+                  setEndDate(newEnd);
+                  setEndDayOfMonth(Number(newEnd.split("-")[2] || 31));
+                }}
                 className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
                 required
               />
@@ -192,6 +199,7 @@ export default function PayrollPeriodSettingsForm({
                   className="h-10 rounded-lg border border-border bg-background px-3 text-xs font-extrabold text-foreground outline-none"
                 >
                   <option value={1}>1st of Month</option>
+                  <option value={11}>11th of Month</option>
                   <option value={16}>16th of Month</option>
                   <option value={20}>20th of Month</option>
                   <option value={25}>25th of Month</option>

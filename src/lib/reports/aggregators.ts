@@ -1,5 +1,6 @@
 import type {
   TimesheetPayrollRow,
+  EmployeeHoursSummaryRow,
   AttendanceReportRow,
   AccrualReportRow,
   AbsenceReportRow,
@@ -540,4 +541,105 @@ export function buildWorkstationWorkloadStats(
       };
     })
     .sort((a, b) => b.totalHours - a.totalHours);
+}
+
+export function buildEmployeeHoursSummaryReport(
+  input: AggregatorInput,
+): EmployeeHoursSummaryRow[] {
+  const { startDate, endDate, employees, timesheetEntries, leaveRequests, publicHolidays } = input;
+  const holidayDateSet = new Set(publicHolidays.map((h) => h.holiday_date));
+
+  const timesheetsByEmployee = new Map<string, CompanyTimesheetCalendarEntry[]>();
+  for (const entry of timesheetEntries) {
+    if (entry.work_date < startDate || entry.work_date > endDate) continue;
+    const list = timesheetsByEmployee.get(entry.employee_id) || [];
+    list.push(entry);
+    timesheetsByEmployee.set(entry.employee_id, list);
+  }
+
+  const leaveByEmployee = new Map<string, CompanyCalendarLeaveRequest[]>();
+  for (const req of leaveRequests) {
+    if (req.status === "rejected" || req.status === "cancelled") continue;
+    if (req.end_date < startDate || req.start_date > endDate) continue;
+    const list = leaveByEmployee.get(req.employee_id) || [];
+    list.push(req);
+    leaveByEmployee.set(req.employee_id, list);
+  }
+
+  const result: EmployeeHoursSummaryRow[] = [];
+
+  for (const emp of employees) {
+    const entries = timesheetsByEmployee.get(emp.id) || [];
+    const leaves = leaveByEmployee.get(emp.id) || [];
+
+    let workedHours = 0;
+    let ot15 = 0;
+    let ot20 = 0;
+    let daysWorked = 0;
+    let missingClockings = 0;
+
+    for (const entry of entries) {
+      const paid = Number(entry.paid_hours ?? 0);
+      const ot = Number(entry.overtime_hours ?? 0);
+      const normal = Math.max(0, paid - ot);
+      const dayOfWeek = new Date(entry.work_date).getDay();
+      const isSunday = dayOfWeek === 0;
+      const isHoliday = holidayDateSet.has(entry.work_date);
+
+      workedHours += normal;
+      if (isSunday || isHoliday) {
+        ot20 += ot;
+      } else {
+        ot15 += ot;
+      }
+
+      if (paid > 0 || entry.clock_in || entry.clock_out) {
+        daysWorked += 1;
+      }
+      if (entry.missing_clocking) {
+        missingClockings += 1;
+      }
+    }
+
+    let leaveHours = 0;
+    let leaveDays = 0;
+    const standardDailyHours = emp.daily_hours ?? 8;
+
+    for (const req of leaves) {
+      const overlapStart = req.start_date < startDate ? startDate : req.start_date;
+      const overlapEnd = req.end_date > endDate ? endDate : req.end_date;
+      if (overlapStart <= overlapEnd) {
+        const s = new Date(`${overlapStart}T00:00:00`);
+        const e = new Date(`${overlapEnd}T00:00:00`);
+        const days = Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
+        leaveDays += days;
+        leaveHours += days * standardDailyHours;
+      }
+    }
+
+    const totalOvertimeHours = Number((ot15 + ot20).toFixed(2));
+    const normalizedWorked = Number(workedHours.toFixed(2));
+    const normalizedLeave = Number(leaveHours.toFixed(2));
+    const totalPaidHours = Number((normalizedWorked + totalOvertimeHours + normalizedLeave).toFixed(2));
+
+    result.push({
+      employeeId: emp.id,
+      employeeName: emp.known_as ?? emp.full_name,
+      employeeNumber: emp.employee_number || emp.id.slice(0, 8),
+      department: emp.department_name ?? "General",
+      workstation: emp.workstation_name ?? "Assigned",
+      jobTitle: emp.job_title ?? undefined,
+      workedHours: normalizedWorked,
+      overtimeHours15: Number(ot15.toFixed(2)),
+      overtimeHours20: Number(ot20.toFixed(2)),
+      totalOvertimeHours,
+      leaveHours: normalizedLeave,
+      leaveDays,
+      totalPaidHours,
+      daysWorked,
+      missingClockings,
+    });
+  }
+
+  return result.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 }

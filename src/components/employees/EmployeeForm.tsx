@@ -283,11 +283,16 @@ export default function EmployeeForm({
         </label>
 
         <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payroll identifier</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted flex items-center justify-between">
+            <span>Payroll identifier</span>
+            <span className="text-[10px] font-normal lowercase text-emerald-600">
+              (auto-assigned if blank)
+            </span>
+          </span>
           <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
             <Hash className="size-4 shrink-0 text-muted" />
             <input
-              placeholder="External payroll code"
+              placeholder="e.g. ee023 (Auto-assigned automatically)"
               className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
               {...register("payroll_identifier")}
             />

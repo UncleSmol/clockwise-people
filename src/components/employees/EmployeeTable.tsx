@@ -4,18 +4,23 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  CheckCircle2,
   ChevronDown,
   CreditCard,
+  Hash,
+  Loader2,
   Mail,
   MapPin,
   Search,
+  Sparkles,
   User,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import type { EmployeeRecord } from "@/lib/employees/schema";
+import { autoAssignMissingPayrollIdsAction } from "@/lib/employees/actions";
 
 type EmployeeTableProps = {
   employees: EmployeeRecord[];
@@ -30,6 +35,16 @@ type StatusFilter = "all" | "active" | "probation" | "on_leave" | "inactive";
 export default function EmployeeTable({ employees }: EmployeeTableProps) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [assignState, assignAction, assignPending] = useActionState(
+    autoAssignMissingPayrollIdsAction,
+    { ok: true, message: "" },
+  );
+
+  const unassignedPayrollCount = useMemo(() => {
+    return employees.filter(
+      (e) => !e.payroll_identifier || e.payroll_identifier.trim() === "",
+    ).length;
+  }, [employees]);
 
   const counts = useMemo(() => {
     return {
@@ -181,7 +196,40 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
               Inactive ({counts.inactive})
             </button>
           )}
+
+          {unassignedPayrollCount > 0 ? (
+            <form action={assignAction} className="ml-auto">
+              <button
+                type="submit"
+                disabled={assignPending}
+                className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold border border-emerald-500/40 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 shadow-2xs transition-all cursor-pointer"
+              >
+                {assignPending ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3 text-emerald-600" />
+                )}
+                <span>
+                  {assignPending
+                    ? "Assigning..."
+                    : `Auto-assign ${unassignedPayrollCount} missing Payroll ID${unassignedPayrollCount === 1 ? "" : "s"}`}
+                </span>
+              </button>
+            </form>
+          ) : null}
         </div>
+
+        {assignState.message ? (
+          <div
+            className={`rounded-lg border px-3 py-2 text-xs font-bold ${
+              assignState.ok
+                ? "border-emerald-500/30 bg-emerald-50 text-emerald-950"
+                : "border-rose-500/30 bg-rose-50 text-rose-950"
+            }`}
+          >
+            {assignState.message}
+          </div>
+        ) : null}
       </div>
 
       {/* Employees Directory List */}
@@ -211,6 +259,12 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                         {employee.employee_number ? (
                           <span className="ml-1.5 text-[11px] font-semibold text-muted">
                             #{employee.employee_number}
+                          </span>
+                        ) : null}
+                        {employee.payroll_identifier ? (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-mono font-extrabold text-emerald-700 border border-emerald-500/20">
+                            <Hash className="size-2.5" />
+                            {employee.payroll_identifier}
                           </span>
                         ) : null}
                       </p>
@@ -281,8 +335,8 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
                     <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Payroll ID</p>
-                      <p className="mt-0.5 truncate text-xs font-extrabold text-foreground">
-                        {employee.payroll_identifier ?? "None"}
+                      <p className="mt-0.5 truncate text-xs font-mono font-black text-emerald-700">
+                        {employee.payroll_identifier ?? "Auto-assigned"}
                       </p>
                     </div>
                   </div>

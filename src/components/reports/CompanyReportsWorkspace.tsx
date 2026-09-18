@@ -12,6 +12,7 @@ import {
   Printer,
   TrendingUp,
   Sparkles,
+  Users,
 } from "lucide-react";
 import PayrollPeriodSettingsForm from "./PayrollPeriodSettingsForm";
 import ReportsOverviewAnalytics from "./ReportsOverviewAnalytics";
@@ -19,6 +20,7 @@ import TimesheetPayrollReportTable from "./TimesheetPayrollReportTable";
 import AttendanceReportTable from "./AttendanceReportTable";
 import LeaveAccrualReportTable from "./LeaveAccrualReportTable";
 import AbsenceReportTable from "./AbsenceReportTable";
+import EmployeeHoursSummaryReportTable from "./EmployeeHoursSummaryReportTable";
 import {
   generatePayrollPeriods,
   formatPeriodDate,
@@ -30,6 +32,7 @@ import {
   buildAttendanceReport,
   buildAccrualReport,
   buildAbsenceReport,
+  buildEmployeeHoursSummaryReport,
   calculateReportKPIs,
   buildDailyAttendanceStats,
   buildComplianceDistributionStats,
@@ -80,6 +83,7 @@ type CompanyReportsWorkspaceProps = {
 
 type ReportTab =
   | "analytics"
+  | "employee-summary"
   | "attendance"
   | "timesheets"
   | "accruals"
@@ -151,6 +155,7 @@ export default function CompanyReportsWorkspace({
       : (currentPeriod?.label ?? "Selected Period");
 
   // Filter states
+  const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [workstationFilter, setWorkstationFilter] = useState<string>("all");
 
@@ -178,6 +183,10 @@ export default function CompanyReportsWorkspace({
     ],
   );
 
+  const rawEmployeeSummaryRows = useMemo(
+    () => buildEmployeeHoursSummaryReport(aggregatorInput),
+    [aggregatorInput],
+  );
   const rawTimesheetRows = useMemo(
     () => buildTimesheetPayrollReport(aggregatorInput),
     [aggregatorInput],
@@ -207,41 +216,61 @@ export default function CompanyReportsWorkspace({
   );
 
   // Filtered rows for active tables
-  const filteredTimesheets = useMemo(() => {
-    return rawTimesheetRows.filter((r) => {
+  const filteredEmployeeSummaryRows = useMemo(() => {
+    return rawEmployeeSummaryRows.filter((r) => {
+      if (employeeFilter !== "all" && r.employeeId !== employeeFilter)
+        return false;
       if (departmentFilter !== "all" && r.department !== departmentFilter)
         return false;
       if (workstationFilter !== "all" && r.workstation !== workstationFilter)
         return false;
       return true;
     });
-  }, [rawTimesheetRows, departmentFilter, workstationFilter]);
+  }, [rawEmployeeSummaryRows, employeeFilter, departmentFilter, workstationFilter]);
+
+  const filteredTimesheets = useMemo(() => {
+    return rawTimesheetRows.filter((r) => {
+      if (employeeFilter !== "all" && r.employeeId !== employeeFilter)
+        return false;
+      if (departmentFilter !== "all" && r.department !== departmentFilter)
+        return false;
+      if (workstationFilter !== "all" && r.workstation !== workstationFilter)
+        return false;
+      return true;
+    });
+  }, [rawTimesheetRows, employeeFilter, departmentFilter, workstationFilter]);
 
   const filteredAttendance = useMemo(() => {
     return rawAttendanceRows.filter((r) => {
+      if (employeeFilter !== "all" && r.employeeId !== employeeFilter)
+        return false;
       if (departmentFilter !== "all" && r.department !== departmentFilter)
         return false;
       if (workstationFilter !== "all" && r.workstation !== workstationFilter)
         return false;
       return true;
     });
-  }, [rawAttendanceRows, departmentFilter, workstationFilter]);
+  }, [rawAttendanceRows, employeeFilter, departmentFilter, workstationFilter]);
 
   const filteredAccruals = useMemo(() => {
     return rawAccrualRows.filter((r) => {
+      if (employeeFilter !== "all" && r.employeeId !== employeeFilter)
+        return false;
       if (departmentFilter !== "all" && r.department !== departmentFilter)
         return false;
       return true;
     });
-  }, [rawAccrualRows, departmentFilter]);
+  }, [rawAccrualRows, employeeFilter, departmentFilter]);
 
   const filteredAbsences = useMemo(() => {
     return rawAbsenceRows.filter((r) => {
+      if (employeeFilter !== "all" && r.employeeId !== employeeFilter)
+        return false;
       if (departmentFilter !== "all" && r.department !== departmentFilter)
         return false;
       return true;
     });
-  }, [rawAbsenceRows, departmentFilter]);
+  }, [rawAbsenceRows, employeeFilter, departmentFilter]);
 
   // Visual Statistics Datasets for Recharts
   const dailyStats = useMemo(
@@ -428,7 +457,39 @@ export default function CompanyReportsWorkspace({
   // Export active tab
   const handleExportActiveCsv = () => {
     const ts = new Date().toISOString().slice(0, 10);
-    if (activeTab === "timesheets" || activeTab === "analytics") {
+    if (activeTab === "employee-summary") {
+      const headers = [
+        "Employee Name",
+        "Employee Number",
+        "Department",
+        "Workstation",
+        "Worked Hours",
+        "OT 1.5x Hours",
+        "OT 2.0x Hours",
+        "Total OT Hours",
+        "Leave Hours",
+        "Leave Days",
+        "Total Paid Hours",
+        "Days Worked",
+        "Missing Clockings",
+      ];
+      const rows = filteredEmployeeSummaryRows.map((r) => [
+        r.employeeName,
+        r.employeeNumber,
+        r.department,
+        r.workstation,
+        r.workedHours,
+        r.overtimeHours15,
+        r.overtimeHours20,
+        r.totalOvertimeHours,
+        r.leaveHours,
+        r.leaveDays,
+        r.totalPaidHours,
+        r.daysWorked,
+        r.missingClockings,
+      ]);
+      exportReportToCsv(`Employee_Hours_OT_Leave_${ts}`, headers, rows);
+    } else if (activeTab === "timesheets" || activeTab === "analytics") {
       const headers = [
         "Employee Name",
         "Employee #",
@@ -578,7 +639,43 @@ export default function CompanyReportsWorkspace({
       { label: "Missing Events", value: kpis.missingClockingCount },
     ];
 
-    if (activeTab === "timesheets" || activeTab === "analytics") {
+    if (activeTab === "employee-summary") {
+      const headers = [
+        "Employee",
+        "Emp #",
+        "Department",
+        "Station",
+        "Worked (h)",
+        "OT 1.5x",
+        "OT 2.0x",
+        "Total OT",
+        "Leave (h)",
+        "Total Paid",
+        "Days Worked",
+      ];
+      const rows = filteredEmployeeSummaryRows.map((r) => [
+        r.employeeName,
+        r.employeeNumber,
+        r.department,
+        r.workstation,
+        formatHours(r.workedHours),
+        formatHours(r.overtimeHours15),
+        formatHours(r.overtimeHours20),
+        formatHours(r.totalOvertimeHours),
+        formatHours(r.leaveHours),
+        formatHours(r.totalPaidHours),
+        `${r.daysWorked}d`,
+      ]);
+      await exportReportToPdf(
+        "Employee Worked Hours, Overtime & Leave Report",
+        `Employee_Hours_OT_Leave_${ts}`,
+        companyName,
+        periodLabel,
+        headers,
+        rows,
+        kpiSummary,
+      );
+    } else if (activeTab === "timesheets" || activeTab === "analytics") {
       const headers = [
         "Employee",
         "Emp #",
@@ -819,6 +916,27 @@ export default function CompanyReportsWorkspace({
             </div>
           )}
 
+          {/* Employee Filter */}
+          {employees.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-400">
+                Employee:
+              </span>
+              <select
+                value={employeeFilter}
+                onChange={(e) => setEmployeeFilter(e.target.value)}
+                className="px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 max-w-[200px] truncate"
+              >
+                <option value="all">All Employees ({employees.length})</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.known_as ?? emp.full_name} ({emp.employee_number || emp.id.slice(0, 6)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Department Filter */}
           {departments.length > 0 && (
             <div className="flex items-center gap-2">
@@ -880,6 +998,19 @@ export default function CompanyReportsWorkspace({
         >
           <BarChart3 className="size-4" />
           Analytics &amp; Statistics
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("employee-summary")}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+            activeTab === "employee-summary"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+          }`}
+        >
+          <Users className="size-4" />
+          Employee Hours &amp; OT ({filteredEmployeeSummaryRows.length})
         </button>
 
         <button
@@ -957,6 +1088,13 @@ export default function CompanyReportsWorkspace({
           leaveCategoryStats={leaveCategoryStats}
           departmentStats={departmentStats}
           workstationStats={workstationStats}
+          periodLabel={periodLabel}
+        />
+      )}
+
+      {activeTab === "employee-summary" && (
+        <EmployeeHoursSummaryReportTable
+          data={filteredEmployeeSummaryRows}
           periodLabel={periodLabel}
         />
       )}

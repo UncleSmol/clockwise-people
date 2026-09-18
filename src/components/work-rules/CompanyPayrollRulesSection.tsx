@@ -203,11 +203,23 @@ export default function CompanyPayrollRulesSection({
     const nextStart = updates.start ?? startDate;
     let nextEnd = updates.end ?? endDate;
     let nextCustomDays = updates.customDays ?? customCycleDays;
-    const nextSDayOfMonth = updates.sDayOfMonth ?? startDayOfMonth;
-    const nextEDayOfMonth = updates.eDayOfMonth ?? endDayOfMonth;
+    let nextSDayOfMonth = updates.sDayOfMonth ?? startDayOfMonth;
+    let nextEDayOfMonth = updates.eDayOfMonth ?? endDayOfMonth;
     const nextSDayOfWeek = updates.sDayOfWeek ?? startDayOfWeek;
     let nextOffset = updates.offsetDays ?? payDayOffsetDays;
     let nextDisbDate = updates.disbDate ?? disbursementDate;
+
+    // Automatically sync start and end days of month from dates if not explicitly provided
+    if (updates.start !== undefined && updates.sDayOfMonth === undefined) {
+      const parsedStartDay = Number(nextStart.split("-")[2] || 1);
+      nextSDayOfMonth = parsedStartDay;
+      if (updates.end === undefined && updates.eDayOfMonth === undefined) {
+        nextEDayOfMonth = parsedStartDay === 1 ? 31 : parsedStartDay - 1;
+      }
+    }
+    if (updates.end !== undefined && updates.eDayOfMonth === undefined) {
+      nextEDayOfMonth = Number(nextEnd.split("-")[2] || 31);
+    }
 
     if (
       updates.freq !== undefined ||
@@ -853,6 +865,7 @@ export default function CompanyPayrollRulesSection({
                       className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer leading-normal"
                     >
                       <option value={1}>1st of Month (1st &rarr; 31st)</option>
+                      <option value={11}>11th of Month (11th &rarr; 10th)</option>
                       <option value={16}>16th of Month (16th &rarr; 15th)</option>
                       <option value={20}>20th of Month (20th &rarr; 19th)</option>
                       <option value={25}>25th of Month (25th &rarr; 24th)</option>

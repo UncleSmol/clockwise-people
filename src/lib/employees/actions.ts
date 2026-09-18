@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import { employeeFormSchema, type EmployeeFormInput } from "./schema";
+import {
+  autoAssignCompanyPayrollIdentifiers,
+  getOrGenerateNextPayrollId,
+} from "./payroll-id";
 
 type ActionState = {
   ok: boolean;
@@ -70,26 +74,30 @@ export async function createEmployee(
     return { ok: false, message: "An employee must be assigned to a workstation." };
   }
 
-  const { data: employee, error } = await supabase.from("employees").insert({
-    company_id: company.id,
-    employee_number: await nextEmployeeNumber(company.id),
-    full_name: values.full_name,
-    known_as: blankToNull(values.known_as),
-    email: blankToNull(values.email),
-    phone_number: blankToNull(values.phone_number),
-    workstation_id: values.workstation_id,
-    department_id: blankToNull(values.department_id),
-    job_title: blankToNull(values.job_title),
-    employment_type: values.employment_type,
-    employment_status: values.employment_status,
-    start_date: values.start_date,
-    work_schedule_id: selectedScheduleIds[0] ?? null,
-    manager_employee_id: blankToNull(values.manager_employee_id),
-    payroll_identifier: blankToNull(values.payroll_identifier),
-    monthly_salary: moneyToNumber(values.monthly_salary),
-    hourly_rate: hourlyRate,
-    compensation_type: hourlyRate ? "hourly" : "monthly",
-  }).select("id").single();
+    const payrollIdentifier =
+      blankToNull(values.payroll_identifier) ||
+      (await getOrGenerateNextPayrollId(company.id, supabase));
+
+    const { data: employee, error } = await supabase.from("employees").insert({
+      company_id: company.id,
+      employee_number: await nextEmployeeNumber(company.id),
+      full_name: values.full_name,
+      known_as: blankToNull(values.known_as),
+      email: blankToNull(values.email),
+      phone_number: blankToNull(values.phone_number),
+      workstation_id: values.workstation_id,
+      department_id: blankToNull(values.department_id),
+      job_title: blankToNull(values.job_title),
+      employment_type: values.employment_type,
+      employment_status: values.employment_status,
+      start_date: values.start_date,
+      work_schedule_id: selectedScheduleIds[0] ?? null,
+      manager_employee_id: blankToNull(values.manager_employee_id),
+      payroll_identifier: payrollIdentifier,
+      monthly_salary: moneyToNumber(values.monthly_salary),
+      hourly_rate: hourlyRate,
+      compensation_type: hourlyRate ? "hourly" : "monthly",
+    }).select("id").single();
 
   if (error) {
     return { ok: false, message: error.message };
@@ -190,3 +198,22 @@ export async function deactivateEmployee(employeeId: string) {
   revalidatePath("/dashboard");
   redirect("/dashboard?panel=people");
 }
+
+export async function autoAssignMissingPayrollIdsAction(): Promise<ActionState> {
+  const { company } = await getActiveCompany();
+  const supabase = await createSupabaseServerClient();
+  const result = await autoAssignCompanyPayrollIdentifiers(company.id, supabase);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/employees");
+
+  if (result.updatedCount === 0) {
+    return { ok: true, message: "All employees have payroll IDs assigned." };
+  }
+
+  return {
+    ok: true,
+    message: `Automatically assigned payroll IDs to ${result.updatedCount} employee${result.updatedCount === 1 ? "" : "s"}.`,
+  };
+}
+

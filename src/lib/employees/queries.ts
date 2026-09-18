@@ -3,6 +3,7 @@ import "server-only";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
 import type { EmployeeRecord, SelectOption } from "./schema";
+import { autoAssignCompanyPayrollIdentifiers } from "./payroll-id";
 
 export type EmployeePageData = {
   isConfigured: boolean;
@@ -165,8 +166,26 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     throw new Error(assignmentsResult.error.message);
   }
 
+  let rawEmployees = (employeesResult.data ?? []) as unknown as EmployeeRow[];
+  const hasUnassignedPayroll = rawEmployees.some(
+    (e) => !e.payroll_identifier || e.payroll_identifier.trim() === "",
+  );
+
+  if (hasUnassignedPayroll) {
+    const autoResult = await autoAssignCompanyPayrollIdentifiers(company.id, supabase);
+    if (autoResult.updatedCount > 0) {
+      const assignmentMap = new Map(
+        autoResult.assignments.map((a) => [a.employeeId, a.payrollIdentifier]),
+      );
+      rawEmployees = rawEmployees.map((e) => {
+        const assignedId = assignmentMap.get(e.id);
+        return assignedId ? { ...e, payroll_identifier: assignedId } : e;
+      });
+    }
+  }
+
   const employees = attachWorkScheduleIds(
-    ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(normalizeEmployee),
+    rawEmployees.map(normalizeEmployee),
     assignmentsResult.error
       ? []
       : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],

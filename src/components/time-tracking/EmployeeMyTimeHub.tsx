@@ -8,9 +8,11 @@ type EmployeeMyTimeHubProps = {
   clock: ReactNode;
   leave: ReactNode;
   review: ReactNode;
+  report?: ReactNode;
   clockBadge?: ReactNode;
   timesheetBadge?: ReactNode;
   leaveBadge?: ReactNode;
+  reportBadge?: ReactNode;
 };
 
 function StepItem({
@@ -74,14 +76,17 @@ export default function EmployeeMyTimeHub({
   clock,
   leave,
   review,
+  report,
   clockBadge,
   timesheetBadge,
   leaveBadge,
+  reportBadge,
 }: EmployeeMyTimeHubProps) {
   const [openSteps, setOpenSteps] = useState<Record<string, boolean>>({
     "1": true,
     "2": false,
     "3": false,
+    "4": false,
   });
 
   const toggle = (step: string) =>
@@ -124,6 +129,20 @@ export default function EmployeeMyTimeHub({
       >
         {leave}
       </StepItem>
+
+      {report ? (
+        <StepItem
+          step="4"
+          title="My hours & reports"
+          description="Audit your worked hours, overtime, and leave by payroll cycle."
+          badge={reportBadge}
+          tone="primary"
+          open={openSteps["4"]}
+          onToggle={() => toggle("4")}
+        >
+          {report}
+        </StepItem>
+      ) : null}
 
       <PwaInstallButton />
     </div>

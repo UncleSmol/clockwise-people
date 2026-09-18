@@ -22,6 +22,24 @@ export type TimesheetPayrollRow = {
   complianceNotes: string | null;
 };
 
+export type EmployeeHoursSummaryRow = {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string;
+  department: string;
+  workstation: string;
+  jobTitle?: string;
+  workedHours: number;
+  overtimeHours15: number;
+  overtimeHours20: number;
+  totalOvertimeHours: number;
+  leaveHours: number;
+  leaveDays: number;
+  totalPaidHours: number;
+  daysWorked: number;
+  missingClockings: number;
+};
+
 export type AttendanceReportRow = {
   employeeId: string;
   employeeName: string;

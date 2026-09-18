@@ -12,6 +12,7 @@ import {
   type SysAdminCreateCompanyInput,
   type SysAdminCreateEmployeeInput,
 } from "./schema";
+import { getOrGenerateNextPayrollId } from "@/lib/employees/payroll-id";
 
 const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
 
@@ -145,6 +146,7 @@ export async function createSysAdminEmployeeAction(
   );
 
   const finalEmployeeNumber = employeeNumber ?? `EMP-${Date.now().toString().slice(-4)}`;
+  const payrollIdentifier = await getOrGenerateNextPayrollId(values.company_id, admin);
 
   // 3. Insert Employee Record
   const { data: employee, error: empError } = await admin
@@ -162,6 +164,7 @@ export async function createSysAdminEmployeeAction(
       employment_status: values.employment_status,
       start_date: values.start_date,
       compensation_type: "monthly",
+      payroll_identifier: payrollIdentifier,
     })
     .select("id")
     .single();

@@ -112,13 +112,15 @@ export function calculatePeriodEndDate(
   if (frequency === "monthly") {
     const startDay = options?.startDayOfMonth ?? d;
     const endDay = options?.endDayOfMonth ?? (startDay === 1 ? 31 : startDay - 1);
-    if (startDay === 1 || endDay >= 28) {
+    if (startDay === 1) {
       // Month-end of same month
       return formatIso(new Date(y, m + 1, 0));
     }
-    // Crosses to next month
-    const candidateEnd = new Date(y, m + 1, endDay);
-    return formatIso(candidateEnd);
+    // Crosses to next month (e.g. 11th to 10th, or 26th to 25th)
+    const targetMonth = startDay > endDay ? m + 1 : m;
+    const daysInTargetMonth = new Date(y, targetMonth + 1, 0).getDate();
+    const safeEndDay = Math.min(endDay, daysInTargetMonth);
+    return formatIso(new Date(y, targetMonth, safeEndDay));
   }
 
   if (frequency === "semi_monthly") {
@@ -155,22 +157,59 @@ export function generatePayrollPeriods(
   const baseStartDateStr = config.startDate || config.anchorDate || "2026-01-01";
   const baseStartDate = parseIso(baseStartDateStr);
 
-  if (config.frequency === "monthly") {
-    const startDay = Math.min(28, Math.max(1, config.startDayOfMonth ?? baseStartDate.getDate() ?? 1));
-    const endDay = config.endDayOfMonth ?? (startDay === 1 ? 31 : startDay - 1);
+  const isMonthlyCycle =
+    config.frequency === "monthly" ||
+    Boolean(config.startDayOfMonth) ||
+    (Boolean(config.startDate && config.endDate) &&
+      Math.abs(
+        (parseIso(config.endDate!).getTime() - parseIso(config.startDate!).getTime()) /
+          (1000 * 60 * 60 * 24) -
+          30,
+      ) <= 4);
 
-    // Generate monthly periods covering past 6 months to next 5 months
+  if (isMonthlyCycle) {
+    const startDay = config.startDayOfMonth ?? baseStartDate.getDate();
+    const endDay =
+      config.endDayOfMonth ??
+      (config.endDate
+        ? parseIso(config.endDate).getDate()
+        : startDay === 1
+          ? 31
+          : startDay - 1);
+    const isStandardMonth = startDay === 1 && (endDay >= 28 || endDay === 31);
+
+    // Determine the anchor month index for the current period covering currentDate
+    let anchorMonth = currentMonth;
+    if (!isStandardMonth) {
+      if (startDay > endDay) {
+        if (currentDate.getDate() >= startDay) {
+          anchorMonth = currentMonth;
+        } else {
+          anchorMonth = currentMonth - 1;
+        }
+      } else {
+        anchorMonth = currentMonth;
+      }
+    }
+
+    // Generate monthly periods covering past 6 months to next 5 months (total 12 periods)
     for (let offset = -6; offset <= 5; offset++) {
+      const cycleStartMonth = anchorMonth + offset;
       let periodStart: Date;
       let periodEnd: Date;
 
-      if (startDay === 1 || endDay >= 28) {
-        periodStart = new Date(currentYear, currentMonth + offset, 1);
-        periodEnd = new Date(currentYear, currentMonth + offset + 1, 0); // Last day of month
+      if (isStandardMonth) {
+        periodStart = new Date(currentYear, cycleStartMonth, 1);
+        periodEnd = new Date(currentYear, cycleStartMonth + 1, 0); // Last day of month
       } else {
-        periodStart = new Date(currentYear, currentMonth + offset - 1, startDay);
-        // Next period cutoff: day before startDay in the next month
-        periodEnd = new Date(currentYear, currentMonth + offset, endDay);
+        const daysInStartMonth = new Date(currentYear, cycleStartMonth + 1, 0).getDate();
+        const safeStartDay = Math.min(startDay, daysInStartMonth);
+        periodStart = new Date(currentYear, cycleStartMonth, safeStartDay);
+
+        const targetEndMonth = startDay > endDay ? cycleStartMonth + 1 : cycleStartMonth;
+        const daysInEndMonth = new Date(currentYear, targetEndMonth + 1, 0).getDate();
+        const safeEndDay = Math.min(endDay, daysInEndMonth);
+        periodEnd = new Date(currentYear, targetEndMonth, safeEndDay);
       }
 
       const startIso = formatIso(periodStart);

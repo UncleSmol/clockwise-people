@@ -133,6 +133,12 @@ const EmployeeMyTimeHub = dynamic(
     loading: () => <LoadingPanel label="my time" />,
   },
 );
+const EmployeeMiniReportingPanel = dynamic(
+  () => import("@/components/time-tracking/EmployeeMiniReportingPanel"),
+  {
+    loading: () => <LoadingPanel label="my reports" />,
+  },
+);
 const TimesheetMigrationPanel = dynamic(
   () => import("@/components/time-tracking/TimesheetMigrationPanel"),
   {
@@ -244,13 +250,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     getEmployeeLeaveState(),
     canReviewTime ? getCompanyLeaveRequestQueue() : Promise.resolve([]),
     getAccountProfile(),
-    canManageCompany ? getCompanyWorkRulesData() : Promise.resolve(null),
+    canManageCompany || canReviewTime ? getCompanyWorkRulesData() : Promise.resolve(null),
     canManageCompany ? getCompanyGeolocationData() : Promise.resolve(null),
     canManageEmployees ? getEmployeePageData() : Promise.resolve(null),
     canManageEmployees && selectedEmployeeId
       ? getEmployeeDetail(selectedEmployeeId)
       : Promise.resolve(null),
-    canManageCompany ? getCompanySettings() : Promise.resolve(null),
+    getCompanySettings().catch(() => null),
     access.isSuperAdmin
       ? getSysAdminCompaniesOverview()
       : Promise.resolve([]),
@@ -314,7 +320,46 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ? deactivateEmployee.bind(null, selectedEmployee.id)
     : null;
 
+  const payrollConfig =
+    workRulesData?.payrollConfig ||
+    ((companySettings?.approval_rules as Record<string, unknown> | undefined)
+      ?.payroll_period_config as import("@/lib/reports/payroll-periods").PayrollPeriodConfig | undefined);
+
+  const currentEmployeeName =
+    employeeTimeState?.employee?.known_as ??
+    employeeTimeState?.employee?.full_name ??
+    accountProfile.employee?.knownAs ??
+    accountProfile.employee?.fullName ??
+    "Me";
+  const currentEmployeeNumber = accountProfile.employee?.employeeNumber;
+  const currentDepartmentName = accountProfile.employee?.department?.name ?? undefined;
+  const currentWorkstationName =
+    employeeTimeState?.workstations.find((w) => w.id === employeeTimeState.assignedWorkstationId)?.name ??
+    undefined;
+
   const panels: WorkspacePanel[] = [];
+
+  if (employeeTimeState) {
+    panels.push({
+      key: "my-reports",
+      label: "My hours & reports",
+      description: "Audit your worked hours, overtime, and leave summary by payroll cycle.",
+      tone: "primary" as const,
+      content: (
+        <EmployeeMiniReportingPanel
+          employeeName={currentEmployeeName}
+          employeeNumber={currentEmployeeNumber}
+          departmentName={currentDepartmentName}
+          workstationName={currentWorkstationName}
+          entries={employeeTimeState.recentEntries}
+          leaveRequests={leaveState?.requests ?? []}
+          publicHolidays={employeeTimeState.publicHolidays}
+          payrollConfig={payrollConfig}
+          companyName={company.name}
+        />
+      ),
+    });
+  }
 
   if (liveTimeOverview) {
     panels.push({
@@ -341,8 +386,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           ) : null}
           {leaveState ? <EmployeeLeaveRequests state={leaveState} /> : null}
           {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
-          {canManageCompany && workRulesData ? (
-            <CompanyAllAccrualsTable data={workRulesData} />
+          {(canManageCompany || canReviewTime) && workRulesData ? (
+            <CompanyAllAccrualsTable
+              data={workRulesData}
+              initialEmployeeId={selectedEmployeeId ?? undefined}
+              leaveHistory={calendarLeaveRequests}
+            />
           ) : null}
         </div>
       ),
@@ -593,11 +642,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             daily_hours: 8,
           }));
 
-    const payrollConfig =
-      workRulesData?.payrollConfig ||
-      ((companySettings?.approval_rules as Record<string, unknown> | undefined)
-        ?.payroll_period_config as import("@/lib/reports/payroll-periods").PayrollPeriodConfig | undefined);
-
     panels.push({
       key: "reports",
       label: "Reports and analytics",
@@ -659,7 +703,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <ChangePasswordForm />
           </section>
-          {companySettings ? <CompanyRulesForm settings={companySettings} /> : null}
+          {companySettings && canManageCompany ? <CompanyRulesForm settings={companySettings} /> : null}
         </div>
       ),
     });
@@ -748,6 +792,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               )
             }
             leaveBadge={leaveBadge}
+            report={
+              <EmployeeMiniReportingPanel
+                employeeName={currentEmployeeName}
+                employeeNumber={currentEmployeeNumber}
+                departmentName={currentDepartmentName}
+                workstationName={currentWorkstationName}
+                entries={employeeTimeState.recentEntries}
+                leaveRequests={leaveState?.requests ?? []}
+                publicHolidays={employeeTimeState.publicHolidays}
+                payrollConfig={payrollConfig}
+                companyName={company.name}
+              />
+            }
+            reportBadge={
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                Hours &amp; PDF
+              </span>
+            }
           />
         ) : (
           <section className="card p-6 text-sm text-muted">
