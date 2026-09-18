@@ -151,7 +151,7 @@ export default function CompanyAllAccrualsTable({
           </p>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 self-start sm:self-auto">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 self-start sm:self-auto">
           <CheckCircle2 className="size-3.5" />
           <span>Admin Oversight Active</span>
         </div>
@@ -284,7 +284,7 @@ export default function CompanyAllAccrualsTable({
 
                       {/* Leave Type Badge */}
                       <td className="px-3 py-2.5">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[11px] font-bold text-foreground">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-foreground">
                           <span
                             className={`size-1.5 rounded-full ${
                               item.leaveCategory === "annual"
@@ -299,12 +299,12 @@ export default function CompanyAllAccrualsTable({
                       </td>
 
                       {/* Accrued */}
-                      <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600">
                         +{formatHours(item.accruedHours)}
                       </td>
 
                       {/* Taken */}
-                      <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600">
                         {item.takenHours > 0 ? `-${formatHours(item.takenHours)}` : "0.00h"}
                       </td>
 
@@ -315,7 +315,7 @@ export default function CompanyAllAccrualsTable({
                             className={`font-mono font-black text-xs ${
                               isPositive
                                 ? "text-foreground"
-                                : "text-rose-600 dark:text-rose-400"
+                                : "text-rose-600"
                             }`}
                           >
                             {formatHours(item.balanceHours)}

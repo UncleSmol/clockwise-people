@@ -97,7 +97,7 @@ export default function SysAdminWorkspace({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="truncate text-lg font-bold text-foreground sm:text-xl">SysAdmin Management Console</h1>
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
                   <CheckCircle2 className="size-3.5" />
                   Tenant Isolation Active
                 </span>
@@ -161,7 +161,7 @@ export default function SysAdminWorkspace({
               <span className="truncate">RLS Security Policy</span>
               <Lock className="size-4 shrink-0 text-emerald-500" />
             </div>
-            <div className="mt-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400">
+            <div className="mt-1.5 text-sm font-bold text-emerald-600">
               Strict Multi-Tenancy
             </div>
             <div className="mt-0.5 truncate text-[11px] text-muted">Zero cross-company visibility</div>
@@ -235,7 +235,7 @@ export default function SysAdminWorkspace({
                       </div>
                     </div>
 
-                    <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600">
                       Active
                     </span>
                   </div>
@@ -294,7 +294,7 @@ export default function SysAdminWorkspace({
                       <ArrowRight className="size-3.5 text-muted" />
                     </button>
                   ) : (
-                    <span className="flex flex-1 items-center justify-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="flex flex-1 items-center justify-center gap-1.5 text-xs font-medium text-emerald-600">
                       <CheckCircle2 className="size-3.5" /> Current Workspace
                     </span>
                   )}

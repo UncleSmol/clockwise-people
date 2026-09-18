@@ -1099,7 +1099,7 @@ export default function EmployeeTimeClock({
           <div
             className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3.5 py-2.5 text-xs font-medium ${
               liveIsInRange
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
                 : "border-danger/30 bg-danger/10 text-danger"
             }`}
           >

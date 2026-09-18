@@ -265,7 +265,7 @@ export default function DashboardNavigation({
                       </span>
                     </div>
                   </div>
-                  <span className="rounded bg-emerald-600 text-white dark:bg-emerald-500/30 dark:text-emerald-300 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0">
+                  <span className="rounded bg-emerald-600 text-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0">
                     {isInstalled ? "Ready" : "Install"}
                   </span>
                 </button>
@@ -389,8 +389,8 @@ export default function DashboardNavigation({
 
                   {/* App Benefits Highlights */}
                   <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-[11px] text-foreground font-medium">
-                    <div className="flex items-center gap-1.5 font-bold mb-1 text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex items-center gap-1.5 font-bold mb-1 text-emerald-700">
+                      <CheckCircle2 className="size-3.5 text-emerald-600" />
                       Installed App Benefits:
                     </div>
                     <p className="text-muted leading-normal">
