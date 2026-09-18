@@ -28,6 +28,35 @@
   --foreground: var(--color-foreground);
 }
 
+.dark, html.dark, [data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Dark Theme Palette */
+  --color-background: #090d16;
+  --color-surface: #0f172a;
+  --color-surface-muted: #1e293b;
+  --color-foreground: #f8fafc;
+  --color-muted: #94a3b8;
+  --color-primary: #38bdf8;
+  --color-primary-foreground: #0f172a;
+  --color-accent: #38bdf8;
+  --color-accent-foreground: #0f172a;
+  --color-accent-light: #0284c7;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-holiday: #a855f7;
+  --color-border: #1e293b;
+  --color-ring: #38bdf8;
+
+  --shadow-soft: 0 4px 24px rgb(0 0 0 / 40%);
+  --shadow-tight: 0 2px 10px rgb(0 0 0 / 30%);
+  --shadow-lg: 0 12px 48px rgb(0 0 0 / 50%);
+
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

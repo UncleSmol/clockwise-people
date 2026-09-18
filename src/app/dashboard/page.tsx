@@ -163,6 +163,12 @@ const EmployeeLeaveRequests = dynamic(
     loading: () => <LoadingPanel label="leave workspace" />,
   },
 );
+const CompanyAllAccrualsTable = dynamic(
+  () => import("@/components/work-rules/CompanyAllAccrualsTable"),
+  {
+    loading: () => <LoadingPanel label="company accruals" />,
+  },
+);
 const CompanyRulesForm = dynamic(
   () => import("@/components/account/CompanyRulesForm"),
   {
@@ -320,7 +326,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     });
   }
 
-  if (leaveState || canReviewTime) {
+  if (leaveState || canReviewTime || canManageCompany) {
     panels.push({
       key: "leave",
       label: "Leave and balances",
@@ -335,6 +341,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           ) : null}
           {leaveState ? <EmployeeLeaveRequests state={leaveState} /> : null}
           {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
+          {canManageCompany && workRulesData ? (
+            <CompanyAllAccrualsTable data={workRulesData} />
+          ) : null}
         </div>
       ),
     });
@@ -486,6 +495,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface grid gap-6">
+                  <CompanyAllAccrualsTable data={workRulesData} />
                   <CompanyWorkRulesPanel data={workRulesData} />
                   <CompanyLeaveAccrualPanel data={workRulesData} />
                 </div>

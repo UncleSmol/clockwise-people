@@ -286,19 +286,6 @@ export default function CalendarWorkspace({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            {panels.some((p) => p.key === "attendance") ? (
-              <button
-                type="button"
-                onClick={() => handleOpenPanel("attendance")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted hover:border-slate-400 transition-all shadow-2xs"
-                title="Open Today's attendance panel"
-              >
-                <Users className="size-3.5 text-accent" />
-                <span className="hidden sm:inline">Today&apos;s attendance</span>
-                <span className="sm:hidden">Attendance</span>
-              </button>
-            ) : null}
-
             {isManager && managerCalendar ? (
               <div className="flex gap-1 rounded-lg border border-border bg-background p-1 text-xs font-bold shadow-2xs">
                 <button
@@ -310,7 +297,7 @@ export default function CalendarWorkspace({
                       : "text-foreground hover:bg-surface-muted"
                   }`}
                 >
-                  My time
+                  My Time
                 </button>
                 <button
                   type="button"
@@ -462,7 +449,7 @@ export default function CalendarWorkspace({
             ) : null}
           </div>
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 bg-white"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 bg-surface"
       >
         {activePanel?.content}
       </ViewportSidebar>
@@ -497,7 +484,7 @@ export default function CalendarWorkspace({
                 className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer disabled:opacity-60"
               >
                 {companies.map((c) => (
-                  <option key={c.id} value={c.id} className="bg-white text-slate-900">
+                  <option key={c.id} value={c.id} className="bg-surface text-foreground">
                     {c.name}
                   </option>
                 ))}

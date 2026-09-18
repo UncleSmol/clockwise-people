@@ -277,6 +277,14 @@ export async function switchActiveCompanyAction(companyId: string) {
     sameSite: "lax",
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard", "page");
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard/leave");
+  revalidatePath("/dashboard/reports");
+
+  return { ok: true, activeCompanyId: companyId };
 }

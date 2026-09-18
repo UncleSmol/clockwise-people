@@ -23,38 +23,39 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     unseenUpdates.map((update) => update.id).sort().join(":") || "no-updates";
 
   return (
-    <main className="min-h-screen text-foreground">
+    <main className="min-h-screen text-foreground transition-colors duration-200">
       <RealtimeSyncProvider companyId={company.id}>
         <PanelBridgeProvider>
           <div className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur-xs">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-            <Link
-              href="/dashboard"
-              className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1"
-            >
-              <BrandMark
-                brandName={company.name}
-                logoUrl={company.logo_url}
-                imageSize={28}
-                imageClassName="h-7 w-auto rounded-lg"
-                textClassName="truncate text-sm font-bold text-foreground"
-                priority
+              <Link
+                href="/dashboard"
+                className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1"
+              >
+                <BrandMark
+                  brandName={company.name}
+                  logoUrl={company.logo_url}
+                  imageSize={28}
+                  imageClassName="h-7 w-auto rounded-lg"
+                  textClassName="truncate text-sm font-bold text-foreground"
+                  priority
+                />
+              </Link>
+
+              <DashboardNavigation
+                companyId={company.id}
+                notifications={notifications}
+                profileAvatarUrl={accountProfile.employee?.avatarUrl ?? null}
+                profileName={accountProfile.employee?.knownAs ?? accountProfile.employee?.fullName ?? null}
               />
-            </Link>
-            <DashboardNavigation
-              companyId={company.id}
-              notifications={notifications}
-              profileAvatarUrl={accountProfile.employee?.avatarUrl ?? null}
-              profileName={accountProfile.employee?.knownAs ?? accountProfile.employee?.fullName ?? null}
-            />
+            </div>
           </div>
-        </div>
-        {children}
+          {children}
         </PanelBridgeProvider>
       </RealtimeSyncProvider>
       <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
       <PwaInstallPrompt />
-      {process.env.NODE_ENV === 'development' && <UIQADashboard />}
+      {process.env.NODE_ENV === "development" && <UIQADashboard />}
     </main>
   );
 }

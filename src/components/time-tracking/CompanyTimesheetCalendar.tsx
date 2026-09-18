@@ -326,7 +326,7 @@ export default function CompanyTimesheetCalendar({
     return entries.filter(
       (entry) =>
         entry.employee_id === selectedEntry.employee_id &&
-        entry.status === "submitted" &&
+        (entry.status === "submitted" || entry.status === "draft") &&
         !holidayDates.has(entry.work_date) &&
         !entry.notes?.startsWith("Public holiday:"),
     );
@@ -1288,12 +1288,20 @@ export default function CompanyTimesheetCalendar({
               )}
             </div>
 
-            {selectedEntry.status === "submitted" && employeeSubmitted.length > 0 ? (
+            {(selectedEntry.status === "submitted" || selectedEntry.status === "draft") &&
+            employeeSubmitted.length > 0 ? (
               <div className="overflow-hidden rounded-md border border-border bg-background">
                 <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-2.5 py-2">
                   <p className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
                     <ClipboardCheck className="size-3 text-accent" />
-                    {employeeSubmitted.length} submitted
+                    <span>
+                      {employeeSubmitted.length} pending review
+                      {employeeSubmitted.some((e) => e.status === "draft") ? (
+                        <span className="ml-1 text-[10px] font-normal text-muted">
+                          ({employeeSubmitted.filter((e) => e.status === "draft").length} draft)
+                        </span>
+                      ) : null}
+                    </span>
                   </p>
                   {employeeSubmitted.length > 1 ? (
                     <span className="flex shrink-0 gap-2 text-[10px] font-semibold text-muted">
@@ -1331,8 +1339,13 @@ export default function CompanyTimesheetCalendar({
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center justify-between gap-2">
-                            <span className="truncate font-semibold text-foreground">
-                              {formatDate(entry.work_date)}
+                            <span className="flex items-center gap-1.5 truncate font-semibold text-foreground">
+                              <span>{formatDate(entry.work_date)}</span>
+                              {entry.status === "draft" ? (
+                                <span className="rounded bg-warning/15 px-1 py-0.2 text-[9px] font-bold text-warning uppercase">
+                                  Draft
+                                </span>
+                              ) : null}
                             </span>
                             <span className="shrink-0 font-semibold text-foreground">
                               {formatHours(entry.paid_hours)}
