@@ -853,10 +853,10 @@ export default function EmployeeTimesheetCorrections({
         {/* Top Header: Date, Status Badge, Paid Hours & Edit Toggle */}
         <div className="flex items-start justify-between gap-1.5 border-b border-border/60 pb-2 min-w-0 max-w-full">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
-            {/* Top row: Status indicator & Work date */}
-            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            {/* Status indicator on top for mobile; inline on desktop */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
               <span
-                className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
+                className={`inline-flex w-fit shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
                   isApproved
                     ? "bg-emerald-600 text-white shadow-2xs"
                     : isFixed
@@ -886,29 +886,29 @@ export default function EmployeeTimesheetCorrections({
                 )}
                 {isFixed ? "Fixed · Ready to Submit" : rejected ? "Rejected" : editable ? "Draft" : entry.status}
               </span>
-              <p className="truncate text-[11px] sm:text-xs font-extrabold text-foreground">
-                {formatDate(entry.work_date)}
-              </p>
-            </div>
 
-            {/* Mobile: Hours appear directly below the status indicator */}
-            <div className="flex items-center sm:hidden">
-              <span
-                className={`inline-flex w-max shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-black shadow-2xs whitespace-nowrap ${
-                  isApproved
-                    ? "bg-emerald-950 text-emerald-200"
-                    : isFixed
-                      ? "bg-teal-950 text-teal-200"
-                      : rejected
-                        ? "bg-rose-950 text-rose-200"
-                        : isSubmitted
-                          ? "bg-slate-900 text-emerald-400"
-                          : "bg-amber-950 text-amber-200"
-                }`}
-              >
-                <Clock3 className="size-2.5" />
-                {formatHours(entry.paid_hours)}
-              </span>
+              {/* Work date & mobile hours stacked under status badge on mobile */}
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="truncate text-[11px] sm:text-xs font-extrabold text-foreground">
+                  {formatDate(entry.work_date)}
+                </p>
+                <span
+                  className={`inline-flex sm:hidden w-max shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-black shadow-2xs whitespace-nowrap ${
+                    isApproved
+                      ? "bg-emerald-950 text-emerald-200"
+                      : isFixed
+                        ? "bg-teal-950 text-teal-200"
+                        : rejected
+                          ? "bg-rose-950 text-rose-200"
+                          : isSubmitted
+                            ? "bg-slate-900 text-emerald-400"
+                            : "bg-amber-950 text-amber-200"
+                  }`}
+                >
+                  <Clock3 className="size-2.5" />
+                  {formatHours(entry.paid_hours)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1925,7 +1925,7 @@ export default function EmployeeTimesheetCorrections({
         <div className="grid gap-3">
           <div className="columns-1 gap-3 sm:columns-2 xl:columns-3 [column-fill:_balance]">
             {paginatedEntries.map((entry) => (
-              <div key={entry.id} className="break-inside-avoid mb-3">
+              <div key={entry.id} className="break-inside-avoid mb-3 w-full min-w-0 max-w-full">
                 {renderTimesheetEntry(entry)}
               </div>
             ))}
@@ -2075,9 +2075,9 @@ export default function EmployeeTimesheetCorrections({
               const isSelected = selectedCorrectionIds.has(entry.id);
 
               return (
-                <div key={entry.id} className="break-inside-avoid mb-3">
+                <div key={entry.id} className="break-inside-avoid mb-3 w-full min-w-0 max-w-full">
                   <article
-                    className={`grid gap-3 rounded-lg border-2 p-3.5 text-sm shadow-2xs transition-all ${
+                    className={`grid gap-3 rounded-lg border-2 p-3.5 text-sm shadow-2xs transition-all w-full max-w-full overflow-hidden ${
                       isSelected
                         ? "border-slate-900 bg-slate-900/5 ring-1 ring-slate-900"
                         : "border-border bg-white hover:bg-slate-50"
@@ -2100,13 +2100,13 @@ export default function EmployeeTimesheetCorrections({
                     ) : null}
 
                     <div>
-                      <p className="flex items-center gap-1.5 text-xs font-extrabold text-foreground">
+                      <span className="inline-flex rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
+                        {entry.status}
+                      </span>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-extrabold text-foreground">
                         <Edit3 className="size-3.5 text-accent" />
                         {formatDate(entry.work_date)}
                       </p>
-                      <span className="mt-1 inline-flex rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
-                        {entry.status}
-                      </span>
                     </div>
 
                     <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
