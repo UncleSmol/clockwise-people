@@ -827,6 +827,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             leaveRequests={calendarLeaveRequests}
             publicHolidays={calendarHolidays}
             liveOverview={liveTimeOverview}
+            isSysAdmin={access.isSuperAdmin}
           />
         ) : undefined
       }

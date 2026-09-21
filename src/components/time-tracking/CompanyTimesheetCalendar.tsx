@@ -16,8 +16,10 @@ import {
   MapPin,
   Pencil,
   Plus,
+  ShieldCheck,
   Trash2,
   User,
+  X,
   XCircle,
 } from "lucide-react";
 import { useActionState, useMemo, useRef, useState } from "react";
@@ -46,6 +48,7 @@ type CompanyTimesheetCalendarProps = {
   leaveRequests: CompanyCalendarLeaveRequest[];
   publicHolidays: CompanyPublicHoliday[];
   liveOverview?: CompanyLiveTimeOverview | null;
+  isSysAdmin?: boolean;
 };
 
 const initialActionState = {
@@ -201,6 +204,7 @@ export default function CompanyTimesheetCalendar({
   leaveRequests,
   publicHolidays,
   liveOverview = null,
+  isSysAdmin = false,
 }: CompanyTimesheetCalendarProps) {
   const activeColleagues = useMemo(() => {
     if (!liveOverview?.entries) return [];
@@ -224,6 +228,7 @@ export default function CompanyTimesheetCalendar({
   const [selectedEntry, setSelectedEntry] = useState<CompanyTimesheetCalendarEntry | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [showDateActions, setShowDateActions] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
     if (typeof window !== "undefined" && window.innerWidth < 640) return "day";
     if (typeof window !== "undefined" && window.innerWidth < 768) return "week";
@@ -326,11 +331,11 @@ export default function CompanyTimesheetCalendar({
     return entries.filter(
       (entry) =>
         entry.employee_id === selectedEntry.employee_id &&
-        (entry.status === "submitted" || entry.status === "draft") &&
+        (entry.status === "submitted" || (isSysAdmin && entry.status === "draft")) &&
         !holidayDates.has(entry.work_date) &&
         !entry.notes?.startsWith("Public holiday:"),
     );
-  }, [entries, selectedEntry, holidayDates]);
+  }, [entries, selectedEntry, holidayDates, isSysAdmin]);
 
   const events = useMemo<EventInput[]>(
     () => {
@@ -410,7 +415,9 @@ export default function CompanyTimesheetCalendar({
         new Set(
           entries
             .filter(
-              (e) => e.employee_id === entry.employee_id && e.status === "submitted",
+              (e) =>
+                e.employee_id === entry.employee_id &&
+                (e.status === "submitted" || (isSysAdmin && e.status === "draft")),
             )
             .map((e) => e.id),
         ),
@@ -434,6 +441,7 @@ export default function CompanyTimesheetCalendar({
     setEditing(false);
     setEditedTimes({});
     setSelectedApprovalIds(new Set());
+    setIsReviewModalOpen(false);
   };
 
   const startEditing = () => {
@@ -855,7 +863,7 @@ export default function CompanyTimesheetCalendar({
                             .filter(
                               (e) =>
                                 e.employee_id === entry.employee_id &&
-                                e.status === "submitted",
+                                (e.status === "submitted" || (isSysAdmin && e.status === "draft")),
                             )
                             .map((e) => e.id),
                         ),
@@ -987,7 +995,8 @@ export default function CompanyTimesheetCalendar({
                         entries
                           .filter(
                             (e) =>
-                              e.employee_id === entry.employee_id && e.status === "submitted",
+                              e.employee_id === entry.employee_id &&
+                              (e.status === "submitted" || (isSysAdmin && e.status === "draft")),
                           )
                           .map((e) => e.id),
                       ),
@@ -1139,7 +1148,7 @@ export default function CompanyTimesheetCalendar({
             </button>
           ) : null
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+        bodyClassName="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 pb-20"
       >
         {selectedEntry ? (
           <>
@@ -1183,6 +1192,17 @@ export default function CompanyTimesheetCalendar({
                 <p className="mt-0.5 text-xl font-black">{formatHours(selectedEntry.paid_hours)}</p>
               </div>
             </div>
+
+            {selectedEntry.status === "draft" && isSysAdmin ? (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50/80 p-2.5 text-xs font-semibold text-amber-950 shadow-2xs">
+                <ShieldCheck className="size-4 shrink-0 text-amber-600" />
+                <span>SysAdmin Calendar Override: Unsubmitted Draft Entry (Direct approval enabled)</span>
+              </div>
+            ) : selectedEntry.status === "draft" ? (
+              <div className="rounded-lg border border-border bg-surface-muted p-2.5 text-xs font-medium text-muted">
+                Draft timesheet — pending employee submission before manager approval.
+              </div>
+            ) : null}
 
             {editing ? (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1288,121 +1308,38 @@ export default function CompanyTimesheetCalendar({
               )}
             </div>
 
-            {(selectedEntry.status === "submitted" || selectedEntry.status === "draft") &&
+            {(selectedEntry.status === "submitted" || (isSysAdmin && selectedEntry.status === "draft")) &&
             employeeSubmitted.length > 0 ? (
-              <div className="overflow-hidden rounded-md border border-border bg-background">
-                <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-2.5 py-2">
-                  <p className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
-                    <ClipboardCheck className="size-3 text-accent" />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-primary/25 bg-primary/[0.04] p-3.5 shadow-2xs">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-xs font-extrabold text-foreground">
+                    {isSysAdmin && employeeSubmitted.some((e) => e.status === "draft") ? (
+                      <ShieldCheck className="size-4 shrink-0 text-amber-600" />
+                    ) : (
+                      <ClipboardCheck className="size-4 shrink-0 text-accent" />
+                    )}
                     <span>
-                      {employeeSubmitted.length} pending review
-                      {employeeSubmitted.some((e) => e.status === "draft") ? (
-                        <span className="ml-1 text-[10px] font-normal text-muted">
-                          ({employeeSubmitted.filter((e) => e.status === "draft").length} draft)
-                        </span>
-                      ) : null}
+                      {employeeSubmitted.length} timesheet{employeeSubmitted.length === 1 ? "" : "s"} pending review
                     </span>
                   </p>
-                  {employeeSubmitted.length > 1 ? (
-                    <span className="flex shrink-0 gap-2 text-[10px] font-semibold text-muted">
-                      <button
-                        type="button"
-                        onClick={() => setAllApprovalSelection(true)}
-                        className="underline-offset-2 hover:text-accent hover:underline"
-                      >
-                        Select all
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAllApprovalSelection(false)}
-                        className="underline-offset-2 hover:text-accent hover:underline"
-                      >
-                        Deselect
-                      </button>
-                    </span>
-                  ) : null}
+                  <p className="mt-1 text-[11px] font-medium text-muted">
+                    {employeeSubmitted.some((e) => e.status === "draft") ? (
+                      <span className="text-amber-700">
+                        Includes {employeeSubmitted.filter((e) => e.status === "draft").length} unsubmitted draft{employeeSubmitted.filter((e) => e.status === "draft").length === 1 ? "" : "s"} available for approval.
+                      </span>
+                    ) : (
+                      "Submitted timesheets ready for manager approval."
+                    )}
+                  </p>
                 </div>
-                <form action={approvalAction} className="grid gap-2 p-2.5">
-                  <div className="max-h-44 overflow-y-auto rounded-md border border-border bg-surface">
-                    {employeeSubmitted.map((entry) => (
-                      <label
-                        key={entry.id}
-                        className="flex cursor-pointer items-start gap-2 border-b border-border px-2 py-1.5 text-xs last:border-b-0"
-                      >
-                        <input
-                          type="checkbox"
-                          name="time_entry_ids"
-                          value={entry.id}
-                          checked={selectedApprovalIds.has(entry.id)}
-                          onChange={() => toggleApprovalId(entry.id)}
-                          className="mt-0.5 size-3.5 shrink-0 accent-current"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-1.5 truncate font-semibold text-foreground">
-                              <span>{formatDate(entry.work_date)}</span>
-                              {entry.status === "draft" ? (
-                                <span className="rounded bg-warning/15 px-1 py-0.2 text-[9px] font-bold text-warning uppercase">
-                                  Draft
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="shrink-0 font-semibold text-foreground">
-                              {formatHours(entry.paid_hours)}
-                            </span>
-                          </span>
-                          <span className="mt-0.5 block truncate text-muted">
-                            {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
-                            {Number(entry.overtime_hours ?? 0) > 0
-                              ? ` + ${formatHours(entry.overtime_hours)} OT`
-                              : ""}
-                            {entry.missing_clocking ||
-                              entry.late_arrival ||
-                              entry.early_departure
-                              ? " · needs review"
-                              : ""}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <textarea
-                    name="approval_notes"
-                    rows={1}
-                    placeholder="Approval note (optional)"
-                    className="w-full resize-none rounded border border-border bg-surface px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted"
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="submit"
-                      name="decision"
-                      value="reject"
-                      disabled={approvalPending || selectedApprovalIds.size === 0}
-                      className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded border border-danger/30 bg-danger/10 px-2 py-1.5 text-xs font-semibold text-danger disabled:opacity-50"
-                    >
-                      <XCircle className="size-3.5 shrink-0" />
-                      {approvalPending ? "Working..." : "Reject"}
-                    </button>
-                    <button
-                      type="submit"
-                      name="decision"
-                      value="approve"
-                      disabled={approvalPending || selectedApprovalIds.size === 0}
-                      className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="size-3.5 shrink-0" />
-                      {approvalPending ? "Working..." : "Approve"}
-                    </button>
-                  </div>
-                  {approvalState.message ? (
-                    <p
-                      className={`text-[11px] ${approvalState.ok ? "text-success" : "text-danger"
-                        }`}
-                    >
-                      {approvalState.message}
-                    </p>
-                  ) : null}
-                </form>
+                <button
+                  type="button"
+                  onClick={() => setIsReviewModalOpen(true)}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <ClipboardCheck className="size-3.5 text-emerald-400" />
+                  <span>Review &amp; Approve ({employeeSubmitted.length})</span>
+                </button>
               </div>
             ) : null}
 
@@ -1478,6 +1415,179 @@ export default function CompanyTimesheetCalendar({
           </>
         ) : null}
       </ViewportSidebar>
+
+      {isReviewModalOpen && selectedEntry && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-150"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setIsReviewModalOpen(false);
+          }}
+        >
+          <div
+            className="relative flex flex-col w-full max-w-lg max-h-[85vh] rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Modal Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-4 py-3.5 sm:px-6 sm:py-4">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 text-white">
+                  {isSysAdmin && employeeSubmitted.some((e) => e.status === "draft") ? (
+                    <ShieldCheck className="size-5 text-amber-400" />
+                  ) : (
+                    <ClipboardCheck className="size-5 text-emerald-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-extrabold text-foreground">
+                    Review &amp; Approve Timesheets
+                  </h3>
+                  <p className="truncate text-xs text-muted">
+                    {displayName(selectedEntry)} · {employeeSubmitted.length} record{employeeSubmitted.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReviewModalOpen(false)}
+                className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-muted text-muted hover:text-foreground hover:bg-surface-muted/80 transition-colors cursor-pointer"
+                aria-label="Close review modal"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Modal Body & Action Form */}
+            <form action={approvalAction} className="flex flex-col min-h-0 flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between text-xs font-semibold text-muted">
+                  <span>Select items to approve or reject:</span>
+                  {employeeSubmitted.length > 1 ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setAllApprovalSelection(true)}
+                        className="text-primary hover:underline cursor-pointer font-bold"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAllApprovalSelection(false)}
+                        className="text-muted hover:text-foreground hover:underline cursor-pointer"
+                      >
+                        Deselect
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="divide-y divide-border rounded-xl border border-border bg-background overflow-hidden">
+                  {employeeSubmitted.map((entry) => (
+                    <label
+                      key={entry.id}
+                      className="flex cursor-pointer items-start gap-3 p-3 text-xs transition-colors hover:bg-surface-muted/60"
+                    >
+                      <input
+                        type="checkbox"
+                        name="time_entry_ids"
+                        value={entry.id}
+                        checked={selectedApprovalIds.has(entry.id)}
+                        onChange={() => toggleApprovalId(entry.id)}
+                        className="mt-0.5 size-4 shrink-0 accent-slate-900"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-foreground">
+                              {formatDate(entry.work_date)}
+                            </span>
+                            {entry.status === "draft" ? (
+                              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 uppercase">
+                                Draft
+                              </span>
+                            ) : (
+                              <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+                                Submitted
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-extrabold text-foreground">
+                            {formatHours(entry.paid_hours)}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted">
+                          {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
+                          {Number(entry.overtime_hours ?? 0) > 0
+                            ? ` + ${formatHours(entry.overtime_hours)} OT`
+                            : ""}
+                          {entry.missing_clocking || entry.late_arrival || entry.early_departure
+                            ? " · Needs exception review"
+                            : ""}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">Review note (optional)</label>
+                  <textarea
+                    name="approval_notes"
+                    rows={2}
+                    placeholder="Add a review note or rejection reason..."
+                    className="w-full resize-none rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted"
+                  />
+                </div>
+
+                {approvalState.message ? (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                      approvalState.ok
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                        : "border-rose-300 bg-rose-50 text-rose-950"
+                    }`}
+                  >
+                    {approvalState.message}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface-muted/50 p-4">
+                <button
+                  type="button"
+                  onClick={() => setIsReviewModalOpen(false)}
+                  className="rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  name="decision"
+                  value="reject"
+                  disabled={approvalPending || selectedApprovalIds.size === 0}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-400/60 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <XCircle className="size-4 shrink-0" />
+                  {approvalPending ? "Working..." : "Reject Selected"}
+                </button>
+                <button
+                  type="submit"
+                  name="decision"
+                  value="approve"
+                  disabled={approvalPending || selectedApprovalIds.size === 0}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
+                >
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+                  {approvalPending ? "Working..." : "Approve Selected"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }
