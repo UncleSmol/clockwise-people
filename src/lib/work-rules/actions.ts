@@ -123,27 +123,46 @@ export async function createLeaveType(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const parsed = leaveTypeFormSchema.safeParse({
-    category: String(formData.get("category") ?? ""),
-    is_paid: String(formData.get("is_paid") ?? ""),
-    name: String(formData.get("name") ?? ""),
-    requires_attachment: String(formData.get("requires_attachment") ?? ""),
-    yearly_hours: String(formData.get("yearly_hours") ?? ""),
-  });
+  const category = String(formData.get("category") ?? "annual");
+  const name = String(formData.get("name") ?? "").trim();
+  const isPaid = formData.get("is_paid") === "on";
+  const requiresAttachment = formData.get("requires_attachment") === "on";
+  const entitlementUnit = String(formData.get("entitlement_unit") ?? "days");
+  const entitlementAmount = Number(formData.get("entitlement_amount") ?? formData.get("yearly_hours") ?? 15);
+  const accrualMethod = String(formData.get("accrual_method") ?? "monthly");
+  const prorationMode = String(formData.get("proration_mode") ?? "scheduled_working_hours");
+  const hoursDivisor = formData.get("hours_divisor") ? Number(formData.get("hours_divisor")) : null;
+  const useItOrLoseIt = formData.get("use_it_or_lose_it") === "on";
+  const maxCarryOverCap = formData.get("max_carry_over_cap") ? Number(formData.get("max_carry_over_cap")) : null;
+  const roundingPrecision = String(formData.get("rounding_precision") ?? "0.01");
 
-  if (!parsed.success) {
-    return { ok: false, message: firstIssue(parsed.error) };
+  if (!name) {
+    return { ok: false, message: "Leave rule name is required." };
   }
 
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("create_company_leave_type", {
-    leave_category: parsed.data.category,
-    leave_name: parsed.data.name,
-    needs_attachment: parsed.data.requires_attachment === "on",
-    paid_leave: parsed.data.is_paid === "on",
-    target_company_id: company.id,
-    yearly_hours: numberOrNull(parsed.data.yearly_hours),
+
+  const accrualRules = {
+    entitlement_unit: entitlementUnit,
+    entitlement_amount: entitlementAmount,
+    accrual_method: accrualMethod,
+    proration_mode: prorationMode,
+    hours_divisor: hoursDivisor,
+    use_it_or_lose_it: useItOrLoseIt,
+    max_carry_over_cap: maxCarryOverCap,
+    rounding_precision: roundingPrecision,
+    yearly_hours: entitlementUnit === "hours" ? entitlementAmount : entitlementAmount * 8,
+  };
+
+  const { error } = await supabase.from("leave_types").insert({
+    company_id: company.id,
+    name,
+    category,
+    is_paid: isPaid,
+    requires_attachment: requiresAttachment,
+    is_active: true,
+    accrual_rules: accrualRules,
   });
 
   if (error) {
@@ -152,7 +171,7 @@ export async function createLeaveType(
 
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Leave rule created." };
+  return { ok: true, message: "Configurable leave rule created successfully." };
 }
 
 export async function updateLeaveType(
@@ -745,12 +764,20 @@ export async function syncEmployeeAccruals(
   const standardAnnualHours = Math.max(1, standardMonthlyHours * 12);
   const leaveRules = (settingsData?.leave_rules ?? {}) as Record<string, unknown>;
   const toilRules = (settingsData?.toil_rules ?? {}) as Record<string, unknown>;
+  const useItOrLoseItEnabled = Boolean(leaveRules.use_it_or_lose_it_enabled ?? false);
+  const lockImportedBaselines = Boolean(leaveRules.lock_imported_leave_baselines ?? true);
+  const accrualBaselineDate = (leaveRules.accrual_baseline_date as string) || null;
+
+  const rawCarryCap = leaveRules.carry_over_cap_hours ?? leaveRules.carry_over_hours;
   const carryOverCap =
-    typeof leaveRules.carry_over_hours === "number"
-      ? leaveRules.carry_over_hours
-      : typeof leaveRules.carry_over_hours === "string" && leaveRules.carry_over_hours.trim() !== ""
-        ? Number(leaveRules.carry_over_hours)
+    typeof rawCarryCap === "number"
+      ? rawCarryCap
+      : typeof rawCarryCap === "string" && rawCarryCap.trim() !== ""
+        ? Number(rawCarryCap)
+        : useItOrLoseItEnabled
+        ? 0
         : null;
+
   const toilMultiplier = Number(toilRules.accrual_multiplier ?? 1.5);
 
   // 2. Fetch active leave types
@@ -785,7 +812,7 @@ export async function syncEmployeeAccruals(
 
   const employeeIds = employees.map((e) => e.id);
 
-  // 4. Fetch all time entries for these employees
+  // 4. Fetch time entries for these employees
   const { data: timeEntries, error: timeError } = await supabase
     .from("time_entries")
     .select("employee_id, normal_hours, paid_hours, overtime_hours, status, work_date")
@@ -835,7 +862,13 @@ export async function syncEmployeeAccruals(
   let totalUpdated = 0;
 
   for (const emp of employees) {
-    const empEntries = (timeEntries ?? []).filter((e) => e.employee_id === emp.id);
+    let empEntries = (timeEntries ?? []).filter((e) => e.employee_id === emp.id);
+
+    // Apply Import Baseline Lock: ignore work entries prior to accrualBaselineDate to prevent double counting
+    if (lockImportedBaselines && accrualBaselineDate) {
+      empEntries = empEntries.filter((e) => e.work_date >= accrualBaselineDate);
+    }
+
     const totalNormalHours = empEntries.reduce((sum, e) => sum + Number(e.normal_hours ?? 0), 0);
     const totalPaidHours = empEntries.reduce(
       (sum, e) => sum + Number(e.paid_hours ?? e.normal_hours ?? 0),
@@ -912,7 +945,7 @@ export async function syncEmployeeAccruals(
       // Calculate net balance
       let balanceHours = Math.max(0, Number((accruedHours + adjustedHours - takenHours).toFixed(2)));
 
-      // Apply carry-over cap if configured
+      // Apply carry-over cap / Use It or Lose It forfeiture if configured
       if (carryOverCap !== null && Number.isFinite(carryOverCap) && balanceHours > carryOverCap) {
         balanceHours = carryOverCap;
       }
@@ -1096,6 +1129,169 @@ export async function saveCompanyPayrollRulesAction(payload: {
     return { ok: true, message: "Payroll rules and employee assignments saved successfully to database." };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Failed to save payroll rules." };
+  }
+}
+
+export async function updateCompanyLeavePolicy(
+  prevState: unknown,
+  formData: FormData
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { company } = await getActiveCompany();
+    const access = await getCurrentUserAccess();
+    if (!access.canManageCompany) {
+      return { ok: false, message: "Unauthorized. Admin access required." };
+    }
+
+    const supabase = await createSupabaseServerClient();
+
+    const useItOrLoseItEnabled = formData.get("use_it_or_lose_it_enabled") === "on";
+    const rawCarryCap = formData.get("carry_over_cap_hours") as string | null;
+    const carryOverCapHours = rawCarryCap && rawCarryCap.trim() !== "" ? Number(rawCarryCap) : null;
+    const lockImportedBaselines = formData.get("lock_imported_leave_baselines") === "on";
+    const accrualBaselineDate = (formData.get("accrual_baseline_date") as string)?.trim() || null;
+    const preventAdditiveImportStacking = formData.get("prevent_additive_import_stacking") === "on";
+
+    const { data: existingSettings } = await supabase
+      .from("company_settings")
+      .select("leave_rules")
+      .eq("company_id", company.id)
+      .maybeSingle();
+
+    const existingLeaveRules = (existingSettings?.leave_rules ?? {}) as Record<string, unknown>;
+
+    const updatedLeaveRules = {
+      ...existingLeaveRules,
+      use_it_or_lose_it_enabled: useItOrLoseItEnabled,
+      carry_over_cap_hours: carryOverCapHours,
+      lock_imported_leave_baselines: lockImportedBaselines,
+      accrual_baseline_date: accrualBaselineDate,
+      prevent_additive_import_stacking: preventAdditiveImportStacking,
+    };
+
+    const { error } = await supabase.from("company_settings").upsert(
+      {
+        company_id: company.id,
+        leave_rules: updatedLeaveRules,
+      },
+      { onConflict: "company_id" }
+    );
+
+    if (error) {
+      return { ok: false, message: error.message };
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/company");
+    revalidatePath("/dashboard/leave");
+
+    return { ok: true, message: "Company leave protection & policy settings saved successfully." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed to update leave policy." };
+  }
+}
+
+export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: boolean; message: string; createdCount: number }> {
+  try {
+    const { company } = await getActiveCompany();
+    const access = await getCurrentUserAccess();
+    if (!access.canManageCompany) {
+      return { ok: false, message: "Unauthorized. Admin access required.", createdCount: 0 };
+    }
+
+    const supabase = await createSupabaseServerClient();
+
+    const STANDARD_LEAVE_TYPES = [
+      { name: "Annual Leave", category: "annual", is_paid: true, requires_attachment: false },
+      { name: "Sick Leave", category: "sick", is_paid: true, requires_attachment: true },
+      { name: "Family Responsibility Leave", category: "family_responsibility", is_paid: true, requires_attachment: false },
+      { name: "Study Leave", category: "other", is_paid: true, requires_attachment: false },
+      { name: "Maternity Leave", category: "maternity", is_paid: true, requires_attachment: true },
+      { name: "Parental Leave", category: "family_responsibility", is_paid: true, requires_attachment: false },
+      { name: "TOIL / Overtime Comp Leave", category: "toil_taken", is_paid: true, requires_attachment: false },
+      { name: "Unpaid Leave", category: "unpaid", is_paid: false, requires_attachment: false },
+    ];
+
+    // Get existing leave types
+    const { data: existingLt } = await supabase
+      .from("leave_types")
+      .select("id, name, category")
+      .eq("company_id", company.id)
+      .is("deleted_at", null);
+
+    const existingNames = new Set((existingLt || []).map((l) => l.name.toLowerCase()));
+    let createdCount = 0;
+
+    for (const st of STANDARD_LEAVE_TYPES) {
+      if (!existingNames.has(st.name.toLowerCase())) {
+        await supabase.from("leave_types").insert({
+          company_id: company.id,
+          name: st.name,
+          category: st.category as "annual" | "sick" | "family_responsibility" | "maternity" | "unpaid" | "toil_taken" | "other",
+          is_paid: st.is_paid,
+          requires_attachment: st.requires_attachment,
+          is_active: true,
+        });
+        createdCount++;
+      }
+    }
+
+    // Get all active leave types for company (including newly created ones)
+    const { data: allLt } = await supabase
+      .from("leave_types")
+      .select("id")
+      .eq("company_id", company.id)
+      .eq("is_active", true)
+      .is("deleted_at", null);
+
+    // Get all active employees
+    const { data: employees } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("company_id", company.id)
+      .is("deleted_at", null);
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Ensure leave_balances row exists for each employee x leave_type
+    if (allLt && allLt.length > 0 && employees && employees.length > 0) {
+      for (const emp of employees) {
+        for (const lt of allLt) {
+          const { data: existingBal } = await supabase
+            .from("leave_balances")
+            .select("id")
+            .eq("company_id", company.id)
+            .eq("employee_id", emp.id)
+            .eq("leave_type_id", lt.id)
+            .maybeSingle();
+
+          if (!existingBal) {
+            await supabase.from("leave_balances").insert({
+              company_id: company.id,
+              employee_id: emp.id,
+              leave_type_id: lt.id,
+              accrued_hours: 0,
+              balance_hours: 0,
+              taken_hours: 0,
+              adjusted_hours: 0,
+              as_of_date: today,
+            });
+          }
+        }
+      }
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/company");
+    revalidatePath("/dashboard/leave");
+
+    return {
+      ok: true,
+      message: `Provisioned all standard leave types (${createdCount} new created) and initialized employee balance grid.`,
+      createdCount,
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Failed to provision leave types.", createdCount: 0 };
   }
 }
 

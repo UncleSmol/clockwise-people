@@ -112,35 +112,7 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
         </p>
       </div>
 
-      {/* Automated BCEA South African Labour Law Accruals Engine Banner */}
-      <form
-        action={syncAction}
-        className="grid gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-50/70 p-3.5 shadow-2xs"
-      >
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="flex size-6 items-center justify-center rounded-md bg-emerald-600 text-white shadow-2xs">
-                <Calculator className="size-3.5" />
-              </span>
-              <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">
-                Automated BCEA Leave Accruals
-              </h3>
-            </div>
-            <p className="mt-1 text-xs font-medium text-emerald-900 leading-relaxed">
-              Statutory annual leave accrues automatically at <strong>1 hour per 17 hours worked</strong> (BCEA Section 20), plus <strong>1.5&times; TOIL for overtime</strong> (BCEA Section 10).
-            </p>
-          </div>
-          <button
-            type="submit"
-            disabled={syncPending}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-60 transition-all"
-          >
-            {syncPending ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-            <span>{syncPending ? "Syncing..." : "Sync Accruals Now"}</span>
-          </button>
-        </div>
-      </form>
+
 
       {visibleMessage ? (
         <p

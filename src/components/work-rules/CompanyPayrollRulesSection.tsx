@@ -801,7 +801,7 @@ export default function CompanyPayrollRulesSection({
                         onClick={() => updateRuleFields({ offsetDays: preset.days })}
                         className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold transition-all cursor-pointer ${
                           payDayOffsetDays === preset.days
-                            ? "bg-slate-900 text-white shadow-2xs"
+                            ? "bg-primary text-primary-foreground shadow-2xs"
                             : "bg-background border border-border text-foreground hover:bg-surface-muted"
                         }`}
                       >
@@ -837,7 +837,7 @@ export default function CompanyPayrollRulesSection({
                         onClick={() => updateRuleFields({ customDays: days })}
                         className={`rounded px-2 py-0.5 text-[10px] font-extrabold transition-all cursor-pointer ${
                           customCycleDays === days
-                            ? "bg-slate-900 text-white shadow-2xs"
+                            ? "bg-primary text-primary-foreground shadow-2xs"
                             : "bg-background border border-border text-foreground hover:bg-surface-muted"
                         }`}
                       >

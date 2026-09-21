@@ -197,6 +197,12 @@ export type CompanyWorkRulesData = {
   autoClockoutBasedOnSchedule?: boolean;
   autoClockoutGraceMinutes?: number;
   carryOverHours: number | null;
+  useItOrLoseItEnabled?: boolean;
+  carryOverCapHours?: number | null;
+  lockImportedBaselines?: boolean;
+  accrualBaselineDate?: string | null;
+  preventAdditiveImportStacking?: boolean;
+  standardDailyHours?: number;
   employees: { id: string; label: string }[];
   leaveBalances: Array<LeaveBalance & { employee_id: string; leave_type_id: string }>;
   leaveTypes: LeaveType[];

@@ -20,9 +20,13 @@ import {
   type MigrationPreviewResponse,
 } from "@/lib/time-tracking/migration-actions";
 
+import UniversalSpreadsheetImporter from "@/components/import-export/UniversalSpreadsheetImporter";
+
 type FilterTab = "all" | "work" | "leave" | "warnings";
+type ImportMode = "universal" | "template";
 
 export default function TimesheetMigrationPanel() {
+  const [importMode, setImportMode] = useState<ImportMode>("universal");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewData, setPreviewData] = useState<MigrationPreviewResponse | null>(null);
@@ -124,28 +128,58 @@ export default function TimesheetMigrationPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/40 p-4 sm:p-6 rounded-2xl border border-border">
-        <div>
-          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <FileSpreadsheet className="size-5 text-emerald-500" />
-            Timesheet &amp; Leave Spreadsheet Migration
-          </h3>
-          <p className="mt-1 text-xs sm:text-sm text-muted">
-            Import shifts, breaks, and leave history from Excel spreadsheets (.xlsx) or CSV files into the database.
-          </p>
-        </div>
-        <a
-          href="/api/timesheet-template/download"
-          download="clockwise_timesheets_template.xlsx"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl shadow-xs transition-colors shrink-0"
+      {/* Importer Mode Toggle Tabs */}
+      <div className="flex items-center gap-2 p-1.5 bg-surface border border-border rounded-2xl shadow-xs">
+        <button
+          onClick={() => setImportMode("universal")}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            importMode === "universal"
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
+          }`}
         >
-          <Download className="size-4 text-emerald-400" />
-          Download Excel Template
-        </a>
+          <FileSpreadsheet className="size-4" />
+          Versatile Importer (Map Any Spreadsheet)
+        </button>
+        <button
+          onClick={() => setImportMode("template")}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            importMode === "template"
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
+          }`}
+        >
+          <Download className="size-4" />
+          Standard Template Importer
+        </button>
       </div>
 
-      {/* Upload Zone */}
+      {importMode === "universal" ? (
+        <UniversalSpreadsheetImporter />
+      ) : (
+        <>
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface p-4 sm:p-6 rounded-2xl border border-border shadow-xs">
+            <div>
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <FileSpreadsheet className="size-5 text-emerald-600" />
+                ClockWise Fixed Template Migration
+              </h3>
+              <p className="mt-1 text-xs sm:text-sm text-muted">
+                Import shifts using the pre-formatted ClockWise Excel template or QuickBooks export.
+              </p>
+            </div>
+            <a
+              href="/api/timesheet-template/download"
+              download="clockwise_timesheets_template.xlsx"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-xl shadow-2xs transition-colors shrink-0"
+            >
+              <Download className="size-4 text-emerald-600" />
+              Download Excel Template
+            </a>
+          </div>
+
+          {/* Upload Zone */}
       {!previewData && (
         <div
           onDragOver={handleDragOver}
@@ -366,18 +400,18 @@ export default function TimesheetMigrationPanel() {
           </div>
 
           {/* Interactive Preview Table */}
-          <div className="rounded-xl border border-border bg-surface overflow-hidden">
+          <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-2xs">
             <div className="overflow-x-auto max-h-96">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-900/60 text-muted sticky top-0 z-10 border-b border-border">
+                <thead className="bg-surface-muted text-muted font-extrabold uppercase text-[10px] sticky top-0 z-10 border-b border-border">
                   <tr>
-                    <th className="py-2.5 px-3 font-semibold">Status</th>
-                    <th className="py-2.5 px-3 font-semibold">Date</th>
-                    <th className="py-2.5 px-3 font-semibold">Employee</th>
-                    <th className="py-2.5 px-3 font-semibold">Type</th>
-                    <th className="py-2.5 px-3 font-semibold">Times / Leave</th>
-                    <th className="py-2.5 px-3 font-semibold">Workstation</th>
-                    <th className="py-2.5 px-3 font-semibold">Notes / Flags</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Employee</th>
+                    <th className="py-2.5 px-3">Type</th>
+                    <th className="py-2.5 px-3">Times / Leave</th>
+                    <th className="py-2.5 px-3">Workstation</th>
+                    <th className="py-2.5 px-3">Notes / Flags</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -401,13 +435,13 @@ export default function TimesheetMigrationPanel() {
                       >
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           {entry.validationStatus === "valid" ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                               <CheckCircle2 className="size-3.5" />
                               Valid
                             </span>
                           ) : entry.validationStatus === "warning" ? (
                             <span
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-500"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"
                               title={entry.warningFlags?.join("\n")}
                             >
                               <AlertTriangle className="size-3.5" />
@@ -415,7 +449,7 @@ export default function TimesheetMigrationPanel() {
                             </span>
                           ) : (
                             <span
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-danger"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20"
                               title={entry.validationErrors?.join("\n")}
                             >
                               <XCircle className="size-3.5" />
@@ -434,11 +468,11 @@ export default function TimesheetMigrationPanel() {
                         </td>
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           {entry.entryType === "work" ? (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700">
                               Shift
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-400">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-700">
                               Leave
                             </span>
                           )}
@@ -458,14 +492,14 @@ export default function TimesheetMigrationPanel() {
                             </div>
                           ) : (
                             <div className="space-y-0.5">
-                              <div className="font-semibold text-sky-400">{entry.leaveTypeName}</div>
+                              <div className="font-semibold text-sky-700">{entry.leaveTypeName}</div>
                               <div className="text-[10px] text-muted">{entry.leaveHours} hrs (Paid)</div>
                             </div>
                           )}
                         </td>
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           <span className="text-muted flex items-center gap-1">
-                            <MapPin className="size-3 shrink-0 text-slate-400" />
+                            <MapPin className="size-3 shrink-0 text-muted" />
                             {entry.workstationName || "Company Assigned"}
                           </span>
                         </td>
@@ -478,7 +512,7 @@ export default function TimesheetMigrationPanel() {
                 </tbody>
               </table>
             </div>
-            <div className="p-3 border-t border-border bg-slate-900/30 flex items-center justify-between text-[11px] text-muted">
+            <div className="p-3 border-t border-border bg-surface-muted/50 flex items-center justify-between text-[11px] text-muted font-semibold">
               <span>Showing {filteredEntries.length} of {entries.length} entries</span>
               <span>Review items before committing to database</span>
             </div>
@@ -578,6 +612,8 @@ export default function TimesheetMigrationPanel() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

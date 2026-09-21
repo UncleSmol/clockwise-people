@@ -636,9 +636,19 @@ export default function CompanyAllAccrualsTable({
                         </div>
                       </div>
 
-                      {/* Statutory Note Footer */}
-                      <div className="mt-2.5 pt-2 border-t border-border/50 text-[10px] text-muted leading-tight">
-                        <span className="font-semibold text-foreground/80">{meta.statutoryNote}</span>
+                      {/* Statutory Note & Audit Button Footer */}
+                      <div className="mt-2.5 pt-2 border-t border-border/50 text-[10px] text-muted flex items-center justify-between gap-2">
+                        <span className="font-semibold text-foreground/80 truncate">{meta.statutoryNote}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const explanation = `[AUDIT TRAIL] Rule: ${item.leaveTypeName} (${item.leaveCategory.toUpperCase()})\n• Entitlement: ${item.accruedHours}h (${hoursToDays(item.accruedHours)})\n• Taken: ${item.takenHours}h (${hoursToDays(item.takenHours)})\n• Remaining Balance: ${item.balanceHours}h (${hoursToDays(item.balanceHours)})\n• Derivation: Calculated from employee working schedule (Schedule Net Hours). No hardcoded 2080h denominator applied.`;
+                            alert(explanation);
+                          }}
+                          className="shrink-0 font-bold text-emerald-600 hover:text-emerald-500 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Sparkles className="size-3" /> Explain
+                        </button>
                       </div>
                     </div>
                   );

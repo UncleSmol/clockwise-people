@@ -1193,12 +1193,7 @@ export default function CompanyTimesheetCalendar({
               </div>
             </div>
 
-            {selectedEntry.status === "draft" && isSysAdmin ? (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50/80 p-2.5 text-xs font-semibold text-amber-950 shadow-2xs">
-                <ShieldCheck className="size-4 shrink-0 text-amber-600" />
-                <span>SysAdmin Calendar Override: Unsubmitted Draft Entry (Direct approval enabled)</span>
-              </div>
-            ) : selectedEntry.status === "draft" ? (
+            {selectedEntry.status === "draft" && !isSysAdmin ? (
               <div className="rounded-lg border border-border bg-surface-muted p-2.5 text-xs font-medium text-muted">
                 Draft timesheet — pending employee submission before manager approval.
               </div>

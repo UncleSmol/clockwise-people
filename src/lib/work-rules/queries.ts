@@ -87,7 +87,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         .limit(20),
       supabase
         .from("company_settings")
-        .select("standard_monthly_hours, leave_rules, approval_rules, default_lunch_minutes")
+        .select("standard_monthly_hours, standard_daily_hours, leave_rules, approval_rules, default_lunch_minutes")
         .eq("company_id", company.id)
         .maybeSingle(),
   ]);
@@ -142,6 +142,18 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
       : typeof carryOverValue === "string" && carryOverValue.trim() !== ""
         ? Number(carryOverValue)
         : null;
+
+  const useItOrLoseItEnabled = Boolean(leaveRules.use_it_or_lose_it_enabled ?? false);
+  const carryOverCapHours =
+    typeof leaveRules.carry_over_cap_hours === "number"
+      ? leaveRules.carry_over_cap_hours
+      : typeof leaveRules.carry_over_cap_hours === "string" && leaveRules.carry_over_cap_hours.trim() !== ""
+        ? Number(leaveRules.carry_over_cap_hours)
+        : carryOverHours;
+  const lockImportedBaselines = Boolean(leaveRules.lock_imported_leave_baselines ?? true);
+  const accrualBaselineDate = (leaveRules.accrual_baseline_date as string) || null;
+  const preventAdditiveImportStacking = Boolean(leaveRules.prevent_additive_import_stacking ?? true);
+  const standardDailyHours = Number(settingsResult.data?.standard_daily_hours ?? 8);
   const standardAnnualHours = Number(settingsResult.data?.standard_monthly_hours ?? 173.33) * 12;
 
   return {
@@ -151,6 +163,12 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     autoClockoutBasedOnSchedule,
     autoClockoutGraceMinutes: autoClockoutGraceMinutes >= 0 ? autoClockoutGraceMinutes : 0,
     carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
+    useItOrLoseItEnabled,
+    carryOverCapHours: carryOverCapHours !== null && Number.isFinite(carryOverCapHours) ? carryOverCapHours : null,
+    lockImportedBaselines,
+    accrualBaselineDate,
+    preventAdditiveImportStacking,
+    standardDailyHours,
     employees: (employeesResult.data ?? []).map((employee) => ({
       id: employee.id,
       label: `${employee.full_name} (${employee.employee_number})`,
