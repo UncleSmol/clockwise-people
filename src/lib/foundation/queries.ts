@@ -171,7 +171,17 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     isPayrollViewer: isSuperAdmin || roleKeys.has("payroll_viewer"),
     isEmployee: roleKeys.has("employee"),
     canManageCompany: isSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin"),
-    canManageEmployees: isSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin"),
+    canManageEmployees:
+      isSuperAdmin ||
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("branch_manager"),
+    canAssignRoles:
+      isSuperAdmin ||
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("branch_manager"),
+    canAssignOwnerRole: isSuperAdmin || roleKeys.has("owner"),
     canReviewBranchTime:
       isSuperAdmin ||
       roleKeys.has("owner") ||

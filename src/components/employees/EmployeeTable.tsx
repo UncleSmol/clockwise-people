@@ -12,6 +12,7 @@ import {
   Mail,
   MapPin,
   Search,
+  Shield,
   Sparkles,
   User,
   Users,
@@ -267,6 +268,12 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                             {employee.payroll_identifier}
                           </span>
                         ) : null}
+                        {employee.role_name ? (
+                          <span className="ml-1.5 inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-800 border border-slate-200">
+                            <Shield className="size-2.5 text-slate-500" />
+                            {employee.role_name}
+                          </span>
+                        ) : null}
                       </p>
                       <p className="flex items-center gap-1 truncate text-[11px] text-muted">
                         <Mail className="size-3 shrink-0" />
@@ -311,11 +318,18 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
                 {/* Expanded Details Panel */}
                 <div className="grid gap-3 border-t border-border bg-background p-3.5 sm:grid-cols-[1fr_auto]">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Role</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Job Title</p>
                       <p className="mt-0.5 truncate text-xs font-extrabold text-foreground">
                         {employee.job_title ?? "Team Member"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted">System Role</p>
+                      <p className="mt-0.5 truncate text-xs font-extrabold text-foreground capitalize">
+                        {employee.role_name ?? (employee.user_id ? "Employee" : "No Account")}
                       </p>
                     </div>
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AppRole } from "@/lib/foundation/schema";
 
 export const employmentTypes = [
   "full_time",
@@ -87,4 +88,6 @@ export type EmployeeRecord = {
   workstation_name: string | null;
   department_name: string | null;
   work_schedule_ids: string[];
+  role_key?: AppRole | null;
+  role_name?: string | null;
 };

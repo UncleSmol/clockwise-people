@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
+import { getActiveCompany, getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
 
 type CreateEmployeeAccountState = {
   credentials?: {
@@ -176,5 +176,119 @@ export async function createEmployeeAccount(
       password,
     },
     message: "Employee account created. Copy these credentials now.",
+  };
+}
+
+export type AssignEmployeeRoleState = {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+};
+
+export async function assignEmployeeRole(
+  employeeId: string,
+  roleKey: EmployeeAccountRoleKey,
+  previousState?: AssignEmployeeRoleState,
+): Promise<AssignEmployeeRoleState> {
+  void previousState;
+
+  const { company } = await getActiveCompany();
+  const { user } = await requireUser();
+  const access = await getCurrentUserAccess();
+
+  if (!access.canAssignRoles) {
+    return {
+      ok: false,
+      error: "Unauthorized: Only superadmins, managers, and HR can assign employee roles.",
+    };
+  }
+
+  if (roleKey === "owner" && !access.isSuperAdmin && !access.isOwner) {
+    return {
+      ok: false,
+      error: "Only system superadmins or company owners can assign the Company Admin role.",
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: employee, error: employeeError } = await admin
+    .from("employees")
+    .select("id, company_id, full_name, email, user_id")
+    .eq("company_id", company.id)
+    .eq("id", employeeId)
+    .is("deleted_at", null)
+    .single();
+
+  if (employeeError || !employee) {
+    return { ok: false, error: "Employee record could not be found." };
+  }
+
+  const { data: targetRole, error: roleError } = await admin
+    .from("roles")
+    .select("id, key, name")
+    .eq("company_id", company.id)
+    .eq("key", roleKey)
+    .single();
+
+  if (roleError || !targetRole) {
+    return { ok: false, error: `Role '${roleKey}' is not configured for this company.` };
+  }
+
+  // Find assigner app user id
+  const { data: assignerUser } = await admin
+    .from("users")
+    .select("id")
+    .eq("company_id", company.id)
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  const assignerUserId = assignerUser?.id ?? null;
+
+  if (employee.user_id) {
+    // Revoke any existing active roles
+    const { error: revokeError } = await admin
+      .from("user_roles")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("company_id", company.id)
+      .eq("user_id", employee.user_id)
+      .is("revoked_at", null);
+
+    if (revokeError) {
+      return { ok: false, error: `Failed to update existing roles: ${revokeError.message}` };
+    }
+
+    // Insert new active role
+    const { error: insertError } = await admin
+      .from("user_roles")
+      .insert({
+        company_id: company.id,
+        user_id: employee.user_id,
+        role_id: targetRole.id,
+        assigned_by: assignerUserId,
+        assigned_at: new Date().toISOString(),
+        revoked_at: null,
+      });
+
+    if (insertError) {
+      return { ok: false, error: `Failed to assign role: ${insertError.message}` };
+    }
+  }
+
+  // Also update pending invitations if any
+  await admin
+    .from("user_invitations")
+    .update({ role_key: roleKey, updated_at: new Date().toISOString() })
+    .eq("company_id", company.id)
+    .eq("employee_id", employee.id)
+    .eq("status", "pending");
+
+  revalidatePath(`/dashboard/employees/${employee.id}`);
+  revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message: `Role successfully updated to "${targetRole.name}".`,
   };
 }

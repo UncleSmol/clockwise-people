@@ -433,6 +433,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     employeeId={selectedEmployee.id}
                     email={selectedEmployee.email}
                     hasAccount={Boolean(selectedEmployee.user_id)}
+                    currentRoleKey={selectedEmployee.role_key ?? null}
+                    currentRoleName={selectedEmployee.role_name ?? null}
+                    canAssignRoles={access.canAssignRoles}
+                    canAssignOwnerRole={access.isSuperAdmin || access.isOwner}
                   />
 
                   {manualInviteUrl ? <InviteLinkPanel inviteUrl={manualInviteUrl} /> : null}

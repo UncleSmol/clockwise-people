@@ -1,7 +1,9 @@
 import "server-only";
 
 import { hasSupabaseConfig } from "@/lib/supabase/config";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
+import type { AppRole } from "@/lib/foundation/schema";
 import type { EmployeeRecord, SelectOption } from "./schema";
 import { autoAssignCompanyPayrollIdentifiers } from "./payroll-id";
 
@@ -191,6 +193,65 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   );
 
+  const admin = createSupabaseAdminClient();
+  const userIds = Array.from(
+    new Set(employees.map((e) => e.user_id).filter((id): id is string => Boolean(id))),
+  );
+
+  const roleMap = new Map<string, { key: AppRole; name: string }>();
+
+  if (userIds.length > 0) {
+    const { data: userRoleRows } = await admin
+      .from("user_roles")
+      .select("user_id, role_id, roles(key, name)")
+      .eq("company_id", company.id)
+      .in("user_id", userIds)
+      .is("revoked_at", null);
+
+    (userRoleRows ?? []).forEach((row) => {
+      const roleRelation = Array.isArray(row.roles) ? row.roles[0] : row.roles;
+      if (roleRelation?.key) {
+        roleMap.set(row.user_id, {
+          key: roleRelation.key as AppRole,
+          name: roleRelation.name ?? roleRelation.key,
+        });
+      }
+    });
+  }
+
+  const employeesWithoutUser = employees.filter((e) => !e.user_id);
+  const pendingInviteRoleMap = new Map<string, AppRole>();
+  if (employeesWithoutUser.length > 0) {
+    const { data: inviteRows } = await admin
+      .from("user_invitations")
+      .select("employee_id, role_key")
+      .eq("company_id", company.id)
+      .in("employee_id", employeesWithoutUser.map((e) => e.id))
+      .eq("status", "pending");
+
+    (inviteRows ?? []).forEach((inv) => {
+      if (inv.employee_id && inv.role_key) {
+        pendingInviteRoleMap.set(inv.employee_id, inv.role_key as AppRole);
+      }
+    });
+  }
+
+  const enrichedEmployees = employees.map((emp) => {
+    if (emp.user_id && roleMap.has(emp.user_id)) {
+      const r = roleMap.get(emp.user_id)!;
+      return { ...emp, role_key: r.key, role_name: r.name };
+    }
+    if (pendingInviteRoleMap.has(emp.id)) {
+      const inviteKey = pendingInviteRoleMap.get(emp.id)!;
+      return {
+        ...emp,
+        role_key: inviteKey,
+        role_name: `Pending Invite (${inviteKey.replace("_", " ")})`,
+      };
+    }
+    return emp;
+  });
+
   return {
     isConfigured: true,
     companyName: company.name,
@@ -207,10 +268,10 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       label: schedule.name,
     })),
     standardMonthlyHours: Number(settingsResult.data.standard_monthly_hours),
-    managers: employees
+    managers: enrichedEmployees
       .filter((employee) => employee.employment_status !== "terminated")
       .map((employee) => ({ id: employee.id, label: employee.full_name })),
-    employees,
+    employees: enrichedEmployees,
   };
 }
 
@@ -249,10 +310,59 @@ export async function getEmployeeDetail(employeeId: string) {
     throw new Error(assignmentsResult.error.message);
   }
 
-  return attachWorkScheduleIds(
+  const employeeRecord = attachWorkScheduleIds(
     [normalizeEmployee(data as unknown as EmployeeRow)],
     assignmentsResult.error
       ? []
       : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],
   )[0];
+
+  if (!employeeRecord) return null;
+
+  const admin = createSupabaseAdminClient();
+  let currentRoleKey: AppRole | null = null;
+  let currentRoleName: string | null = null;
+
+  if (employeeRecord.user_id) {
+    const { data: roleRow } = await admin
+      .from("user_roles")
+      .select("user_id, role_id, roles(key, name)")
+      .eq("company_id", company.id)
+      .eq("user_id", employeeRecord.user_id)
+      .is("revoked_at", null)
+      .order("assigned_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (roleRow?.roles) {
+      const r = Array.isArray(roleRow.roles) ? roleRow.roles[0] : roleRow.roles;
+      if (r?.key) {
+        currentRoleKey = r.key as AppRole;
+        currentRoleName = r.name ?? r.key;
+      }
+    }
+  }
+
+  if (!currentRoleKey) {
+    const { data: inviteRow } = await admin
+      .from("user_invitations")
+      .select("role_key")
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (inviteRow?.role_key) {
+      currentRoleKey = inviteRow.role_key as AppRole;
+      currentRoleName = `Pending Invite (${inviteRow.role_key.replace("_", " ")})`;
+    }
+  }
+
+  return {
+    ...employeeRecord,
+    role_key: currentRoleKey,
+    role_name: currentRoleName,
+  };
 }
