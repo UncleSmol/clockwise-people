@@ -19,6 +19,10 @@ function roleKey(relation?: { key: AppRole }[] | { key: AppRole } | null) {
   return relation?.key ?? null;
 }
 
+function isFormalizeEmail(email?: string | null): boolean {
+  return Boolean(email && email.toLowerCase().endsWith("@formalize.co.za"));
+}
+
 export const requireUser = cache(async function requireUser() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -66,7 +70,8 @@ export const getActiveCompany = cache(async function getActiveCompany() {
     .eq("status", "active")
     .is("deleted_at", null);
 
-  const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
+  const isSuperAdmin =
+    isFormalizeEmail(user.email) && (appUsers ?? []).some((u) => u.is_super_admin);
 
   const cookieStore = await cookies();
   const preferredId = cookieStore.get("active_company_id")?.value;
@@ -101,7 +106,8 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
 
-  const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
+  const isSuperAdmin =
+    isFormalizeEmail(user.email) && (appUsers ?? []).some((u) => u.is_super_admin);
 
   const targetAppUser =
     appUsers?.find((u) => u.company_id === activeCompany.id) ??

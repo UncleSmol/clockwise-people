@@ -14,6 +14,12 @@ DECLARE
   v_timesheet_id uuid;
 BEGIN
 
+  -- Guard: Ensure target company exists (e.g. clean local environment where seed companies have different IDs)
+  IF NOT EXISTS (SELECT 1 FROM public.companies WHERE id = v_company_id) THEN
+    RAISE WARNING 'Company % not found — skipping migration for maphangaprecious57@gmail.com', v_company_id;
+    RETURN;
+  END IF;
+
   -- Look up employee by email (case-insensitive)
   SELECT id INTO v_employee_id
   FROM public.employees
