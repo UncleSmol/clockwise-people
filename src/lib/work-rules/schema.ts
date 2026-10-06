@@ -63,6 +63,7 @@ export const leaveRequestFormSchema = z.object({
   leave_type_id: z.uuid("Choose a leave type"),
   reason: z.string().trim().optional().or(z.literal("")),
   start_date: z.iso.date("Start date is required"),
+  use_toil_first: z.string().optional(),
 });
 
 export const leaveAccrualPreviewFormSchema = z.object({
@@ -135,6 +136,8 @@ export type LeaveRequest = {
   status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
   submitted_at: string | null;
   rejection_reason: string | null;
+  use_toil_first?: boolean;
+  toil_hours_used?: number | string;
   leaveTypeName?: string;
   employeeNumber?: string;
   fullName?: string;
@@ -158,6 +161,11 @@ export type LeaveCalculationDay = {
 
 export type LeaveCalculation = {
   available_hours: number;
+  leave_type_available_hours?: number;
+  toil_available_hours?: number;
+  toil_hours_to_use?: number;
+  leave_hours_to_use?: number;
+  load_toil_first?: boolean;
   exceeds_balance: boolean;
   leave_type_name: string;
   non_working_days: number;

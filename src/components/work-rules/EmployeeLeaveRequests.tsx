@@ -58,6 +58,15 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
   const [endDate, setEndDate] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [reason, setReason] = useState("");
+  const [useToilFirst, setUseToilFirst] = useState(true);
+
+  const toilBalanceItem = state.balances.find((b) => {
+    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+    return rel?.category === "toil_taken" || rel?.name?.toLowerCase().includes("toil");
+  });
+  const toilAvailableHours = Number(toilBalanceItem?.balance_hours ?? 0);
+  const hasToilBalance = toilAvailableHours > 0;
+
   const [formState, formAction, pending] = useActionState(
     async (previousState: LeaveRequestActionState, formData: FormData) => {
       const result = await submitLeaveRequest(previousState, formData);
@@ -166,6 +175,30 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
               </select>
             </span>
           </label>
+
+          {hasToilBalance ? (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-accent/40 bg-accent/10 p-2.5 text-xs font-medium">
+              <input
+                type="checkbox"
+                name="use_toil_first"
+                value="true"
+                checked={useToilFirst}
+                onChange={(event) => setUseToilFirst(event.target.checked)}
+                className="mt-0.5 size-4 rounded accent-accent"
+              />
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-foreground">
+                  Load TOIL first ({toilAvailableHours.toFixed(2)}h available)
+                </span>
+                <p className="mt-0.5 text-muted">
+                  Your overtime comp balance will be loaded first before deducting from your annual leave unless unchecked.
+                </p>
+              </div>
+            </label>
+          ) : (
+            <input type="hidden" name="use_toil_first" value="true" />
+          )}
+
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label className="grid min-w-0 gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start Date</span>
@@ -206,6 +239,20 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
                 <Sparkles className="size-4 text-accent" />
                 Leave advisor
               </div>
+
+              {calculation.load_toil_first && Number(calculation.toil_hours_to_use ?? 0) > 0 ? (
+                <div className="rounded-md border border-accent/40 bg-surface p-2 text-xs">
+                  <p className="font-bold text-foreground">Priority deduction (TOIL loaded first):</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <span className="rounded bg-accent/15 px-2 py-0.5 font-bold text-accent">
+                      ⚡ TOIL: {Number(calculation.toil_hours_to_use).toFixed(2)}h
+                    </span>
+                    <span className="rounded bg-surface-muted px-2 py-0.5 font-bold text-foreground">
+                      📅 {calculation.leave_type_name}: {Number(calculation.leave_hours_to_use).toFixed(2)}h
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <span className="rounded-md bg-surface px-2 py-1.5">
                   <span className="block text-xs text-muted">Hours to take</span>
@@ -376,10 +423,20 @@ export default function EmployeeLeaveRequests({ state }: EmployeeLeaveRequestsPr
                     {request.status}
                   </span>
                 </div>
-                <p className="mt-1 text-xs font-medium text-muted truncate">
-                  <span className="font-bold text-foreground">{request.start_date} to {request.end_date}</span> ·{" "}
-                  <span className="font-extrabold text-foreground">{Number(request.total_hours).toFixed(2)}h</span>
-                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-medium text-muted">
+                    <span className="font-bold text-foreground">{request.start_date} to {request.end_date}</span> ·{" "}
+                    <span className="font-extrabold text-foreground">{Number(request.total_hours).toFixed(2)}h</span>
+                  </span>
+                  {request.use_toil_first ? (
+                    <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                      ⚡ TOIL First
+                      {request.toil_hours_used && Number(request.toil_hours_used) > 0
+                        ? ` (${Number(request.toil_hours_used).toFixed(2)}h)`
+                        : ""}
+                    </span>
+                  ) : null}
+                </div>
                 {request.rejection_reason ? (
                   <p className="mt-1.5 rounded-md border border-rose-300 bg-rose-100/80 p-2 text-xs font-semibold text-rose-950">
                     Rejection note: {request.rejection_reason}

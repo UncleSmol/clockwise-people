@@ -441,6 +441,11 @@ export async function calculateLeaveAdvisor(
     advisor,
     calculation: {
       available_hours: advisor.available_hours,
+      leave_type_available_hours: advisor.leave_type_available_hours,
+      toil_available_hours: advisor.toil_available_hours,
+      toil_hours_to_use: advisor.toil_hours_to_use,
+      leave_hours_to_use: advisor.leave_hours_to_use,
+      load_toil_first: advisor.load_toil_first,
       days: advisor.days,
       exceeds_balance: advisor.exceeds_balance,
       leave_type_name: advisor.leave_type_name,
@@ -471,6 +476,9 @@ export async function submitLeaveRequest(
     return { ok: false, message: firstIssue(parsed.error) };
   }
 
+  const useToilFirst = formData.get("use_toil_first");
+  const requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("submit_own_leave_request", {
     request_attachment_url: parsed.data.attachment_url || null,
@@ -478,6 +486,7 @@ export async function submitLeaveRequest(
     request_reason: parsed.data.reason || null,
     request_start_date: parsed.data.start_date,
     request_total_hours: null,
+    request_use_toil_first: requestUseToilFirst,
     target_leave_type_id: parsed.data.leave_type_id,
   });
 

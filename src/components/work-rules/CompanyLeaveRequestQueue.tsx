@@ -86,9 +86,16 @@ export default function CompanyLeaveRequestQueue({
                   </div>
                 </div>
 
-                <span className="inline-flex shrink-0 items-center gap-1 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs whitespace-nowrap">
-                  {Number(request.total_hours).toFixed(2)}h Requested
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs whitespace-nowrap">
+                    {Number(request.total_hours).toFixed(2)}h Requested
+                  </span>
+                  {request.use_toil_first ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-900">
+                      ⚡ Load TOIL First
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               {/* High-Contrast White Request Details Box */}

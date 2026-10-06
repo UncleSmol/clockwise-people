@@ -217,7 +217,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       .eq("employee_id", access.employeeId),
     supabase
       .from("leave_requests")
-      .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, leave_types(name)")
+      .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, use_toil_first, toil_hours_used, leave_types(name)")
       .eq("company_id", company.id)
       .eq("employee_id", access.employeeId)
       .is("deleted_at", null)
@@ -274,7 +274,7 @@ export const getCompanyLeaveRequestQueue = cache(async function getCompanyLeaveR
 
   const { data, error } = await supabase
     .from("leave_requests")
-    .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
+    .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, use_toil_first, toil_hours_used, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
     .eq("company_id", company.id)
     .eq("status", "submitted")
     .is("deleted_at", null)
