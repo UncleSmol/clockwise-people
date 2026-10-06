@@ -1,27 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  BookOpen,
   Briefcase,
+  Calculator,
   Calendar,
   CalendarDays,
   CheckCircle2,
   Clock,
   ExternalLink,
+  FileText,
   Filter,
   Heart,
   HelpCircle,
+  Info,
   Layers,
   Palmtree,
   RefreshCw,
+  Scale,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
   User,
   UserCheck,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
@@ -92,59 +99,129 @@ function getCategoryMeta(category: string) {
     return {
       label: "Annual Leave",
       icon: Palmtree,
-      badgeClass: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
-      dotClass: "bg-emerald-500",
-      cardBg: "from-emerald-500/5 to-transparent border-emerald-500/30",
+      badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700",
+      pillClass: "bg-emerald-100 text-emerald-950 border border-emerald-300 dark:bg-emerald-950/90 dark:text-emerald-200 dark:border-emerald-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-emerald-600 dark:bg-emerald-400",
+      cardBg: "from-emerald-500/10 via-emerald-500/5 to-surface border-emerald-500/30",
+      accentText: "text-emerald-700",
+      statutoryRef: "BCEA Section 20",
+      statutoryTitle: "Annual Leave Entitlement",
       statutoryNote: "BCEA Sec 20: Accrues 1h per 17h worked (21 consecutive days / year)",
+      summary:
+        "Every employee is legally entitled to at least 21 consecutive days (15 working days = 120 hours for a 5-day / 40h work week) of paid annual leave per 12-month leave cycle, or 1 hour for every 17 hours worked.",
+      formula: "Accrued Hours = Max( (120 × Hours Worked) / 2080, Hours Worked / 17 )",
+      keyRules: [
+        "Accrues dynamically from submitted, approved, and locked timesheet hours.",
+        "Statutory minimum rate: 1 hour earned for every 17 hours worked (or pro-rated against 40h work schedule).",
+        "Must be taken within 6 months after the end of the 12-month annual leave cycle.",
+        "Cannot be paid out in cash during active employment — only upon termination of employment.",
+        "Company Policy: Accumulated TOIL is loaded first before annual leave unless specified.",
+      ],
     };
   }
   if (cat.includes("sick")) {
     return {
       label: "Sick Leave",
       icon: ShieldAlert,
-      badgeClass: "bg-rose-500/10 text-rose-700 border-rose-500/30",
-      dotClass: "bg-rose-500",
-      cardBg: "from-rose-500/5 to-transparent border-rose-500/30",
+      badgeClass: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700",
+      pillClass: "bg-rose-100 text-rose-950 border border-rose-300 dark:bg-rose-950/90 dark:text-rose-200 dark:border-rose-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-rose-600 dark:bg-rose-400",
+      cardBg: "from-rose-500/10 via-rose-500/5 to-surface border-rose-500/30",
+      accentText: "text-rose-700",
+      statutoryRef: "BCEA Section 22 & 23",
+      statutoryTitle: "Sick Leave & Medical Certificates",
       statutoryNote: "BCEA Sec 22: 30 days per 36-month cycle on full pay",
+      summary:
+        "During every 36-month (3-year) sick leave cycle, an employee is entitled to an amount of paid sick leave equal to 30 working days (240 hours for a standard 5-day / 40h work week) on full remuneration.",
+      formula: "Accrued Hours = Min( 80, (80 × Hours Worked) / 2080 ) per 12-month annual period",
+      keyRules: [
+        "During the first 6 months of employment, entitlement is 1 day of paid sick leave for every 26 days worked.",
+        "After 6 months, the full 36-month cycle entitlement applies.",
+        "Medical certificates (Section 23) are required if absent for more than 2 consecutive days or more than twice in an 8-week period.",
+      ],
     };
   }
   if (cat.includes("family") || cat.includes("maternity") || cat.includes("parental")) {
     return {
       label: "Family Responsibility",
       icon: Heart,
-      badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/30",
-      dotClass: "bg-amber-500",
-      cardBg: "from-amber-500/5 to-transparent border-amber-500/30",
+      badgeClass: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700",
+      pillClass: "bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-950/90 dark:text-amber-200 dark:border-amber-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-amber-600 dark:bg-amber-400",
+      cardBg: "from-amber-500/10 via-amber-500/5 to-surface border-amber-500/30",
+      accentText: "text-amber-800",
+      statutoryRef: "BCEA Section 27",
+      statutoryTitle: "Family Emergencies & Compassionate Leave",
       statutoryNote: "BCEA Sec 27: 3 days paid per annual cycle for family emergencies",
+      summary:
+        "Employees who work at least 4 days per week and have been employed for longer than 4 months are entitled to 3 days (24 hours) of paid family responsibility leave per annual cycle on full remuneration.",
+      formula: "Fixed statutory entitlement: 3 working days (24.00 hours) per annual cycle",
+      keyRules: [
+        "Applies when the employee's child is born or sick.",
+        "Applies in the event of death of the employee's spouse, life partner, parent, child, grandparent, grandchild, or sibling.",
+        "Reasonable proof (e.g., medical certificate or death notice) may be requested by the employer before processing payment.",
+      ],
     };
   }
   if (cat.includes("toil")) {
     return {
       label: "TOIL (Overtime)",
       icon: Zap,
-      badgeClass: "bg-indigo-500/10 text-indigo-700 border-indigo-500/30",
-      dotClass: "bg-indigo-500",
-      cardBg: "from-indigo-500/5 to-transparent border-indigo-500/30",
+      badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/80 dark:text-indigo-200 dark:border-indigo-700",
+      pillClass: "bg-indigo-100 text-indigo-950 border border-indigo-300 dark:bg-indigo-950/90 dark:text-indigo-200 dark:border-indigo-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-indigo-600 dark:bg-indigo-400",
+      cardBg: "from-indigo-500/10 via-indigo-500/5 to-surface border-indigo-500/30",
+      accentText: "text-indigo-800",
+      statutoryRef: "BCEA Section 10(3)(b)",
+      statutoryTitle: "Time Off In Lieu (Overtime Compensation)",
       statutoryNote: "BCEA Sec 10: 1.5× time off in lieu for approved overtime worked",
+      summary:
+        "Under BCEA Section 10(3)(b), an employer may agree to compensate overtime by granting paid time off in lieu at the rate of at least 1.5 hours of paid time off for every 1 hour of overtime worked.",
+      formula: "TOIL Earned = Overtime Hours Worked × 1.5",
+      keyRules: [
+        "Accrues directly from approved overtime logged on timesheets.",
+        "Statutory multiplier: 1.5x (e.g. 10 hours overtime = 15 hours of paid time off).",
+        "Priority Loading Policy: TOIL is loaded first to cover time off before annual leave is deducted, preserving statutory leave balances.",
+        "Must be taken within 1 month of becoming entitled, or by written agreement within 12 months.",
+      ],
     };
   }
   if (cat.includes("study")) {
     return {
       label: "Study Leave",
       icon: Briefcase,
-      badgeClass: "bg-sky-500/10 text-sky-700 border-sky-500/30",
-      dotClass: "bg-sky-500",
-      cardBg: "from-sky-500/5 to-transparent border-sky-500/30",
+      badgeClass: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700",
+      pillClass: "bg-sky-100 text-sky-950 border border-sky-300 dark:bg-sky-950/90 dark:text-sky-200 dark:border-sky-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-sky-600 dark:bg-sky-400",
+      cardBg: "from-sky-500/10 via-sky-500/5 to-surface border-sky-500/30",
+      accentText: "text-sky-800",
+      statutoryRef: "Company Policy",
+      statutoryTitle: "Examination & Educational Study Leave",
       statutoryNote: "Company policy: Dedicated examination and course preparation allocation",
+      summary:
+        "Discretionary benefit provided by the employer to support staff in recognized courses, exams, or continuing professional development.",
+      formula: "Allocated according to approved company policy schedules",
+      keyRules: [
+        "Proof of registration or examination timetable required.",
+        "Subject to managerial pre-approval based on operational coverage.",
+      ],
     };
   }
   return {
     label: category || "Standard Leave",
     icon: CalendarDays,
-    badgeClass: "bg-slate-500/10 text-slate-700 border-slate-500/30",
-    dotClass: "bg-slate-500",
-    cardBg: "from-slate-500/5 to-transparent border-slate-500/30",
+    badgeClass: "bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600",
+    pillClass: "bg-slate-200 text-slate-950 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+    dotClass: "bg-slate-600 dark:bg-slate-400",
+    cardBg: "from-slate-500/10 via-slate-500/5 to-surface border-slate-500/30",
+    accentText: "text-slate-800",
+    statutoryRef: "Company Policy",
+    statutoryTitle: "Standard Leave Policy",
     statutoryNote: "Standard company leave allocation policy",
+    summary:
+      "Company employment terms and conditions outlining time-off entitlements and operational approval requirements.",
+    formula: "Standard entitlement per company policy",
+    keyRules: ["Requires standard request and management approval."],
   };
 }
 
@@ -158,6 +235,7 @@ export default function CompanyAllAccrualsTable({
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [explainingItem, setExplainingItem] = useState<EnrichedBalance | null>(null);
 
   // Map employee info
   const employeeMap = useMemo(() => {
@@ -541,7 +619,7 @@ export default function CompanyAllAccrualsTable({
                             <Icon className="size-4" />
                           </span>
                           <div>
-                            <h6 className="text-sm font-extrabold text-foreground leading-snug">
+                            <h6 className="text-sm font-black text-foreground leading-snug tracking-tight">
                               {item.leaveTypeName}
                             </h6>
                             <span className="text-[10px] font-bold text-muted uppercase">
@@ -564,10 +642,15 @@ export default function CompanyAllAccrualsTable({
                       {/* Main Balance Display */}
                       <div className="my-3 flex items-baseline justify-between border-y border-border/60 py-2.5">
                         <div>
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted">
-                            Remaining Balance
-                          </span>
-                          <div className="flex items-baseline gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-muted">
+                              Remaining Balance
+                            </span>
+                            <span className="text-[11px] font-extrabold text-foreground">
+                              · {item.leaveTypeName}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex items-baseline gap-2">
                             <span
                               className={`text-2xl font-black font-mono tracking-tight ${
                                 isPositive
@@ -638,16 +721,16 @@ export default function CompanyAllAccrualsTable({
 
                       {/* Statutory Note & Audit Button Footer */}
                       <div className="mt-2.5 pt-2 border-t border-border/50 text-[10px] text-muted flex items-center justify-between gap-2">
-                        <span className="font-semibold text-foreground/80 truncate">{meta.statutoryNote}</span>
+                        <span className="font-semibold text-foreground/80 truncate" title={meta.statutoryNote}>
+                          {meta.statutoryNote}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => {
-                            const explanation = `[AUDIT TRAIL] Rule: ${item.leaveTypeName} (${item.leaveCategory.toUpperCase()})\n• Entitlement: ${item.accruedHours}h (${hoursToDays(item.accruedHours)})\n• Taken: ${item.takenHours}h (${hoursToDays(item.takenHours)})\n• Remaining Balance: ${item.balanceHours}h (${hoursToDays(item.balanceHours)})\n• Derivation: Calculated from employee working schedule (Schedule Net Hours). No hardcoded 2080h denominator applied.`;
-                            alert(explanation);
-                          }}
-                          className="shrink-0 font-bold text-emerald-600 hover:text-emerald-500 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                          onClick={() => setExplainingItem(item)}
+                          className="shrink-0 font-bold text-emerald-800 dark:text-emerald-300 hover:text-emerald-950 dark:hover:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-500/40 flex items-center gap-1 transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
+                          title="Open statutory legal audit and balance explanation"
                         >
-                          <Sparkles className="size-3" /> Explain
+                          <Sparkles className="size-3 text-emerald-600 dark:text-emerald-400" /> Explain
                         </button>
                       </div>
                     </div>
@@ -854,14 +937,18 @@ export default function CompanyAllAccrualsTable({
                           </button>
                         </td>
 
-                        {/* Leave Type Badge */}
+                        {/* Leave Type Badge - High Contrast & Interactive */}
                         <td className="px-3 py-2.5">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[11px] font-bold text-foreground">
-                            <span
-                              className={`size-1.5 rounded-full ${meta.dotClass}`}
-                            />
-                            <span>{item.leaveTypeName}</span>
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setExplainingItem(item)}
+                            title={`View statutory audit & calculation for ${item.leaveTypeName}`}
+                            className={`group cursor-pointer text-left ${meta.pillClass} transition-transform hover:scale-[1.02]`}
+                          >
+                            <span className={`size-2 rounded-full ${meta.dotClass} shrink-0`} />
+                            <span className="truncate max-w-[200px]">{item.leaveTypeName}</span>
+                            <Sparkles className="size-3 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity" />
+                          </button>
                         </td>
 
                         {/* Accrued */}
@@ -892,23 +979,34 @@ export default function CompanyAllAccrualsTable({
                           </div>
                         </td>
 
-                        {/* Action: Inspect Employee */}
+                        {/* Action: Inspect Employee & Explain */}
                         <td className="px-3.5 py-2.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedEmployeeId(item.employeeId);
-                              setSelectedType("all");
-                            }}
-                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground"
-                                : "border border-border bg-surface text-foreground hover:border-primary hover:text-primary"
-                            }`}
-                          >
-                            <UserCheck className="size-3" />
-                            <span>{isSelected ? "Selected" : "Inspect"}</span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setExplainingItem(item)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors shadow-2xs cursor-pointer"
+                              title="View statutory legal explanation and balance calculation"
+                            >
+                              <Sparkles className="size-3 text-emerald-600 dark:text-emerald-400" />
+                              <span>Explain</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmployeeId(item.employeeId);
+                                setSelectedType("all");
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ${
+                                isSelected
+                                  ? "bg-primary text-primary-foreground"
+                                  : "border border-border bg-surface text-foreground hover:border-primary hover:text-primary"
+                              }`}
+                            >
+                              <UserCheck className="size-3" />
+                              <span>{isSelected ? "Selected" : "Inspect"}</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -917,6 +1015,229 @@ export default function CompanyAllAccrualsTable({
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      {/* Statutory Legal & Leave Audit Explanation Modal */}
+      {explainingItem ? (
+        <LeaveTypeExplanationModal
+          balance={explainingItem}
+          onClose={() => setExplainingItem(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function LeaveTypeExplanationModal({
+  balance,
+  onClose,
+}: {
+  balance: EnrichedBalance;
+  onClose: () => void;
+}) {
+  const meta = getCategoryMeta(balance.leaveCategory);
+  const Icon = meta.icon;
+  const isPositive = balance.balanceHours > 0;
+  const utilizationPercent =
+    balance.accruedHours > 0
+      ? Math.min(
+          100,
+          Math.max(0, (balance.takenHours / balance.accruedHours) * 100),
+        )
+      : 0;
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface text-foreground shadow-2xl p-5 sm:p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-4">
+          <div className="flex items-start gap-3.5">
+            <span
+              className={`grid size-12 shrink-0 place-items-center rounded-xl ${meta.badgeClass} shadow-xs border`}
+            >
+              <Icon className="size-6" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-xl font-black text-foreground tracking-tight">
+                  {balance.leaveTypeName}
+                </h3>
+                <span className={`text-xs ${meta.pillClass}`}>
+                  <span className={`size-1.5 rounded-full ${meta.dotClass}`} />
+                  {meta.statutoryRef}
+                </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
+                    balance.isPaid
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                      : "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
+                  }`}
+                >
+                  {balance.isPaid ? "Paid Leave" : "Unpaid Leave"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted flex items-center gap-1.5 font-medium">
+                <User className="size-3 text-primary" />
+                <span>Employee:</span>
+                <span className="font-bold text-foreground">{balance.employeeName}</span>
+                {balance.employeeNumber ? (
+                  <span className="font-mono text-[11px] text-muted">({balance.employeeNumber})</span>
+                ) : null}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
+            aria-label="Close"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* 3 Live Balance Metric Cards */}
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-3">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
+              Total Accrued
+            </span>
+            <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-emerald-700 dark:text-emerald-300">
+              +{formatHours(balance.accruedHours)}
+            </p>
+            <p className="text-[11px] font-semibold text-emerald-800/80 dark:text-emerald-400">
+              ≈ {hoursToDays(balance.accruedHours)}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-rose-500/30 bg-rose-50/60 dark:bg-rose-950/20 p-3">
+            <span className="text-[10px] font-black uppercase tracking-wider text-rose-800 dark:text-rose-300 block">
+              Total Taken
+            </span>
+            <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-rose-700 dark:text-rose-300">
+              {balance.takenHours > 0 ? `-${formatHours(balance.takenHours)}` : "0.00h"}
+            </p>
+            <p className="text-[11px] font-semibold text-rose-800/80 dark:text-rose-400">
+              ≈ {hoursToDays(balance.takenHours)}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/20 p-3">
+            <span className="text-[10px] font-black uppercase tracking-wider text-primary block">
+              Net Balance
+            </span>
+            <p
+              className={`mt-1 text-xl sm:text-2xl font-black font-mono ${
+                isPositive ? "text-foreground" : "text-rose-600"
+              }`}
+            >
+              {formatHours(balance.balanceHours)}
+            </p>
+            <p className="text-[11px] font-semibold text-muted">
+              ≈ {hoursToDays(balance.balanceHours)}
+            </p>
+          </div>
+        </div>
+
+        {/* Utilization Bar */}
+        <div className="rounded-xl border border-border/70 bg-surface-muted/50 p-3 space-y-1.5">
+          <div className="flex justify-between text-xs font-bold text-foreground">
+            <span className="flex items-center gap-1.5 text-muted">
+              <TrendingUp className="size-3.5 text-primary" />
+              Utilization Progress
+            </span>
+            <span>
+              {utilizationPercent.toFixed(1)}% consumed
+              <span className="ml-1.5 text-[10px] text-muted font-normal">
+                ({formatHours(balance.takenHours)} of {formatHours(balance.accruedHours)})
+              </span>
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-surface overflow-hidden border border-border/60">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                utilizationPercent > 80
+                  ? "bg-rose-500"
+                  : utilizationPercent > 50
+                    ? "bg-amber-500"
+                    : "bg-emerald-500"
+              }`}
+              style={{ width: `${utilizationPercent}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Statutory Legal Framework Card */}
+        <div className="rounded-xl border border-border bg-gradient-to-b from-surface to-surface-muted/30 p-4 space-y-2.5">
+          <div className="flex items-center gap-2 text-foreground font-black text-sm">
+            <Scale className="size-4 text-primary" />
+            <h4>South African Statutory Framework: {meta.statutoryTitle}</h4>
+          </div>
+          <p className="text-xs text-muted leading-relaxed">
+            {meta.summary}
+          </p>
+          <div className="rounded-lg bg-surface border border-border/80 p-2.5 font-mono text-[11px] text-foreground flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-muted font-sans font-bold text-[10px] uppercase">
+              Calculation Derivation:
+            </span>
+            <code className="text-primary font-bold">{meta.formula}</code>
+          </div>
+        </div>
+
+        {/* Workplace & Policy Rules Checklist */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-black uppercase tracking-wider text-muted flex items-center gap-1.5">
+            <FileText className="size-3.5 text-primary" />
+            <span>Workplace Rules & Requirements</span>
+          </h4>
+          <div className="rounded-xl border border-border/80 bg-surface divide-y divide-border/60">
+            {meta.keyRules.map((rule, idx) => (
+              <div key={idx} className="flex items-start gap-2.5 p-3 text-xs leading-relaxed text-foreground">
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-600 mt-0.5" />
+                <span>{rule}</span>
+              </div>
+            ))}
+            {balance.requiresAttachment ? (
+              <div className="flex items-start gap-2.5 p-3 text-xs leading-relaxed text-amber-900 bg-amber-50/50 dark:bg-amber-950/20">
+                <ShieldAlert className="size-4 shrink-0 text-amber-600 mt-0.5" />
+                <span>
+                  <strong>Supporting Documentation Required:</strong> Requests submitted under this leave type require documentary proof (e.g. medical certificate or death notice) before approval.
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Actions Footer */}
+        <div className="flex items-center justify-between gap-3 border-t border-border/80 pt-4">
+          <p className="text-[11px] text-muted flex items-center gap-1">
+            <ShieldCheck className="size-3.5 text-emerald-600" />
+            <span>Compliant with South African BCEA (Act 75 of 1997)</span>
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
+          >
+            Understood
+          </button>
         </div>
       </div>
     </div>
