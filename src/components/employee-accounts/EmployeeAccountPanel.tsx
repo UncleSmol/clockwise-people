@@ -5,6 +5,7 @@ import { Check, Copy, KeyRound, Loader2, Shield, UserCheck } from "lucide-react"
 import {
   createEmployeeAccount,
   assignEmployeeRole,
+  toggleEmployeeSuperAdminAction,
   type EmployeeAccountRoleKey,
 } from "@/lib/employee-accounts/actions";
 import { sendEmployeeInvite, createEmployeeInviteLink } from "@/lib/invitations/actions";
@@ -18,6 +19,8 @@ type EmployeeAccountPanelProps = {
   currentRoleName?: string | null;
   canAssignRoles?: boolean;
   canAssignOwnerRole?: boolean;
+  canAssignSuperAdmin?: boolean;
+  isSuperAdmin?: boolean;
 };
 
 type ActionState = {
@@ -52,6 +55,8 @@ export default function EmployeeAccountPanel({
   currentRoleName,
   canAssignRoles = true,
   canAssignOwnerRole = false,
+  canAssignSuperAdmin = false,
+  isSuperAdmin = false,
 }: EmployeeAccountPanelProps) {
   const roleOptions = canAssignOwnerRole
     ? [OWNER_ROLE_OPTION, ...BASE_ROLE_OPTIONS]
@@ -64,6 +69,10 @@ export default function EmployeeAccountPanel({
   const [assignRoleKey, setAssignRoleKey] = useState<EmployeeAccountRoleKey>(initialRole);
   const [assignFeedback, setAssignFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [isAssignPending, startAssignTransition] = useTransition();
+
+  const [isSuperAdminUser, setIsSuperAdminUser] = useState<boolean>(isSuperAdmin);
+  const [superAdminFeedback, setSuperAdminFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [isSuperAdminPending, startSuperAdminTransition] = useTransition();
 
   const [state, formAction, pending] = useActionState(
     createEmployeeAccount.bind(null, employeeId, provisionRoleKey),
@@ -127,6 +136,37 @@ export default function EmployeeAccountPanel({
     });
   }
 
+  function handleToggleSuperAdmin() {
+    setSuperAdminFeedback(null);
+    const nextState = !isSuperAdminUser;
+
+    startSuperAdminTransition(async () => {
+      try {
+        const result = await toggleEmployeeSuperAdminAction(employeeId, nextState);
+        if (result.ok) {
+          setIsSuperAdminUser(nextState);
+          setSuperAdminFeedback({
+            ok: true,
+            message: result.message ?? "Super Admin status updated successfully.",
+          });
+        } else {
+          setSuperAdminFeedback({
+            ok: false,
+            message: result.error ?? "Failed to update Super Admin status.",
+          });
+        }
+      } catch (err) {
+        setSuperAdminFeedback({
+          ok: false,
+          message:
+            err instanceof Error
+              ? err.message
+              : "An unexpected error occurred while toggling Super Admin status.",
+        });
+      }
+    });
+  }
+
   return (
     <section className="grid min-w-0 gap-5 rounded-xl border border-border bg-surface p-5 shadow-2xs">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
@@ -155,6 +195,12 @@ export default function EmployeeAccountPanel({
               <Shield className="size-3" />
               {activeRoleLabel}
             </span>
+            {isSuperAdminUser ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                <Shield className="size-3" />
+                Super Admin (Universal)
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -270,6 +316,70 @@ export default function EmployeeAccountPanel({
             >
               {assignFeedback.ok ? <Check className="size-4 text-emerald-600 shrink-0" /> : null}
               <span>{assignFeedback.message}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Super Admin Universal Privilege Management */}
+      {hasAccount && canAssignSuperAdmin && (
+        <div className="rounded-lg border border-primary/30 bg-primary/[0.04] p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Shield className="size-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Super Administrator Privileges</h3>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    isSuperAdminUser
+                      ? "bg-primary/20 text-primary"
+                      : "bg-surface-muted text-muted"
+                  }`}
+                >
+                  {isSuperAdminUser ? "Active (Universal Tenant Access)" : "Standard User"}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted leading-relaxed">
+                Universal company switching, cross-tenant provisioning, and platform-wide sysadmin access.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSuperAdminPending}
+              onClick={handleToggleSuperAdmin}
+              className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-bold transition-all cursor-pointer ${
+                isSuperAdminUser
+                  ? "border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
+                  : "bg-primary text-white shadow-xs hover:bg-primary/90"
+              }`}
+            >
+              {isSuperAdminPending ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>Updating...</span>
+                </>
+              ) : isSuperAdminUser ? (
+                <span>Revoke Super Admin</span>
+              ) : (
+                <>
+                  <Shield className="size-3.5" />
+                  <span>Grant Super Admin</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {superAdminFeedback && (
+            <div
+              className={`mt-3 rounded-lg border px-3 py-2 text-xs font-medium flex items-center gap-2 ${
+                superAdminFeedback.ok
+                  ? "border-emerald-500/30 bg-emerald-50 text-emerald-950"
+                  : "border-rose-500/30 bg-rose-50 text-rose-950"
+              }`}
+            >
+              {superAdminFeedback.ok ? <Check className="size-4 text-emerald-600 shrink-0" /> : null}
+              <span>{superAdminFeedback.message}</span>
             </div>
           )}
         </div>

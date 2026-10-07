@@ -1,4 +1,5 @@
 import BrandMark from "@/components/BrandMark";
+import SignInButton from "@/components/auth/SignInButton";
 import { signIn } from "@/lib/auth/actions";
 
 type LoginPageProps = {
@@ -49,9 +50,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 placeholder="Enter your password"
               />
             </label>
-            <button className="btn btn-accent w-full text-center">
-              Sign in
-            </button>
+            <SignInButton />
           </form>
 
           <p className="mt-5 text-center text-sm text-muted">

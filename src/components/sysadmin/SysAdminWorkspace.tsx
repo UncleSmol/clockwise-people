@@ -20,14 +20,17 @@ import {
 import CreateCompanyModal from "./CreateCompanyModal";
 import CreateSysAdminEmployeeModal from "./CreateSysAdminEmployeeModal";
 import CredentialsRevealModal from "./CredentialsRevealModal";
-import { switchActiveCompanyAction } from "@/lib/sysadmin/actions";
-import type { SysAdminCompanyOverview } from "@/lib/sysadmin/schema";
+import ManageSuperAdminModal from "./ManageSuperAdminModal";
+import { switchActiveCompanyAction, setSuperAdminRoleAction } from "@/lib/sysadmin/actions";
+import type { SysAdminCompanyOverview, SysAdminSuperAdminUser } from "@/lib/sysadmin/schema";
 
 type SysAdminWorkspaceProps = {
   activeCompanyId: string;
   companies: SysAdminCompanyOverview[];
   workstations: { id: string; company_id: string; name: string }[];
   schedules: { id: string; company_id: string; name: string }[];
+  superAdmins?: SysAdminSuperAdminUser[];
+  canAssignSuperAdmin?: boolean;
 };
 
 export default function SysAdminWorkspace({
@@ -35,6 +38,8 @@ export default function SysAdminWorkspace({
   companies,
   workstations,
   schedules,
+  superAdmins = [],
+  canAssignSuperAdmin = false,
 }: SysAdminWorkspaceProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -42,6 +47,7 @@ export default function SysAdminWorkspace({
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateCompanyOpen, setIsCreateCompanyOpen] = useState(false);
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
+  const [isManageSuperAdminOpen, setIsManageSuperAdminOpen] = useState(false);
   const [selectedTargetCompanyId, setSelectedTargetCompanyId] = useState<string>(activeCompanyId);
 
   const [revealedCredentials, setRevealedCredentials] = useState<{
@@ -109,10 +115,20 @@ export default function SysAdminWorkspace({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {canAssignSuperAdmin ? (
+              <button
+                type="button"
+                onClick={() => setIsManageSuperAdminOpen(true)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary shadow-xs transition-colors hover:bg-primary/20 sm:flex-none cursor-pointer"
+              >
+                <ShieldCheck className="size-4" />
+                Grant Super Admin
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setIsCreateCompanyOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-primary/90 sm:flex-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-primary/90 sm:flex-none cursor-pointer"
             >
               <Plus className="size-4" />
               New Company
@@ -120,7 +136,7 @@ export default function SysAdminWorkspace({
             <button
               type="button"
               onClick={() => openAddEmployeeForCompany(activeCompanyId)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted sm:flex-none"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted sm:flex-none cursor-pointer"
             >
               <UserPlus className="size-4 text-primary" />
               Add Employee
@@ -312,6 +328,109 @@ export default function SysAdminWorkspace({
         ) : null}
       </div>
 
+      {/* Super Administrator Directory Section */}
+      <div className="rounded-2xl border border-border bg-surface p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="size-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground sm:text-lg">Super Administrator Directory</h2>
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                {superAdmins.length} universal
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Users with cross-tenant capabilities and universal company switching. Only Doctor and Sizwe hold Super Admin assignment authority.
+            </p>
+          </div>
+
+          {canAssignSuperAdmin ? (
+            <button
+              type="button"
+              onClick={() => setIsManageSuperAdminOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <UserPlus className="size-3.5" />
+              <span>Grant Super Admin</span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {superAdmins.map((admin) => {
+            const isDoctor = admin.isDoctor;
+            const isSizwe = admin.isSizwe;
+
+            return (
+              <div
+                key={admin.email}
+                className="flex flex-col justify-between rounded-xl border border-border bg-surface-muted/30 p-4 space-y-3"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-foreground">
+                        {admin.fullName}
+                      </div>
+                      <div className="truncate text-xs text-muted font-mono mt-0.5">
+                        {admin.email}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                        isDoctor
+                          ? "bg-amber-500/15 text-amber-800 border border-amber-500/30"
+                          : isSizwe
+                            ? "bg-blue-500/15 text-blue-800 border border-blue-500/30"
+                            : "bg-emerald-500/15 text-emerald-800 border border-emerald-500/30"
+                      }`}
+                    >
+                      {isDoctor ? "Root Super Admin" : isSizwe ? "Super Admin & Grantor" : "Super Admin"}
+                    </span>
+                  </div>
+
+                  {admin.companyName ? (
+                    <div className="mt-2.5 truncate text-[11px] text-muted flex items-center gap-1">
+                      <Building2 className="size-3 text-muted/80 shrink-0" />
+                      <span>{admin.companyName}</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {canAssignSuperAdmin && !isDoctor ? (
+                  <div className="pt-2 border-t border-border/60 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Are you sure you want to revoke Super Administrator privileges from ${admin.email}?`,
+                          )
+                        ) {
+                          startTransition(async () => {
+                            const res = await setSuperAdminRoleAction(admin.email, false);
+                            if (res.ok) {
+                              router.refresh();
+                            } else {
+                              alert(res.message);
+                            }
+                          });
+                        }
+                      }}
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer"
+                    >
+                      Revoke Privileges
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="rounded-2xl border border-border bg-surface-muted/30 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
           <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -324,7 +443,7 @@ export default function SysAdminWorkspace({
               When an employee logs in, the security functions <code>public.is_company_member(company_id)</code> and{" "}
               <code>public.current_user_company_ids()</code> automatically filter all queries to their assigned company.
               Employees cannot query, view, or modify users, timesheets, or leave data from other companies.
-              Only users flagged with <code>is_super_admin = true</code> possess cross-tenant provisioning capabilities.
+              Only users assigned the <code>Super Admin</code> role possess universal cross-tenant switching and provisioning capabilities.
             </p>
           </div>
         </div>
@@ -351,6 +470,16 @@ export default function SysAdminWorkspace({
         initialCompanyId={selectedTargetCompanyId}
         workstations={workstations}
         schedules={schedules}
+        canAssignSuperAdmin={canAssignSuperAdmin}
+      />
+
+      <ManageSuperAdminModal
+        isOpen={isManageSuperAdminOpen}
+        onClose={() => setIsManageSuperAdminOpen(false)}
+        onSuccess={() => {
+          router.refresh();
+        }}
+        existingSuperAdminEmails={superAdmins.map((a) => a.email)}
       />
 
       {revealedCredentials ? (

@@ -19,10 +19,6 @@ function roleKey(relation?: { key: AppRole }[] | { key: AppRole } | null) {
   return relation?.key ?? null;
 }
 
-function isFormalizeEmail(email?: string | null): boolean {
-  return Boolean(email && email.toLowerCase().endsWith("@formalize.co.za"));
-}
-
 export const requireUser = cache(async function requireUser() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -63,16 +59,6 @@ export const getActiveCompany = cache(async function getActiveCompany() {
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
 
-  const { data: appUsers } = await supabase
-    .from("users")
-    .select("is_super_admin")
-    .eq("auth_user_id", user.id)
-    .eq("status", "active")
-    .is("deleted_at", null);
-
-  const isSuperAdmin =
-    isFormalizeEmail(user.email) && (appUsers ?? []).some((u) => u.is_super_admin);
-
   const cookieStore = await cookies();
   const preferredId = cookieStore.get("active_company_id")?.value;
   if (preferredId) {
@@ -106,8 +92,17 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
 
-  const isSuperAdmin =
-    isFormalizeEmail(user.email) && (appUsers ?? []).some((u) => u.is_super_admin);
+  const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
+
+  // Super Admin Grantors are strictly enforced on the server-side.
+  // Only Doctor Khoza (doctor@formalize.co.za) and Sizwe Hlatshwayo (admin@formalize.co.za)
+  // are authorized to assign or revoke Super Admin privileges.
+  const SUPER_ADMIN_GRANTORS = new Set([
+    "doctor@formalize.co.za",
+    "admin@formalize.co.za",
+  ]);
+  const userEmail = user.email?.toLowerCase();
+  const canAssignSuperAdmin = Boolean(userEmail && SUPER_ADMIN_GRANTORS.has(userEmail));
 
   const targetAppUser =
     appUsers?.find((u) => u.company_id === activeCompany.id) ??
@@ -171,6 +166,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     employeeId: activeEmployeeId,
     roles: Array.from(roleKeys),
     isSuperAdmin,
+    canAssignSuperAdmin,
     isOwner: isSuperAdmin || roleKeys.has("owner"),
     isHrAdmin: isSuperAdmin || roleKeys.has("hr_admin"),
     isBranchManager: isSuperAdmin || roleKeys.has("branch_manager"),

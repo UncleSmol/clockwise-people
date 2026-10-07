@@ -292,3 +292,69 @@ export async function assignEmployeeRole(
     message: `Role successfully updated to "${targetRole.name}".`,
   };
 }
+
+export async function toggleEmployeeSuperAdminAction(
+  employeeId: string,
+  grantSuperAdmin: boolean,
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  const { user } = await requireUser();
+  const callerEmail = user.email?.toLowerCase().trim();
+
+  // Strict server-side verification: Only Doctor and Sizwe from Formalize can grant/revoke super admin privileges
+  if (!callerEmail || !["doctor@formalize.co.za", "admin@formalize.co.za"].includes(callerEmail)) {
+    return {
+      ok: false,
+      error: "Unauthorized: Only Doctor and Sizwe from Formalize can grant or revoke Super Admin privileges.",
+    };
+  }
+
+  const { company } = await getActiveCompany();
+  const admin = createSupabaseAdminClient();
+
+  const { data: employee, error: empError } = await admin
+    .from("employees")
+    .select("id, email, user_id, full_name")
+    .eq("company_id", company.id)
+    .eq("id", employeeId)
+    .is("deleted_at", null)
+    .single();
+
+  if (empError || !employee) {
+    return { ok: false, error: "Employee record not found." };
+  }
+
+  const targetEmail = employee.email?.toLowerCase().trim();
+  if (targetEmail === "doctor@formalize.co.za" && !grantSuperAdmin) {
+    return { ok: false, error: "Doctor Khoza is the primary Super Admin and cannot be demoted." };
+  }
+
+  if (employee.user_id) {
+    const { error: updateErr } = await admin
+      .from("users")
+      .update({ is_super_admin: grantSuperAdmin, updated_at: new Date().toISOString() })
+      .eq("id", employee.user_id);
+
+    if (updateErr) {
+      return { ok: false, error: updateErr.message };
+    }
+  }
+
+  if (targetEmail) {
+    // Synchronize all user records matching this email
+    await admin
+      .from("users")
+      .update({ is_super_admin: grantSuperAdmin, updated_at: new Date().toISOString() })
+      .eq("email", targetEmail);
+  }
+
+  revalidatePath(`/dashboard/employees/${employee.id}`);
+  revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message: grantSuperAdmin
+      ? `Super Administrator privileges successfully granted to ${employee.full_name}.`
+      : `Super Administrator privileges revoked for ${employee.full_name}.`,
+  };
+}

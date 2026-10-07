@@ -248,6 +248,23 @@ export async function createSysAdminEmployeeAction(
       };
     }
 
+    if (values.is_super_admin) {
+      const callerEmail = user.email?.toLowerCase().trim();
+      const isGrantor = Boolean(callerEmail && ["doctor@formalize.co.za", "admin@formalize.co.za"].includes(callerEmail));
+      if (!isGrantor) {
+        return {
+          ok: false,
+          message: "Unauthorized: Only Doctor and Sizwe from Formalize can grant Super Admin privileges.",
+        };
+      }
+
+      await admin
+        .from("users")
+        .update({ is_super_admin: true })
+        .eq("company_id", values.company_id)
+        .eq("auth_user_id", authUserId);
+    }
+
     credentials = {
       email: values.email,
       password: temporaryPassword,
@@ -290,4 +307,95 @@ export async function switchActiveCompanyAction(companyId: string) {
   revalidatePath("/dashboard/reports");
 
   return { ok: true, activeCompanyId: companyId };
+}
+
+export async function setSuperAdminRoleAction(
+  targetEmail: string,
+  grantSuperAdmin: boolean,
+): Promise<SysAdminActionResult> {
+  const { user } = await requireUser();
+  const callerEmail = user.email?.toLowerCase().trim();
+
+  // Strict server-side verification: Only Doctor and Sizwe can assign or revoke super admin rights
+  if (!callerEmail || !["doctor@formalize.co.za", "admin@formalize.co.za"].includes(callerEmail)) {
+    return {
+      ok: false,
+      message: "Unauthorized: Only Doctor and Sizwe from Formalize can grant or revoke Super Admin privileges.",
+    };
+  }
+
+  const normalizedTarget = targetEmail.toLowerCase().trim();
+  if (!normalizedTarget) {
+    return { ok: false, message: "Target email address is required." };
+  }
+
+  if (normalizedTarget === "doctor@formalize.co.za" && !grantSuperAdmin) {
+    return { ok: false, message: "Doctor Khoza is the primary Super Admin and cannot be demoted." };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  // Execute database RPC
+  const { error: rpcError } = await admin.rpc("set_user_super_admin_by_email", {
+    target_email: normalizedTarget,
+    grant_super_admin: grantSuperAdmin,
+  });
+
+  if (rpcError) {
+    // Fallback to direct update
+    const { error: updateErr } = await admin
+      .from("users")
+      .update({ is_super_admin: grantSuperAdmin, updated_at: new Date().toISOString() })
+      .eq("email", normalizedTarget);
+
+    if (updateErr) {
+      return { ok: false, message: updateErr.message };
+    }
+  }
+
+  // If granting and no existing user row in public.users, check if auth account exists to link
+  const { data: userRecords } = await admin
+    .from("users")
+    .select("id")
+    .eq("email", normalizedTarget);
+
+  if ((!userRecords || userRecords.length === 0) && grantSuperAdmin) {
+    const { data: listData } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
+    const authUser = listData?.users?.find((u) => u.email?.toLowerCase() === normalizedTarget);
+
+    const { data: formalizeCompany } = await admin
+      .from("companies")
+      .select("id")
+      .eq("name", "formalize")
+      .maybeSingle();
+
+    if (formalizeCompany && authUser) {
+      await admin.from("users").insert({
+        company_id: formalizeCompany.id,
+        auth_user_id: authUser.id,
+        full_name: authUser.user_metadata?.full_name || normalizedTarget.split("@")[0],
+        email: normalizedTarget,
+        is_super_admin: true,
+        status: "active",
+      });
+    } else if (!authUser) {
+      return {
+        ok: false,
+        message: `No account found for "${targetEmail}". Ensure the employee or login account has been created first.`,
+      };
+    }
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard", "page");
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/employees");
+
+  return {
+    ok: true,
+    message: grantSuperAdmin
+      ? `Super Administrator privileges successfully granted to ${targetEmail}.`
+      : `Super Administrator privileges revoked for ${targetEmail}.`,
+  };
 }

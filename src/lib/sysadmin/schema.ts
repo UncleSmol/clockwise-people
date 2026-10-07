@@ -42,10 +42,20 @@ export const sysAdminCreateEmployeeSchema = z.object({
   role_key: z.enum(appRoles).default("employee"),
   create_login: z.boolean().default(true),
   temporary_password: z.string().trim().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
+  is_super_admin: z.boolean().default(false),
 });
 
 export type SysAdminCreateEmployeeInput = z.input<typeof sysAdminCreateEmployeeSchema>;
 export type SysAdminCreateEmployeeValues = z.output<typeof sysAdminCreateEmployeeSchema>;
+
+export type SysAdminSuperAdminUser = {
+  email: string;
+  fullName: string;
+  companyName?: string | null;
+  createdAt: string;
+  isDoctor: boolean;
+  isSizwe: boolean;
+};
 
 export type SysAdminCompanyOverview = {
   id: string;

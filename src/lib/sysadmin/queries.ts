@@ -6,6 +6,7 @@ import { getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
 import type {
   SysAdminCompanyEmployee,
   SysAdminCompanyOverview,
+  SysAdminSuperAdminUser,
 } from "./schema";
 
 export const getSysAdminCompaniesOverview = cache(async function getSysAdminCompaniesOverview(): Promise<SysAdminCompanyOverview[]> {
@@ -172,4 +173,49 @@ export const getSysAdminCompanyEmployees = cache(async function getSysAdminCompa
       role_key: e.user_id ? roleMap.get(e.user_id) ?? null : null,
     };
   });
+});
+
+export const getSysAdminSuperAdmins = cache(async function getSysAdminSuperAdmins(): Promise<SysAdminSuperAdminUser[]> {
+  const access = await getCurrentUserAccess();
+  if (!access.isSuperAdmin) {
+    return [];
+  }
+
+  const { supabase } = await requireUser();
+
+  const { data: users, error } = await supabase
+    .from("users")
+    .select("email, full_name, created_at, companies ( name )")
+    .eq("is_super_admin", true)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Failed to fetch super admins:", error.message);
+    return [];
+  }
+
+  const seenEmails = new Map<string, SysAdminSuperAdminUser>();
+
+  for (const u of users ?? []) {
+    const email = u.email?.toLowerCase().trim();
+    if (!email) continue;
+
+    if (!seenEmails.has(email)) {
+      const companyRelation = u.companies as { name?: string } | { name?: string }[] | null;
+      const compName = Array.isArray(companyRelation) ? companyRelation[0]?.name : companyRelation?.name;
+
+      seenEmails.set(email, {
+        email,
+        fullName: u.full_name || email,
+        companyName: compName ?? null,
+        createdAt: u.created_at,
+        isDoctor: email === "doctor@formalize.co.za",
+        isSizwe: email === "admin@formalize.co.za",
+      });
+    }
+  }
+
+  return Array.from(seenEmails.values());
 });

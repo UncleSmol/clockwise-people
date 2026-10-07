@@ -398,6 +398,24 @@ function currentDateInTimezone(timezone: string) {
   return `${year}-${month}-${day}`;
 }
 
+const ensuredPublicHolidaysCache = new Set<string>();
+
+async function ensureHolidaysOnce(client: any, companyId: string, year: number) {
+  const cacheKey = `${companyId}:${year}`;
+  if (ensuredPublicHolidaysCache.has(cacheKey)) {
+    return;
+  }
+  try {
+    await client.rpc("ensure_current_year_za_public_holidays", {
+      target_company_id: companyId,
+      target_year: year,
+    });
+    ensuredPublicHolidaysCache.add(cacheKey);
+  } catch (err) {
+    console.warn("Public holiday initialization skipped:", err);
+  }
+}
+
 export const getEmployeeTimeState = cache(async function getEmployeeTimeState(): Promise<EmployeeTimeState> {
   const [access, { company }] = await Promise.all([
     getCurrentUserAccess(),
@@ -425,10 +443,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   const today = currentDateInTimezone(effectiveTimezone);
   const currentYear = Number(today.slice(0, 4));
 
-  await supabase.rpc("ensure_current_year_za_public_holidays", {
-    target_company_id: company.id,
-    target_year: currentYear,
-  });
+  await ensureHolidaysOnce(supabase, company.id, currentYear);
 
   const [
     employeeResult,
@@ -567,7 +582,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     company.id,
     [
       ...(effectiveTodayEntryRow ? [effectiveTodayEntryRow.id] : []),
-      ...rawRecentEntries.map((entry) => entry.id),
+      ...rawRecentEntries.slice(0, 14).map((entry) => entry.id),
     ],
   );
   const todayEntry = effectiveTodayEntryRow
@@ -812,10 +827,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
   const effectiveTimezone = company.timezone || "Africa/Johannesburg";
   const workDate = currentDateInTimezone(effectiveTimezone);
 
-  await adminClient.rpc("ensure_current_year_za_public_holidays", {
-    target_company_id: company.id,
-    target_year: Number(workDate.slice(0, 4)),
-  });
+  await ensureHolidaysOnce(adminClient, company.id, Number(workDate.slice(0, 4)));
 
   const [employeesResult, entriesResult, geofenceEventsResult, settingsResult] = await Promise.all([
     adminClient
@@ -1208,10 +1220,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   const workDate = currentDateInTimezone(company.timezone || "UTC");
   const currentYear = Number(workDate.slice(0, 4));
 
-  await supabase.rpc("ensure_current_year_za_public_holidays", {
-    target_company_id: company.id,
-    target_year: currentYear,
-  });
+  await ensureHolidaysOnce(supabase, company.id, currentYear);
 
   const [{ data, error }, { data: holidaysData }] = await Promise.all([
     supabase
@@ -1247,7 +1256,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
     supabase,
     company.id,
-    rows.map((entry) => entry.id),
+    rows.slice(0, 60).map((entry) => entry.id),
   );
 
   return rows.map((entry) => {

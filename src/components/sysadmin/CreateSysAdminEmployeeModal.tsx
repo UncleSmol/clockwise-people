@@ -19,6 +19,7 @@ type CreateSysAdminEmployeeModalProps = {
   initialCompanyId?: string;
   workstations: { id: string; company_id: string; name: string }[];
   schedules: { id: string; company_id: string; name: string }[];
+  canAssignSuperAdmin?: boolean;
 };
 
 const ROLES_INFO: { key: AppRole; title: string; description: string }[] = [
@@ -57,6 +58,7 @@ export default function CreateSysAdminEmployeeModal({
   initialCompanyId,
   workstations,
   schedules,
+  canAssignSuperAdmin = false,
 }: CreateSysAdminEmployeeModalProps) {
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(
     initialCompanyId || companies[0]?.id || "",
@@ -89,6 +91,7 @@ export default function CreateSysAdminEmployeeModal({
     role_key: "employee",
     create_login: true,
     temporary_password: "",
+    is_super_admin: false,
   });
 
   if (!isOpen) return null;
@@ -373,6 +376,28 @@ export default function CreateSysAdminEmployeeModal({
                   onChange={(e) => setFormData({ ...formData, temporary_password: e.target.value })}
                   className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
+              </div>
+            ) : null}
+
+            {canAssignSuperAdmin && formData.create_login ? (
+              <div className="mt-3 pl-7">
+                <label className="flex items-center gap-2.5 cursor-pointer rounded-xl border border-primary/20 bg-primary/[0.04] p-3 hover:bg-primary/[0.08] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.is_super_admin)}
+                    onChange={(e) => setFormData({ ...formData, is_super_admin: e.target.checked })}
+                    className="size-4 rounded text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="size-3.5 text-primary" />
+                      Grant Super Administrator Privileges
+                    </div>
+                    <div className="text-[11px] text-muted leading-relaxed">
+                      Cross-tenant company switching and sysadmin access across all companies (supports any email).
+                    </div>
+                  </div>
+                </label>
               </div>
             ) : null}
           </div>

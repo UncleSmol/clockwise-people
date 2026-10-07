@@ -90,4 +90,5 @@ export type EmployeeRecord = {
   work_schedule_ids: string[];
   role_key?: AppRole | null;
   role_name?: string | null;
+  is_super_admin?: boolean;
 };

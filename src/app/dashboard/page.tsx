@@ -184,6 +184,7 @@ const CompanyRulesForm = dynamic(
 import {
   getSysAdminCompaniesOverview,
   getSysAdminCompanyMetadata,
+  getSysAdminSuperAdmins,
 } from "@/lib/sysadmin/queries";
 const CompanyReportsWorkspace = dynamic(
   () => import("@/components/reports/CompanyReportsWorkspace"),
@@ -235,6 +236,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     companySettings,
     sysAdminCompanies,
     sysAdminMetadata,
+    sysAdminSuperAdmins,
   ] = await Promise.all([
     getEmployeeTimeState(),
     canManageCompany
@@ -263,6 +265,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     access.isSuperAdmin
       ? getSysAdminCompanyMetadata()
       : Promise.resolve({ workstations: [], schedules: [] }),
+    access.isSuperAdmin
+      ? getSysAdminSuperAdmins()
+      : Promise.resolve([]),
   ]);
 
   const currentDateLabel = new Intl.DateTimeFormat("en-ZA", {
@@ -437,6 +442,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     currentRoleName={selectedEmployee.role_name ?? null}
                     canAssignRoles={access.canAssignRoles}
                     canAssignOwnerRole={access.isSuperAdmin || access.isOwner}
+                    canAssignSuperAdmin={access.canAssignSuperAdmin}
+                    isSuperAdmin={Boolean(selectedEmployee.is_super_admin)}
                   />
 
                   {manualInviteUrl ? <InviteLinkPanel inviteUrl={manualInviteUrl} /> : null}
@@ -679,6 +686,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           companies={sysAdminCompanies}
           workstations={sysAdminMetadata.workstations}
           schedules={sysAdminMetadata.schedules}
+          superAdmins={sysAdminSuperAdmins}
+          canAssignSuperAdmin={access.canAssignSuperAdmin}
         />
       ),
     });

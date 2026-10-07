@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
@@ -79,7 +80,7 @@ function attachWorkScheduleIds(
   }));
 }
 
-export async function getEmployeePageData(): Promise<EmployeePageData> {
+export const getEmployeePageData = cache(async function getEmployeePageData(): Promise<EmployeePageData> {
   if (!hasSupabaseConfig()) {
     return {
       isConfigured: false,
@@ -219,6 +220,17 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
     });
   }
 
+  const superAdminUserIds = new Set<string>();
+  if (userIds.length > 0) {
+    const { data: superAdminRows } = await admin
+      .from("users")
+      .select("id")
+      .in("id", userIds)
+      .eq("is_super_admin", true);
+
+    (superAdminRows ?? []).forEach((row) => superAdminUserIds.add(row.id));
+  }
+
   const employeesWithoutUser = employees.filter((e) => !e.user_id);
   const pendingInviteRoleMap = new Map<string, AppRole>();
   if (employeesWithoutUser.length > 0) {
@@ -237,9 +249,11 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
   }
 
   const enrichedEmployees = employees.map((emp) => {
+    const isSuperAdmin = emp.user_id ? superAdminUserIds.has(emp.user_id) : false;
+
     if (emp.user_id && roleMap.has(emp.user_id)) {
       const r = roleMap.get(emp.user_id)!;
-      return { ...emp, role_key: r.key, role_name: r.name };
+      return { ...emp, role_key: r.key, role_name: r.name, is_super_admin: isSuperAdmin };
     }
     if (pendingInviteRoleMap.has(emp.id)) {
       const inviteKey = pendingInviteRoleMap.get(emp.id)!;
@@ -247,9 +261,10 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
         ...emp,
         role_key: inviteKey,
         role_name: `Pending Invite (${inviteKey.replace("_", " ")})`,
+        is_super_admin: isSuperAdmin,
       };
     }
-    return emp;
+    return { ...emp, is_super_admin: isSuperAdmin };
   });
 
   return {
@@ -273,9 +288,9 @@ export async function getEmployeePageData(): Promise<EmployeePageData> {
       .map((employee) => ({ id: employee.id, label: employee.full_name })),
     employees: enrichedEmployees,
   };
-}
+});
 
-export async function getEmployeeDetail(employeeId: string) {
+export const getEmployeeDetail = cache(async function getEmployeeDetail(employeeId: string) {
   if (!hasSupabaseConfig()) {
     return null;
   }
@@ -322,17 +337,25 @@ export async function getEmployeeDetail(employeeId: string) {
   const admin = createSupabaseAdminClient();
   let currentRoleKey: AppRole | null = null;
   let currentRoleName: string | null = null;
+  let isSuperAdmin = false;
 
   if (employeeRecord.user_id) {
-    const { data: roleRow } = await admin
-      .from("user_roles")
-      .select("user_id, role_id, roles(key, name)")
-      .eq("company_id", company.id)
-      .eq("user_id", employeeRecord.user_id)
-      .is("revoked_at", null)
-      .order("assigned_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: roleRow }, { data: userRow }] = await Promise.all([
+      admin
+        .from("user_roles")
+        .select("user_id, role_id, roles(key, name)")
+        .eq("company_id", company.id)
+        .eq("user_id", employeeRecord.user_id)
+        .is("revoked_at", null)
+        .order("assigned_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("users")
+        .select("is_super_admin")
+        .eq("id", employeeRecord.user_id)
+        .maybeSingle(),
+    ]);
 
     if (roleRow?.roles) {
       const r = Array.isArray(roleRow.roles) ? roleRow.roles[0] : roleRow.roles;
@@ -341,6 +364,8 @@ export async function getEmployeeDetail(employeeId: string) {
         currentRoleName = r.name ?? r.key;
       }
     }
+
+    isSuperAdmin = userRow?.is_super_admin ?? false;
   }
 
   if (!currentRoleKey) {
@@ -364,5 +389,6 @@ export async function getEmployeeDetail(employeeId: string) {
     ...employeeRecord,
     role_key: currentRoleKey,
     role_name: currentRoleName,
+    is_super_admin: isSuperAdmin,
   };
-}
+});
