@@ -449,7 +449,8 @@ export default function EmployeeTimesheetCorrections({
   const [showDetailMap, setShowDetailMap] = useState(false);
   const [calendarFocusDate, setCalendarFocusDate] = useState(currentWorkDate);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(() => new Set());
-  const [rangeAnchorId, setRangeAnchorId] = useState<string | null>(null);
+  const [selectorFilter, setSelectorFilter] = useState<"all" | "ready" | "fixed" | "attention">("all");
+  const lastClickedEntryIdRef = useRef<string | null>(null);
   const [acknowledgedFlags, setAcknowledgedFlags] = useState(false);
   const [expandedDraftIds, setExpandedDraftIds] = useState<Set<string>>(() => new Set());
   const toggleDraftExpand = (id: string) => {
@@ -720,35 +721,101 @@ export default function EmployeeTimesheetCorrections({
     [submittedEntries, requestsPage, requestsPageSize],
   );
 
-  const handleRangeSelect = (entryId: string) => {
+  const readyEntries = useMemo(
+    () =>
+      editableEntries.filter(
+        (e) => !isEntryFixed(e) && !entryNeedsAttention(e) && e.status !== "rejected",
+      ),
+    [editableEntries, isEntryFixed],
+  );
+  const fixedEntries = useMemo(
+    () => editableEntries.filter((e) => isEntryFixed(e)),
+    [editableEntries, isEntryFixed],
+  );
+  const attentionEntries = useMemo(
+    () =>
+      editableEntries.filter(
+        (e) => (entryNeedsAttention(e) || e.status === "rejected") && !isEntryFixed(e),
+      ),
+    [editableEntries, isEntryFixed],
+  );
+
+  const displayedEditableEntries = useMemo(() => {
+    if (selectorFilter === "ready") return readyEntries;
+    if (selectorFilter === "fixed") return fixedEntries;
+    if (selectorFilter === "attention") return attentionEntries;
+    return editableEntries;
+  }, [selectorFilter, readyEntries, fixedEntries, attentionEntries, editableEntries]);
+
+  const isAllDisplayedSelected =
+    displayedEditableEntries.length > 0 &&
+    displayedEditableEntries.every((e) => selectedEntryIds.has(e.id));
+
+  const toggleEntrySelection = (entryId: string, shiftKey?: boolean) => {
     setAcknowledgedFlags(false);
 
-    if (!rangeAnchorId) {
-      setRangeAnchorId(entryId);
-      setSelectedEntryIds(new Set([entryId]));
-      return;
+    if (shiftKey && lastClickedEntryIdRef.current) {
+      const lastIndex = displayedEditableEntries.findIndex(
+        (e) => e.id === lastClickedEntryIdRef.current,
+      );
+      const currentIndex = displayedEditableEntries.findIndex((e) => e.id === entryId);
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex);
+        const end = Math.max(lastIndex, currentIndex);
+        const rangeIds = displayedEditableEntries.slice(start, end + 1).map((e) => e.id);
+        setSelectedEntryIds((prev) => {
+          const next = new Set(prev);
+          rangeIds.forEach((id) => next.add(id));
+          return next;
+        });
+        lastClickedEntryIdRef.current = entryId;
+        return;
+      }
     }
 
-    const anchorIndex = editableEntries.findIndex((entry) => entry.id === rangeAnchorId);
-    const targetIndex = editableEntries.findIndex((entry) => entry.id === entryId);
-
-    if (anchorIndex === -1 || targetIndex === -1) {
-      setRangeAnchorId(entryId);
-      setSelectedEntryIds(new Set([entryId]));
-      return;
-    }
-
-    const [start, end] = [
-      Math.min(anchorIndex, targetIndex),
-      Math.max(anchorIndex, targetIndex),
-    ];
-    const rangeIds = editableEntries.slice(start, end + 1).map((entry) => entry.id);
-    setSelectedEntryIds(new Set(rangeIds));
-    setRangeAnchorId(null);
+    lastClickedEntryIdRef.current = entryId;
+    setSelectedEntryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) {
+        next.delete(entryId);
+      } else {
+        next.add(entryId);
+      }
+      return next;
+    });
   };
+
+  const selectAllDisplayed = () => {
+    setAcknowledgedFlags(false);
+    if (isAllDisplayedSelected) {
+      setSelectedEntryIds((prev) => {
+        const next = new Set(prev);
+        displayedEditableEntries.forEach((e) => next.delete(e.id));
+        return next;
+      });
+    } else {
+      setSelectedEntryIds((prev) => {
+        const next = new Set(prev);
+        displayedEditableEntries.forEach((e) => next.add(e.id));
+        return next;
+      });
+    }
+  };
+
+  const selectByType = (type: "ready" | "fixed" | "all") => {
+    setAcknowledgedFlags(false);
+    if (type === "ready") {
+      setSelectedEntryIds(new Set(readyEntries.map((e) => e.id)));
+    } else if (type === "fixed") {
+      setSelectedEntryIds(new Set(fixedEntries.map((e) => e.id)));
+    } else {
+      setSelectedEntryIds(new Set(editableEntries.map((e) => e.id)));
+    }
+  };
+
   const clearSelection = () => {
     setSelectedEntryIds(new Set());
-    setRangeAnchorId(null);
+    lastClickedEntryIdRef.current = null;
     setAcknowledgedFlags(false);
   };
   const flaggedSelected = editableEntries.filter(
@@ -1108,12 +1175,17 @@ export default function EmployeeTimesheetCorrections({
 
   const quickSubmitForm =
     editableEntries.length > 0 ? (
-      <form action={submitAction} className="rounded-lg border border-border bg-surface p-4 shadow-xs">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <form action={submitAction} className="rounded-xl border border-border bg-surface p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-4">
           <div>
-            <p className="text-sm font-extrabold text-foreground">Submit ready timesheets</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm sm:text-base font-extrabold text-foreground">Submit timesheets</p>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                {selectedEntryIds.size} of {editableEntries.length} selected
+              </span>
+            </div>
             <p className="mt-0.5 text-xs text-muted">
-              Tap a start day, then tap an end day to select the range of shifts to submit for approval.
+              Choose records to submit for approval. Tap any day to select, or use the quick buttons below.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1121,25 +1193,111 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={clearSelection}
-                className="inline-flex items-center gap-1.5 rounded border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted hover:text-foreground shadow-2xs"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-muted hover:text-foreground hover:bg-slate-50 shadow-2xs transition-colors"
               >
                 <X className="size-3.5" />
-                Clear ({selectedEntryIds.size})
+                Clear
               </button>
             ) : null}
             <button
               disabled={submitBlocked || submitPending}
-              className="inline-flex items-center justify-center gap-2 rounded bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition-all"
             >
               <Send className="size-3.5" />
               {submitPending
                 ? "Submitting..."
-                : hasFixedSelected
-                  ? `Resubmit fixed (${selectedEntryIds.size})`
-                  : hasRejectedSelected
-                    ? "Resubmit selected"
-                    : `Submit selected (${selectedEntryIds.size})`}
+                : selectedEntryIds.size === 0
+                  ? "Select timesheets"
+                  : hasFixedSelected && !hasRejectedSelected
+                    ? `Resubmit fixed (${selectedEntryIds.size})`
+                    : hasRejectedSelected
+                      ? `Resubmit selected (${selectedEntryIds.size})`
+                      : `Submit selected (${selectedEntryIds.size})`}
             </button>
+          </div>
+        </div>
+
+        {/* Status Type Filters & Quick Actions */}
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectorFilter("all")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                selectorFilter === "all"
+                  ? "bg-slate-900 text-white shadow-2xs"
+                  : "bg-surface-muted text-muted hover:text-foreground hover:bg-slate-200"
+              }`}
+            >
+              All ({editableEntries.length})
+            </button>
+            {readyEntries.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectorFilter("ready")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                  selectorFilter === "ready"
+                    ? "bg-emerald-700 text-white shadow-2xs"
+                    : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                }`}
+              >
+                Ready ({readyEntries.length})
+              </button>
+            )}
+            {fixedEntries.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectorFilter("fixed")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                  selectorFilter === "fixed"
+                    ? "bg-teal-700 text-white shadow-2xs"
+                    : "bg-teal-50 text-teal-800 hover:bg-teal-100"
+                }`}
+              >
+                Fixed ({fixedEntries.length})
+              </button>
+            )}
+            {attentionEntries.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectorFilter("attention")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                  selectorFilter === "attention"
+                    ? "bg-amber-600 text-white shadow-2xs"
+                    : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                }`}
+              >
+                Needs Review ({attentionEntries.length})
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <button
+              type="button"
+              onClick={selectAllDisplayed}
+              className="rounded-md border border-border bg-white px-2.5 py-1 text-[11px] font-bold text-foreground hover:bg-slate-50 shadow-2xs transition-colors"
+            >
+              {isAllDisplayedSelected ? "Deselect view" : "Select all in view"}
+            </button>
+            {readyEntries.length > 0 && selectorFilter === "all" && (
+              <button
+                type="button"
+                onClick={() => selectByType("ready")}
+                className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 shadow-2xs transition-colors"
+              >
+                Select all Ready
+              </button>
+            )}
+            {fixedEntries.length > 0 && selectorFilter === "all" && (
+              <button
+                type="button"
+                onClick={() => selectByType("fixed")}
+                className="rounded-md border border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-teal-800 hover:bg-teal-100 shadow-2xs transition-colors"
+              >
+                Select all Fixed
+              </button>
+            )}
           </div>
         </div>
 
@@ -1153,52 +1311,68 @@ export default function EmployeeTimesheetCorrections({
           : null}
 
         {hasFlaggedSelected ? (
-          <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs font-bold text-amber-950">
-            The selected range includes timesheets that need attention:{" "}
-            {flaggedSelected.map((entry) => formatDate(entry.work_date)).join(", ")}. Flag them
-            below to continue.
+          <div className="mt-3.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-950">
+            <div className="flex items-center gap-1.5 text-amber-800">
+              <AlertTriangle className="size-4 shrink-0 text-amber-600" />
+              <span>Selected records that need attention:</span>
+            </div>
+            <p className="mt-1 font-semibold text-amber-900">
+              {flaggedSelected.map((entry) => formatDate(entry.work_date)).join(", ")}
+            </p>
           </div>
         ) : null}
 
-        <div className="mt-3 grid gap-2">
-          {editableEntries.map((entry) => {
+        <div className="mt-3.5 grid gap-2">
+          {displayedEditableEntries.map((entry) => {
             const isFixed = isEntryFixed(entry);
             const isRejected = entry.status === "rejected" && !isFixed;
             const needsAttention = entryNeedsAttention(entry) && !isFixed;
             const isSelected = selectedEntryIds.has(entry.id);
-            const isAnchor = rangeAnchorId === entry.id;
 
             return (
-              <button
+              <div
                 key={entry.id}
-                type="button"
-                onClick={() => handleRangeSelect(entry.id)}
-                className={`flex items-center gap-2.5 rounded-lg border-2 p-2.5 text-left text-xs font-bold transition-all ${
-                  isAnchor
-                    ? "border-slate-900 bg-slate-900 text-white shadow-xs"
-                    : isSelected
-                      ? "border-slate-900 bg-slate-900/10 text-foreground ring-1 ring-slate-900"
-                      : isFixed
-                        ? "border-teal-500 bg-teal-50/70 text-foreground hover:bg-teal-100"
-                        : isRejected
-                          ? "border-rose-400 bg-rose-50/70 text-foreground hover:bg-rose-100"
-                          : needsAttention
-                            ? "border-amber-400 bg-amber-50/70 text-foreground hover:bg-amber-100"
-                            : "border-border bg-white text-foreground hover:bg-slate-50"
+                onClick={(e) => {
+                  toggleEntrySelection(entry.id, e.shiftKey);
+                }}
+                className={`group flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl border-2 p-3 transition-all ${
+                  isSelected
+                    ? "border-slate-900 bg-slate-900/5 shadow-xs ring-1 ring-slate-900"
+                    : isFixed
+                      ? "border-teal-300/80 bg-white hover:border-teal-500 hover:bg-teal-50/30"
+                      : isRejected
+                        ? "border-rose-300/80 bg-white hover:border-rose-500 hover:bg-rose-50/30"
+                        : needsAttention
+                          ? "border-amber-300/80 bg-white hover:border-amber-500 hover:bg-amber-50/30"
+                          : "border-border bg-white hover:border-slate-400 hover:bg-slate-50/50"
                 }`}
               >
+                <div className="flex items-center gap-3 min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {
+                      // Handled by parent click
+                    }}
+                    className="size-4.5 rounded border-2 border-slate-400 text-slate-900 focus:ring-slate-900 accent-slate-900 cursor-pointer shrink-0"
+                  />
+                  <div className="flex flex-wrap items-center gap-x-2 min-w-0">
+                    <span className="font-extrabold text-xs sm:text-sm text-foreground">
+                      {formatDate(entry.work_date)}
+                    </span>
+                    {entry.paid_hours ? (
+                      <span className="text-xs font-semibold text-muted">
+                        {formatHours(entry.paid_hours)}
+                        {entry.clock_in && entry.clock_out
+                          ? ` · ${shortTime(entry.clock_in)} – ${shortTime(entry.clock_out)}`
+                          : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
                 <span
-                  className={`inline-flex size-5 shrink-0 items-center justify-center rounded border text-xs font-black ${
-                    isSelected
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-border bg-background text-muted"
-                  }`}
-                >
-                  {isSelected ? "✓" : isAnchor ? "A" : ""}
-                </span>
-                <span className="font-extrabold">{formatDate(entry.work_date)}</span>
-                <span
-                  className={`ml-auto inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                  className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${
                     isFixed
                       ? "bg-teal-600 text-white shadow-2xs"
                       : isRejected
@@ -1219,18 +1393,18 @@ export default function EmployeeTimesheetCorrections({
                   )}
                   {isFixed ? "Fixed" : isRejected ? "Rejected" : needsAttention ? "Review" : "Ready"}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>
 
         {hasFlaggedSelected ? (
-          <label className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50/80 p-2.5 text-xs font-semibold text-amber-950">
+          <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3 text-xs font-semibold text-amber-950">
             <input
               type="checkbox"
               checked={acknowledgedFlags}
               onChange={(event) => setAcknowledgedFlags(event.target.checked)}
-              className="mt-0.5 size-4 accent-amber-600"
+              className="mt-0.5 size-4 accent-amber-600 cursor-pointer"
             />
             <span>I understand the flagged days need attention and will be sent for manager review.</span>
           </label>
