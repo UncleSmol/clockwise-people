@@ -97,14 +97,55 @@ export async function createEmployee(
       monthly_salary: moneyToNumber(values.monthly_salary),
       hourly_rate: hourlyRate,
       compensation_type: hourlyRate ? "hourly" : "monthly",
+      id_number: blankToNull(values.id_number),
+      tax_number: blankToNull(values.tax_number),
+      address: blankToNull(values.address),
+      payment_frequency: values.payment_frequency ?? "monthly",
+      bank_name: blankToNull(values.bank_name),
+      bank_account_number: blankToNull(values.bank_account_number),
+      bank_account_type: values.bank_account_type ?? "Cheque / Current",
+      payment_mode: values.payment_mode ?? "EFT",
     }).select("id").single();
 
-  if (error) {
-    return { ok: false, message: error.message };
-  }
+    let createdEmployee = employee;
+    if (error) {
+      if (error.message?.includes("does not exist")) {
+        const fallback = await supabase
+          .from("employees")
+          .insert({
+            company_id: company.id,
+            employee_number: await nextEmployeeNumber(company.id),
+            full_name: values.full_name,
+            known_as: blankToNull(values.known_as),
+            email: blankToNull(values.email),
+            phone_number: blankToNull(values.phone_number),
+            workstation_id: values.workstation_id,
+            department_id: blankToNull(values.department_id),
+            job_title: blankToNull(values.job_title),
+            employment_type: values.employment_type,
+            employment_status: values.employment_status,
+            start_date: values.start_date,
+            work_schedule_id: selectedScheduleIds[0] ?? null,
+            manager_employee_id: blankToNull(values.manager_employee_id),
+            payroll_identifier: payrollIdentifier,
+            monthly_salary: moneyToNumber(values.monthly_salary),
+            hourly_rate: hourlyRate,
+            compensation_type: hourlyRate ? "hourly" : "monthly",
+          })
+          .select("id")
+          .single();
+
+        if (fallback.error) {
+          return { ok: false, message: fallback.error.message };
+        }
+        createdEmployee = fallback.data;
+      } else {
+        return { ok: false, message: error.message };
+      }
+    }
 
   const { error: scheduleError } = await supabase.rpc("set_employee_work_schedule_assignments", {
-    target_employee_id: employee.id,
+    target_employee_id: createdEmployee.id,
     target_work_schedule_ids: selectedScheduleIds,
   });
 
@@ -155,12 +196,49 @@ export async function updateEmployee(
       monthly_salary: moneyToNumber(values.monthly_salary),
       hourly_rate: hourlyRate,
       compensation_type: hourlyRate ? "hourly" : "monthly",
+      id_number: blankToNull(values.id_number),
+      tax_number: blankToNull(values.tax_number),
+      address: blankToNull(values.address),
+      payment_frequency: values.payment_frequency ?? "monthly",
+      bank_name: blankToNull(values.bank_name),
+      bank_account_number: blankToNull(values.bank_account_number),
+      bank_account_type: values.bank_account_type ?? "Cheque / Current",
+      payment_mode: values.payment_mode ?? "EFT",
     })
     .eq("company_id", company.id)
     .eq("id", employeeId);
 
   if (error) {
-    return { ok: false, message: error.message };
+    if (error.message?.includes("does not exist")) {
+      const fallback = await supabase
+        .from("employees")
+        .update({
+          full_name: values.full_name,
+          known_as: blankToNull(values.known_as),
+          email: blankToNull(values.email),
+          phone_number: blankToNull(values.phone_number),
+          workstation_id: values.workstation_id,
+          department_id: blankToNull(values.department_id),
+          job_title: blankToNull(values.job_title),
+          employment_type: values.employment_type,
+          employment_status: values.employment_status,
+          start_date: values.start_date,
+          work_schedule_id: selectedScheduleIds[0] ?? null,
+          manager_employee_id: blankToNull(values.manager_employee_id),
+          payroll_identifier: blankToNull(values.payroll_identifier),
+          monthly_salary: moneyToNumber(values.monthly_salary),
+          hourly_rate: hourlyRate,
+          compensation_type: hourlyRate ? "hourly" : "monthly",
+        })
+        .eq("company_id", company.id)
+        .eq("id", employeeId);
+
+      if (fallback.error) {
+        return { ok: false, message: fallback.error.message };
+      }
+    } else {
+      return { ok: false, message: error.message };
+    }
   }
 
   const { error: scheduleError } = await supabase.rpc("set_employee_work_schedule_assignments", {

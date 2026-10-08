@@ -249,9 +249,9 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                     <td className="px-3 py-2">
                       <span className="flex items-center gap-2 font-medium text-foreground">
                         <User className="size-4 shrink-0 text-muted" />
-                        <span className="min-w-0">
-                          <span className="block truncate">{row.full_name}</span>
-                          <span className="block text-xs text-muted">{row.employee_number}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-semibold leading-tight">{row.full_name}</span>
+                          <span className="block text-xs text-muted mt-0.5">{row.employee_number}</span>
                         </span>
                       </span>
                     </td>

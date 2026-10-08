@@ -116,7 +116,86 @@ export default function ReportDataTable<TData>({
 
       {/* Table Container */}
       <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto max-h-[600px] scrollbar-thin">
+        {/* Mobile Compact View: Zero horizontal scrolling on all phone screens */}
+        <div className="md:hidden divide-y divide-border/60">
+          {table.getRowModel().rows.length === 0 ? (
+            <div className="py-12 text-center text-muted text-xs">
+              {emptyMessage}
+            </div>
+          ) : (
+            table.getRowModel().rows.map((row) => {
+              const cells = row.getVisibleCells();
+              const primaryCell = cells[0];
+              const statusCell =
+                cells.find(
+                  (c) =>
+                    c.column.id.toLowerCase().includes("status") ||
+                    c.column.id === "auditStatus",
+                ) ?? (cells.length > 2 ? cells[cells.length - 1] : undefined);
+              const detailCells = cells.filter(
+                (c) => c !== primaryCell && c !== statusCell,
+              );
+
+              return (
+                <div
+                  key={row.id}
+                  className="p-3 bg-surface hover:bg-surface-muted/40 transition-colors space-y-2"
+                >
+                  {/* Top: Primary title + Status Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {primaryCell &&
+                        flexRender(
+                          primaryCell.column.columnDef.cell,
+                          primaryCell.getContext(),
+                        )}
+                    </div>
+                    {statusCell && statusCell !== primaryCell && (
+                      <div className="shrink-0">
+                        {flexRender(
+                          statusCell.column.columnDef.cell,
+                          statusCell.getContext(),
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Metrics Grid: Compact key-values with no horizontal scrolling */}
+                  {detailCells.length > 0 && (
+                    <div className="grid grid-cols-2 min-[420px]:grid-cols-3 gap-1.5 pt-1.5 border-t border-border/50">
+                      {detailCells.map((cell) => {
+                        const header = cell.column.columnDef.header;
+                        const headerTitle =
+                          typeof header === "string"
+                            ? header
+                            : (cell.column.id || "").replace(/([A-Z])/g, " $1");
+                        return (
+                          <div
+                            key={cell.id}
+                            className="rounded-md bg-surface-muted/50 p-1.5 min-w-0"
+                          >
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
+                              {headerTitle}
+                            </p>
+                            <div className="mt-0.5 text-xs break-words font-medium leading-snug">
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop View: Full Wide Data Table */}
+        <div className="hidden md:block overflow-x-auto max-h-[600px] scrollbar-thin">
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-slate-900/80 text-slate-300 sticky top-0 z-10 border-b border-border backdrop-blur-xs">
               {table.getHeaderGroups().map((headerGroup) => (

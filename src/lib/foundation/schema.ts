@@ -62,6 +62,7 @@ export type Company = {
   country: string;
   timezone: string;
   payroll_cycle: string;
+  query_office_text?: string | null;
 };
 
 export type CompanySettings = {

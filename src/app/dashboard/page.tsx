@@ -198,6 +198,12 @@ const SysAdminWorkspace = dynamic(
     loading: () => <LoadingPanel label="system admin" />,
   },
 );
+const CompanyPayslipsWorkspace = dynamic(
+  () => import("@/components/payroll/CompanyPayslipsWorkspace"),
+  {
+    loading: () => <LoadingPanel label="payslip generator" />,
+  },
+);
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
@@ -358,6 +364,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           workstationName={currentWorkstationName}
           entries={employeeTimeState.recentEntries}
           leaveRequests={leaveState?.requests ?? []}
+          leaveBalances={leaveState?.balances ?? []}
+          leaveTypes={leaveState?.leaveTypes ?? []}
           publicHolidays={employeeTimeState.publicHolidays}
           payrollConfig={payrollConfig}
           companyName={company.name}
@@ -389,7 +397,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               {message}
             </div>
           ) : null}
-          {leaveState ? <EmployeeLeaveRequests state={leaveState} /> : null}
+          {leaveState ? (
+            <EmployeeLeaveRequests
+              state={leaveState}
+              entries={employeeTimeState?.recentEntries ?? []}
+              payrollConfig={payrollConfig}
+            />
+          ) : null}
           {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
           {(canManageCompany || canReviewTime) && workRulesData ? (
             <CompanyAllAccrualsTable
@@ -660,6 +674,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       content: (
         <CompanyReportsWorkspace
           companyName={company.name}
+          company={company}
+          fullEmployees={employeesData?.employees ?? []}
+          isSuperAdmin={access.isSuperAdmin}
           employees={finalReportEmployees}
           departments={employeesData?.departments ?? []}
           workstations={geolocationData?.workstations ?? []}
@@ -675,6 +692,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   if (access.isSuperAdmin) {
+    panels.push({
+      key: "payslips",
+      label: "Payslip Generator",
+      description:
+        "Super Admin authority: Simulate, adjust, and print official employee payslips once timesheets in a pay period are approved.",
+      content: (
+        <CompanyPayslipsWorkspace
+          company={company}
+          employees={employeesData?.employees ?? []}
+          timesheetEntries={calendarEntries}
+          payrollConfig={payrollConfig}
+          isSuperAdmin={access.isSuperAdmin}
+        />
+      ),
+    });
+
     panels.push({
       key: "sysadmin",
       label: "System admin",
@@ -797,7 +830,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             timesheetBadge={timesheetBadge}
             leave={
               leaveState ? (
-                <EmployeeLeaveRequests state={leaveState} />
+                <EmployeeLeaveRequests
+                  state={leaveState}
+                  entries={employeeTimeState?.recentEntries ?? []}
+                  payrollConfig={payrollConfig}
+                />
               ) : (
                 <section className="card p-6 text-sm text-muted">
                   No employee leave profile is linked to this account.
@@ -813,6 +850,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 workstationName={currentWorkstationName}
                 entries={employeeTimeState.recentEntries}
                 leaveRequests={leaveState?.requests ?? []}
+                leaveBalances={leaveState?.balances ?? []}
+                leaveTypes={leaveState?.leaveTypes ?? []}
                 publicHolidays={employeeTimeState.publicHolidays}
                 payrollConfig={payrollConfig}
                 companyName={company.name}

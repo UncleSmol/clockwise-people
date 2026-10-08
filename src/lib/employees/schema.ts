@@ -16,6 +16,24 @@ export const employmentStatuses = [
   "terminated",
 ] as const;
 
+export const paymentFrequencies = [
+  "monthly",
+  "weekly",
+  "fortnightly",
+] as const;
+
+export const bankAccountTypes = [
+  "Cheque / Current",
+  "Savings",
+  "Transmission",
+] as const;
+
+export const paymentModes = [
+  "EFT",
+  "Cash",
+  "Cheque",
+] as const;
+
 const optionalUuid = z
   .string()
   .trim()
@@ -52,6 +70,14 @@ export const employeeFormSchema = z
     payroll_identifier: optionalText,
     monthly_salary: optionalMoney,
     hourly_rate: optionalMoney,
+    id_number: optionalText,
+    tax_number: optionalText,
+    address: optionalText,
+    payment_frequency: z.enum(paymentFrequencies).optional(),
+    bank_name: optionalText,
+    bank_account_number: optionalText,
+    bank_account_type: z.enum(bankAccountTypes).optional(),
+    payment_mode: z.enum(paymentModes).optional(),
   });
 
 export type EmployeeFormInput = z.input<typeof employeeFormSchema>;
@@ -91,4 +117,12 @@ export type EmployeeRecord = {
   role_key?: AppRole | null;
   role_name?: string | null;
   is_super_admin?: boolean;
+  id_number?: string | null;
+  tax_number?: string | null;
+  address?: string | null;
+  payment_frequency?: string | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_account_type?: string | null;
+  payment_mode?: string | null;
 };

@@ -20,6 +20,7 @@ import {
   type CustomPayrollRule,
   type PayrollPeriodConfig,
 } from "@/lib/reports/payroll-periods";
+import { ensureCompanyToilLeaveType, ensureEmployeeToilBalance } from "./actions";
 
 type LeaveRequestRow = LeaveRequest & {
   employees?: {
@@ -225,7 +226,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       .limit(12),
     supabase
       .from("company_settings")
-      .select("standard_daily_hours, standard_monthly_hours, leave_rules")
+      .select("standard_daily_hours, standard_monthly_hours, leave_rules, toil_rules")
       .eq("company_id", company.id)
       .maybeSingle(),
   ]);
@@ -235,6 +236,61 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
   if (requestsResult.error) throw new Error(requestsResult.error.message);
   if (settingsResult.error) throw new Error(settingsResult.error.message);
 
+  let leaveTypes = (leaveTypesResult.data ?? []) as LeaveType[];
+  let balances = (balancesResult.data ?? []) as unknown as LeaveBalance[];
+
+  // Ensure TOIL leave type exists for employee selection
+  let toilType = leaveTypes.find((lt) => lt.category === "toil_taken");
+  if (!toilType) {
+    try {
+      const ensured = await ensureCompanyToilLeaveType(company.id);
+      if (ensured) {
+        toilType = ensured as LeaveType;
+        leaveTypes = [...leaveTypes, toilType];
+      }
+    } catch {
+      // Non-fatal fallback
+    }
+  }
+
+  // Ensure employee has a TOIL balance row (even if 0.00h)
+  const hasToilBalance = balances.some((b) => {
+    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+    return rel?.category === "toil_taken" || rel?.id === toilType?.id;
+  });
+
+  if (toilType && !hasToilBalance && access.employeeId) {
+    try {
+      const ensuredBal = await ensureEmployeeToilBalance(company.id, access.employeeId, toilType.id);
+      if (ensuredBal) {
+        balances = [
+          ...balances,
+          {
+            ...ensuredBal,
+            company_id: company.id,
+            employee_id: access.employeeId,
+            leave_type_id: toilType.id,
+            leave_types: toilType,
+          } as unknown as LeaveBalance,
+        ];
+      }
+    } catch {
+      balances = [
+        ...balances,
+        {
+          id: `toil-bal-${toilType.id}`,
+          company_id: company.id,
+          employee_id: access.employeeId,
+          leave_type_id: toilType.id,
+          balance_hours: 0,
+          accrued_hours: 0,
+          taken_hours: 0,
+          leave_types: toilType,
+        } as unknown as LeaveBalance,
+      ];
+    }
+  }
+
   const requests = ((requestsResult.data ?? []) as unknown as LeaveRequestRow[]).map(
     (request) => ({
       ...request,
@@ -243,6 +299,8 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
   );
 
   const leaveRules = (settingsResult.data?.leave_rules ?? {}) as Record<string, unknown>;
+  const toilRules = (settingsResult.data?.toil_rules ?? {}) as Record<string, unknown>;
+  const toilMultiplier = Number(toilRules?.accrual_multiplier ?? 1.5);
   const carryOverValue = leaveRules.carry_over_hours;
   const carryOverHours =
     typeof carryOverValue === "number"
@@ -252,12 +310,13 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
         : null;
 
   return {
-    balances: (balancesResult.data ?? []) as unknown as LeaveBalance[],
+    balances,
     carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
-    leaveTypes: (leaveTypesResult.data ?? []) as LeaveType[],
+    leaveTypes,
     requests,
     standardAnnualHours: Number(settingsResult.data?.standard_monthly_hours ?? 173.33) * 12,
     standardDailyHours: Number(settingsResult.data?.standard_daily_hours ?? 8),
+    toilMultiplier,
   };
 });
 

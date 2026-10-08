@@ -55,6 +55,14 @@ function normalizeEmployee(row: EmployeeRow): EmployeeRecord {
 
   return {
     ...employee,
+    id_number: employee.id_number ?? null,
+    tax_number: employee.tax_number ?? null,
+    address: employee.address ?? null,
+    payment_frequency: employee.payment_frequency ?? "monthly",
+    bank_name: employee.bank_name ?? null,
+    bank_account_number: employee.bank_account_number ?? null,
+    bank_account_type: employee.bank_account_type ?? "Cheque / Current",
+    payment_mode: employee.payment_mode ?? "EFT",
     workstation_name: relationName(company_workstations),
     department_name: relationName(departments),
   };
@@ -127,7 +135,7 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     supabase
       .from("employees")
       .select(
-        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
+        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
       )
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -149,10 +157,6 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     throw new Error(departmentsResult.error.message);
   }
 
-  if (employeesResult.error) {
-    throw new Error(employeesResult.error.message);
-  }
-
   if (schedulesResult.error) {
     throw new Error(schedulesResult.error.message);
   }
@@ -169,7 +173,28 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     throw new Error(assignmentsResult.error.message);
   }
 
-  let rawEmployees = (employeesResult.data ?? []) as unknown as EmployeeRow[];
+  let rawEmployees: EmployeeRow[] = [];
+  if (employeesResult.error) {
+    if (employeesResult.error.message?.includes("does not exist")) {
+      const fallbackEmployees = await supabase
+        .from("employees")
+        .select(
+          "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
+        )
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .order("full_name");
+
+      if (fallbackEmployees.error) {
+        throw new Error(fallbackEmployees.error.message);
+      }
+      rawEmployees = (fallbackEmployees.data ?? []) as unknown as EmployeeRow[];
+    } else {
+      throw new Error(employeesResult.error.message);
+    }
+  } else {
+    rawEmployees = (employeesResult.data ?? []) as unknown as EmployeeRow[];
+  }
   const hasUnassignedPayroll = rawEmployees.some(
     (e) => !e.payroll_identifier || e.payroll_identifier.trim() === "",
   );
@@ -302,7 +327,7 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
     supabase
     .from("employees")
     .select(
-      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
+      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
     )
     .eq("company_id", company.id)
     .eq("id", employeeId)
@@ -317,8 +342,25 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
       .order("priority", { ascending: true }),
   ]);
 
+  let employeeData = data;
   if (error) {
-    throw new Error(error.message);
+    if (error.message?.includes("does not exist")) {
+      const fallback = await supabase
+        .from("employees")
+        .select(
+          "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
+        )
+        .eq("company_id", company.id)
+        .eq("id", employeeId)
+        .single();
+
+      if (fallback.error) {
+        throw new Error(fallback.error.message);
+      }
+      employeeData = fallback.data;
+    } else {
+      throw new Error(error.message);
+    }
   }
 
   if (assignmentsResult.error && !isMissingAssignmentSchema(assignmentsResult.error)) {
@@ -326,7 +368,7 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
   }
 
   const employeeRecord = attachWorkScheduleIds(
-    [normalizeEmployee(data as unknown as EmployeeRow)],
+    [normalizeEmployee(employeeData as unknown as EmployeeRow)],
     assignmentsResult.error
       ? []
       : (assignmentsResult.data ?? []) as WorkScheduleAssignmentRow[],

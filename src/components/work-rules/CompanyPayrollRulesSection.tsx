@@ -782,7 +782,7 @@ export default function CompanyPayrollRulesSection({
                       className="h-10 min-h-[40px] flex-1 rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-emerald-600 shadow-2xs cursor-pointer leading-normal"
                       required
                     />
-                    <span className="text-[10px] font-bold text-muted truncate">
+                    <span className="text-[10px] font-bold text-muted break-words leading-tight">
                       {formatPeriodDate(disbursementDate)}
                     </span>
                   </div>
@@ -1000,16 +1000,16 @@ export default function CompanyPayrollRulesSection({
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 min-w-0">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-extrabold text-foreground truncate text-sm">{rule.name}</p>
+                          <p className="font-extrabold text-foreground text-sm break-words leading-tight">{rule.name}</p>
                           {isDefault && (
-                            <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-2xs">
+                            <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-2xs">
                               Default
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] font-medium text-muted mt-0.5 line-clamp-2">
+                        <p className="text-[11px] font-medium text-muted mt-0.5 break-words leading-tight">
                           {rule.description || "Configured company payroll schedule"}
                         </p>
                       </div>
@@ -1050,17 +1050,17 @@ export default function CompanyPayrollRulesSection({
 
                     {/* Rule Details Strip */}
                     <div className="grid grid-cols-2 gap-1.5 text-center text-xs">
-                      <div className="rounded-lg border border-border/80 bg-background/80 p-1.5">
-                        <span className="text-[9px] font-bold uppercase text-muted block truncate">Frequency</span>
-                        <span className="font-extrabold text-foreground capitalize truncate block text-xs mt-0.5">
+                      <div className="rounded-lg border border-border/80 bg-background/80 p-1.5 min-w-0">
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Frequency</span>
+                        <span className="font-extrabold text-foreground capitalize block text-xs mt-0.5 break-words leading-tight">
                           {rule.frequency.replace("_", " ")}
                           {rule.frequency === "custom" ? ` (${rule.customCycleDays}d)` : ""}
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-border/80 bg-background/80 p-1.5">
-                        <span className="text-[9px] font-bold uppercase text-muted block truncate">Cycle Range</span>
-                        <span className="font-extrabold text-foreground truncate block text-xs mt-0.5">
+                      <div className="rounded-lg border border-border/80 bg-background/80 p-1.5 min-w-0">
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Cycle Range</span>
+                        <span className="font-extrabold text-foreground block text-xs mt-0.5 break-words leading-tight">
                           {rule.startDate && rule.endDate
                             ? `${formatPeriodDate(rule.startDate)} → ${formatPeriodDate(rule.endDate)}`
                             : rule.frequency === "monthly"
@@ -1069,16 +1069,16 @@ export default function CompanyPayrollRulesSection({
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-border/80 bg-background/80 p-1.5">
-                        <span className="text-[9px] font-bold uppercase text-muted block truncate">Disbursement</span>
-                        <span className="font-extrabold text-foreground truncate block text-xs mt-0.5">
+                      <div className="rounded-lg border border-border/80 bg-background/80 p-1.5 min-w-0">
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Disbursement</span>
+                        <span className="font-extrabold text-foreground block text-xs mt-0.5 break-words leading-tight">
                           +{rule.payDayOffsetDays} days
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-indigo-200/80 bg-indigo-50/70 p-1.5">
-                        <span className="text-[9px] font-bold uppercase text-indigo-800 block truncate">Assigned</span>
-                        <span className="font-black text-indigo-950 truncate block text-xs mt-0.5">
+                      <div className="rounded-lg border border-indigo-200/80 bg-indigo-50/70 p-1.5 min-w-0">
+                        <span className="text-[9px] font-bold uppercase text-indigo-800 block break-words leading-tight">Assigned</span>
+                        <span className="font-black text-indigo-950 block text-xs mt-0.5 break-words leading-tight">
                           {assignedCount} employee{assignedCount === 1 ? "" : "s"}
                         </span>
                       </div>
@@ -1182,9 +1182,9 @@ export default function CompanyPayrollRulesSection({
                   key={emp.id}
                   className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-surface/40 hover:bg-surface p-3 shadow-2xs text-xs transition-all"
                 >
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-foreground truncate">{emp.label}</p>
-                    <p className="text-[10px] font-medium text-muted truncate mt-0.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-foreground break-words leading-tight">{emp.label}</p>
+                    <p className="text-[10px] font-medium text-muted break-words leading-tight mt-0.5">
                       {emp.department || "Standard Staff"}
                     </p>
                   </div>
@@ -1261,7 +1261,7 @@ export default function CompanyPayrollRulesSection({
                 </div>
 
                 <div>
-                  <p className="font-extrabold text-foreground truncate text-sm">{period.label}</p>
+                  <p className="font-extrabold text-foreground text-sm break-words leading-tight">{period.label}</p>
                   <p className="text-[11px] font-semibold text-muted mt-0.5">
                     {period.startDate} &rarr; {period.endDate}
                   </p>

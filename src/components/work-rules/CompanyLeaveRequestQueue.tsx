@@ -73,11 +73,11 @@ export default function CompanyLeaveRequestQueue({
                     src={request.avatarUrl}
                     className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
                   />
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-extrabold text-foreground">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-extrabold text-foreground break-words leading-tight">
                       {request.knownAs ?? request.fullName}
                     </p>
-                    <p className="truncate text-[11px] font-medium text-muted">
+                    <p className="text-[11px] font-medium text-muted break-words leading-tight mt-0.5">
                       {request.leaveTypeName ?? "Leave"} ·{" "}
                       <span className="font-semibold text-foreground">
                         {request.start_date} to {request.end_date}

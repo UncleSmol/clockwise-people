@@ -47,7 +47,7 @@ function StepItem({
           {step}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-base font-semibold text-white">
+          <span className="block text-base font-semibold text-white break-words leading-tight">
             {title}
           </span>
           <span className="mt-0.5 block text-xs leading-snug text-white/80">

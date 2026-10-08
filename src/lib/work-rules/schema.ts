@@ -229,4 +229,5 @@ export type EmployeeLeaveState = {
   requests: LeaveRequest[];
   standardAnnualHours: number;
   standardDailyHours: number;
+  toilMultiplier?: number;
 };

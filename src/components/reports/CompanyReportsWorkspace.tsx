@@ -21,6 +21,9 @@ import AttendanceReportTable from "./AttendanceReportTable";
 import LeaveAccrualReportTable from "./LeaveAccrualReportTable";
 import AbsenceReportTable from "./AbsenceReportTable";
 import EmployeeHoursSummaryReportTable from "./EmployeeHoursSummaryReportTable";
+import CompanyPayslipsWorkspace from "@/components/payroll/CompanyPayslipsWorkspace";
+import type { CompanyPayslipContext } from "@/lib/payroll/payslip-types";
+import type { EmployeeRecord } from "@/lib/employees/schema";
 import {
   generatePayrollPeriods,
   formatPeriodDate,
@@ -54,6 +57,9 @@ import type { LeaveType } from "@/lib/work-rules/schema";
 
 type CompanyReportsWorkspaceProps = {
   companyName: string;
+  company?: CompanyPayslipContext;
+  fullEmployees?: EmployeeRecord[];
+  isSuperAdmin?: boolean;
   employees: Array<{
     id: string;
     full_name: string;
@@ -88,7 +94,8 @@ type ReportTab =
   | "timesheets"
   | "accruals"
   | "absences"
-  | "settings";
+  | "settings"
+  | "payslips";
 
 function formatHours(val: number | string | null | undefined): string {
   return `${Number(val ?? 0).toFixed(2)}h`;
@@ -96,6 +103,9 @@ function formatHours(val: number | string | null | undefined): string {
 
 export default function CompanyReportsWorkspace({
   companyName,
+  company,
+  fullEmployees,
+  isSuperAdmin = false,
   employees,
   departments,
   workstations,
@@ -1065,6 +1075,21 @@ export default function CompanyReportsWorkspace({
           Absence Log ({filteredAbsences.length})
         </button>
 
+        {isSuperAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("payslips")}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+              activeTab === "payslips"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "text-emerald-700 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200"
+            }`}
+          >
+            <Printer className="size-4 text-emerald-600" />
+            <span>Official Payslips (Super Admin)</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setActiveTab("settings")}
@@ -1080,6 +1105,17 @@ export default function CompanyReportsWorkspace({
       </div>
 
       {/* Tab Panels */}
+      {activeTab === "payslips" && isSuperAdmin && (
+        <CompanyPayslipsWorkspace
+          company={company || { id: "current-company", name: companyName }}
+          employees={fullEmployees || []}
+          timesheetEntries={timesheetEntries}
+          payrollConfig={payrollConfig}
+          isSuperAdmin={isSuperAdmin}
+          onNavigateToApprovals={() => setActiveTab("timesheets")}
+        />
+      )}
+
       {activeTab === "analytics" && (
         <ReportsOverviewAnalytics
           kpis={kpis}

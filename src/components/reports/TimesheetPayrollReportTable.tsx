@@ -180,15 +180,15 @@ export default function TimesheetPayrollReportTable({
           const r = row.original;
           if (r.hasComplianceFlag) {
             return (
-              <div className="flex items-center gap-1.5 text-amber-400 max-w-xs truncate" title={r.complianceNotes ?? "Compliance alert"}>
+              <div className="flex items-center gap-1.5 text-amber-400 max-w-xs break-words" title={r.complianceNotes ?? "Compliance alert"}>
                 <AlertTriangle className="size-3.5 shrink-0 text-amber-400" />
-                <span className="text-[11px] truncate">{r.complianceNotes ?? "Flagged"}</span>
+                <span className="text-[11px] break-words leading-tight">{r.complianceNotes ?? "Flagged"}</span>
               </div>
             );
           }
           if (r.complianceNotes) {
             return (
-              <span className="text-[11px] text-muted max-w-xs truncate" title={r.complianceNotes}>
+              <span className="text-[11px] text-muted max-w-xs break-words leading-tight" title={r.complianceNotes}>
                 {r.complianceNotes}
               </span>
             );

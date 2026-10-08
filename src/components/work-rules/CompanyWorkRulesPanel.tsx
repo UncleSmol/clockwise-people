@@ -968,10 +968,10 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 {data.schedules.map((schedule) => (
                   <details key={schedule.id} className="rounded-lg bg-surface text-xs">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 px-2 py-1.5">
-                      <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
                         <FaCalendarAlt className="shrink-0 text-muted" />
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold text-foreground">{schedule.name}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-semibold text-foreground leading-tight">{schedule.name}</span>
                         </span>
                       </span>
                       <span className="shrink-0 text-muted">{Number(schedule.standard_daily_hours ?? 0).toFixed(2)}h</span>
@@ -1098,10 +1098,10 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 {data.leaveTypes.map((leaveType) => (
                   <details key={leaveType.id} className="rounded-lg bg-surface text-xs">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 px-2 py-1.5">
-                      <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
                         <FaUmbrellaBeach className="shrink-0 text-muted" />
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold text-foreground">{leaveType.name}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-semibold text-foreground leading-tight">{leaveType.name}</span>
                         </span>
                       </span>
                       <span className="shrink-0 text-xs capitalize text-muted">
@@ -1207,7 +1207,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                   <div key={holiday.id} className="grid gap-0.5 rounded-lg bg-surface px-2 py-1.5 text-xs">
                     <span className="flex items-center gap-1.5">
                       <FaSun className="shrink-0 text-muted" />
-                      <span className="truncate font-semibold text-foreground">{holiday.name}</span>
+                      <span className="break-words font-semibold text-foreground leading-tight">{holiday.name}</span>
                     </span>
                     <span className="ml-5 text-muted">
                       {holiday.holiday_date}{holiday.is_paid ? "" : " - Unpaid"}

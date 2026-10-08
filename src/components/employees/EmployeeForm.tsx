@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Briefcase, Building2, Calendar, Clock, DollarSign, Flag, Hash, Mail, MapPin, Phone, User, UserCheck } from "lucide-react";
+import { Briefcase, Building2, Calendar, Clock, CreditCard, DollarSign, FileText, Flag, Hash, Landmark, Mail, MapPin, Phone, User, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -9,6 +9,9 @@ import {
   employeeFormSchema,
   employmentStatuses,
   employmentTypes,
+  paymentFrequencies,
+  bankAccountTypes,
+  paymentModes,
   type EmployeeFormInput,
   type EmployeeFormValues,
   type EmployeeRecord,
@@ -72,6 +75,14 @@ export default function EmployeeForm({
       payroll_identifier: employee?.payroll_identifier ?? "",
       monthly_salary: fieldValue(employee?.monthly_salary),
       hourly_rate: fieldValue(employee?.hourly_rate),
+      id_number: employee?.id_number ?? "",
+      tax_number: employee?.tax_number ?? "",
+      address: employee?.address ?? "",
+      payment_frequency: (employee?.payment_frequency ?? "monthly") as EmployeeFormValues["payment_frequency"],
+      bank_name: employee?.bank_name ?? "",
+      bank_account_number: employee?.bank_account_number ?? "",
+      bank_account_type: (employee?.bank_account_type ?? "Cheque / Current") as EmployeeFormValues["bank_account_type"],
+      payment_mode: (employee?.payment_mode ?? "EFT") as EmployeeFormValues["payment_mode"],
     },
   });
 
@@ -316,6 +327,129 @@ export default function EmployeeForm({
           </span>
           {errors.hourly_rate && <span className="text-xs text-danger">{errors.hourly_rate.message}</span>}
         </label>
+      </div>
+
+      {/* Statutory Identification Details (For Payslips & Tax Compliance) */}
+      <div className="rounded-xl border border-border bg-surface/40 p-4">
+        <p className="text-xs font-black uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
+          <FileText className="size-3.5 text-primary" />
+          Statutory Identification & Address (For Payslips & BCEA)
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">National ID / Passport Number</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <User className="size-4 shrink-0 text-muted" />
+              <input
+                placeholder="e.g. 940322 0456 083"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("id_number")}
+              />
+            </span>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">SARS Tax Reference Number</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <Hash className="size-4 shrink-0 text-muted" />
+              <input
+                placeholder="e.g. 9012345678"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("tax_number")}
+              />
+            </span>
+          </label>
+
+          <label className="grid gap-1 md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Physical / Residential Address</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <MapPin className="size-4 shrink-0 text-muted" />
+              <input
+                placeholder="e.g. 49 Duncan Street, Witbank, 1039"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("address")}
+              />
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {/* Payroll & Banking Information (For Payslip Printout & EFT Disbursements) */}
+      <div className="rounded-xl border border-border bg-surface/40 p-4">
+        <p className="text-xs font-black uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
+          <Landmark className="size-3.5 text-emerald-600" />
+          Payroll Cycle & Banking Details (For Payslips & EFT)
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payment Frequency</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <Clock className="size-4 shrink-0 text-muted" />
+              <select
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none capitalize"
+                {...register("payment_frequency")}
+              >
+                {paymentFrequencies.map((freq) => (
+                  <option key={freq} value={freq}>{labelize(freq)}</option>
+                ))}
+              </select>
+            </span>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payment Mode</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <CreditCard className="size-4 shrink-0 text-muted" />
+              <select
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("payment_mode")}
+              >
+                {paymentModes.map((mode) => (
+                  <option key={mode} value={mode}>{mode}</option>
+                ))}
+              </select>
+            </span>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bank Name</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <Building2 className="size-4 shrink-0 text-muted" />
+              <input
+                placeholder="e.g. Standard Bank, FNB, Capitec, Nedbank"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("bank_name")}
+              />
+            </span>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bank Account Number</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <CreditCard className="size-4 shrink-0 text-muted" />
+              <input
+                placeholder="e.g. 10149977458"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("bank_account_number")}
+              />
+            </span>
+          </label>
+
+          <label className="grid gap-1 md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Account Type</span>
+            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <Landmark className="size-4 shrink-0 text-muted" />
+              <select
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                {...register("bank_account_type")}
+              >
+                {bankAccountTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </span>
+          </label>
+        </div>
       </div>
 
       <div className="flex justify-end gap-3">

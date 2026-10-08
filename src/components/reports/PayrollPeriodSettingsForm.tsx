@@ -334,13 +334,13 @@ export default function PayrollPeriodSettingsForm({
                     : "border-border bg-white"
                 }`}
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-extrabold text-foreground">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-extrabold text-foreground break-words leading-tight">
                       {formatPeriodDate(period.startDate)} &rarr; {formatPeriodDate(period.endDate)}
                     </p>
                     {period.isCurrent ? (
-                      <span className="rounded bg-emerald-600 px-1.5 py-0.2 text-[9px] font-black uppercase text-white">
+                      <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.2 text-[9px] font-black uppercase text-white">
                         Current Open Period
                       </span>
                     ) : period.isClosed ? (

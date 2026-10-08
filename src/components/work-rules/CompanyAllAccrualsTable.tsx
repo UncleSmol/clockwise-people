@@ -720,8 +720,8 @@ export default function CompanyAllAccrualsTable({
                       </div>
 
                       {/* Statutory Note & Audit Button Footer */}
-                      <div className="mt-2.5 pt-2 border-t border-border/50 text-[10px] text-muted flex items-center justify-between gap-2">
-                        <span className="font-semibold text-foreground/80 truncate" title={meta.statutoryNote}>
+                      <div className="mt-2.5 pt-2 border-t border-border/50 text-[10px] text-muted flex flex-wrap items-center justify-between gap-2 min-w-0">
+                        <span className="font-semibold text-foreground/80 break-words leading-tight flex-1 min-w-0" title={meta.statutoryNote}>
                           {meta.statutoryNote}
                         </span>
                         <button
@@ -748,14 +748,14 @@ export default function CompanyAllAccrualsTable({
                 <span>Recent Approved Leave History ({selectedEmployeeHistory.length})</span>
               </h5>
               <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs table-fixed sm:table-auto">
                   <thead className="border-b border-border bg-surface-muted text-muted uppercase tracking-wider font-extrabold text-[10px]">
                     <tr>
-                      <th scope="col" className="px-3.5 py-2">Leave Type</th>
-                      <th scope="col" className="px-3 py-2">Dates</th>
-                      <th scope="col" className="px-3 py-2 text-right">Hours</th>
-                      <th scope="col" className="px-3 py-2 text-right">Days</th>
-                      <th scope="col" className="px-3.5 py-2 text-right">Status</th>
+                      <th scope="col" className="px-2 py-2 sm:px-3.5 sm:py-2 w-[32%] sm:w-auto">Leave Type</th>
+                      <th scope="col" className="px-2 py-2 sm:px-3 sm:py-2 w-[36%] sm:w-auto">Dates</th>
+                      <th scope="col" className="px-2 py-2 sm:px-3 sm:py-2 text-right w-[18%] sm:w-auto">Hours</th>
+                      <th scope="col" className="hidden sm:table-cell px-3 py-2 text-right">Days</th>
+                      <th scope="col" className="px-2 py-2 sm:px-3.5 sm:py-2 text-right w-[14%] sm:w-auto">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60 font-mono">
@@ -766,20 +766,23 @@ export default function CompanyAllAccrualsTable({
 
                       return (
                         <tr key={h.id} className="hover:bg-surface-muted/40 transition-colors">
-                          <td className="px-3.5 py-2 font-sans font-bold text-foreground">
-                            {h.leaveTypeName}
+                          <td className="px-2 py-2 sm:px-3.5 sm:py-2 font-sans font-bold text-foreground">
+                            <span className="break-words block leading-tight">{h.leaveTypeName}</span>
                           </td>
-                          <td className="px-3 py-2 font-sans text-muted">
-                            {formatDate(startDate)} → {formatDate(endDate)}
+                          <td className="px-2 py-2 sm:px-3 sm:py-2 font-sans text-muted text-[11px]">
+                            <span className="break-words block leading-tight">
+                              {formatDate(startDate)}
+                              {startDate !== endDate ? ` → ${formatDate(endDate)}` : ""}
+                            </span>
                           </td>
-                          <td className="px-3 py-2 text-right font-bold text-rose-600">
+                          <td className="px-2 py-2 sm:px-3 sm:py-2 text-right font-bold text-rose-600 text-xs">
                             -{formatHours(totalHours)}
                           </td>
-                          <td className="px-3 py-2 text-right text-muted">
+                          <td className="hidden sm:table-cell px-3 py-2 text-right text-muted">
                             {hoursToDays(totalHours)}
                           </td>
-                          <td className="px-3.5 py-2 text-right">
-                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-sans font-extrabold text-emerald-700">
+                          <td className="px-2 py-2 sm:px-3.5 sm:py-2 text-right">
+                            <span className="rounded-full bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-sans font-extrabold text-emerald-700 whitespace-nowrap">
                               {h.status}
                             </span>
                           </td>
@@ -869,26 +872,26 @@ export default function CompanyAllAccrualsTable({
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="w-full overflow-x-hidden md:overflow-x-auto">
+            <table className="w-full text-left text-xs table-fixed sm:table-auto">
               <thead className="border-b border-border bg-surface-muted text-muted uppercase tracking-wider font-extrabold text-[10px]">
                 <tr>
-                  <th scope="col" className="px-3.5 py-2.5">
+                  <th scope="col" className="px-2.5 py-2 sm:px-3.5 sm:py-2.5 w-[38%] sm:w-auto">
                     Employee
                   </th>
-                  <th scope="col" className="px-3 py-2.5">
+                  <th scope="col" className="px-2 py-2 sm:px-3 sm:py-2.5 w-[32%] sm:w-auto">
                     Leave Type
                   </th>
-                  <th scope="col" className="px-3 py-2.5 text-right">
+                  <th scope="col" className="hidden md:table-cell px-3 py-2.5 text-right">
                     Accrued
                   </th>
-                  <th scope="col" className="px-3 py-2.5 text-right">
+                  <th scope="col" className="hidden md:table-cell px-3 py-2.5 text-right">
                     Taken
                   </th>
-                  <th scope="col" className="px-3.5 py-2.5 text-right">
+                  <th scope="col" className="px-2 py-2 sm:px-3.5 sm:py-2.5 text-right w-[30%] sm:w-auto">
                     Remaining Balance
                   </th>
-                  <th scope="col" className="px-3.5 py-2.5 text-right">
+                  <th scope="col" className="hidden sm:table-cell px-3.5 py-2.5 text-right">
                     Action
                   </th>
                 </tr>
@@ -916,7 +919,7 @@ export default function CompanyAllAccrualsTable({
                         }`}
                       >
                         {/* Employee Name & Number */}
-                        <td className="px-3.5 py-2.5">
+                        <td className="px-2.5 py-2 sm:px-3.5 sm:py-2.5">
                           <button
                             type="button"
                             onClick={() => setSelectedEmployeeId(item.employeeId)}
@@ -924,13 +927,13 @@ export default function CompanyAllAccrualsTable({
                           >
                             <EmployeeAvatar
                               name={item.employeeName}
-                              className="size-7 text-[10px] group-hover:ring-2 group-hover:ring-primary/40 transition-all"
+                              className="size-7 text-[10px] group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
                             />
-                            <div className="min-w-0">
-                              <p className="truncate font-bold text-foreground group-hover:text-primary transition-colors">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-foreground group-hover:text-primary transition-colors text-xs break-words leading-tight">
                                 {item.employeeName}
                               </p>
-                              <p className="truncate text-[10px] text-muted">
+                              <p className="text-[10px] text-muted font-mono break-words">
                                 {item.employeeNumber}
                               </p>
                             </div>
@@ -938,31 +941,31 @@ export default function CompanyAllAccrualsTable({
                         </td>
 
                         {/* Leave Type Badge - High Contrast & Interactive */}
-                        <td className="px-3 py-2.5">
+                        <td className="px-2 py-2 sm:px-3 sm:py-2.5">
                           <button
                             type="button"
                             onClick={() => setExplainingItem(item)}
                             title={`View statutory audit & calculation for ${item.leaveTypeName}`}
-                            className={`group cursor-pointer text-left ${meta.pillClass} transition-transform hover:scale-[1.02]`}
+                            className={`group cursor-pointer text-left ${meta.pillClass} transition-transform hover:scale-[1.02] max-w-full`}
                           >
-                            <span className={`size-2 rounded-full ${meta.dotClass} shrink-0`} />
-                            <span className="truncate max-w-[200px]">{item.leaveTypeName}</span>
-                            <Sparkles className="size-3 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity" />
+                            <span className={`size-1.5 sm:size-2 rounded-full ${meta.dotClass} shrink-0`} />
+                            <span className="break-words leading-tight">{item.leaveTypeName}</span>
+                            <Sparkles className="size-2.5 sm:size-3 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity hidden min-[400px]:inline" />
                           </button>
                         </td>
 
                         {/* Accrued */}
-                        <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600">
+                        <td className="hidden md:table-cell px-3 py-2.5 text-right font-mono font-bold text-emerald-600">
                           +{formatHours(item.accruedHours)}
                         </td>
 
                         {/* Taken */}
-                        <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600">
+                        <td className="hidden md:table-cell px-3 py-2.5 text-right font-mono font-bold text-rose-600">
                           {item.takenHours > 0 ? `-${formatHours(item.takenHours)}` : "0.00h"}
                         </td>
 
                         {/* Remaining Balance */}
-                        <td className="px-3.5 py-2.5 text-right">
+                        <td className="px-2 py-2 sm:px-3.5 sm:py-2.5 text-right">
                           <div className="inline-flex flex-col items-end">
                             <span
                               className={`font-mono font-black text-xs ${
@@ -976,11 +979,14 @@ export default function CompanyAllAccrualsTable({
                             <span className="text-[10px] text-muted">
                               ({hoursToDays(item.balanceHours)})
                             </span>
+                            <span className="md:hidden text-[9px] text-slate-400 font-mono">
+                              +{formatHours(item.accruedHours).slice(0, -1)} / -{formatHours(item.takenHours).slice(0, -1)}
+                            </span>
                           </div>
                         </td>
 
                         {/* Action: Inspect Employee & Explain */}
-                        <td className="px-3.5 py-2.5 text-right">
+                        <td className="hidden sm:table-cell px-3.5 py-2.5 text-right">
                           <div className="inline-flex items-center gap-1.5 justify-end">
                             <button
                               type="button"

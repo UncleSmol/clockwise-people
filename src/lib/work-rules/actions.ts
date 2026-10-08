@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getActiveCompany, getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   leaveAccrualLoadFormSchema,
   leaveAccrualPreviewFormSchema,
@@ -498,109 +499,306 @@ export async function submitLeaveRequest(
   return { ok: true, message: "Leave request sent." };
 }
 
+export async function ensureCompanyToilLeaveType(companyId: string) {
+  const adminClient = createSupabaseAdminClient();
+  const { data: existing } = await adminClient
+    .from("leave_types")
+    .select("id, name, category, is_paid, requires_attachment, accrual_rules, is_active")
+    .eq("company_id", companyId)
+    .eq("category", "toil_taken")
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (existing) {
+    return existing;
+  }
+
+  const { data: inserted, error } = await adminClient
+    .from("leave_types")
+    .insert({
+      company_id: companyId,
+      name: "Time Off In Lieu (TOIL)",
+      category: "toil_taken",
+      is_paid: true,
+      requires_attachment: false,
+      is_active: true,
+      accrual_rules: {
+        multiplier: 1.5,
+        type: "overtime_conversion",
+      },
+    })
+    .select("id, name, category, is_paid, requires_attachment, accrual_rules, is_active")
+    .single();
+
+  if (error) {
+    const { data: fallback } = await adminClient
+      .from("leave_types")
+      .select("id, name, category, is_paid, requires_attachment, accrual_rules, is_active")
+      .eq("company_id", companyId)
+      .eq("category", "toil_taken")
+      .is("deleted_at", null)
+      .maybeSingle();
+    return fallback;
+  }
+
+  return inserted;
+}
+
+export async function ensureEmployeeToilBalance(
+  companyId: string,
+  employeeId: string,
+  toilTypeId: string,
+) {
+  const adminClient = createSupabaseAdminClient();
+  const { data: existing } = await adminClient
+    .from("leave_balances")
+    .select("id, balance_hours, accrued_hours, taken_hours")
+    .eq("company_id", companyId)
+    .eq("employee_id", employeeId)
+    .eq("leave_type_id", toilTypeId)
+    .maybeSingle();
+
+  if (existing) {
+    return existing;
+  }
+
+  const { data: inserted, error } = await adminClient
+    .from("leave_balances")
+    .insert({
+      company_id: companyId,
+      employee_id: employeeId,
+      leave_type_id: toilTypeId,
+      balance_hours: 0,
+      accrued_hours: 0,
+      taken_hours: 0,
+      adjusted_hours: 0,
+      as_of_date: new Date().toISOString().slice(0, 10),
+    })
+    .select("id, balance_hours, accrued_hours, taken_hours")
+    .single();
+
+  if (error) {
+    const { data: fallback } = await adminClient
+      .from("leave_balances")
+      .select("id, balance_hours, accrued_hours, taken_hours")
+      .eq("company_id", companyId)
+      .eq("employee_id", employeeId)
+      .eq("leave_type_id", toilTypeId)
+      .maybeSingle();
+    return fallback;
+  }
+
+  return inserted;
+}
+
 export async function accrueToilBalance(
   employeeId: string,
   periodStart: string,
   periodEnd: string,
+  specifiedHours?: number,
 ): Promise<ActionState> {
   const { company } = await getActiveCompany();
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createSupabaseAdminClient();
+  const { user } = await requireUser();
 
-  const [settingsResult, overtimeResult, toilTypeResult] = await Promise.all([
-    supabase
+  const [settingsResult, overtimeResult] = await Promise.all([
+    adminClient
       .from("company_settings")
       .select("toil_rules")
       .eq("company_id", company.id)
-      .single(),
-    supabase
+      .maybeSingle(),
+    adminClient
       .from("time_entries")
-      .select("overtime_hours")
+      .select("id, overtime_hours, work_date")
       .eq("company_id", company.id)
       .eq("employee_id", employeeId)
       .is("deleted_at", null)
       .gte("work_date", periodStart)
       .lte("work_date", periodEnd),
-    supabase
-      .from("leave_types")
-      .select("id")
-      .eq("company_id", company.id)
-      .eq("category", "toil_taken")
-      .is("deleted_at", null)
-      .maybeSingle(),
   ]);
 
   if (settingsResult.error) return { ok: false, message: settingsResult.error.message };
   if (overtimeResult.error) return { ok: false, message: overtimeResult.error.message };
-  if (toilTypeResult.error) return { ok: false, message: toilTypeResult.error.message };
 
-  const toilRules = settingsResult.data?.toil_rules as Record<string, unknown> | undefined;
-  const multiplier = Number(toilRules?.accrual_multiplier ?? 1.5);
-  const totalOvertime = (overtimeResult.data ?? []).reduce(
+  const toilRules = (settingsResult.data?.toil_rules ?? {}) as Record<string, unknown>;
+  const multiplier = Number(toilRules.accrual_multiplier ?? 1.5);
+
+  const totalPeriodOvertime = (overtimeResult.data ?? []).reduce(
     (sum, entry) => sum + Number(entry.overtime_hours ?? 0),
     0,
   );
-  const earnedHours = Number((totalOvertime * multiplier).toFixed(2));
 
+  let overtimeToConvert = totalPeriodOvertime;
+  if (typeof specifiedHours === "number" && specifiedHours > 0) {
+    overtimeToConvert = specifiedHours;
+  }
+
+  if (overtimeToConvert <= 0) {
+    return {
+      ok: false,
+      message: `No overtime hours found between ${periodStart} and ${periodEnd}.`,
+    };
+  }
+
+  const earnedHours = Number((overtimeToConvert * multiplier).toFixed(2));
   if (earnedHours <= 0) {
-    return { ok: false, message: "No overtime hours found in the selected period." };
+    return { ok: false, message: "Calculated TOIL accrual is zero." };
   }
 
-  if (!toilTypeResult.data) {
-    return { ok: false, message: "No TOIL leave type exists. Create a leave type with category 'Toil Taken' first." };
+  const toilType = await ensureCompanyToilLeaveType(company.id);
+  if (!toilType) {
+    return { ok: false, message: "Could not create or locate the TOIL leave rule." };
   }
 
-  const { error } = await supabase.rpc("assign_employee_leave_balance", {
-    balance_hours: earnedHours,
-    target_employee_id: employeeId,
-    target_leave_type_id: toilTypeResult.data.id,
-  });
+  // Check existing leave balance
+  const { data: existingBalance, error: balanceQueryError } = await adminClient
+    .from("leave_balances")
+    .select("id, balance_hours, accrued_hours")
+    .eq("company_id", company.id)
+    .eq("employee_id", employeeId)
+    .eq("leave_type_id", toilType.id)
+    .maybeSingle();
 
-  if (error) return { ok: false, message: error.message };
+  if (balanceQueryError) {
+    return { ok: false, message: balanceQueryError.message };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let updatedBalanceHours = earnedHours;
+
+  if (existingBalance) {
+    const currentBalance = Number(existingBalance.balance_hours ?? 0);
+    const currentAccrued = Number(existingBalance.accrued_hours ?? 0);
+    updatedBalanceHours = Number((currentBalance + earnedHours).toFixed(2));
+    const updatedAccruedHours = Number((currentAccrued + earnedHours).toFixed(2));
+
+    const { error: updateError } = await adminClient
+      .from("leave_balances")
+      .update({
+        balance_hours: updatedBalanceHours,
+        accrued_hours: updatedAccruedHours,
+        as_of_date: today,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingBalance.id);
+
+    if (updateError) {
+      return { ok: false, message: updateError.message };
+    }
+  } else {
+    const { error: insertError } = await adminClient
+      .from("leave_balances")
+      .insert({
+        company_id: company.id,
+        employee_id: employeeId,
+        leave_type_id: toilType.id,
+        balance_hours: earnedHours,
+        accrued_hours: earnedHours,
+        taken_hours: 0,
+        adjusted_hours: 0,
+        as_of_date: today,
+      });
+
+    if (insertError) {
+      return { ok: false, message: insertError.message };
+    }
+  }
+
+  // Record audit transaction in toil_transactions
+  try {
+    await adminClient.from("toil_transactions").insert({
+      company_id: company.id,
+      employee_id: employeeId,
+      transaction_date: today,
+      transaction_type: "overtime_converted",
+      hours: earnedHours,
+      reason: `Converted ${overtimeToConvert}h overtime into ${earnedHours}h TOIL (multiplier: ${multiplier}×, period: ${periodStart} to ${periodEnd})`,
+      status: "approved",
+      created_by: user.id,
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Failed to write toil_transaction audit record:", err);
+  }
 
   revalidatePath("/dashboard");
-  return { ok: true, message: `${earnedHours}h TOIL accrued from ${totalOvertime}h overtime (×${multiplier}).` };
+  return {
+    ok: true,
+    message: `Successfully converted ${overtimeToConvert.toFixed(2)}h overtime into ${earnedHours.toFixed(2)}h TOIL (rate: ×${multiplier}). Your new TOIL balance is ${updatedBalanceHours.toFixed(2)}h.`,
+  };
 }
 
 export async function convertOvertimeToToil(
   _previousState: ActionState,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionState> {
-  void _previousState;
-  void _formData;
   const { company } = await getActiveCompany();
-  const { supabase } = await requireUser();
   const { employeeId } = await getCurrentUserAccess();
 
   if (!employeeId) {
     return { ok: false, message: "No employee is linked to this account." };
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const periodResult = await supabase
-    .from("payroll_periods")
-    .select("period_start, period_end")
-    .eq("company_id", company.id)
-    .eq("status", "open")
-    .lte("period_start", today)
-    .gte("period_end", today)
-    .is("deleted_at", null)
-    .order("period_start", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const formPeriodStart = String(formData.get("period_start") ?? "").trim();
+  const formPeriodEnd = String(formData.get("period_end") ?? "").trim();
+  const rawHours = String(formData.get("hours_to_convert") ?? "").trim();
+  const specifiedHours =
+    rawHours && !isNaN(Number(rawHours)) && Number(rawHours) > 0
+      ? Number(rawHours)
+      : undefined;
 
-  if (periodResult.error) {
-    return { ok: false, message: periodResult.error.message };
+  let periodStart = formPeriodStart;
+  let periodEnd = formPeriodEnd;
+
+  if (!periodStart || !periodEnd) {
+    const today = new Date().toISOString().slice(0, 10);
+    const adminClient = createSupabaseAdminClient();
+
+    // 1. Try open period covering today
+    const { data: activePeriod } = await adminClient
+      .from("payroll_periods")
+      .select("period_start, period_end")
+      .eq("company_id", company.id)
+      .eq("status", "open")
+      .lte("period_start", today)
+      .gte("period_end", today)
+      .is("deleted_at", null)
+      .order("period_start", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (activePeriod) {
+      periodStart = activePeriod.period_start;
+      periodEnd = activePeriod.period_end;
+    } else {
+      // 2. Try any open period
+      const { data: latestOpenPeriod } = await adminClient
+        .from("payroll_periods")
+        .select("period_start, period_end")
+        .eq("company_id", company.id)
+        .eq("status", "open")
+        .is("deleted_at", null)
+        .order("period_start", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestOpenPeriod) {
+        periodStart = latestOpenPeriod.period_start;
+        periodEnd = latestOpenPeriod.period_end;
+      } else {
+        // 3. Fallback to calendar month (1st to last day of current month)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+        periodStart = `${year}-${month}-01`;
+        periodEnd = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+      }
+    }
   }
 
-  if (!periodResult.data) {
-    return { ok: false, message: "No open payroll period covers today's date." };
-  }
-
-  return accrueToilBalance(
-    employeeId,
-    periodResult.data.period_start,
-    periodResult.data.period_end,
-  );
+  return accrueToilBalance(employeeId, periodStart, periodEnd, specifiedHours);
 }
 
 export async function reviewLeaveRequest(

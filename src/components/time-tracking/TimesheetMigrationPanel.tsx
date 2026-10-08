@@ -401,17 +401,17 @@ export default function TimesheetMigrationPanel() {
 
           {/* Interactive Preview Table */}
           <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto max-h-96">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="w-full overflow-x-hidden md:overflow-x-auto max-h-96">
+              <table className="w-full text-left text-xs border-collapse table-fixed md:table-auto">
                 <thead className="bg-surface-muted text-muted font-extrabold uppercase text-[10px] sticky top-0 z-10 border-b border-border">
                   <tr>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3">Employee</th>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3">Times / Leave</th>
-                    <th className="py-2.5 px-3">Workstation</th>
-                    <th className="py-2.5 px-3">Notes / Flags</th>
+                    <th className="py-2 px-2 sm:py-2.5 sm:px-3 w-[24%] md:w-auto">Status</th>
+                    <th className="py-2 px-2 sm:py-2.5 sm:px-3 w-[36%] md:w-auto">Date</th>
+                    <th className="py-2 px-2 sm:py-2.5 sm:px-3 w-[40%] md:w-auto">Employee</th>
+                    <th className="hidden md:table-cell py-2.5 px-3">Type</th>
+                    <th className="hidden md:table-cell py-2.5 px-3">Times / Leave</th>
+                    <th className="hidden md:table-cell py-2.5 px-3">Workstation</th>
+                    <th className="hidden md:table-cell py-2.5 px-3">Notes / Flags</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -433,40 +433,43 @@ export default function TimesheetMigrationPanel() {
                             : ""
                         }`}
                       >
-                        <td className="py-2.5 px-3 whitespace-nowrap">
+                        <td className="py-2 px-2 sm:py-2.5 sm:px-3 whitespace-nowrap">
                           {entry.validationStatus === "valid" ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                              <CheckCircle2 className="size-3.5" />
+                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 rounded border border-emerald-500/20">
+                              <CheckCircle2 className="size-3 sm:size-3.5" />
                               Valid
                             </span>
                           ) : entry.validationStatus === "warning" ? (
                             <span
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20"
+                              className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-500/10 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/20"
                               title={entry.warningFlags?.join("\n")}
                             >
-                              <AlertTriangle className="size-3.5" />
+                              <AlertTriangle className="size-3 sm:size-3.5" />
                               Notice
                             </span>
                           ) : (
                             <span
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20"
+                              className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-rose-700 bg-rose-500/10 px-1.5 sm:px-2 py-0.5 rounded border border-rose-500/20"
                               title={entry.validationErrors?.join("\n")}
                             >
-                              <XCircle className="size-3.5" />
+                              <XCircle className="size-3 sm:size-3.5" />
                               Error
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap font-mono text-foreground font-medium">
+                        <td className="py-2 px-2 sm:py-2.5 sm:px-3 whitespace-nowrap font-mono text-foreground font-medium text-xs">
                           {entry.workDate}
                         </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <div className="font-semibold text-foreground">
+                        <td className="py-2 px-2 sm:py-2.5 sm:px-3">
+                          <div className="font-semibold text-foreground truncate text-xs">
                             {entry.matchedEmployeeName || entry.employeeName || "Unassigned"}
                           </div>
-                          <div className="text-[10px] text-muted font-mono">{entry.employeeIdentifier}</div>
+                          <div className="md:hidden text-[10px] text-muted font-mono truncate mt-0.5">
+                            {entry.entryType === "work" ? `${entry.clockIn || "--"} - ${entry.clockOut || "--"}` : `${entry.leaveHours}h Leave`}
+                          </div>
+                          <div className="hidden md:block text-[10px] text-muted font-mono">{entry.employeeIdentifier}</div>
                         </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
+                        <td className="hidden md:table-cell py-2.5 px-3 whitespace-nowrap">
                           {entry.entryType === "work" ? (
                             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700">
                               Shift
@@ -477,7 +480,7 @@ export default function TimesheetMigrationPanel() {
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
+                        <td className="hidden md:table-cell py-2.5 px-3 whitespace-nowrap">
                           {entry.entryType === "work" ? (
                             <div className="space-y-0.5">
                               <div className="font-mono text-foreground">
@@ -497,13 +500,13 @@ export default function TimesheetMigrationPanel() {
                             </div>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 whitespace-nowrap">
+                        <td className="hidden md:table-cell py-2.5 px-3 whitespace-nowrap">
                           <span className="text-muted flex items-center gap-1">
                             <MapPin className="size-3 shrink-0 text-muted" />
                             {entry.workstationName || "Company Assigned"}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-muted max-w-xs truncate" title={entry.notes || ""}>
+                        <td className="hidden md:table-cell py-2.5 px-3 text-muted max-w-xs truncate" title={entry.notes || ""}>
                           {entry.notes || "—"}
                         </td>
                       </tr>

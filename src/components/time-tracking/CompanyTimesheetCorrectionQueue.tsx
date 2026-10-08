@@ -195,11 +195,11 @@ export default function CompanyTimesheetCorrectionQueue({
                         src={request.avatarUrl}
                         className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
                       />
-                      <div className="min-w-0">
-                        <h3 className="truncate text-xs font-extrabold text-foreground">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-xs font-extrabold text-foreground break-words leading-tight">
                           {request.knownAs ?? request.fullName}
                         </h3>
-                        <p className="truncate text-[11px] font-medium text-muted">
+                        <p className="text-[11px] font-medium text-muted break-words leading-tight mt-0.5">
                           {request.workstationName ?? "Assigned workstation"} ·{" "}
                           <span className="font-semibold text-foreground">{formatDate(request.work_date)}</span>
                         </p>
@@ -215,57 +215,57 @@ export default function CompanyTimesheetCorrectionQueue({
                   <div className="grid gap-2 min-[500px]:grid-cols-2 min-w-0">
                     {/* Original Times Box */}
                     <div className="min-w-0 rounded-md border border-slate-200 bg-white p-2 shadow-2xs">
-                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 truncate whitespace-nowrap">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 break-words leading-tight">
                         Original Recorded Log
                       </p>
                       <div className="mt-1.5 grid grid-cols-2 min-[340px]:grid-cols-4 gap-1 text-center">
                         <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase truncate whitespace-nowrap">In</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground truncate whitespace-nowrap">{formatTime(request.original_clock_in)}</p>
+                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">In</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_clock_in)}</p>
                         </div>
                         <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase truncate whitespace-nowrap">L.In</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground truncate whitespace-nowrap">{formatTime(request.original_lunch_start)}</p>
+                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">L.In</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_lunch_start)}</p>
                         </div>
                         <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase truncate whitespace-nowrap">L.Out</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground truncate whitespace-nowrap">{formatTime(request.original_lunch_end)}</p>
+                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">L.Out</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_lunch_end)}</p>
                         </div>
                         <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase truncate whitespace-nowrap">Out</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground truncate whitespace-nowrap">{formatTime(request.original_clock_out)}</p>
+                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">Out</p>
+                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_clock_out)}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Proposed Times Box (High-Contrast Emerald Highlight) */}
                     <div className="min-w-0 rounded-md border border-emerald-300 bg-emerald-50/90 p-2 shadow-2xs">
-                      <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-emerald-800 truncate whitespace-nowrap">
+                      <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-emerald-800 break-words leading-tight">
                         Proposed Correction
                       </p>
                       <div className="mt-1.5 grid grid-cols-2 min-[340px]:grid-cols-4 gap-1 text-center">
                         <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-emerald-700 uppercase truncate whitespace-nowrap">In</p>
-                          <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatTime(request.proposed_clock_in)}</p>
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">In</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_clock_in)}</p>
                         </div>
                         <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-emerald-700 uppercase truncate whitespace-nowrap">L.In</p>
-                          <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatTime(request.proposed_lunch_start)}</p>
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">L.In</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_lunch_start)}</p>
                         </div>
                         <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-emerald-700 uppercase truncate whitespace-nowrap">L.Out</p>
-                          <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatTime(request.proposed_lunch_end)}</p>
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">L.Out</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_lunch_end)}</p>
                         </div>
                         <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-emerald-700 uppercase truncate whitespace-nowrap">Out</p>
-                          <p className="mt-0.5 text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatTime(request.proposed_clock_out)}</p>
+                          <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">Out</p>
+                          <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_clock_out)}</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Reason Box */}
-                  <div className="rounded-md border border-border bg-white p-2.5 text-xs shadow-2xs">
+                  <div className="rounded-md border border-border bg-white p-2.5 text-xs shadow-2xs break-words" title={request.reason}>
                     <span className="font-extrabold uppercase tracking-wider text-muted">Reason: </span>
                     <span className="font-semibold text-foreground">{request.reason}</span>
                   </div>
