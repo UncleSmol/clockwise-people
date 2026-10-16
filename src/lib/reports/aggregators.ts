@@ -52,6 +52,7 @@ export function buildTimesheetPayrollReport(input: AggregatorInput): TimesheetPa
   for (const entry of timesheetEntries) {
     if (entry.work_date < startDate || entry.work_date > endDate) continue;
     const emp = employeeMap.get(entry.employee_id);
+    if (!emp) continue;
     const isHoliday = holidayDateSet.has(entry.work_date);
 
     // Calculate normal vs 1.5x vs 2.0x overtime
@@ -270,6 +271,7 @@ export function buildAbsenceReport(input: AggregatorInput): AbsenceReportRow[] {
   for (const req of leaveRequests) {
     if (req.end_date < startDate || req.start_date > endDate) continue;
     const emp = employeeMap.get(req.employee_id);
+    if (!emp) continue;
     const lt = leaveTypeByName.get(req.leaveTypeName.toLowerCase());
 
     const start = new Date(req.start_date);

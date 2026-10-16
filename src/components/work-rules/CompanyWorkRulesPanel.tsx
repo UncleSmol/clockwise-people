@@ -1,27 +1,8 @@
 "use client";
 
 import {
-  BriefcaseBusiness,
-  Building2,
-  Calendar,
-  CalendarDays,
-  CheckCircle2,
   ChevronDown,
-  Clock,
-  Coins,
-  List,
-  Lock,
-  Palmtree,
-  Plus,
-  Save,
-  ShieldAlert,
-  Tag,
-  Timer,
-  User,
-  UserCheck,
-  Utensils,
 } from "lucide-react";
-import { FaCalendarAlt, FaUmbrellaBeach, FaSun } from "react-icons/fa";
 import { useState, useActionState, useTransition } from "react";
 import {
   assignLeaveBalance,
@@ -224,13 +205,12 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           <button
             type="button"
             onClick={() => setActiveSection("payroll_rules")}
-            className={`flex items-center gap-1 rounded-md px-2.5 py-1 font-extrabold transition-colors cursor-pointer ${
+            className={`rounded-md px-2.5 py-1 font-extrabold transition-colors cursor-pointer ${
               activeSection === "payroll_rules"
-                ? "bg-emerald-700 text-white shadow-2xs"
-                : "text-emerald-800 bg-emerald-500/10 hover:bg-emerald-500/20"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted hover:text-foreground"
             }`}
           >
-            <Coins className="size-3.5" />
             Payroll Periods
           </button>
           <button
@@ -277,12 +257,14 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           initialCustomRules={data.payrollRules}
           initialAssignments={
             data.payrollAssignments
-              ? Object.entries(data.payrollAssignments).map(([empId, rId]) => ({
-                  employeeId: empId,
-                  employeeName: data.employees.find((e) => e.id === empId)?.label ?? empId,
-                  ruleId: rId,
-                  ruleName: (data.payrollRules ?? []).find((r) => r.id === rId)?.name ?? rId,
-                }))
+              ? Object.entries(data.payrollAssignments)
+                  .filter(([empId]) => data.employees.some((e) => e.id === empId))
+                  .map(([empId, rId]) => ({
+                    employeeId: empId,
+                    employeeName: data.employees.find((e) => e.id === empId)?.label ?? empId,
+                    ruleId: rId,
+                    ruleName: (data.payrollRules ?? []).find((r) => r.id === rId)?.name ?? rId,
+                  }))
               : undefined
           }
           initialConfig={data.payrollConfig}
@@ -296,52 +278,57 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
         activeSection === "assignments") && (
         <div className="grid gap-4 sm:grid-cols-2 min-w-0">
           {(activeSection === "all" || activeSection === "work_schedules") && (
-            <form action={scheduleAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
-              <h3 className="flex items-center gap-2 font-semibold text-foreground">
-                <CalendarDays className="size-4 text-accent" />
+            <form action={scheduleAction} className="grid gap-3 rounded-xl border border-border bg-surface p-4 shadow-2xs">
+              <h3 className="font-bold text-foreground text-sm">
                 Working hours
               </h3>
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Tag className="size-4 shrink-0 text-muted" />
-                  <input
-                    name="name"
-                    placeholder="Office weekdays"
-                    className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                  />
-                </span>
+                <input
+                  name="name"
+                  placeholder="Office weekdays"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="grid gap-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start</span>
-                  <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                    <Clock className="size-4 shrink-0 text-muted" />
-                    <input name="start_time" type="time" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                  </span>
+                  <input
+                    name="start_time"
+                    type="time"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  />
                 </label>
                 <label className="grid gap-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">End</span>
-                  <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                    <Clock className="size-4 shrink-0 text-muted" />
-                    <input name="end_time" type="time" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" />
-                  </span>
+                  <input
+                    name="end_time"
+                    type="time"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  />
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="grid gap-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch (min)</span>
-                  <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                    <Timer className="size-4 shrink-0 text-muted" />
-                    <input name="lunch_minutes" type="number" min="0" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" placeholder="30" />
-                  </span>
+                  <input
+                    name="lunch_minutes"
+                    type="number"
+                    min="0"
+                    placeholder="30"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  />
                 </label>
                 <label className="grid gap-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Paid hours</span>
-                  <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                    <Clock className="size-4 shrink-0 text-muted" />
-                    <input name="daily_hours" type="number" min="0" step="0.25" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" placeholder="8" />
-                  </span>
+                  <input
+                    name="daily_hours"
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    placeholder="8"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  />
                 </label>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -359,47 +346,42 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               </div>
               <button
                 disabled={schedulePending}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 cursor-pointer"
               >
-                <Plus className="size-4" />
                 {schedulePending ? "Saving..." : "Add work rule"}
               </button>
             </form>
           )}
 
           {(activeSection === "all" || activeSection === "leave_rules") && (
-            <form action={leaveAction} className="grid gap-3 rounded-[1.25rem] border border-border bg-background p-4 shadow-2xs">
-              <h3 className="flex items-center gap-2 font-bold text-foreground text-sm">
-                <BriefcaseBusiness className="size-4 text-emerald-600" />
+            <form action={leaveAction} className="grid gap-3 rounded-xl border border-border bg-surface p-4 shadow-2xs">
+              <h3 className="font-bold text-foreground text-sm">
                 Configure Leave Rule Engine
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Rule Name</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <Tag className="size-4 shrink-0 text-muted" />
-                    <input
-                      name="name"
-                      placeholder="e.g. Statutory Annual Leave"
-                      className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                      required
-                    />
-                  </span>
+                  <input
+                    name="name"
+                    placeholder="e.g. Statutory Annual Leave"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    required
+                  />
                 </label>
 
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Category</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <List className="size-4 shrink-0 text-muted" />
-                    <select name="category" className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none capitalize">
-                      {leaveCategories.map((category) => (
-                        <option key={category} value={category}>
-                          {labelize(category)}
-                        </option>
-                      ))}
-                    </select>
-                  </span>
+                  <select
+                    name="category"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary"
+                  >
+                    {leaveCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {labelize(category)}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
@@ -407,29 +389,26 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Entitlement</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <Clock className="size-4 shrink-0 text-muted" />
-                    <input
-                      name="entitlement_amount"
-                      type="number"
-                      min="0"
-                      step="0.25"
-                      className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none font-mono"
-                      placeholder="15"
-                      defaultValue="15"
-                    />
-                  </span>
+                  <input
+                    name="entitlement_amount"
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-mono focus:border-primary"
+                    placeholder="15"
+                    defaultValue="15"
+                  />
                 </label>
 
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Entitlement Unit</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <List className="size-4 shrink-0 text-muted" />
-                    <select name="entitlement_unit" className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none font-semibold">
-                      <option value="days">Days (Schedule-Derived Hours)</option>
-                      <option value="hours">Hours (Direct Entitlement)</option>
-                    </select>
-                  </span>
+                  <select
+                    name="entitlement_unit"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-semibold focus:border-primary"
+                  >
+                    <option value="days">Days (Schedule-Derived Hours)</option>
+                    <option value="hours">Hours (Direct Entitlement)</option>
+                  </select>
                 </label>
               </div>
 
@@ -437,28 +416,28 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Accrual Method</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <Timer className="size-4 shrink-0 text-muted" />
-                    <select name="accrual_method" className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none font-semibold">
-                      <option value="monthly">Method B: Monthly Accrual (1/12th per month)</option>
-                      <option value="annual_upfront">Method A: Annual Upfront Entitlement</option>
-                      <option value="service_prorated">Method C: Pro-Rata Based on Service Period</option>
-                      <option value="hours_worked_divisor">Method D: Hours-Worked Divisor (Qualifying Hours / X)</option>
-                    </select>
-                  </span>
+                  <select
+                    name="accrual_method"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-semibold focus:border-primary"
+                  >
+                    <option value="monthly">Method B: Monthly Accrual (1/12th per month)</option>
+                    <option value="annual_upfront">Method A: Annual Upfront Entitlement</option>
+                    <option value="service_prorated">Method C: Pro-Rata Based on Service Period</option>
+                    <option value="hours_worked_divisor">Method D: Hours-Worked Divisor (Qualifying Hours / X)</option>
+                  </select>
                 </label>
 
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Proration Basis (Method C)</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <List className="size-4 shrink-0 text-muted" />
-                    <select name="proration_mode" className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none">
-                      <option value="scheduled_working_hours">Scheduled Working Hours (Exact)</option>
-                      <option value="scheduled_working_days">Scheduled Working Days</option>
-                      <option value="calendar_days">Calendar Days</option>
-                      <option value="completed_months">Completed Months</option>
-                    </select>
-                  </span>
+                  <select
+                    name="proration_mode"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  >
+                    <option value="scheduled_working_hours">Scheduled Working Hours (Exact)</option>
+                    <option value="scheduled_working_days">Scheduled Working Days</option>
+                    <option value="calendar_days">Calendar Days</option>
+                    <option value="completed_months">Completed Months</option>
+                  </select>
                 </label>
               </div>
 
@@ -466,156 +445,139 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Hours Divisor (Method D)</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <Timer className="size-4 shrink-0 text-muted" />
-                    <input
-                      name="hours_divisor"
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 20 (1h per 20h worked)"
-                      className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none font-mono"
-                    />
-                  </span>
+                  <input
+                    name="hours_divisor"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 20 (1h per 20h worked)"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-mono focus:border-primary"
+                  />
                 </label>
 
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Rounding Precision</span>
-                  <span className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                    <List className="size-4 shrink-0 text-muted" />
-                    <select name="rounding_precision" className="h-9 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none font-mono">
-                      <option value="0.01">0.01 (Two Decimals)</option>
-                      <option value="0.1">0.1 (One Decimal)</option>
-                      <option value="0.25">0.25 (Quarter Unit)</option>
-                      <option value="0.5">0.5 (Half Unit)</option>
-                      <option value="1.0">1.0 (Whole Unit)</option>
-                    </select>
-                  </span>
+                  <select
+                    name="rounding_precision"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-mono focus:border-primary"
+                  >
+                    <option value="0.01">0.01 (Two Decimals)</option>
+                    <option value="0.1">0.1 (One Decimal)</option>
+                    <option value="0.25">0.25 (Quarter Unit)</option>
+                    <option value="0.5">0.5 (Half Unit)</option>
+                    <option value="1.0">1.0 (Whole Unit)</option>
+                  </select>
                 </label>
               </div>
 
               {/* Toggles */}
               <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-semibold text-foreground">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="is_paid" defaultChecked className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+                  <input type="checkbox" name="is_paid" defaultChecked className="size-4 rounded border-border text-primary focus:ring-primary" />
                   Paid Leave
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="requires_attachment" className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+                  <input type="checkbox" name="requires_attachment" className="size-4 rounded border-border text-primary focus:ring-primary" />
                   Requires Attachment
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="use_it_or_lose_it" className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500" />
+                  <input type="checkbox" name="use_it_or_lose_it" className="size-4 rounded border-border text-primary focus:ring-primary" />
                   &quot;Use It or Lose It&quot; Forfeiture
                 </label>
               </div>
 
               <button
                 disabled={leavePending}
-                className="mt-1 inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-60 transition-all cursor-pointer"
+                className="mt-1 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all cursor-pointer"
               >
-                <Plus className="size-4" />
                 {leavePending ? "Saving Leave Rule..." : "Save Configurable Leave Rule"}
               </button>
             </form>
           )}
 
           {(activeSection === "all" || activeSection === "assignments") && (
-            <form action={assignAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
-              <h3 className="flex items-center gap-2 font-semibold text-foreground">
-                <UserCheck className="size-4 text-accent" />
+            <form action={assignAction} className="grid gap-3 rounded-xl border border-border bg-surface p-4 shadow-2xs">
+              <h3 className="font-bold text-foreground text-sm">
                 Assign balance
               </h3>
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employee</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <User className="size-4 shrink-0 text-muted" />
-                  <select name="employee_id" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none">
-                    <option value="">Select employee</option>
-                    {data.employees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.label}
-                      </option>
-                    ))}
-                  </select>
-                </span>
+                <select
+                  name="employee_id"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                >
+                  <option value="">Select employee</option>
+                  {data.employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.label}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Leave rule</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <BriefcaseBusiness className="size-4 shrink-0 text-muted" />
-                  <select name="leave_type_id" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none">
-                    <option value="">Select leave rule</option>
-                    {data.leaveTypes.map((leaveType) => (
-                      <option key={leaveType.id} value={leaveType.id}>
-                        {leaveType.name}
-                      </option>
-                    ))}
-                  </select>
-                </span>
+                <select
+                  name="leave_type_id"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                >
+                  <option value="">Select leave rule</option>
+                  {data.leaveTypes.map((leaveType) => (
+                    <option key={leaveType.id} value={leaveType.id}>
+                      {leaveType.name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Balance (hours)</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Clock className="size-4 shrink-0 text-muted" />
-                  <input
-                    name="balance_hours"
-                    type="number"
-                    min="0"
-                    step="0.25"
-                    className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                    placeholder="0"
-                  />
-                </span>
+                <input
+                  name="balance_hours"
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  placeholder="0"
+                />
               </label>
               <button
                 disabled={assignPending}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 cursor-pointer"
               >
-                <Plus className="size-4" />
                 {assignPending ? "Saving..." : "Assign"}
               </button>
             </form>
           )}
 
           {(activeSection === "all" || activeSection === "holidays") && (
-            <form action={holidayAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
-              <h3 className="flex items-center gap-2 font-semibold text-foreground">
-                <CalendarDays className="size-4 text-accent" />
+            <form action={holidayAction} className="grid gap-3 rounded-xl border border-border bg-surface p-4 shadow-2xs">
+              <h3 className="font-bold text-foreground text-sm">
                 Public holiday
               </h3>
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Tag className="size-4 shrink-0 text-muted" />
-                  <input
-                    name="name"
-                    placeholder="Freedom Day"
-                    className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                  />
-                </span>
+                <input
+                  name="name"
+                  placeholder="Freedom Day"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                />
               </label>
               <label className="grid gap-1">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Date</span>
-                <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                  <Calendar className="size-4 shrink-0 text-muted" />
-                  <input
-                    name="holiday_date"
-                    type="date"
-                    className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                  />
-                </span>
+                <input
+                  name="holiday_date"
+                  type="date"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                />
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_paid" defaultChecked />
+              <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <input type="checkbox" name="is_paid" defaultChecked className="size-4 rounded border-border text-primary focus:ring-primary" />
                 Paid public holiday
               </label>
               <button
                 disabled={holidayPending}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 cursor-pointer"
               >
-                <Plus className="size-4" />
                 {holidayPending ? "Saving..." : "Save holiday"}
               </button>
             </form>
@@ -627,18 +589,15 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
       {(activeSection === "all" || activeSection === "leave_rules") && (
         <form
           action={leavePolicyAction}
-          className="grid gap-4 rounded-xl border-2 border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 shadow-xs"
+          className="grid gap-4 rounded-xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-emerald-500/20 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
             <div className="flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-2xs">
-                <Palmtree className="size-4" />
-              </span>
               <div>
-                <h3 className="text-sm font-extrabold text-foreground tracking-tight flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
                   Leave Safeguards &amp; &quot;Use It or Lose It&quot; Governance
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                    <Building2 className="size-3" /> Company Isolated
+                  <span className="inline-flex items-center text-[10px] font-semibold text-muted bg-surface-muted px-2 py-0.5 rounded-md border border-border">
+                    Company Isolated
                   </span>
                 </h3>
                 <p className="text-xs text-muted">
@@ -651,18 +610,16 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 type="button"
                 onClick={handleProvisionAllLeaveTypes}
                 disabled={isPendingProvision}
-                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-surface px-3.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 shadow-2xs hover:bg-emerald-500/10 disabled:opacity-60 transition-all cursor-pointer"
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface px-3.5 text-xs font-semibold text-foreground shadow-2xs hover:bg-surface-muted disabled:opacity-60 transition-all cursor-pointer"
               >
-                <Plus className="size-3.5" />
                 <span>{isPendingProvision ? "Provisioning..." : "Provision All App Leave Types & Balances"}</span>
               </button>
 
               <button
                 type="submit"
                 disabled={leavePolicyPending}
-                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-60 transition-all cursor-pointer"
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all cursor-pointer"
               >
-                <Save className="size-3.5" />
                 <span>{leavePolicyPending ? "Saving Policy..." : "Save Leave Protection Settings"}</span>
               </button>
             </div>
@@ -790,8 +747,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 border-t border-border/60 pt-2.5 text-[11px] text-muted">
-                <ShieldAlert className="size-3.5 text-emerald-600 shrink-0" />
+              <div className="border-t border-border/60 pt-2.5 text-[11px] text-muted">
                 <span>Isolates balance modifications strictly to this company.</span>
               </div>
             </div>
@@ -803,28 +759,22 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
       {(activeSection === "all" || activeSection === "work_schedules") && (
         <form
           action={lunchPolicyAction}
-          className="grid gap-4 rounded-xl border-2 border-primary/30 bg-primary/5 p-4 sm:p-5 shadow-xs"
+          className="grid gap-4 rounded-xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-primary/20 pb-3">
-            <div className="flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-2xs">
-                <Timer className="size-4" />
-              </span>
-              <div>
-                <h3 className="text-sm font-extrabold text-foreground tracking-tight">
-                  Work Rule Automation &amp; Auto Clock-Out
-                </h3>
-                <p className="text-xs text-muted">
-                  Automate lunch break completion and shift clock-outs based on assigned work schedules.
-                </p>
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-foreground tracking-tight">
+                Work Rule Automation &amp; Auto Clock-Out
+              </h3>
+              <p className="text-xs text-muted">
+                Automate lunch break completion and shift clock-outs based on assigned work schedules.
+              </p>
             </div>
             <button
               type="submit"
               disabled={lunchPolicyPending}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-60 transition-all cursor-pointer"
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all cursor-pointer"
             >
-              <Save className="size-3.5" />
               <span>{lunchPolicyPending ? "Saving..." : "Save Automation Settings"}</span>
             </button>
           </div>
@@ -951,10 +901,9 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
       <div className="grid gap-3 sm:grid-cols-2">
         {(activeSection === "all" || activeSection === "work_schedules") && (
         <div className="rounded-lg border border-border bg-background p-2">
-          <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
-            <FaCalendarAlt className="size-3 sm:inline" />
-            <span className="hidden sm:inline">Work rules</span>
-            <span className="ml-auto text-muted">{data.schedules.length}</span>
+          <p className="mb-1 flex items-center justify-between px-1 text-xs font-semibold text-foreground">
+            <span>Work rules</span>
+            <span className="text-muted">{data.schedules.length}</span>
           </p>
           {data.schedules.length === 0 ? (
             <p className="px-1 text-xs text-muted">No work rules yet.</p>
@@ -968,11 +917,8 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 {data.schedules.map((schedule) => (
                   <details key={schedule.id} className="rounded-lg bg-surface text-xs">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 px-2 py-1.5">
-                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <FaCalendarAlt className="shrink-0 text-muted" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block break-words font-semibold text-foreground leading-tight">{schedule.name}</span>
-                        </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words font-semibold text-foreground leading-tight">{schedule.name}</span>
                       </span>
                       <span className="shrink-0 text-muted">{Number(schedule.standard_daily_hours ?? 0).toFixed(2)}h</span>
                     </summary>
@@ -980,70 +926,55 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                       <input type="hidden" name="work_schedule_id" value={schedule.id} />
                       <label className="grid gap-1">
                         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
-                        <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                          <Tag className="size-3.5 shrink-0 text-muted" />
-                          <input
-                            name="name"
-                            defaultValue={schedule.name}
-                            className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                          />
-                        </span>
+                        <input
+                          name="name"
+                          defaultValue={schedule.name}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        />
                       </label>
                       <div className="grid grid-cols-2 gap-1.5">
                         <label className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-3.5 shrink-0 text-muted" />
-                            <input
-                              name="start_time"
-                              type="time"
-                              defaultValue={timeValue(firstWorkingDay(schedule)?.start_time)}
-                              className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                            />
-                          </span>
+                          <input
+                            name="start_time"
+                            type="time"
+                            defaultValue={timeValue(firstWorkingDay(schedule)?.start_time)}
+                            className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                          />
                         </label>
                         <label className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">End</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-3.5 shrink-0 text-muted" />
-                            <input
-                              name="end_time"
-                              type="time"
-                              defaultValue={timeValue(firstWorkingDay(schedule)?.end_time)}
-                              className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                            />
-                          </span>
+                          <input
+                            name="end_time"
+                            type="time"
+                            defaultValue={timeValue(firstWorkingDay(schedule)?.end_time)}
+                            className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                          />
                         </label>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         <label className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch (min)</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Timer className="size-3.5 shrink-0 text-muted" />
-                            <input
-                              name="lunch_minutes"
-                              type="number"
-                              min="0"
-                              defaultValue={String(firstWorkingDay(schedule)?.lunch_minutes ?? 0)}
-                              className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                              placeholder="30"
-                            />
-                          </span>
+                          <input
+                            name="lunch_minutes"
+                            type="number"
+                            min="0"
+                            defaultValue={String(firstWorkingDay(schedule)?.lunch_minutes ?? 0)}
+                            className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                            placeholder="30"
+                          />
                         </label>
                         <label className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Paid hours</span>
-                          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                            <Clock className="size-3.5 shrink-0 text-muted" />
-                            <input
-                              name="daily_hours"
-                              type="number"
-                              min="0"
-                              step="0.25"
-                              defaultValue={String(schedule.standard_daily_hours ?? "")}
-                              className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                              placeholder="8"
-                            />
-                          </span>
+                          <input
+                            name="daily_hours"
+                            type="number"
+                            min="0"
+                            step="0.25"
+                            defaultValue={String(schedule.standard_daily_hours ?? "")}
+                            className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                            placeholder="8"
+                          />
                         </label>
                       </div>
                       <div className="flex flex-wrap gap-1">
@@ -1065,9 +996,8 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                       </label>
                       <button
                         disabled={updateSchedulePending}
-                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                        className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 shadow-2xs transition-colors"
                       >
-                        <Save className="size-3.5" />
                         {updateSchedulePending ? "Saving..." : "Save rule"}
                       </button>
                     </form>
@@ -1081,10 +1011,9 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
 
         {(activeSection === "all" || activeSection === "leave_rules") && (
         <div className="rounded-lg border border-border bg-background p-2">
-          <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
-            <FaUmbrellaBeach className="size-3 sm:inline" />
-            <span className="hidden sm:inline">Leave rules</span>
-            <span className="ml-auto text-muted">{data.leaveTypes.length}</span>
+          <p className="mb-1 flex items-center justify-between px-1 text-xs font-semibold text-foreground">
+            <span>Leave rules</span>
+            <span className="text-muted">{data.leaveTypes.length}</span>
           </p>
           {data.leaveTypes.length === 0 ? (
             <p className="px-1 text-xs text-muted">No leave rules yet.</p>
@@ -1098,11 +1027,8 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 {data.leaveTypes.map((leaveType) => (
                   <details key={leaveType.id} className="rounded-lg bg-surface text-xs">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 px-2 py-1.5">
-                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <FaUmbrellaBeach className="shrink-0 text-muted" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block break-words font-semibold text-foreground leading-tight">{leaveType.name}</span>
-                        </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words font-semibold text-foreground leading-tight">{leaveType.name}</span>
                       </span>
                       <span className="shrink-0 text-xs capitalize text-muted">
                         {leaveType.is_paid ? "Paid" : "Unpaid"}
@@ -1112,46 +1038,37 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                       <input type="hidden" name="leave_type_id" value={leaveType.id} />
                       <label className="grid gap-1">
                         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
-                        <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                          <Tag className="size-3.5 shrink-0 text-muted" />
-                          <input
-                            name="name"
-                            defaultValue={leaveType.name}
-                            className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                          />
-                        </span>
+                        <input
+                          name="name"
+                          defaultValue={leaveType.name}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        />
                       </label>
                       <label className="grid gap-1">
                         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Category</span>
-                        <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                          <List className="size-3.5 shrink-0 text-muted" />
-                          <select
-                            name="category"
-                            defaultValue={leaveType.category}
-                            className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none capitalize"
-                          >
-                            {leaveCategories.map((category) => (
-                              <option key={category} value={category}>
-                                {labelize(category)}
-                              </option>
-                            ))}
-                          </select>
-                        </span>
+                        <select
+                          name="category"
+                          defaultValue={leaveType.category}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary/20"
+                        >
+                          {leaveCategories.map((category) => (
+                            <option key={category} value={category}>
+                              {labelize(category)}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <label className="grid gap-1">
                         <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Yearly hours</span>
-                        <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                          <Clock className="size-3.5 shrink-0 text-muted" />
-                          <input
-                            name="yearly_hours"
-                            type="number"
-                            min="0"
-                            step="0.25"
-                            defaultValue={String(leaveType.accrual_rules.yearly_hours ?? "")}
-                            className="h-8 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none"
-                            placeholder="160"
-                          />
-                        </span>
+                        <input
+                          name="yearly_hours"
+                          type="number"
+                          min="0"
+                          step="0.25"
+                          defaultValue={String(leaveType.accrual_rules.yearly_hours ?? "")}
+                          className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                          placeholder="160"
+                        />
                       </label>
                       <div className="grid gap-1 text-xs text-foreground">
                         <label className="flex items-center gap-1.5">
@@ -1173,9 +1090,8 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                       </div>
                       <button
                         disabled={updateLeavePending}
-                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                        className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 shadow-2xs transition-colors"
                       >
-                        <Save className="size-3.5" />
                         {updateLeavePending ? "Saving..." : "Save rule"}
                       </button>
                     </form>
@@ -1189,10 +1105,9 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
 
         {(activeSection === "all" || activeSection === "holidays") && (
         <div className="rounded-lg border border-border bg-background p-2">
-          <p className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold text-foreground">
-            <FaSun className="size-3 sm:inline" />
-            <span className="hidden sm:inline">Public holidays</span>
-            <span className="ml-auto text-muted">{data.publicHolidays.length}</span>
+          <p className="mb-1 flex items-center justify-between px-1 text-xs font-semibold text-foreground">
+            <span>Public holidays</span>
+            <span className="text-muted">{data.publicHolidays.length}</span>
           </p>
           {data.publicHolidays.length === 0 ? (
             <p className="px-1 text-xs text-muted">No public holidays saved yet.</p>
@@ -1205,11 +1120,8 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
               <div className="mt-1 grid gap-1">
                 {data.publicHolidays.map((holiday) => (
                   <div key={holiday.id} className="grid gap-0.5 rounded-lg bg-surface px-2 py-1.5 text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <FaSun className="shrink-0 text-muted" />
-                      <span className="break-words font-semibold text-foreground leading-tight">{holiday.name}</span>
-                    </span>
-                    <span className="ml-5 text-muted">
+                    <span className="break-words font-semibold text-foreground leading-tight">{holiday.name}</span>
+                    <span className="text-muted">
                       {holiday.holiday_date}{holiday.is_paid ? "" : " - Unpaid"}
                     </span>
                   </div>

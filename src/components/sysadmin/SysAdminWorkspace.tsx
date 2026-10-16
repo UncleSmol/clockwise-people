@@ -238,7 +238,7 @@ export default function SysAdminWorkspace({
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="truncate text-base font-bold text-foreground">{comp.name}</h2>
+                          <h2 className="break-words leading-tight text-base font-bold text-foreground">{comp.name}</h2>
                           {isActiveCompany ? (
                             <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                               Active Context
@@ -246,7 +246,7 @@ export default function SysAdminWorkspace({
                           ) : null}
                         </div>
                         {comp.trading_name ? (
-                          <div className="truncate text-xs text-muted">Trading as: {comp.trading_name}</div>
+                          <div className="break-words leading-tight text-xs text-muted mt-0.5">Trading as: {comp.trading_name}</div>
                         ) : null}
                       </div>
                     </div>
@@ -369,10 +369,10 @@ export default function SysAdminWorkspace({
                 <div>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-bold text-foreground">
+                      <div className="break-words leading-tight text-sm font-bold text-foreground">
                         {admin.fullName}
                       </div>
-                      <div className="truncate text-xs text-muted font-mono mt-0.5">
+                      <div className="break-all text-xs text-muted font-mono mt-0.5">
                         {admin.email}
                       </div>
                     </div>

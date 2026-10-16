@@ -143,8 +143,8 @@ export function evaluateLeaveAccrual(input: AccrualEvaluationInput): AccrualEval
 
     rawAmount = rule.entitlement_amount * prorationFactor;
   } else if (rule.accrual_method === "hours_worked_divisor") {
-    // Method D: Hours-based accrual (qualifying hours worked / divisor)
-    const divisor = rule.hours_divisor || 20;
+    // Method D: Hours-based accrual (qualifying hours worked / divisor; South Africa BCEA Sec 20 default is 17)
+    const divisor = rule.hours_divisor || 17;
     rawAmount = qualifyingHoursWorked / divisor;
     prorationFactor = 1.0;
     formulaExplanation = `Method D (Hours-Worked Divisor): Qualifying Hours Worked (${qualifyingHoursWorked}h) ÷ Divisor (${divisor}) = ${rawAmount.toFixed(4)} ${rule.entitlement_unit}`;

@@ -1,9 +1,15 @@
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { supabaseUrl } from "./config";
 
+let adminClient: SupabaseClient | undefined;
+
 export function createSupabaseAdminClient() {
+  if (adminClient) {
+    return adminClient;
+  }
+
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
@@ -12,10 +18,12 @@ export function createSupabaseAdminClient() {
     );
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
+
+  return adminClient;
 }

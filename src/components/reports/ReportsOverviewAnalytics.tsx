@@ -16,16 +16,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import {
-  Clock,
-  TrendingUp,
-  AlertTriangle,
-  Calendar,
-  Building2,
-  PieChart as PieIcon,
-  Activity,
-  CheckCircle2,
-} from "lucide-react";
 import type {
   ReportKPIs,
   DailyAttendanceStat,
@@ -61,10 +51,7 @@ export default function ReportsOverviewAnalytics({
       {/* Executive Metric Cards Strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="p-4 rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="flex items-center justify-between text-muted">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Payroll Hours</span>
-            <Clock className="size-4 text-emerald-500" />
-          </div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Payroll Hours</span>
           <p className="text-xl font-bold text-foreground mt-1.5">{kpis.totalPayrollHours}h</p>
           <p className="text-[11px] text-muted mt-0.5">
             Regular: <span className="font-semibold text-foreground">{kpis.totalRegularHours}h</span>
@@ -72,10 +59,7 @@ export default function ReportsOverviewAnalytics({
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="flex items-center justify-between text-muted">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Overtime (1.5x / 2x)</span>
-            <TrendingUp className="size-4 text-amber-500" />
-          </div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Overtime (1.5x / 2x)</span>
           <p className="text-xl font-bold text-amber-500 mt-1.5">{kpis.totalOvertimeHours}h</p>
           <p className="text-[11px] text-muted mt-0.5">
             {kpis.totalPayrollHours > 0
@@ -85,37 +69,25 @@ export default function ReportsOverviewAnalytics({
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="flex items-center justify-between text-muted">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Punctuality Score</span>
-            <CheckCircle2 className="size-4 text-emerald-400" />
-          </div>
-          <p className="text-xl font-bold text-emerald-400 mt-1.5">{kpis.averagePunctualityRate}%</p>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Punctuality Score</span>
+          <p className="text-xl font-bold text-emerald-500 mt-1.5">{kpis.averagePunctualityRate}%</p>
           <p className="text-[11px] text-muted mt-0.5">On-time shifts average</p>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="flex items-center justify-between text-muted">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Attendance Rate</span>
-            <Activity className="size-4 text-sky-400" />
-          </div>
-          <p className="text-xl font-bold text-sky-400 mt-1.5">{kpis.averageAttendanceRate}%</p>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Attendance Rate</span>
+          <p className="text-xl font-bold text-foreground mt-1.5">{kpis.averageAttendanceRate}%</p>
           <p className="text-[11px] text-muted mt-0.5">{kpis.totalEmployees} active employees</p>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="flex items-center justify-between text-muted">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Leave Taken</span>
-            <Calendar className="size-4 text-indigo-400" />
-          </div>
-          <p className="text-xl font-bold text-indigo-400 mt-1.5">{kpis.totalLeaveHours}h</p>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Leave Taken</span>
+          <p className="text-xl font-bold text-foreground mt-1.5">{kpis.totalLeaveHours}h</p>
           <p className="text-[11px] text-muted mt-0.5">{kpis.totalAbsenceDays} total absence days</p>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="flex items-center justify-between text-muted">
-            <span className="text-[11px] font-semibold uppercase tracking-wider">Compliance Flags</span>
-            <AlertTriangle className={`size-4 ${kpis.missingClockingCount > 0 ? "text-rose-500" : "text-slate-400"}`} />
-          </div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Compliance Flags</span>
           <p className={`text-xl font-bold mt-1.5 ${kpis.missingClockingCount > 0 ? "text-rose-500" : "text-foreground"}`}>
             {kpis.missingClockingCount}
           </p>
@@ -124,11 +96,10 @@ export default function ReportsOverviewAnalytics({
       </div>
 
       {/* Row 1: Daily Hours Timeline Chart */}
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-2xs space-y-3">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
           <div>
-            <h4 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-              <Activity className="size-4 text-emerald-500" />
+            <h4 className="text-sm sm:text-base font-bold text-foreground">
               Daily Attendance &amp; Hours Worked Timeline
             </h4>
             <p className="text-xs text-muted mt-0.5">
@@ -202,10 +173,9 @@ export default function ReportsOverviewAnalytics({
       {/* Row 2: Two Columns: Punctuality Breakdown & Leave Categories */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Punctuality & Clocking Compliance Donut */}
-        <div className="rounded-2xl border border-border bg-surface p-5 shadow-2xs space-y-3">
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-2xs space-y-3">
           <div className="border-b border-border/60 pb-3">
-            <h4 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-              <PieIcon className="size-4 text-emerald-400" />
+            <h4 className="text-sm sm:text-base font-bold text-foreground">
               Clocking &amp; Punctuality Distribution
             </h4>
             <p className="text-xs text-muted mt-0.5">
@@ -250,10 +220,9 @@ export default function ReportsOverviewAnalytics({
         </div>
 
         {/* Leave Utilization by Statutory Category */}
-        <div className="rounded-2xl border border-border bg-surface p-5 shadow-2xs space-y-3">
+        <div className="rounded-xl border border-border bg-surface p-5 shadow-2xs space-y-3">
           <div className="border-b border-border/60 pb-3">
-            <h4 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-              <Calendar className="size-4 text-sky-400" />
+            <h4 className="text-sm sm:text-base font-bold text-foreground">
               Leave Taken by Category
             </h4>
             <p className="text-xs text-muted mt-0.5">
@@ -309,11 +278,10 @@ export default function ReportsOverviewAnalytics({
       </div>
 
       {/* Row 3: Department / Workstation Workload Comparison */}
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-2xs space-y-3">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
           <div>
-            <h4 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-              <Building2 className="size-4 text-indigo-400" />
+            <h4 className="text-sm sm:text-base font-bold text-foreground">
               Hours Distribution &amp; Workload Comparison
             </h4>
             <p className="text-xs text-muted mt-0.5">
@@ -325,9 +293,9 @@ export default function ReportsOverviewAnalytics({
             <button
               type="button"
               onClick={() => setWorkloadGrouping("department")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                 workloadGrouping === "department"
-                  ? "bg-slate-800 text-white"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
                   : "text-muted hover:text-foreground"
               }`}
             >
@@ -336,9 +304,9 @@ export default function ReportsOverviewAnalytics({
             <button
               type="button"
               onClick={() => setWorkloadGrouping("workstation")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                 workloadGrouping === "workstation"
-                  ? "bg-slate-800 text-white"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
                   : "text-muted hover:text-foreground"
               }`}
             >

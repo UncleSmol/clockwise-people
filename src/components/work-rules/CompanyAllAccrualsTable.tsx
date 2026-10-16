@@ -3,33 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  BookOpen,
-  Briefcase,
-  Calculator,
-  Calendar,
-  CalendarDays,
   CheckCircle2,
-  Clock,
-  ExternalLink,
-  FileText,
-  Filter,
-  Heart,
-  HelpCircle,
-  Info,
-  Layers,
-  Palmtree,
-  RefreshCw,
-  Scale,
   Search,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  User,
-  UserCheck,
-  Users,
   X,
-  Zap,
 } from "lucide-react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import type { CompanyWorkRulesData } from "@/lib/work-rules/schema";
@@ -98,7 +76,6 @@ function getCategoryMeta(category: string) {
   if (cat.includes("annual")) {
     return {
       label: "Annual Leave",
-      icon: Palmtree,
       badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700",
       pillClass: "bg-emerald-100 text-emerald-950 border border-emerald-300 dark:bg-emerald-950/90 dark:text-emerald-200 dark:border-emerald-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
       dotClass: "bg-emerald-600 dark:bg-emerald-400",
@@ -122,7 +99,6 @@ function getCategoryMeta(category: string) {
   if (cat.includes("sick")) {
     return {
       label: "Sick Leave",
-      icon: ShieldAlert,
       badgeClass: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700",
       pillClass: "bg-rose-100 text-rose-950 border border-rose-300 dark:bg-rose-950/90 dark:text-rose-200 dark:border-rose-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
       dotClass: "bg-rose-600 dark:bg-rose-400",
@@ -144,7 +120,6 @@ function getCategoryMeta(category: string) {
   if (cat.includes("family") || cat.includes("maternity") || cat.includes("parental")) {
     return {
       label: "Family Responsibility",
-      icon: Heart,
       badgeClass: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700",
       pillClass: "bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-950/90 dark:text-amber-200 dark:border-amber-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
       dotClass: "bg-amber-600 dark:bg-amber-400",
@@ -166,7 +141,6 @@ function getCategoryMeta(category: string) {
   if (cat.includes("toil")) {
     return {
       label: "TOIL (Overtime)",
-      icon: Zap,
       badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/80 dark:text-indigo-200 dark:border-indigo-700",
       pillClass: "bg-indigo-100 text-indigo-950 border border-indigo-300 dark:bg-indigo-950/90 dark:text-indigo-200 dark:border-indigo-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
       dotClass: "bg-indigo-600 dark:bg-indigo-400",
@@ -189,7 +163,6 @@ function getCategoryMeta(category: string) {
   if (cat.includes("study")) {
     return {
       label: "Study Leave",
-      icon: Briefcase,
       badgeClass: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700",
       pillClass: "bg-sky-100 text-sky-950 border border-sky-300 dark:bg-sky-950/90 dark:text-sky-200 dark:border-sky-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
       dotClass: "bg-sky-600 dark:bg-sky-400",
@@ -209,7 +182,6 @@ function getCategoryMeta(category: string) {
   }
   return {
     label: category || "Standard Leave",
-    icon: CalendarDays,
     badgeClass: "bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600",
     pillClass: "bg-slate-200 text-slate-950 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
     dotClass: "bg-slate-600 dark:bg-slate-400",
@@ -379,19 +351,12 @@ export default function CompanyAllAccrualsTable({
       {/* Title Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center rounded-xl bg-primary/10 text-primary shadow-2xs">
-              <Layers className="size-4.5" />
-            </span>
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight">
-                Leave Accruals &amp; Balances Register
-              </h3>
-              <p className="text-xs text-muted">
-                Inspect and verify employee statutory leave accruals, taken hours, and remaining available balances.
-              </p>
-            </div>
-          </div>
+          <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight">
+            Leave Accruals &amp; Balances Register
+          </h3>
+          <p className="text-xs text-muted">
+            Inspect and verify employee statutory leave accruals, taken hours, and remaining available balances.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -410,8 +375,7 @@ export default function CompanyAllAccrualsTable({
             </button>
           ) : null}
 
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-extrabold text-emerald-600 self-start sm:self-auto">
-            <CheckCircle2 className="size-3.5" />
+          <div className="inline-flex items-center rounded-full bg-surface border border-border px-3 py-1 text-xs font-bold text-muted self-start sm:self-auto">
             <span>Admin Oversight Active</span>
           </div>
         </div>
@@ -421,10 +385,7 @@ export default function CompanyAllAccrualsTable({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 items-center bg-surface-muted/50 p-3 rounded-xl border border-border/80">
         {/* Employee Picker */}
         <div className="sm:col-span-6 lg:col-span-5 flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-extrabold text-foreground shrink-0">
-            <User className="size-4 text-primary" />
-            <span>Employee:</span>
-          </div>
+          <span className="text-xs font-extrabold text-foreground shrink-0">Employee:</span>
           <div className="relative flex-1 min-w-0">
             <select
               value={selectedEmployeeId}
@@ -432,9 +393,9 @@ export default function CompanyAllAccrualsTable({
                 setSelectedEmployeeId(e.target.value);
                 setSelectedType("all");
               }}
-              className="w-full rounded-xl border border-border bg-surface py-2 pl-3 pr-8 text-xs font-bold text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer truncate shadow-2xs"
+              className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-border bg-surface py-2 pl-3 pr-8 text-base sm:text-xs font-bold text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer shadow-2xs leading-normal"
             >
-              <option value="all">👥 All Employees ({data.employees.length})</option>
+              <option value="all">All Employees ({data.employees.length})</option>
               {employeePickerList.map((emp) => (
                 <option key={emp.id} value={emp.id}>
                   {emp.label}
@@ -446,7 +407,7 @@ export default function CompanyAllAccrualsTable({
 
         {/* Search Query */}
         <div className="sm:col-span-6 lg:col-span-4 relative">
-          <Search className="absolute left-3 top-2.5 size-3.5 text-muted pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 shrink-0 text-muted pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
@@ -456,17 +417,16 @@ export default function CompanyAllAccrualsTable({
                 ? "Filter employee leave types..."
                 : "Search employee, number, or leave type..."
             }
-            className="w-full rounded-xl border border-border bg-surface py-2 pl-8 pr-3 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none transition-all shadow-2xs"
+            className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-border bg-surface py-2 pl-9 pr-3 text-base sm:text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none transition-all shadow-2xs"
           />
         </div>
 
         {/* Leave Type Filter */}
-        <div className="sm:col-span-12 lg:col-span-3 flex items-center gap-2">
-          <Filter className="size-3.5 text-muted shrink-0" />
+        <div className="sm:col-span-12 lg:col-span-3">
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full rounded-xl border border-border bg-surface py-2 px-2.5 text-xs font-bold text-foreground focus:border-primary focus:outline-none cursor-pointer shadow-2xs"
+            className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-border bg-surface py-2 px-3 text-base sm:text-xs font-bold text-foreground focus:border-primary focus:outline-none cursor-pointer shadow-2xs leading-normal"
           >
             <option value="all">All Leave Types ({leaveTypesList.length})</option>
             {leaveTypesList.map((type) => (
@@ -520,8 +480,7 @@ export default function CompanyAllAccrualsTable({
           {/* KPI Stat Cards for this Employee */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-3.5 shadow-2xs">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-                <CheckCircle2 className="size-3" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
                 Total Accrued
               </span>
               <p className="mt-1 text-2xl font-black text-emerald-950">
@@ -533,8 +492,7 @@ export default function CompanyAllAccrualsTable({
             </div>
 
             <div className="rounded-xl border border-rose-500/30 bg-rose-50/60 p-3.5 shadow-2xs">
-              <span className="text-[10px] font-black uppercase tracking-wider text-rose-800 flex items-center gap-1">
-                <Clock className="size-3" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">
                 Total Taken
               </span>
               <p className="mt-1 text-2xl font-black text-rose-950">
@@ -546,8 +504,7 @@ export default function CompanyAllAccrualsTable({
             </div>
 
             <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-2xs">
-              <span className="text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1">
-                <CalendarDays className="size-3" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-primary">
                 Net Available Balance
               </span>
               <p className="mt-1 text-2xl font-black text-primary">
@@ -559,8 +516,7 @@ export default function CompanyAllAccrualsTable({
             </div>
 
             <div className="rounded-xl border border-border/80 bg-surface p-3.5 shadow-2xs">
-              <span className="text-[10px] font-black uppercase tracking-wider text-muted flex items-center gap-1">
-                <Layers className="size-3" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted">
                 Leave Policies
               </span>
               <p className="mt-1 text-2xl font-black text-foreground">
@@ -574,14 +530,12 @@ export default function CompanyAllAccrualsTable({
 
           {/* Leave Type Cards Grid for Selected Employee */}
           <div className="space-y-3">
-            <h5 className="text-xs font-black uppercase tracking-wider text-muted flex items-center gap-1.5">
-              <Calendar className="size-3.5 text-primary" />
+            <h5 className="text-xs font-black uppercase tracking-wider text-muted">
               <span>Leave Balances by Category</span>
             </h5>
 
             {filteredBalances.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center">
-                <UserCheck className="mx-auto size-8 text-muted/60" />
                 <p className="mt-2 text-sm font-bold text-foreground">
                   No leave balances found for {selectedEmployeeInfo.full_name}
                 </p>
@@ -595,7 +549,6 @@ export default function CompanyAllAccrualsTable({
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredBalances.map((item) => {
                   const meta = getCategoryMeta(item.leaveCategory);
-                  const Icon = meta.icon;
                   const isPositive = item.balanceHours > 0;
                   const utilizationPercent =
                     item.accruedHours > 0
@@ -612,20 +565,13 @@ export default function CompanyAllAccrualsTable({
                     >
                       {/* Top Badges */}
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`grid size-7 place-items-center rounded-lg ${meta.badgeClass} shadow-2xs`}
-                          >
-                            <Icon className="size-4" />
+                        <div>
+                          <h6 className="text-sm font-black text-foreground leading-snug tracking-tight">
+                            {item.leaveTypeName}
+                          </h6>
+                          <span className="text-[10px] font-bold text-muted uppercase">
+                            {meta.label}
                           </span>
-                          <div>
-                            <h6 className="text-sm font-black text-foreground leading-snug tracking-tight">
-                              {item.leaveTypeName}
-                            </h6>
-                            <span className="text-[10px] font-bold text-muted uppercase">
-                              {meta.label}
-                            </span>
-                          </div>
                         </div>
 
                         <span
@@ -727,10 +673,10 @@ export default function CompanyAllAccrualsTable({
                         <button
                           type="button"
                           onClick={() => setExplainingItem(item)}
-                          className="shrink-0 font-bold text-emerald-800 dark:text-emerald-300 hover:text-emerald-950 dark:hover:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-500/40 flex items-center gap-1 transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
+                          className="shrink-0 font-bold text-foreground bg-surface hover:bg-surface-muted px-2.5 py-1 rounded-md border border-border transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
                           title="Open statutory legal audit and balance explanation"
                         >
-                          <Sparkles className="size-3 text-emerald-600 dark:text-emerald-400" /> Explain
+                          Explain
                         </button>
                       </div>
                     </div>
@@ -743,8 +689,7 @@ export default function CompanyAllAccrualsTable({
           {/* Employee Leave History (if available) */}
           {selectedEmployeeHistory.length > 0 ? (
             <div className="space-y-2.5 pt-2 border-t border-border/70">
-              <h5 className="text-xs font-black uppercase tracking-wider text-muted flex items-center gap-1.5">
-                <CalendarDays className="size-3.5 text-primary" />
+              <h5 className="text-xs font-black uppercase tracking-wider text-muted">
                 <span>Recent Approved Leave History ({selectedEmployeeHistory.length})</span>
               </h5>
               <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
@@ -799,8 +744,7 @@ export default function CompanyAllAccrualsTable({
         /* COMPANY-WIDE ACCRUALS KPI CARDS */
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <div className="rounded-xl border border-border/80 bg-surface-muted/40 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted flex items-center gap-1">
-              <Users className="size-3" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
               Employees Tracked
             </span>
             <p className="mt-1 text-xl font-black text-foreground">
@@ -812,8 +756,7 @@ export default function CompanyAllAccrualsTable({
           </div>
 
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/50 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
-              <CheckCircle2 className="size-3" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
               Total Accrued
             </span>
             <p className="mt-1 text-xl font-black text-emerald-950">
@@ -825,8 +768,7 @@ export default function CompanyAllAccrualsTable({
           </div>
 
           <div className="rounded-xl border border-rose-500/30 bg-rose-50/50 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 flex items-center gap-1">
-              <Clock className="size-3" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
               Total Taken
             </span>
             <p className="mt-1 text-xl font-black text-rose-950">
@@ -838,8 +780,7 @@ export default function CompanyAllAccrualsTable({
           </div>
 
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
-              <CalendarDays className="size-3" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
               Net Remaining Balance
             </span>
             <p className="mt-1 text-xl font-black text-foreground">
@@ -855,8 +796,7 @@ export default function CompanyAllAccrualsTable({
       {/* FULL ACCRUALS REGISTER TABLE (COMPANY OR FILTERED) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-black uppercase tracking-wider text-muted flex items-center gap-1.5">
-            <Layers className="size-3.5 text-primary" />
+          <h4 className="text-xs font-black uppercase tracking-wider text-muted">
             <span>
               {isIndividualMode
                 ? `Detailed Records for ${selectedEmployeeInfo?.full_name}`
@@ -950,7 +890,6 @@ export default function CompanyAllAccrualsTable({
                           >
                             <span className={`size-1.5 sm:size-2 rounded-full ${meta.dotClass} shrink-0`} />
                             <span className="break-words leading-tight">{item.leaveTypeName}</span>
-                            <Sparkles className="size-2.5 sm:size-3 opacity-60 group-hover:opacity-100 shrink-0 transition-opacity hidden min-[400px]:inline" />
                           </button>
                         </td>
 
@@ -991,10 +930,9 @@ export default function CompanyAllAccrualsTable({
                             <button
                               type="button"
                               onClick={() => setExplainingItem(item)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors shadow-2xs cursor-pointer"
+                              className="inline-flex items-center justify-center rounded-lg border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground hover:bg-surface-muted transition-colors shadow-2xs cursor-pointer"
                               title="View statutory legal explanation and balance calculation"
                             >
-                              <Sparkles className="size-3 text-emerald-600 dark:text-emerald-400" />
                               <span>Explain</span>
                             </button>
                             <button
@@ -1003,13 +941,12 @@ export default function CompanyAllAccrualsTable({
                                 setSelectedEmployeeId(item.employeeId);
                                 setSelectedType("all");
                               }}
-                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ${
+                              className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all shadow-2xs cursor-pointer ${
                                 isSelected
                                   ? "bg-primary text-primary-foreground"
                                   : "border border-border bg-surface text-foreground hover:border-primary hover:text-primary"
                               }`}
                             >
-                              <UserCheck className="size-3" />
                               <span>{isSelected ? "Selected" : "Inspect"}</span>
                             </button>
                           </div>
@@ -1043,7 +980,6 @@ function LeaveTypeExplanationModal({
   onClose: () => void;
 }) {
   const meta = getCategoryMeta(balance.leaveCategory);
-  const Icon = meta.icon;
   const isPositive = balance.balanceHours > 0;
   const utilizationPercent =
     balance.accruedHours > 0
@@ -1073,40 +1009,32 @@ function LeaveTypeExplanationModal({
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface text-foreground shadow-2xl p-5 sm:p-6 space-y-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-4">
-          <div className="flex items-start gap-3.5">
-            <span
-              className={`grid size-12 shrink-0 place-items-center rounded-xl ${meta.badgeClass} shadow-xs border`}
-            >
-              <Icon className="size-6" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-xl font-black text-foreground tracking-tight">
-                  {balance.leaveTypeName}
-                </h3>
-                <span className={`text-xs ${meta.pillClass}`}>
-                  <span className={`size-1.5 rounded-full ${meta.dotClass}`} />
-                  {meta.statutoryRef}
-                </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
-                    balance.isPaid
-                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-                      : "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
-                  }`}
-                >
-                  {balance.isPaid ? "Paid Leave" : "Unpaid Leave"}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted flex items-center gap-1.5 font-medium">
-                <User className="size-3 text-primary" />
-                <span>Employee:</span>
-                <span className="font-bold text-foreground">{balance.employeeName}</span>
-                {balance.employeeNumber ? (
-                  <span className="font-mono text-[11px] text-muted">({balance.employeeNumber})</span>
-                ) : null}
-              </p>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-xl font-black text-foreground tracking-tight">
+                {balance.leaveTypeName}
+              </h3>
+              <span className={`text-xs ${meta.pillClass}`}>
+                <span className={`size-1.5 rounded-full ${meta.dotClass}`} />
+                {meta.statutoryRef}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
+                  balance.isPaid
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                    : "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
+                }`}
+              >
+                {balance.isPaid ? "Paid Leave" : "Unpaid Leave"}
+              </span>
             </div>
+            <p className="mt-1 text-xs text-muted flex items-center gap-1.5 font-medium">
+              <span>Employee:</span>
+              <span className="font-bold text-foreground">{balance.employeeName}</span>
+              {balance.employeeNumber ? (
+                <span className="font-mono text-[11px] text-muted">({balance.employeeNumber})</span>
+              ) : null}
+            </p>
           </div>
 
           <button
@@ -1165,8 +1093,7 @@ function LeaveTypeExplanationModal({
         {/* Utilization Bar */}
         <div className="rounded-xl border border-border/70 bg-surface-muted/50 p-3 space-y-1.5">
           <div className="flex justify-between text-xs font-bold text-foreground">
-            <span className="flex items-center gap-1.5 text-muted">
-              <TrendingUp className="size-3.5 text-primary" />
+            <span className="text-muted">
               Utilization Progress
             </span>
             <span>
@@ -1192,8 +1119,7 @@ function LeaveTypeExplanationModal({
 
         {/* Statutory Legal Framework Card */}
         <div className="rounded-xl border border-border bg-gradient-to-b from-surface to-surface-muted/30 p-4 space-y-2.5">
-          <div className="flex items-center gap-2 text-foreground font-black text-sm">
-            <Scale className="size-4 text-primary" />
+          <div className="text-foreground font-black text-sm">
             <h4>South African Statutory Framework: {meta.statutoryTitle}</h4>
           </div>
           <p className="text-xs text-muted leading-relaxed">
@@ -1209,9 +1135,8 @@ function LeaveTypeExplanationModal({
 
         {/* Workplace & Policy Rules Checklist */}
         <div className="space-y-2">
-          <h4 className="text-xs font-black uppercase tracking-wider text-muted flex items-center gap-1.5">
-            <FileText className="size-3.5 text-primary" />
-            <span>Workplace Rules & Requirements</span>
+          <h4 className="text-xs font-black uppercase tracking-wider text-muted">
+            Workplace Rules &amp; Requirements
           </h4>
           <div className="rounded-xl border border-border/80 bg-surface divide-y divide-border/60">
             {meta.keyRules.map((rule, idx) => (

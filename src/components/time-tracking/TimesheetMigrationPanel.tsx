@@ -461,10 +461,10 @@ export default function TimesheetMigrationPanel() {
                           {entry.workDate}
                         </td>
                         <td className="py-2 px-2 sm:py-2.5 sm:px-3">
-                          <div className="font-semibold text-foreground truncate text-xs">
+                          <div className="font-semibold text-foreground break-words leading-tight text-xs">
                             {entry.matchedEmployeeName || entry.employeeName || "Unassigned"}
                           </div>
-                          <div className="md:hidden text-[10px] text-muted font-mono truncate mt-0.5">
+                          <div className="md:hidden text-[10px] text-muted font-mono break-words leading-tight mt-0.5">
                             {entry.entryType === "work" ? `${entry.clockIn || "--"} - ${entry.clockOut || "--"}` : `${entry.leaveHours}h Leave`}
                           </div>
                           <div className="hidden md:block text-[10px] text-muted font-mono">{entry.employeeIdentifier}</div>

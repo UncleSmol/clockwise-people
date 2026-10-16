@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import Script from "next/script";
+import { ThemeCleanup } from "@/components/ThemeCleanup";
 import "./globals.css";
 
 const inter = Inter({
@@ -40,13 +40,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <Script
-          id="theme-cleanup"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{localStorage.removeItem('theme');document.cookie='theme=;Max-Age=-1;path=/';document.documentElement.classList.remove('dark');document.documentElement.removeAttribute('data-theme');}catch(e){}})()`,
-          }}
-        />
+        <ThemeCleanup />
         {children}
       </body>
     </html>

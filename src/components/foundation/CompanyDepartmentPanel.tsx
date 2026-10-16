@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Hash, MapPin, Plus, Trash2, User, Users, X } from "lucide-react";
+import { Building2, Plus, Trash2, Users, X } from "lucide-react";
 import { useState } from "react";
 import { createDepartment, deactivateDepartment, assignEmployeeDepartment } from "@/lib/foundation/actions";
 import type { Department } from "@/lib/foundation/schema";
@@ -37,6 +37,7 @@ export default function CompanyDepartmentPanel({
 
   const employeesByDepartment = new Map<string, EmployeeRecord[]>();
   for (const emp of employees) {
+    if (emp.employment_status !== "active") continue;
     const deptId = emp.department_id ?? "__unassigned__";
     if (!employeesByDepartment.has(deptId)) {
       employeesByDepartment.set(deptId, []);
@@ -47,8 +48,7 @@ export default function CompanyDepartmentPanel({
   return (
     <section className="grid min-w-0 gap-4">
       <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground">
-          <Building2 className="size-5" />
+        <h2 className="text-xl font-semibold text-foreground">
           Departments
         </h2>
         <p className="mt-1 text-sm text-muted">
@@ -56,7 +56,7 @@ export default function CompanyDepartmentPanel({
         </p>
       </div>
 
-      <details className="group rounded-lg border border-border">
+      <details className="group rounded-lg border border-border bg-surface shadow-2xs">
         <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-semibold text-foreground">
           <Plus className="size-4" />
           Add department
@@ -65,18 +65,15 @@ export default function CompanyDepartmentPanel({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
-              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                <Hash className="size-4 shrink-0 text-muted" />
-                <input
-                  name="name"
-                  list="department-hints"
-                  placeholder="e.g. Clinical"
-                  required
-                  value={departmentName}
-                  onChange={(e) => setDepartmentName(e.target.value)}
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                />
-              </span>
+              <input
+                name="name"
+                list="department-hints"
+                placeholder="e.g. Clinical"
+                required
+                value={departmentName}
+                onChange={(e) => setDepartmentName(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
               <datalist id="department-hints">
                 {departmentHints.map((hint) => (
                   <option key={hint} value={hint} />
@@ -86,42 +83,35 @@ export default function CompanyDepartmentPanel({
 
             <label className="grid gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Code</span>
-              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-                <Hash className="size-4 shrink-0 text-muted" />
-                <input
-                  name="code"
-                  value={autoCode}
-                  readOnly
-                  placeholder="Auto-generated"
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-muted outline-none"
-                />
-              </span>
+              <input
+                name="code"
+                value={autoCode}
+                readOnly
+                placeholder="Auto-generated"
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-muted outline-none"
+              />
             </label>
           </div>
 
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <MapPin className="size-4 shrink-0 text-muted" />
-              <select
-                name="workstation_id"
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              >
-                <option value="">Company-wide</option>
-                {workstations.map((ws) => (
-                  <option key={ws.id} value={ws.id}>{ws.name}</option>
-                ))}
-              </select>
-            </span>
+            <select
+              name="workstation_id"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Company-wide</option>
+              {workstations.map((ws) => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </select>
             <span className="text-xs font-normal text-muted">Optional. Link the department to a specific workstation.</span>
           </label>
 
           <div className="flex justify-end">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 cursor-pointer"
             >
-              <Hash className="size-4" />
               Save department
             </button>
           </div>
@@ -164,7 +154,7 @@ export default function CompanyDepartmentPanel({
                 <EmployeeDepartmentSection
                   departmentId={department.id}
                   employees={deptEmployees}
-                  unassignedEmployees={employees.filter((e) => !e.department_id)}
+                  unassignedEmployees={employees.filter((e) => !e.department_id && e.employment_status === "active")}
                 />
               </div>
             );
@@ -224,19 +214,16 @@ function EmployeeDepartmentSection({
 
       {showAdd && (
         <div className="mt-2 flex items-center gap-2">
-          <span className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <User className="size-4 shrink-0 text-muted" />
-            <select
-              value={selectedEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-            >
-              <option value="">Select employee...</option>
-              {unassignedEmployees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-              ))}
-            </select>
-          </span>
+          <select
+            value={selectedEmployeeId}
+            onChange={(e) => setSelectedEmployeeId(e.target.value)}
+            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="">Select employee...</option>
+            {unassignedEmployees.map((emp) => (
+              <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+            ))}
+          </select>
           <button
             type="button"
             disabled={!selectedEmployeeId || pending}

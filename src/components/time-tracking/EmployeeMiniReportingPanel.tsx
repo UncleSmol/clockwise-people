@@ -454,26 +454,26 @@ export default function EmployeeMiniReportingPanel({
   return (
     <div className="space-y-4">
       {/* Header & Payroll Cycle Selector */}
-      <div className="rounded-xl border border-border bg-slate-900 p-4 sm:p-5 text-white shadow-sm">
+      <div className="rounded-xl border border-border/80 bg-surface p-4 sm:p-5 text-foreground shadow-2xs">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
                 Personal Audit
               </span>
-              <span className="text-xs text-slate-300 font-mono">
+              <span className="text-xs text-muted font-mono">
                 {employeeNumber ? `#${employeeNumber}` : ""}
               </span>
               {departmentName && (
-                <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                <span className="rounded-full bg-surface-muted border border-border/60 px-2 py-0.5 text-[10px] font-semibold text-muted">
                   {departmentName}
                 </span>
               )}
             </div>
-            <h3 className="mt-1.5 text-lg font-black sm:text-xl tracking-tight">
+            <h3 className="mt-1.5 text-lg font-bold sm:text-xl tracking-tight text-foreground">
               {employeeName}&apos;s Time &amp; Leave Statement
             </h3>
-            <p className="text-xs text-slate-300">
+            <p className="mt-0.5 text-xs text-muted">
               Audit your worked hours, overtime, and leave by payroll cycle or custom date range.
             </p>
           </div>
@@ -483,14 +483,12 @@ export default function EmployeeMiniReportingPanel({
               type="button"
               onClick={handleExportPdf}
               disabled={isExporting}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-xs font-semibold text-primary-foreground hover:brightness-110 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
               title="Download or print personal PDF statement directly on mobile or desktop"
             >
               {isExporting ? (
                 <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Download className="size-3.5" />
-              )}
+              ) : null}
               <span>{isExporting ? "Preparing PDF..." : "Export Statement (PDF)"}</span>
             </button>
           </div>
@@ -498,17 +496,14 @@ export default function EmployeeMiniReportingPanel({
 
         {/* Mobile PDF Tip Helper Banner */}
         {showMobilePdfTip && (
-          <div className="mt-3 flex items-start justify-between gap-2 rounded-lg bg-emerald-950/60 border border-emerald-500/30 p-2.5 text-[11px] text-emerald-200">
-            <div className="flex items-start gap-1.5">
-              <Smartphone className="size-3.5 text-emerald-400 shrink-0 mt-0.5" />
-              <span>
-                <strong>Mobile PDF Generation Active:</strong> On iPhone/iPad, tap the <strong>Share</strong> icon on the print preview to save as PDF. On Android, select <strong>&quot;Save as PDF&quot;</strong> in the printer dropdown.
-              </span>
-            </div>
+          <div className="mt-3 flex items-start justify-between gap-2 rounded-lg bg-surface-muted border border-border p-2.5 text-[11px] text-foreground">
+            <span>
+              <strong>Mobile PDF Generation Active:</strong> On iPhone/iPad, tap the <strong>Share</strong> icon on the print preview to save as PDF. On Android, select <strong>&quot;Save as PDF&quot;</strong> in the printer dropdown.
+            </span>
             <button
               type="button"
               onClick={() => setShowMobilePdfTip(false)}
-              className="text-xs text-emerald-400 hover:text-white px-1 font-bold"
+              className="text-xs text-muted hover:text-foreground px-1 font-bold"
             >
               &times;
             </button>
@@ -516,16 +511,15 @@ export default function EmployeeMiniReportingPanel({
         )}
 
         {/* Period Selector Bar */}
-        <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-3">
+        <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <Calendar className="size-3.5 text-emerald-400 shrink-0" />
-            <span className="text-xs font-semibold text-slate-400">
+            <span className="text-xs font-semibold text-muted">
               Payroll Cycle:
             </span>
             <select
               value={selectedPeriodId}
               onChange={(e) => setSelectedPeriodId(e.target.value)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
             >
               {generatedPeriods.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -537,40 +531,40 @@ export default function EmployeeMiniReportingPanel({
           </div>
 
           {selectedPeriodId === "custom" && (
-            <div className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-lg border border-slate-700">
+            <div className="flex items-center gap-2 bg-background px-3 py-1 rounded-lg border border-border shadow-2xs">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
               />
-              <span className="text-slate-400 text-xs">to</span>
+              <span className="text-muted text-xs">to</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
               />
             </div>
           )}
 
-          <div className="ml-auto text-xs text-slate-400 font-medium">
-            Active: <span className="text-emerald-400 font-bold">{periodLabel}</span>
+          <div className="ml-auto text-xs text-muted font-medium">
+            Active: <span className="font-bold text-foreground">{periodLabel}</span>
           </div>
         </div>
       </div>
 
-      {/* Bold Segmented Stat Filter Cards (Exact styling matching Today's Attendance) */}
+      {/* Bold Segmented Stat Filter Cards */}
       <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-5 gap-2 min-w-0">
         {/* Normal Worked */}
-        <div className="rounded-lg p-3 text-left border border-slate-300 bg-slate-100/80 text-slate-900 shadow-2xs min-w-0 flex flex-col justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 break-words leading-tight">
+        <div className="rounded-lg p-3 text-left border border-border bg-surface text-foreground shadow-2xs min-w-0 flex flex-col justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted break-words leading-tight">
             Normal Worked
           </p>
-          <p className="mt-1 text-2xl font-extrabold font-mono break-words">
+          <p className="mt-1 text-2xl font-extrabold font-mono text-foreground break-words">
             {metrics.workedHours.toFixed(2)}h
           </p>
-          <p className="text-[10px] text-slate-500 font-medium break-words leading-tight mt-0.5">
+          <p className="text-[10px] text-muted font-medium break-words leading-tight mt-0.5">
             {metrics.daysWorked} days worked
           </p>
         </div>
@@ -607,14 +601,14 @@ export default function EmployeeMiniReportingPanel({
         </div>
 
         {/* Grand Total Paid */}
-        <div className="rounded-lg p-3 text-left bg-slate-900 text-white shadow-md ring-2 ring-slate-900 ring-offset-1 min-w-0 flex flex-col justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-400 break-words leading-tight">
+        <div className="rounded-lg p-3 text-left bg-primary text-primary-foreground shadow-2xs min-w-0 flex flex-col justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/80 break-words leading-tight">
             Grand Total Paid
           </p>
           <p className="mt-1 text-2xl font-extrabold font-mono text-white break-words">
             {metrics.totalPaid.toFixed(2)}h
           </p>
-          <p className="text-[10px] text-slate-300 font-medium break-words leading-tight mt-0.5">
+          <p className="text-[10px] text-white/70 font-medium break-words leading-tight mt-0.5">
             Worked + OT + Leave
           </p>
         </div>

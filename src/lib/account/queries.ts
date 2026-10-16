@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import {
   getActiveCompany,
@@ -7,6 +8,7 @@ import {
   requireUser,
 } from "@/lib/foundation/queries";
 import type { AppRole, CompanySettings } from "@/lib/foundation/schema";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type EmployeeAccountRow = {
   id: string;
@@ -138,19 +140,33 @@ export const getAccountProfile = cache(async function getAccountProfile() {
   };
 });
 
+export const getCachedCompanySettings = (companyId: string) =>
+  unstable_cache(
+    async () => {
+      const admin = createSupabaseAdminClient();
+      const { data, error } = await admin
+        .from("company_settings")
+        .select(
+          "id, company_id, standard_monthly_hours, standard_daily_hours, default_lunch_minutes, overtime_rules, toil_rules, leave_rules, approval_rules",
+        )
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return data as CompanySettings | null;
+    },
+    ["company-settings", companyId],
+    {
+      tags: [`company-settings-${companyId}`],
+      revalidate: 3600,
+    },
+  )();
+
 export const getCompanySettings = cache(async function getCompanySettings(): Promise<CompanySettings | null> {
   const { company } = await getActiveCompany();
-  const { supabase } = await requireUser();
-
-  const { data, error } = await supabase
-    .from("company_settings")
-    .select("*")
-    .eq("company_id", company.id)
-    .single();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data as CompanySettings | null;
+  await requireUser();
+  return getCachedCompanySettings(company.id);
 });

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getActiveCompany,
   getCurrentUserAccess,
@@ -400,7 +401,7 @@ function currentDateInTimezone(timezone: string) {
 
 const ensuredPublicHolidaysCache = new Set<string>();
 
-async function ensureHolidaysOnce(client: any, companyId: string, year: number) {
+async function ensureHolidaysOnce(client: SupabaseClient, companyId: string, year: number) {
   const cacheKey = `${companyId}:${year}`;
   if (ensuredPublicHolidaysCache.has(cacheKey)) {
     return;

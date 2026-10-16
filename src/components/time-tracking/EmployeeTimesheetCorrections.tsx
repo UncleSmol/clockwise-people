@@ -218,7 +218,7 @@ function renderLocationHistory(entry: TimeEntryRecord) {
                 </p>
               </div>
               <div className="min-w-0 text-xs text-muted">
-                <p className="truncate">
+                <p className="break-words leading-tight">
                   {event.workstationName ?? "No workstation"}
                   {event.distance_meters !== null
                     ? ` - ${Math.round(event.distance_meters)}m away`
@@ -956,7 +956,7 @@ export default function EmployeeTimesheetCorrections({
 
               {/* Work date & mobile hours stacked under status badge on mobile */}
               <div className="flex items-center gap-1.5 min-w-0">
-                <p className="truncate text-[11px] sm:text-xs font-extrabold text-foreground">
+                <p className="text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">
                   {formatDate(entry.work_date)}
                 </p>
                 <span
@@ -1145,20 +1145,20 @@ export default function EmployeeTimesheetCorrections({
             {/* High-Contrast Compact Smart Metric Grid */}
             <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center min-w-0 w-full">
               <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock In</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_in)}</p>
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Clock In</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">{shortTime(entry.clock_in)}</p>
               </div>
               <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Lunch</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Lunch</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
               </div>
               <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap">Clock Out</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground truncate whitespace-nowrap">{shortTime(entry.clock_out)}</p>
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Clock Out</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">{shortTime(entry.clock_out)}</p>
               </div>
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800 truncate whitespace-nowrap">Total Paid</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-black text-emerald-950 truncate whitespace-nowrap">{formatHours(entry.paid_hours)}</p>
+                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800 break-words leading-tight">Total Paid</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs font-black text-emerald-950 break-words leading-tight">{formatHours(entry.paid_hours)}</p>
               </div>
             </div>
 
@@ -1585,10 +1585,10 @@ export default function EmployeeTimesheetCorrections({
                       />
                     </div>
                     <div className="min-w-0 text-left">
-                      <p className="max-w-[130px] truncate text-xs font-extrabold text-foreground">
+                      <p className="break-words leading-tight text-xs font-extrabold text-foreground">
                         {colleague.knownAs ?? colleague.fullName}
                       </p>
-                      <p className="truncate text-[10px] font-semibold text-muted">
+                      <p className="break-words leading-tight text-[10px] font-semibold text-muted">
                         {statusDetail}
                       </p>
                     </div>
@@ -1834,7 +1834,7 @@ export default function EmployeeTimesheetCorrections({
                   key={`holiday-${holiday.id}`}
                   className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5 min-w-0"
                 >
-                  <span className="text-sm font-semibold text-holiday truncate min-w-0">{holiday.name}</span>
+                  <span className="text-sm font-semibold text-holiday break-words leading-tight min-w-0">{holiday.name}</span>
                   <span className="shrink-0 rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday whitespace-nowrap">
                     Holiday
                   </span>
@@ -1874,7 +1874,7 @@ export default function EmployeeTimesheetCorrections({
                           : ""}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-muted">
+                    <p className="mt-0.5 break-words leading-tight text-xs text-muted">
                       {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
                       {entry.lunch_start || entry.lunch_end
                         ? ` \u00b7 Lunch ${formatTimeRange(entry.lunch_start, entry.lunch_end)}`
@@ -2286,19 +2286,19 @@ export default function EmployeeTimesheetCorrections({
                     <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
                       <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                         <Clock className="size-3.5 text-accent" />
-                        <span className="truncate text-xs font-semibold text-foreground" title={`In ${shortTime(entry.clock_in)}`}>
+                        <span className="text-xs font-semibold text-foreground whitespace-nowrap" title={`In ${shortTime(entry.clock_in)}`}>
                           {shortTime(entry.clock_in)}
                         </span>
                       </span>
                       <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                         <UtensilsCrossed className="size-3.5 text-accent" />
-                        <span className="truncate text-xs font-semibold text-foreground" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
+                        <span className="text-xs font-semibold text-foreground whitespace-nowrap" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
                           {shortLunch(entry.lunch_start, entry.lunch_end)}
                         </span>
                       </span>
                       <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
                         <LogOut className="size-3.5 text-accent" />
-                        <span className="truncate text-xs font-semibold text-foreground" title={`Out ${shortTime(entry.clock_out)}`}>
+                        <span className="text-xs font-semibold text-foreground whitespace-nowrap" title={`Out ${shortTime(entry.clock_out)}`}>
                           {shortTime(entry.clock_out)}
                         </span>
                       </span>
@@ -2308,7 +2308,7 @@ export default function EmployeeTimesheetCorrections({
                         ) : (
                           <CheckCircle2 className="size-3.5 text-emerald-600" />
                         )}
-                        <span className="truncate text-xs font-extrabold text-foreground">
+                        <span className="text-xs font-extrabold text-foreground whitespace-nowrap">
                           {entry.missing_clocking || entry.late_arrival || entry.early_departure
                             ? "Review Needed"
                             : "Compliant"}

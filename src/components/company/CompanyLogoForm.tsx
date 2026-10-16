@@ -1,6 +1,5 @@
 "use client";
 
-import { Image as ImageIcon, Save } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import BrandMark from "@/components/BrandMark";
 import StorageUploadButton from "@/components/StorageUploadButton";
@@ -63,15 +62,13 @@ export default function CompanyLogoForm({
       ) : null}
 
       <label className="grid gap-1.5 text-sm font-semibold text-foreground">
-        <span className="inline-flex items-center gap-2">
-          <ImageIcon className="size-4 text-accent" />
-          Company logo link
-        </span>
+        <span>Company logo link</span>
         <input
           name="logo_url"
           value={currentLogoUrl}
           onChange={(event) => setCurrentLogoUrl(event.target.value)}
           placeholder="https://..."
+          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
         />
       </label>
 
@@ -86,9 +83,8 @@ export default function CompanyLogoForm({
         <button
           type="submit"
           disabled={pending}
-          className="btn btn-primary inline-flex items-center gap-2"
+          className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all"
         >
-          <Save className="size-4" />
           {pending ? "Saving..." : "Save logo"}
         </button>
       </div>

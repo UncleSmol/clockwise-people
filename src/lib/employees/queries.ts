@@ -309,7 +309,7 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     })),
     standardMonthlyHours: Number(settingsResult.data.standard_monthly_hours),
     managers: enrichedEmployees
-      .filter((employee) => employee.employment_status !== "terminated")
+      .filter((employee) => employee.employment_status === "active")
       .map((employee) => ({ id: employee.id, label: employee.full_name })),
     employees: enrichedEmployees,
   };
@@ -342,7 +342,7 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
       .order("priority", { ascending: true }),
   ]);
 
-  let employeeData = data;
+  let employeeData: unknown = data;
   if (error) {
     if (error.message?.includes("does not exist")) {
       const fallback = await supabase

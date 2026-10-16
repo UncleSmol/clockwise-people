@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCompany } from "./queries";
@@ -72,6 +72,7 @@ export async function createDepartment(formData: FormData) {
     redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
+  revalidateTag(`company-setup-${company.id}`, "max");
   revalidatePath("/dashboard");
   redirect("/dashboard?panel=company");
 }
@@ -91,6 +92,7 @@ export async function deactivateDepartment(formData: FormData) {
     redirect(`/dashboard?panel=company&message=${encodeURIComponent(error.message)}`);
   }
 
+  revalidateTag(`company-setup-${company.id}`, "max");
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
   redirect("/dashboard?panel=company");

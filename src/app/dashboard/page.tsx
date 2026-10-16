@@ -529,12 +529,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
               {/* Company profile */}
               <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-surface px-4 py-3.5 sm:px-6 text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-surface-muted/60">
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">Company profile</h2>
-                    <p className="mt-0.5 text-xs text-slate-300">Registration and workspace details.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">Company profile</h2>
+                    <p className="mt-0.5 text-xs text-muted">Registration and workspace details.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="grid gap-6 border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyProfileForm company={accountProfile.account.company} />
@@ -547,12 +547,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
               {/* Workstations & Geolocation */}
               <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-surface px-4 py-3.5 sm:px-6 text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-surface-muted/60">
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">Workstations &amp; Geolocation</h2>
-                    <p className="mt-0.5 text-xs text-slate-300">Manage physical locations and geofence boundaries.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">Workstations &amp; Geolocation</h2>
+                    <p className="mt-0.5 text-xs text-muted">Manage physical locations and geofence boundaries.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyGeolocationPanel key={company.id} data={geolocationData} />
@@ -561,12 +561,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
               {/* Work rules & leave */}
               <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-surface px-4 py-3.5 sm:px-6 text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-surface-muted/60">
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">Work rules &amp; leave</h2>
-                    <p className="mt-0.5 text-xs text-slate-300">Define working hours, overtime rules, and leave policies.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">Work rules &amp; leave</h2>
+                    <p className="mt-0.5 text-xs text-muted">Define working hours, overtime rules, and leave policies.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface grid gap-6">
                   <CompanyAllAccrualsTable data={workRulesData} />
@@ -577,18 +577,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
               {/* Departments */}
               <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-surface px-4 py-3.5 sm:px-6 text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-surface-muted/60">
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">Departments</h2>
-                    <p className="mt-0.5 text-xs text-slate-300">Organise employees into departments for reporting and filtering.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">Departments</h2>
+                    <p className="mt-0.5 text-xs text-muted">Organise employees into departments for reporting and filtering.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyDepartmentPanel
                     workstations={companySetup.workstations}
                     departments={companySetup.departments}
-                    employees={employeesData?.employees ?? []}
+                    employees={(employeesData?.employees ?? []).filter((e) => e.employment_status === "active")}
                   />
                 </div>
               </details>
@@ -596,12 +596,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               {/* Add Employee */}
               {employeesData ? (
                 <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-surface px-4 py-3.5 sm:px-6 text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-surface-muted/60">
                     <div>
-                      <h2 className="text-base sm:text-lg font-bold text-white">Add employee</h2>
-                      <p className="mt-0.5 text-xs text-slate-300">Create employee records scoped to the company.</p>
+                      <h2 className="text-base sm:text-lg font-bold text-foreground">Add employee</h2>
+                      <p className="mt-0.5 text-xs text-muted">Create employee records scoped to the company.</p>
                     </div>
-                    <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                    <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                   </summary>
                   <div className="border-t border-border p-4 sm:p-6 bg-surface">
                     {employeesData.workstations.length === 0 ? (
@@ -623,12 +623,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
               {/* Timesheet & Leave Spreadsheet Migration */}
               <details className="group rounded-xl border border-border bg-surface shadow-2xs overflow-hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-slate-900 px-4 py-3.5 sm:px-6 text-white [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-slate-800">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-surface px-4 py-3.5 sm:px-6 text-foreground [&::-webkit-details-marker]:hidden [&::marker]:hidden transition-colors hover:bg-surface-muted/60">
                   <div>
-                    <h2 className="text-base sm:text-lg font-bold text-white">Timesheet &amp; leave migration</h2>
-                    <p className="mt-0.5 text-xs text-slate-300">Import historical attendance shifts and leave records from Excel spreadsheets.</p>
+                    <h2 className="text-base sm:text-lg font-bold text-foreground">Timesheet &amp; leave migration</h2>
+                    <p className="mt-0.5 text-xs text-muted">Import historical attendance shifts and leave records from Excel spreadsheets.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-slate-300 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <TimesheetMigrationPanel />
@@ -640,7 +640,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   if (canManageCompany || canReviewTime) {
-    const reportEmployees = (employeesData?.employees ?? []).map((e) => ({
+    const activeEmployees = (employeesData?.employees ?? []).filter(
+      (e) => e.employment_status === "active",
+    );
+    const activeEmployeeIdSet = new Set(
+      activeEmployees.length > 0
+        ? activeEmployees.map((e) => e.id)
+        : calendarEmployees.map((e) => e.id),
+    );
+
+    const reportEmployees = activeEmployees.map((e) => ({
       id: e.id,
       full_name: e.full_name,
       known_as: e.known_as ?? null,
@@ -675,15 +684,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <CompanyReportsWorkspace
           companyName={company.name}
           company={company}
-          fullEmployees={employeesData?.employees ?? []}
+          fullEmployees={activeEmployees}
           isSuperAdmin={access.isSuperAdmin}
           employees={finalReportEmployees}
           departments={employeesData?.departments ?? []}
           workstations={geolocationData?.workstations ?? []}
-          timesheetEntries={calendarEntries}
-          leaveRequests={calendarLeaveRequests}
+          timesheetEntries={calendarEntries.filter((ce) => activeEmployeeIdSet.has(ce.employee_id))}
+          leaveRequests={calendarLeaveRequests.filter((lr) => activeEmployeeIdSet.has(lr.employee_id))}
           leaveTypes={workRulesData?.leaveTypes ?? []}
-          leaveAssignments={workRulesData?.leaveBalances ?? []}
+          leaveAssignments={(workRulesData?.leaveBalances ?? []).filter((lb) => activeEmployeeIdSet.has(lb.employee_id))}
           publicHolidays={calendarHolidays}
           payrollConfig={payrollConfig}
         />
@@ -700,7 +709,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       content: (
         <CompanyPayslipsWorkspace
           company={company}
-          employees={employeesData?.employees ?? []}
+          employees={(employeesData?.employees ?? []).filter((e) => e.employment_status === "active")}
           timesheetEntries={calendarEntries}
           payrollConfig={payrollConfig}
           isSuperAdmin={access.isSuperAdmin}

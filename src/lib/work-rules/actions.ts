@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getActiveCompany, getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -1019,17 +1019,39 @@ export async function syncEmployeeAccruals(
 
   const employeeIds = employees.map((e) => e.id);
 
-  // 4. Fetch time entries for these employees
-  const { data: timeEntries, error: timeError } = await supabase
-    .from("time_entries")
-    .select("employee_id, normal_hours, paid_hours, overtime_hours, status, work_date")
-    .eq("company_id", companyId)
-    .in("employee_id", employeeIds)
-    .is("deleted_at", null)
-    .in("status", ["submitted", "approved", "locked"]);
+  // 4. Fetch time entries for these employees (with pagination to guarantee > 1000 rows fetched)
+  let timeEntries: Array<{
+    employee_id: string;
+    normal_hours: number | null;
+    paid_hours: number | null;
+    overtime_hours: number | null;
+    status: string;
+    work_date: string;
+    clock_in?: string | null;
+  }> = [];
 
-  if (timeError) {
-    return { ok: false, message: timeError.message };
+  let page = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data: chunk, error: timeError } = await supabase
+      .from("time_entries")
+      .select("employee_id, normal_hours, paid_hours, overtime_hours, status, work_date, clock_in")
+      .eq("company_id", companyId)
+      .in("employee_id", employeeIds)
+      .is("deleted_at", null)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (timeError) {
+      return { ok: false, message: timeError.message };
+    }
+
+    if (chunk && chunk.length > 0) {
+      timeEntries = timeEntries.concat(chunk);
+    }
+    if (!chunk || chunk.length < pageSize) {
+      break;
+    }
+    page++;
   }
 
   // 5. Fetch all approved leave requests to compute taken hours
@@ -1076,16 +1098,29 @@ export async function syncEmployeeAccruals(
       empEntries = empEntries.filter((e) => e.work_date >= accrualBaselineDate);
     }
 
-    const totalNormalHours = empEntries.reduce((sum, e) => sum + Number(e.normal_hours ?? 0), 0);
-    const totalPaidHours = empEntries.reduce(
-      (sum, e) => sum + Number(e.paid_hours ?? e.normal_hours ?? 0),
-      0,
-    );
-    const totalOvertimeHours = empEntries.reduce(
-      (sum, e) => sum + Number(e.overtime_hours ?? 0),
-      0,
-    );
+    // Count distinct shifts clocked in / days worked
+    const shiftDateSet = new Set<string>();
+    let totalNormalHours = 0;
+    let totalPaidHours = 0;
+    let totalOvertimeHours = 0;
+
+    for (const e of empEntries) {
+      const paid = Number(e.paid_hours ?? e.normal_hours ?? 0);
+      const ot = Number(e.overtime_hours ?? 0);
+      if (paid > 0 || Boolean(e.clock_in)) {
+        shiftDateSet.add(e.work_date);
+        totalNormalHours += Number(e.normal_hours ?? 0);
+        totalPaidHours += paid;
+        totalOvertimeHours += ot;
+      }
+    }
+
+    const shiftsWorked = shiftDateSet.size;
     const totalWorkedHours = totalPaidHours > 0 ? totalPaidHours : totalNormalHours;
+
+    // Calculate months employed for BCEA Section 27 qualification
+    const startDate = new Date(emp.start_date || "2026-01-01");
+    const monthsEmployed = Math.max(0, (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.4));
 
     let empAnnualAccrued = 0;
     let empToilAccrued = 0;
@@ -1112,16 +1147,20 @@ export async function syncEmployeeAccruals(
           ? accrualRules.yearly_hours
           : Number(accrualRules.yearly_hours ?? 0) || 0;
 
-      if (lt.category === "annual") {
-        // BCEA Section 20(2)(c): 1 hour for every 17 hours worked, or pro-rated against configured yearly entitlement
+      // STRICT PROTECTION: If employee has not worked / clocked in, accrual is strictly 0.00h (NO DAYS FROM THE AIR)
+      if (shiftsWorked === 0 || totalWorkedHours <= 0) {
+        accruedHours = 0;
+      } else if (lt.category === "annual") {
+        // BCEA Section 20(2)(c): 1 hour for every 17 hours worked, or 1 day per 17 days worked
+        const shiftBasedAccrual = Number(((shiftsWorked / 17.0) * standardDailyHours).toFixed(2));
         const bceaMinimumAccrual = Number((totalWorkedHours / 17.0).toFixed(2));
         if (yearlyHours > 0) {
           const proRataAccrual = Number(
             ((yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
           );
-          accruedHours = Math.max(proRataAccrual, bceaMinimumAccrual);
+          accruedHours = Math.max(shiftBasedAccrual, proRataAccrual, bceaMinimumAccrual);
         } else {
-          accruedHours = bceaMinimumAccrual;
+          accruedHours = Math.max(shiftBasedAccrual, bceaMinimumAccrual);
         }
         empAnnualAccrued = accruedHours;
       } else if (lt.category === "toil_taken") {
@@ -1129,24 +1168,30 @@ export async function syncEmployeeAccruals(
         accruedHours = Number((totalOvertimeHours * toilMultiplier).toFixed(2));
         empToilAccrued = accruedHours;
       } else if (lt.category === "sick") {
-        // BCEA Section 22: Sick leave entitlement
+        // BCEA Section 22: Sick leave entitlement (1 day per 26 days worked, capped at 80h/yr)
+        const shiftBasedSick = Number(((shiftsWorked / 26.0) * standardDailyHours).toFixed(2));
+        const hoursBasedSick = Number((totalWorkedHours / 26.0).toFixed(2));
         if (yearlyHours > 0) {
-          accruedHours = Number(
+          const proRataSick = Number(
             Math.min(yearlyHours, (yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
           );
+          accruedHours = Math.max(proRataSick, shiftBasedSick, hoursBasedSick);
         } else {
-          accruedHours = Number((totalWorkedHours / 26.0).toFixed(2));
+          accruedHours = Math.max(shiftBasedSick, hoursBasedSick);
+        }
+        if (yearlyHours > 0 && accruedHours > yearlyHours) {
+          accruedHours = yearlyHours;
         }
       } else if (lt.category === "family_responsibility") {
-        // BCEA Section 27: 3 days (24h)
-        accruedHours = yearlyHours > 0 ? yearlyHours : Number((3 * standardDailyHours).toFixed(2));
-      } else {
-        // Custom leave types
-        if (yearlyHours > 0) {
-          accruedHours = Number(
-            ((yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
-          );
+        // BCEA Section 27: 3 days (24h) ONLY if employee has worked >= 4 months AND works >= 4 days/week (>= 16 shifts)
+        if (monthsEmployed >= 4 && shiftsWorked >= 16) {
+          accruedHours = yearlyHours > 0 ? yearlyHours : Number((3 * standardDailyHours).toFixed(2));
+        } else {
+          accruedHours = 0;
         }
+      } else {
+        // Custom / unpaid leave types
+        accruedHours = 0;
       }
 
       // Calculate net balance
@@ -1388,6 +1433,7 @@ export async function updateCompanyLeavePolicy(
       return { ok: false, message: error.message };
     }
 
+    revalidateTag(`company-settings-${company.id}`, "max");
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/company");
     revalidatePath("/dashboard/leave");
@@ -1456,6 +1502,7 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
       .from("employees")
       .select("id")
       .eq("company_id", company.id)
+      .eq("employment_status", "active")
       .is("deleted_at", null);
 
     const today = new Date().toISOString().split("T")[0];

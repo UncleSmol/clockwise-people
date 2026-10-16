@@ -73,6 +73,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         .from("employees")
         .select("id, full_name, employee_number")
         .eq("company_id", company.id)
+        .eq("employment_status", "active")
         .is("deleted_at", null)
         .order("full_name"),
       supabase
@@ -174,7 +175,9 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
       id: employee.id,
       label: `${employee.full_name} (${employee.employee_number})`,
     })),
-    leaveBalances: (balancesResult.data ?? []) as unknown as CompanyWorkRulesData["leaveBalances"],
+    leaveBalances: ((balancesResult.data ?? []) as unknown as CompanyWorkRulesData["leaveBalances"]).filter(
+      (balance) => (employeesResult.data ?? []).some((emp) => emp.id === balance.employee_id),
+    ),
     leaveTypes: (leaveTypesResult.data ?? []) as LeaveType[],
     publicHolidays: (holidaysResult.data ?? []) as PublicHoliday[],
     schedules: (schedulesResult.data ?? []) as unknown as WorkSchedule[],
@@ -261,7 +264,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
 
   if (toilType && !hasToilBalance && access.employeeId) {
     try {
-      const ensuredBal = await ensureEmployeeToilBalance(company.id, access.employeeId, toilType.id);
+      const ensuredBal = (await ensureEmployeeToilBalance(company.id, access.employeeId, toilType.id)) as Record<string, unknown> | null;
       if (ensuredBal) {
         balances = [
           ...balances,

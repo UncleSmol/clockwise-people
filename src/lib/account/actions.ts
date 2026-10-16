@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -278,6 +278,7 @@ export async function updateCompanyRules(
     return { ok: false, message: error.message };
   }
 
+  revalidateTag(`company-settings-${company.id}`, "max");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/account");
 

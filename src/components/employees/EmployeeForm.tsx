@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Briefcase, Building2, Calendar, Clock, CreditCard, DollarSign, FileText, Flag, Hash, Landmark, Mail, MapPin, Phone, User, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -126,97 +125,82 @@ export default function EmployeeForm({
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Full name</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <User className="size-4 shrink-0 text-muted" />
-            <input
-              autoComplete="name"
-              placeholder="Legal or payroll name"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              {...register("full_name")}
-            />
-          </span>
+          <input
+            autoComplete="name"
+            placeholder="Legal or payroll name"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("full_name")}
+          />
           {errors.full_name && <span className="text-xs text-danger">{errors.full_name.message}</span>}
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Known as</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <User className="size-4 shrink-0 text-muted" />
-            <input
-              autoComplete="nickname"
-              placeholder="Preferred display name"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              {...register("known_as")}
-            />
-          </span>
+          <input
+            autoComplete="nickname"
+            placeholder="Preferred display name"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("known_as")}
+          />
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Email</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Mail className="size-4 shrink-0 text-muted" />
-            <input
-              type="email"
-              autoComplete="email"
-              placeholder="name@company.co.za"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              {...register("email")}
-            />
-          </span>
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="name@company.co.za"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("email")}
+          />
           {errors.email && <span className="text-xs text-danger">{errors.email.message}</span>}
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Phone</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Phone className="size-4 shrink-0 text-muted" />
-            <input
-              autoComplete="tel"
-              placeholder="+27 82 000 0000"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              {...register("phone_number")}
-            />
-          </span>
+          <input
+            autoComplete="tel"
+            placeholder="+27 82 000 0000"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("phone_number")}
+          />
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <MapPin className="size-4 shrink-0 text-muted" />
-            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("workstation_id")}>
-              <option value="">No workstation</option>
-              {workstations.map((ws) => (
-                <option key={ws.id} value={ws.id}>{ws.label}</option>
-              ))}
-            </select>
-          </span>
+          <select
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("workstation_id")}
+          >
+            <option value="">No workstation</option>
+            {workstations.map((ws) => (
+              <option key={ws.id} value={ws.id}>{ws.label}</option>
+            ))}
+          </select>
           {errors.workstation_id && <span className="text-xs text-danger">{errors.workstation_id.message}</span>}
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Department</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Building2 className="size-4 shrink-0 text-muted" />
-            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("department_id")}>
-              <option value="">No department</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>{department.label}</option>
-              ))}
-            </select>
-          </span>
+          <select
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("department_id")}
+          >
+            <option value="">No department</option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.id}>{department.label}</option>
+            ))}
+          </select>
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Job title</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Briefcase className="size-4 shrink-0 text-muted" />
-            <input
-              list="job-title-hints"
-              placeholder="Start typing a role"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              {...register("job_title")}
-            />
-          </span>
+          <input
+            list="job-title-hints"
+            placeholder="Start typing a role"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("job_title")}
+          />
           <datalist id="job-title-hints">
             {jobTitleHints.map((jobTitle) => (
               <option key={jobTitle} value={jobTitle} />
@@ -226,35 +210,36 @@ export default function EmployeeForm({
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employment type</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Clock className="size-4 shrink-0 text-muted" />
-            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("employment_type")}>
-              {employmentTypes.map((type) => (
-                <option key={type} value={type}>{labelize(type)}</option>
-              ))}
-            </select>
-          </span>
+          <select
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("employment_type")}
+          >
+            {employmentTypes.map((type) => (
+              <option key={type} value={type}>{labelize(type)}</option>
+            ))}
+          </select>
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start date</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Calendar className="size-4 shrink-0 text-muted" />
-            <input type="date" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("start_date")} />
-          </span>
+          <input
+            type="date"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("start_date")}
+          />
           {errors.start_date && <span className="text-xs text-danger">{errors.start_date.message}</span>}
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employment status</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Flag className="size-4 shrink-0 text-muted" />
-            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("employment_status")}>
-              {employmentStatuses.map((status) => (
-                <option key={status} value={status}>{labelize(status)}</option>
-              ))}
-            </select>
-          </span>
+          <select
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("employment_status")}
+          >
+            {employmentStatuses.map((status) => (
+              <option key={status} value={status}>{labelize(status)}</option>
+            ))}
+          </select>
         </label>
 
         <fieldset className="grid gap-1 md:col-span-2">
@@ -280,174 +265,159 @@ export default function EmployeeForm({
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Manager</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <UserCheck className="size-4 shrink-0 text-muted" />
-            <select className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("manager_employee_id")}>
-              <option value="">No manager</option>
-              {managers
-                .filter((manager) => manager.id !== employee?.id)
-                .map((manager) => (
-                  <option key={manager.id} value={manager.id}>{manager.label}</option>
-                ))}
-            </select>
-          </span>
+          <select
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("manager_employee_id")}
+          >
+            <option value="">No manager</option>
+            {managers
+              .filter((manager) => manager.id !== employee?.id)
+              .map((manager) => (
+                <option key={manager.id} value={manager.id}>{manager.label}</option>
+              ))}
+          </select>
         </label>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted flex items-center justify-between">
             <span>Payroll identifier</span>
-            <span className="text-[10px] font-normal lowercase text-emerald-600">
+            <span className="text-[10px] font-normal lowercase text-muted">
               (auto-assigned if blank)
             </span>
           </span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <Hash className="size-4 shrink-0 text-muted" />
-            <input
-              placeholder="e.g. ee023 (Auto-assigned automatically)"
-              className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-              {...register("payroll_identifier")}
-            />
-          </span>
+          <input
+            placeholder="e.g. ee023 (Auto-assigned automatically)"
+            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {...register("payroll_identifier")}
+          />
         </label>
 
         <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Monthly salary</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <DollarSign className="size-4 shrink-0 text-muted" />
-            <input type="number" step="0.01" min="0" placeholder="0.00" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("monthly_salary")} />
-          </span>
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Monthly salary (ZAR)</span>
+          <div className="relative flex items-center">
+            <span className="absolute left-3 text-sm font-semibold text-muted">R</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              className="h-10 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("monthly_salary")}
+            />
+          </div>
           {errors.monthly_salary && <span className="text-xs text-danger">{errors.monthly_salary.message}</span>}
         </label>
 
         <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Hourly rate</span>
-          <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-            <DollarSign className="size-4 shrink-0 text-muted" />
-            <input type="number" step="0.01" min="0" placeholder="0.00" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none" {...register("hourly_rate")} />
-          </span>
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Hourly rate (ZAR)</span>
+          <div className="relative flex items-center">
+            <span className="absolute left-3 text-sm font-semibold text-muted">R</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              className="h-10 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("hourly_rate")}
+            />
+          </div>
           {errors.hourly_rate && <span className="text-xs text-danger">{errors.hourly_rate.message}</span>}
         </label>
       </div>
 
       {/* Statutory Identification Details (For Payslips & Tax Compliance) */}
       <div className="rounded-xl border border-border bg-surface/40 p-4">
-        <p className="text-xs font-black uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
-          <FileText className="size-3.5 text-primary" />
-          Statutory Identification & Address (For Payslips & BCEA)
+        <p className="text-xs font-bold uppercase tracking-wider text-muted mb-3">
+          Statutory Identification &amp; Address (For Payslips &amp; BCEA)
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">National ID / Passport Number</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <User className="size-4 shrink-0 text-muted" />
-              <input
-                placeholder="e.g. 940322 0456 083"
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("id_number")}
-              />
-            </span>
+            <input
+              placeholder="e.g. 940322 0456 083"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("id_number")}
+            />
           </label>
 
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">SARS Tax Reference Number</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <Hash className="size-4 shrink-0 text-muted" />
-              <input
-                placeholder="e.g. 9012345678"
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("tax_number")}
-              />
-            </span>
+            <input
+              placeholder="e.g. 9012345678"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("tax_number")}
+            />
           </label>
 
           <label className="grid gap-1 md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Physical / Residential Address</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <MapPin className="size-4 shrink-0 text-muted" />
-              <input
-                placeholder="e.g. 49 Duncan Street, Witbank, 1039"
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("address")}
-              />
-            </span>
+            <input
+              placeholder="e.g. 49 Duncan Street, Witbank, 1039"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("address")}
+            />
           </label>
         </div>
       </div>
 
       {/* Payroll & Banking Information (For Payslip Printout & EFT Disbursements) */}
       <div className="rounded-xl border border-border bg-surface/40 p-4">
-        <p className="text-xs font-black uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
-          <Landmark className="size-3.5 text-emerald-600" />
-          Payroll Cycle & Banking Details (For Payslips & EFT)
+        <p className="text-xs font-bold uppercase tracking-wider text-muted mb-3">
+          Payroll Cycle &amp; Banking Details (For Payslips &amp; EFT)
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payment Frequency</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <Clock className="size-4 shrink-0 text-muted" />
-              <select
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none capitalize"
-                {...register("payment_frequency")}
-              >
-                {paymentFrequencies.map((freq) => (
-                  <option key={freq} value={freq}>{labelize(freq)}</option>
-                ))}
-              </select>
-            </span>
+            <select
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("payment_frequency")}
+            >
+              {paymentFrequencies.map((freq) => (
+                <option key={freq} value={freq}>{labelize(freq)}</option>
+              ))}
+            </select>
           </label>
 
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payment Mode</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <CreditCard className="size-4 shrink-0 text-muted" />
-              <select
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("payment_mode")}
-              >
-                {paymentModes.map((mode) => (
-                  <option key={mode} value={mode}>{mode}</option>
-                ))}
-              </select>
-            </span>
+            <select
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("payment_mode")}
+            >
+              {paymentModes.map((mode) => (
+                <option key={mode} value={mode}>{mode}</option>
+              ))}
+            </select>
           </label>
 
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bank Name</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <Building2 className="size-4 shrink-0 text-muted" />
-              <input
-                placeholder="e.g. Standard Bank, FNB, Capitec, Nedbank"
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("bank_name")}
-              />
-            </span>
+            <input
+              placeholder="e.g. Standard Bank, FNB, Capitec, Nedbank"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("bank_name")}
+            />
           </label>
 
           <label className="grid gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bank Account Number</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <CreditCard className="size-4 shrink-0 text-muted" />
-              <input
-                placeholder="e.g. 10149977458"
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("bank_account_number")}
-              />
-            </span>
+            <input
+              placeholder="e.g. 10149977458"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("bank_account_number")}
+            />
           </label>
 
           <label className="grid gap-1 md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Account Type</span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-              <Landmark className="size-4 shrink-0 text-muted" />
-              <select
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                {...register("bank_account_type")}
-              >
-                {bankAccountTypes.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </span>
+            <select
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              {...register("bank_account_type")}
+            >
+              {bankAccountTypes.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </label>
         </div>
       </div>
@@ -456,7 +426,7 @@ export default function EmployeeForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Saving..." : employee ? "Save employee" : "Add employee"}
         </button>

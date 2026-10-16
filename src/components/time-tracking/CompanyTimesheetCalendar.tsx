@@ -60,8 +60,8 @@ type CalendarWindow = "day" | "week" | "payroll" | "month";
 
 function viewButtonClass(active: boolean) {
   return active
-    ? "bg-slate-900 text-white shadow-xs font-bold"
-    : "border border-border bg-white text-foreground hover:bg-slate-100 font-semibold";
+    ? "bg-primary text-primary-foreground shadow-2xs font-semibold"
+    : "border border-border bg-surface text-foreground hover:bg-surface-muted font-semibold";
 }
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
@@ -499,32 +499,28 @@ export default function CompanyTimesheetCalendar({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[32rem]">
             <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-sm backdrop-blur-sm">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-200">
-                <CalendarDays className="size-3.5 text-slate-300" />
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Shifts
               </div>
-              <p className="mt-1 text-lg font-black text-white">{totals.total}</p>
+              <p className="mt-1 text-lg font-bold text-white">{totals.total}</p>
             </div>
             <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 text-white shadow-sm backdrop-blur-sm">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-                <Clock3 className="size-3.5 text-emerald-400" />
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Submitted
               </div>
-              <p className="mt-1 text-lg font-black text-white">{totals.submitted}</p>
+              <p className="mt-1 text-lg font-bold text-white">{totals.submitted}</p>
             </div>
             <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-sm backdrop-blur-sm">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-                <CheckCircle2 className="size-3.5 text-emerald-400" />
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Approved
               </div>
-              <p className="mt-1 text-lg font-black text-white">{totals.approved}</p>
+              <p className="mt-1 text-lg font-bold text-white">{totals.approved}</p>
             </div>
             <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-sm backdrop-blur-sm">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-rose-300">
-                <AlertTriangle className="size-3.5 text-rose-400" />
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Exceptions
               </div>
-              <p className="mt-1 text-lg font-black text-white">{totals.issues}</p>
+              <p className="mt-1 text-lg font-bold text-white">{totals.issues}</p>
             </div>
           </div>
         </div>
@@ -532,14 +528,14 @@ export default function CompanyTimesheetCalendar({
 
       <div className="flex min-w-0 max-w-full flex-col gap-4">
         {activeColleagues.length > 0 && (
-          <div className="rounded-lg border border-emerald-500/40 bg-emerald-50/50 p-3 shadow-sm">
+          <div className="rounded-xl border border-border/80 bg-surface p-3 shadow-2xs">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="relative flex size-2">
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-emerald-600" />
                 </span>
-                <p className="text-xs font-black text-emerald-950">
+                <p className="text-xs font-bold text-foreground">
                   Colleagues on shift right now ({activeColleagues.length})
                 </p>
               </div>
@@ -548,14 +544,14 @@ export default function CompanyTimesheetCalendar({
                 <button
                   type="button"
                   onClick={() => setShowAllColleagues((prev) => !prev)}
-                  className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-white px-2 py-0.5 text-xs font-bold text-emerald-900 hover:bg-emerald-100/80 transition-colors cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-2xs"
                   aria-label={showAllColleagues ? "Collapse colleagues list" : `Show ${hiddenColleaguesCount} more colleagues`}
                 >
                   <span>{showAllColleagues ? "Show less" : `+${hiddenColleaguesCount} more`}</span>
                   {showAllColleagues ? (
-                    <ChevronUp className="size-3.5" />
+                    <ChevronUp className="size-3.5 text-muted" />
                   ) : (
-                    <ChevronDown className="size-3.5" />
+                    <ChevronDown className="size-3.5 text-muted" />
                   )}
                 </button>
               ) : null}
@@ -584,7 +580,7 @@ export default function CompanyTimesheetCalendar({
                       />
                     </div>
                     <div className="min-w-0 text-left">
-                      <p className="max-w-[120px] truncate text-xs font-extrabold text-foreground">
+                      <p className="text-xs font-extrabold text-foreground break-words leading-tight">
                         {colleague.knownAs ?? colleague.fullName}
                       </p>
                       <p className="text-[10px] font-semibold text-muted">
@@ -842,7 +838,7 @@ export default function CompanyTimesheetCalendar({
                       key={`holiday-${holiday.id}`}
                       className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5"
                     >
-                      <span className="min-w-0 truncate text-sm font-semibold text-holiday">{holiday.name}</span>
+                      <span className="min-w-0 text-sm font-semibold text-holiday break-words leading-tight">{holiday.name}</span>
                       <span className="shrink-0 whitespace-nowrap rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday">
                         Holiday
                       </span>
@@ -874,10 +870,10 @@ export default function CompanyTimesheetCalendar({
                   >
                     <div className="flex w-full min-w-0 items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">
+                        <p className="text-sm font-semibold text-foreground break-words leading-tight">
                           {displayName(entry)}
                         </p>
-                        <p className="truncate text-xs text-muted">
+                        <p className="text-xs text-muted break-words leading-tight">
                           {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
                         </p>
                       </div>
@@ -1008,7 +1004,7 @@ export default function CompanyTimesheetCalendar({
                     {entry.status}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-foreground">
+                    <span className="block font-semibold text-foreground break-words leading-tight">
                       {displayName(entry)}
                     </span>
                     <span className="block text-xs text-muted">
@@ -1288,7 +1284,7 @@ export default function CompanyTimesheetCalendar({
                         {event.event_type.replaceAll("_", " ")}
                       </span>
                       <span className="shrink-0 text-muted">{formatTime(event.local_event_time)}</span>
-                      <span className="min-w-0 truncate text-muted">
+                      <span className="min-w-0 break-words leading-tight text-muted">
                         {event.workstationName ?? "No workstation"}
                         {event.distance_meters !== null ? ` ${Math.round(event.distance_meters)}m` : ""}
                       </span>
@@ -1434,10 +1430,10 @@ export default function CompanyTimesheetCalendar({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate text-base font-extrabold text-foreground">
+                  <h3 className="text-base font-extrabold text-foreground break-words leading-tight">
                     Review &amp; Approve Timesheets
                   </h3>
-                  <p className="truncate text-xs text-muted">
+                  <p className="text-xs text-muted break-words leading-tight mt-0.5">
                     {displayName(selectedEntry)} · {employeeSubmitted.length} record{employeeSubmitted.length === 1 ? "" : "s"}
                   </p>
                 </div>

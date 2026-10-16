@@ -1,7 +1,5 @@
 "use client";
 
-import { Building2, Globe2, Hash, Mail, MapPin, Phone, Save, ScrollText, Tags, Globe, Clock, MapPinned, Building } from "lucide-react";
-import type { ReactNode } from "react";
 import { useActionState } from "react";
 import { updateCompanyProfile } from "@/lib/account/actions";
 import type { Company } from "@/lib/foundation/schema";
@@ -18,7 +16,6 @@ const initialState = {
 function Field({
   autoComplete,
   defaultValue,
-  icon,
   label,
   name,
   placeholder,
@@ -27,7 +24,6 @@ function Field({
 }: {
   autoComplete?: string;
   defaultValue?: string | null;
-  icon?: ReactNode;
   label: string;
   name: string;
   placeholder?: string;
@@ -35,22 +31,19 @@ function Field({
   type?: string;
 }) {
   return (
-    <label className="grid gap-1">
+    <label className="grid gap-1.5">
       <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
         {label}
       </span>
-      <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
-        {icon ? <span className="text-muted">{icon}</span> : null}
-        <input
-          autoComplete={autoComplete}
-          defaultValue={defaultValue ?? ""}
-          name={name}
-          placeholder={placeholder}
-          required={required}
-          type={type}
-          className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-        />
-      </span>
+      <input
+        autoComplete={autoComplete}
+        defaultValue={defaultValue ?? ""}
+        name={name}
+        placeholder={placeholder}
+        required={required}
+        type={type}
+        className="h-10 rounded-lg border border-border/80 bg-surface px-3 text-sm text-foreground outline-none transition focus:border-foreground"
+      />
     </label>
   );
 }
@@ -80,38 +73,32 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
       <div className="grid gap-3 md:grid-cols-2">
         <Field
           defaultValue={company.name}
-          icon={<Building2 className="size-4" />}
           label="Registered name"
           name="name"
           required
         />
         <Field
           defaultValue={company.trading_name}
-          icon={<Building2 className="size-4" />}
           label="Trading name"
           name="trading_name"
         />
         <Field
           defaultValue={company.registration_number}
-          icon={<Hash className="size-4" />}
           label="Registration number"
           name="registration_number"
         />
         <Field
           defaultValue={company.tax_number}
-          icon={<ScrollText className="size-4" />}
           label="Tax number"
           name="tax_number"
         />
         <Field
           defaultValue={company.vat_number}
-          icon={<ScrollText className="size-4" />}
           label="VAT number"
           name="vat_number"
         />
         <Field
           defaultValue={company.industry}
-          icon={<Tags className="size-4" />}
           label="Industry"
           name="industry"
         />
@@ -120,7 +107,6 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
       <div className="grid gap-3 md:grid-cols-2">
         <Field
           defaultValue={company.website_url}
-          icon={<Globe2 className="size-4" />}
           label="Website"
           name="website_url"
           placeholder="https://example.co.za"
@@ -129,7 +115,6 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
         <Field
           autoComplete="email"
           defaultValue={company.contact_email}
-          icon={<Mail className="size-4" />}
           label="Contact email"
           name="contact_email"
           type="email"
@@ -137,13 +122,11 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
         <Field
           autoComplete="tel"
           defaultValue={company.contact_phone}
-          icon={<Phone className="size-4" />}
           label="Contact phone"
           name="contact_phone"
         />
         <Field
           defaultValue={company.payroll_cycle}
-          icon={<Clock className="size-4" />}
           label="Payroll cycle"
           name="payroll_cycle"
           required
@@ -154,49 +137,42 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
         <Field
           autoComplete="address-line1"
           defaultValue={company.address_line_1}
-          icon={<MapPin className="size-4" />}
           label="Address line 1"
           name="address_line_1"
         />
         <Field
           autoComplete="address-line2"
           defaultValue={company.address_line_2}
-          icon={<MapPin className="size-4" />}
           label="Address line 2"
           name="address_line_2"
         />
         <Field
           autoComplete="address-level2"
           defaultValue={company.city}
-          icon={<Building className="size-4" />}
           label="City"
           name="city"
         />
         <Field
           autoComplete="address-level1"
           defaultValue={company.province}
-          icon={<MapPinned className="size-4" />}
           label="Province"
           name="province"
         />
         <Field
           autoComplete="postal-code"
           defaultValue={company.postal_code}
-          icon={<Hash className="size-4" />}
           label="Postal code"
           name="postal_code"
         />
         <Field
           autoComplete="country-name"
           defaultValue={company.country}
-          icon={<Globe className="size-4" />}
           label="Country"
           name="country"
           required
         />
         <Field
           defaultValue={company.timezone}
-          icon={<Clock className="size-4" />}
           label="Timezone"
           name="timezone"
           required
@@ -205,10 +181,10 @@ export default function CompanyProfileForm({ company }: CompanyProfileFormProps)
 
       <div className="flex justify-end">
         <button
+          type="submit"
           disabled={pending}
-          className="btn btn-primary inline-flex items-center gap-2"
+          className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Save className="size-4" />
           {pending ? "Saving..." : "Save company profile"}
         </button>
       </div>

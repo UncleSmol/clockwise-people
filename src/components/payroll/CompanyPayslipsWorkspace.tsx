@@ -66,19 +66,6 @@ export default function CompanyPayslipsWorkspace({
   isSuperAdmin,
   onNavigateToApprovals,
 }: CompanyPayslipsWorkspaceProps) {
-  // If not super admin, strictly gate access
-  if (!isSuperAdmin) {
-    return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-8 text-center">
-        <ShieldAlert className="mx-auto size-12 text-rose-600 mb-3" />
-        <h3 className="text-lg font-bold text-slate-900">Super Admin Access Required</h3>
-        <p className="mt-1 text-sm text-slate-600 max-w-md mx-auto">
-          Payslip simulation, interactive adjustments, and compliance printing are restricted to authorized Super Administrators only.
-        </p>
-      </div>
-    );
-  }
-
   // 1. Periods Generation
   const availablePeriods = useMemo(() => {
     return generatePayrollPeriods(payrollConfig);
@@ -262,6 +249,18 @@ export default function CompanyPayslipsWorkspace({
   const approvedPayslipsForBatch = useMemo(() => {
     return simulatedPayslips.filter((p) => p.isApprovedForSimulation);
   }, [simulatedPayslips]);
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-8 text-center">
+        <ShieldAlert className="mx-auto size-12 text-rose-600 mb-3" />
+        <h3 className="text-lg font-bold text-slate-900">Super Admin Access Required</h3>
+        <p className="mt-1 text-sm text-slate-600 max-w-md mx-auto">
+          Payslip simulation, interactive adjustments, and compliance printing are restricted to authorized Super Administrators only.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

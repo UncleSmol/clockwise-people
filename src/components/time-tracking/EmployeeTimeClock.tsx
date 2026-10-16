@@ -460,6 +460,16 @@ export default function EmployeeTimeClock({
     }
   });
 
+  const effectiveWorkstationId = useMemo(() => {
+    if (workstationId && workstations.some((w) => w.id === workstationId)) {
+      return workstationId;
+    }
+    if (assignedWorkstationId && workstations.some((w) => w.id === assignedWorkstationId)) {
+      return assignedWorkstationId;
+    }
+    return workstations[0]?.id ?? "";
+  }, [workstationId, assignedWorkstationId, workstations]);
+
   const [state, formAction, pending] = useActionState(
     async (previousState: ClockActionState, formData: FormData) => {
       const currentEntry = previousState.entry ?? optimistic ?? liveTodayEntry ?? todayEntry;
@@ -502,16 +512,6 @@ export default function EmployeeTimeClock({
   const canSwitch =
     Boolean(displayEntry?.clock_in) && !displayEntry?.clock_out && workstations.length > 0;
   const latestGeofenceStatus = displayEntry?.locationEvents?.at(-1)?.geofence_status ?? null;
-
-  const effectiveWorkstationId = useMemo(() => {
-    if (workstationId && workstations.some((w) => w.id === workstationId)) {
-      return workstationId;
-    }
-    if (assignedWorkstationId && workstations.some((w) => w.id === assignedWorkstationId)) {
-      return assignedWorkstationId;
-    }
-    return workstations[0]?.id ?? "";
-  }, [workstationId, assignedWorkstationId, workstations]);
 
   const selectedWorkstation = useMemo(
     () => workstations.find((w) => w.id === effectiveWorkstationId) ?? null,
@@ -750,11 +750,11 @@ export default function EmployeeTimeClock({
               1
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
                 Clock in
               </p>
               <p
-                className={`truncate text-xs font-bold ${
+                className={`text-xs font-bold break-words leading-tight ${
                   displayEntry?.clock_in ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -774,11 +774,11 @@ export default function EmployeeTimeClock({
               2
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
                 Lunch start
               </p>
               <p
-                className={`truncate text-xs font-bold ${
+                className={`text-xs font-bold break-words leading-tight ${
                   displayEntry?.lunch_start ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -798,11 +798,11 @@ export default function EmployeeTimeClock({
               3
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
                 Lunch end
               </p>
               <p
-                className={`truncate text-xs font-bold ${
+                className={`text-xs font-bold break-words leading-tight ${
                   displayEntry?.lunch_end ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -822,11 +822,11 @@ export default function EmployeeTimeClock({
               4
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
                 Clock out
               </p>
               <p
-                className={`truncate text-xs font-bold ${
+                className={`text-xs font-bold break-words leading-tight ${
                   displayEntry?.clock_out ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -869,7 +869,7 @@ export default function EmployeeTimeClock({
                       value={effectiveWorkstationId}
                       onChange={(event) => setWorkstationId(event.target.value)}
                       disabled={pending || locating}
-                      className="w-full min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[9rem] truncate"
+                      className="w-full min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[9rem]"
                     >
                       {workstations.map((workstation) => (
                         <option key={workstation.id} value={workstation.id}>

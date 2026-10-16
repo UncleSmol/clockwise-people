@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import {
@@ -163,6 +163,7 @@ export async function saveCompanyWorkstation(
   }
 
   // Revalidate the dashboard and all pages showing workstations
+  revalidateTag(`company-setup-${company.id}`, "max");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard/time");
@@ -231,6 +232,7 @@ export async function deactivateCompanyWorkstation(formData: FormData) {
     .eq("workstation_id", workstationId)
     .eq("company_id", company.id);
 
+  revalidateTag(`company-setup-${company.id}`, "max");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard/time");

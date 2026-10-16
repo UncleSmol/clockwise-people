@@ -4,17 +4,9 @@ import LiveClock from "@/components/LiveClock";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
-  Building2,
-  CalendarDays,
   ChevronUp,
-  ClipboardCheck,
-  Clock3,
-  FileSpreadsheet,
   GripVertical,
-  RefreshCw,
-  Settings2,
-  ShieldCheck,
-  Users,
+  Loader2,
   X,
 } from "lucide-react";
 import { switchActiveCompanyAction } from "@/lib/sysadmin/actions";
@@ -24,20 +16,6 @@ import {
 } from "./workspace-context";
 import { usePanelBridge } from "./panel-bridge";
 import ViewportSidebar from "./ViewportSidebar";
-
-function getPanelIcon(key: string) {
-  const k = key.toLowerCase();
-  if (k.includes("sysadmin") || k.includes("system")) return ShieldCheck;
-  if (k.includes("report") || k.includes("payroll") || k.includes("analytic")) return FileSpreadsheet;
-  if (k.includes("attendance") || k.includes("workforce")) return Users;
-  if (k.includes("people") || k.includes("employee")) return Users;
-  if (k.includes("review") || k.includes("approval")) return ClipboardCheck;
-  if (k.includes("leave")) return CalendarDays;
-  if (k.includes("company")) return Building2;
-  if (k.includes("account") || k.includes("settings")) return Settings2;
-  if (k.includes("polic") || k.includes("govern")) return ShieldCheck;
-  return ShieldCheck;
-}
 
 type WorkspacePanel = {
   content: ReactNode;
@@ -293,7 +271,7 @@ export default function CalendarWorkspace({
                   onClick={() => setWorkspaceMode("me")}
                   className={`rounded-md px-3 py-1.5 transition-all ${
                     workspaceMode === "me"
-                      ? "bg-slate-900 text-white shadow-xs"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-foreground hover:bg-surface-muted"
                   }`}
                 >
@@ -304,7 +282,7 @@ export default function CalendarWorkspace({
                   onClick={() => setWorkspaceMode("team")}
                   className={`rounded-md px-3 py-1.5 transition-all ${
                     workspaceMode === "team"
-                      ? "bg-slate-900 text-white shadow-xs"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-foreground hover:bg-surface-muted"
                   }`}
                 >
@@ -321,22 +299,21 @@ export default function CalendarWorkspace({
           <div className="grid grid-cols-3 gap-1 rounded-full border border-border bg-background p-1 text-xs font-semibold">
             {(
               [
-                ["clock", "Clock", Clock3],
-                ["calendar", "Calendar", CalendarDays],
-                ["records", "Records", ClipboardCheck],
+                ["clock", "Clock"],
+                ["calendar", "Calendar"],
+                ["records", "Records"],
               ] as const
-            ).map(([key, label, Icon]) => (
+            ).map(([key, label]) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setMobileTab(key)}
-                className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-2 ${
+                className={`flex items-center justify-center rounded-full px-3 py-2 ${
                   mobileTab === key
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground shadow-2xs"
                     : "text-foreground hover:bg-surface-muted"
                 }`}
               >
-                <Icon className="size-4" />
                 {label}
               </button>
             ))}
@@ -407,7 +384,6 @@ export default function CalendarWorkspace({
               <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border bg-surface-muted/60 backdrop-blur-xs px-4 py-2 sm:px-6 scrollbar-none">
                 {panels.map((panel) => {
                   const isActive = panel.key === activePanelKey;
-                  const Icon = getPanelIcon(panel.key);
                   const shortLabel =
                     panel.key === "reports"
                       ? "Reports"
@@ -434,13 +410,12 @@ export default function CalendarWorkspace({
                       key={panel.key}
                       type="button"
                       onClick={() => setActivePanelKey(panel.key)}
-                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
+                      className={`inline-flex shrink-0 items-center rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
                         isActive
-                          ? "bg-slate-900 text-white shadow-xs"
-                          : "border border-border bg-white text-foreground hover:bg-slate-100 hover:border-slate-300"
+                          ? "bg-primary text-primary-foreground shadow-2xs"
+                          : "border border-border bg-surface text-foreground hover:bg-surface-muted"
                       }`}
                     >
-                      <Icon className={`size-3.5 ${isActive ? "text-white" : "text-muted"}`} />
                       {shortLabel}
                     </button>
                   );
@@ -490,7 +465,7 @@ export default function CalendarWorkspace({
                 ))}
               </select>
               {isSwitchingCompany ? (
-                <RefreshCw className="size-3 animate-spin text-accent shrink-0" />
+                <Loader2 className="size-3 animate-spin text-primary shrink-0" />
               ) : null}
             </div>
           ) : (
@@ -500,7 +475,6 @@ export default function CalendarWorkspace({
               aria-label="Expand company switcher"
               className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg hover:border-slate-400 hover:bg-surface-muted transition-colors cursor-pointer"
             >
-              <Building2 className="size-4 text-accent" />
               <span className="pointer-events-none max-w-[140px] truncate text-xs font-semibold text-foreground">
                 {companyName}
               </span>

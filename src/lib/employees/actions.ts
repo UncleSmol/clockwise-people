@@ -144,6 +144,10 @@ export async function createEmployee(
       }
     }
 
+  if (!createdEmployee) {
+    return { ok: false, message: "Failed to create employee record." };
+  }
+
   const { error: scheduleError } = await supabase.rpc("set_employee_work_schedule_assignments", {
     target_employee_id: createdEmployee.id,
     target_work_schedule_ids: selectedScheduleIds,

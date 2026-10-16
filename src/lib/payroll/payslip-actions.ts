@@ -22,7 +22,9 @@ export async function getSavedCompanyPayslipsAction(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("company_payslips")
-    .select("*")
+    .select(
+      "id, company_id, employee_id, pay_period_label, period_start_date, period_end_date, pay_date, payment_frequency, basic_salary, normal_hours, hourly_rate, overtime_15_hours, overtime_15_rate, overtime_15_total, overtime_20_hours, overtime_20_rate, overtime_20_total, commission_base, commission_rate, commission_total, annual_bonus, performance_bonus, travel_allowance, other_allowance, paye_tax, uif_amount, medical_aid, pension_fund, staff_loan, unpaid_absence, other_deductions, gross_earnings, total_deductions, net_pay, bank_name, bank_account_number, bank_account_type, payment_mode, notes, is_adjusted, status",
+    )
     .eq("company_id", companyId)
     .eq("period_start_date", startDate)
     .eq("period_end_date", endDate);
@@ -38,7 +40,51 @@ export async function getSavedCompanyPayslipsAction(
     throw new Error(error.message);
   }
 
-  const mapped: PayslipRecordData[] = (data ?? []).map((row: any) => ({
+interface CompanyPayslipDbRow {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  pay_period_label: string;
+  period_start_date: string;
+  period_end_date: string;
+  pay_date?: string | null;
+  payment_frequency?: string | null;
+  basic_salary?: number | null;
+  normal_hours?: number | null;
+  hourly_rate?: number | null;
+  overtime_15_hours?: number | null;
+  overtime_15_rate?: number | null;
+  overtime_15_total?: number | null;
+  overtime_20_hours?: number | null;
+  overtime_20_rate?: number | null;
+  overtime_20_total?: number | null;
+  commission_base?: number | null;
+  commission_rate?: number | null;
+  commission_total?: number | null;
+  annual_bonus?: number | null;
+  performance_bonus?: number | null;
+  travel_allowance?: number | null;
+  other_allowance?: number | null;
+  paye_tax?: number | null;
+  uif_amount?: number | null;
+  medical_aid?: number | null;
+  pension_fund?: number | null;
+  staff_loan?: number | null;
+  unpaid_absence?: number | null;
+  other_deductions?: number | null;
+  gross_earnings?: number | null;
+  total_deductions?: number | null;
+  net_pay?: number | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_account_type?: string | null;
+  payment_mode?: string | null;
+  notes?: string | null;
+  is_adjusted?: boolean | null;
+  status?: "simulated" | "finalized" | null;
+}
+
+  const mapped: PayslipRecordData[] = ((data ?? []) as unknown as CompanyPayslipDbRow[]).map((row) => ({
     id: row.id,
     companyId: row.company_id,
     companyName: "",
@@ -109,7 +155,7 @@ export async function getSavedCompanyPayslipsAction(
 
     notes: row.notes || null,
     isAdjusted: Boolean(row.is_adjusted),
-    status: row.status || "simulated",
+    status: row.status === "finalized" ? "finalized" : "simulated",
     savedPayslipId: row.id,
   }));
 

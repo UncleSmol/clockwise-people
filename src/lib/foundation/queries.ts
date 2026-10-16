@@ -1,9 +1,11 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { CompanyWorkstation } from "@/lib/geolocation/schema";
 import type { AppRole, Company, Department } from "./schema";
 
@@ -52,7 +54,7 @@ export const getUserCompanies = cache(async function getUserCompanies() {
 });
 
 export const getActiveCompany = cache(async function getActiveCompany() {
-  const { supabase, user } = await requireUser();
+  await requireUser();
   const companies = await getUserCompanies();
 
   if (companies.length === 0) {
@@ -152,6 +154,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
         .select("id", { count: "exact", head: true })
         .eq("company_id", activeCompany.id)
         .eq("manager_employee_id", activeEmployeeId)
+        .eq("employment_status", "active")
         .is("deleted_at", null)
     : null;
 
@@ -218,34 +221,47 @@ export async function requireEmployeeAdmin() {
   return access;
 }
 
+export const getCachedCompanySetup = (companyId: string) =>
+  unstable_cache(
+    async () => {
+      const admin = createSupabaseAdminClient();
+      const [workstationsResult, departmentsResult] = await Promise.all([
+        admin
+          .from("company_workstations")
+          .select("id, company_id, name, address, latitude, longitude, radius_meters, is_active")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .eq("is_active", true)
+          .order("name"),
+        admin
+          .from("departments")
+          .select("id, company_id, workstation_id, name, code, is_active, company_workstations(name)")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("name"),
+      ]);
+
+      if (workstationsResult.error) {
+        throw new Error(workstationsResult.error.message);
+      }
+
+      if (departmentsResult.error) {
+        throw new Error(departmentsResult.error.message);
+      }
+
+      return {
+        workstations: (workstationsResult.data ?? []) as unknown as CompanyWorkstation[],
+        departments: (departmentsResult.data ?? []) as unknown as Department[],
+      };
+    },
+    ["company-setup", companyId],
+    {
+      tags: [`company-setup-${companyId}`],
+      revalidate: 3600,
+    },
+  )();
+
 export const getCompanySetup = cache(async function getCompanySetup(companyId: string) {
-  const { supabase } = await requireUser();
-  const [workstationsResult, departmentsResult] = await Promise.all([
-    supabase
-      .from("company_workstations")
-      .select("id, company_id, name, address, latitude, longitude, radius_meters, is_active")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .eq("is_active", true)
-      .order("name"),
-    supabase
-      .from("departments")
-      .select("id, company_id, workstation_id, name, code, is_active, company_workstations(name)")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .order("name"),
-  ]);
-
-  if (workstationsResult.error) {
-    throw new Error(workstationsResult.error.message);
-  }
-
-  if (departmentsResult.error) {
-    throw new Error(departmentsResult.error.message);
-  }
-
-  return {
-    workstations: (workstationsResult.data ?? []) as unknown as CompanyWorkstation[],
-    departments: (departmentsResult.data ?? []) as unknown as Department[],
-  };
+  await requireUser();
+  return getCachedCompanySetup(companyId);
 });

@@ -2,20 +2,9 @@
 
 import {
   AlertCircle,
-  Calendar,
   CheckCircle2,
-  Clock,
-  Coins,
-  Edit3,
-  HelpCircle,
-  ListFilter,
-  Plus,
-  Save,
   Search,
-  Sparkles,
   Trash2,
-  UserCheck,
-  Users,
 } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -567,19 +556,12 @@ export default function CompanyPayrollRulesSection({
       {/* Header & Sub-Tab Switcher */}
       <div className="flex flex-col gap-3.5 sm:flex-row sm:items-start sm:justify-between border-b border-border/70 pb-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 shadow-2xs">
-              <Coins className="size-4" />
-            </span>
-            <div>
-              <h3 className="text-base font-black text-foreground tracking-tight">
-                Payroll Period Rules &amp; Employee Assignments
-              </h3>
-              <p className="text-xs text-muted">
-                Configure standard or custom payroll cycles, then assign specific employees to each payroll period rule.
-              </p>
-            </div>
-          </div>
+          <h3 className="text-base font-black text-foreground tracking-tight">
+            Payroll Period Rules &amp; Employee Assignments
+          </h3>
+          <p className="text-xs text-muted">
+            Configure standard or custom payroll cycles, then assign specific employees to each payroll period rule.
+          </p>
         </div>
 
         {/* Modern Segmented Sub-Tab Switcher */}
@@ -589,16 +571,15 @@ export default function CompanyPayrollRulesSection({
             onClick={() => setActiveSubTab("rules")}
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === "rules"
-                ? "bg-background text-foreground shadow-xs border border-border/80"
-                : "text-muted hover:text-foreground hover:bg-background/50"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
-            <Coins className="size-3.5 text-emerald-600" />
             <span>Payroll Rules</span>
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold leading-none ${
                 activeSubTab === "rules"
-                  ? "bg-emerald-100 text-emerald-800"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-surface-muted text-muted"
               }`}
             >
@@ -611,16 +592,15 @@ export default function CompanyPayrollRulesSection({
             onClick={() => setActiveSubTab("assignments")}
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === "assignments"
-                ? "bg-background text-foreground shadow-xs border border-border/80"
-                : "text-muted hover:text-foreground hover:bg-background/50"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
-            <UserCheck className="size-3.5 text-blue-600" />
             <span>Assign Employees</span>
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold leading-none ${
                 activeSubTab === "assignments"
-                  ? "bg-blue-100 text-blue-800"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-surface-muted text-muted"
               }`}
             >
@@ -633,16 +613,15 @@ export default function CompanyPayrollRulesSection({
             onClick={() => setActiveSubTab("preview")}
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === "preview"
-                ? "bg-background text-foreground shadow-xs border border-border/80"
-                : "text-muted hover:text-foreground hover:bg-background/50"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
-            <Calendar className="size-3.5 text-purple-600" />
             <span>Live Previews</span>
             <span
               className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider leading-none ${
                 activeSubTab === "preview"
-                  ? "bg-purple-100 text-purple-800"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-surface-muted text-muted"
               }`}
             >
@@ -673,9 +652,8 @@ export default function CompanyPayrollRulesSection({
       {activeSubTab === "rules" && (
         <div className="grid gap-5 min-w-0">
           {/* Top Form: Creator / Editor Form Card */}
-          <div className="rounded-xl border border-border bg-background p-4 sm:p-5 shadow-2xs">
-            <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-foreground mb-3.5 pb-2.5 border-b border-border/60">
-              <Plus className="size-3.5 text-accent" />
+          <div className="rounded-xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3.5 pb-2.5 border-b border-border/60">
               {editingRuleId ? "Edit Payroll Period Rule" : "Create Custom Payroll Rule"}
             </h4>
 
@@ -689,7 +667,7 @@ export default function CompanyPayrollRulesSection({
                     value={ruleName}
                     onChange={(e) => setRuleName(e.target.value)}
                     placeholder="e.g. Executive Monthly (26th-25th), Contractor Bi-Weekly"
-                    className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-emerald-600 shadow-2xs leading-normal"
+                    className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
                     required
                   />
                 </label>
@@ -699,7 +677,7 @@ export default function CompanyPayrollRulesSection({
                   <select
                     value={frequency}
                     onChange={(e) => updateRuleFields({ freq: e.target.value as PayrollFrequency })}
-                    className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-emerald-600 shadow-2xs cursor-pointer leading-normal"
+                    className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                   >
                     <option value="monthly">Monthly (e.g. 26th to 25th, or 1st to Month-End)</option>
                     <option value="semi_monthly">Semi-Monthly (1st-15th &amp; 16th-End)</option>
@@ -722,7 +700,7 @@ export default function CompanyPayrollRulesSection({
                       type="date"
                       value={startDate}
                       onChange={(e) => updateRuleFields({ start: e.target.value })}
-                      className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-emerald-600 shadow-2xs cursor-pointer leading-normal"
+                      className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                       required
                     />
                   </label>
@@ -735,25 +713,24 @@ export default function CompanyPayrollRulesSection({
                       type="date"
                       value={endDate}
                       onChange={(e) => updateRuleFields({ end: e.target.value })}
-                      className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-emerald-600 shadow-2xs cursor-pointer leading-normal"
+                      className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                       required
                     />
                   </label>
                 </div>
 
                 {/* Live Cycle Length Badge */}
-                <div className="flex flex-col justify-between h-full min-h-[76px] rounded-xl border border-emerald-500/30 bg-emerald-50/40 p-2.5 text-xs">
+                <div className="flex flex-col justify-between h-full min-h-[76px] rounded-xl border border-border/80 bg-surface-muted/40 p-2.5 text-xs">
                   <div className="flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5 font-bold text-emerald-950">
-                      <Clock className="size-3.5 text-emerald-600 shrink-0" />
+                    <div className="font-bold text-foreground">
                       <span>Cycle Length:</span>
                     </div>
-                    <span className="rounded-md bg-emerald-600 text-white px-2 py-0.5 font-black text-[11px] shadow-2xs">
+                    <span className="rounded-md bg-primary text-primary-foreground px-2 py-0.5 font-black text-[11px] shadow-2xs">
                       {cycleLengthDays} Day{cycleLengthDays === 1 ? "" : "s"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] font-extrabold text-emerald-900 mt-1">
-                    <span className="text-emerald-800 font-semibold">
+                  <div className="flex items-center justify-between text-[10px] font-extrabold text-muted mt-1">
+                    <span className="font-semibold">
                       {Math.floor(cycleLengthDays / 7) > 0 ? `${Math.floor(cycleLengthDays / 7)}w ` : ""}
                       {cycleLengthDays % 7 > 0 ? `${cycleLengthDays % 7}d` : ""}
                     </span>
@@ -766,11 +743,10 @@ export default function CompanyPayrollRulesSection({
                 {/* Seamless Pay Disbursement Date Picker & Presets */}
                 <div className="grid gap-1.5 rounded-xl border border-border bg-surface/40 p-2.5 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted flex items-center gap-1">
-                      <Coins className="size-3 text-emerald-600" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
                       Pay Disbursement Date
                     </span>
-                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                    <span className="text-[9px] font-black text-foreground bg-surface-muted px-1.5 py-0.5 rounded border border-border">
                       {payDayOffsetDays === 0 ? "Same day" : `+${payDayOffsetDays}d`}
                     </span>
                   </div>
@@ -779,7 +755,7 @@ export default function CompanyPayrollRulesSection({
                       type="date"
                       value={disbursementDate}
                       onChange={(e) => updateRuleFields({ disbDate: e.target.value })}
-                      className="h-10 min-h-[40px] flex-1 rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-emerald-600 shadow-2xs cursor-pointer leading-normal"
+                      className="h-10 min-h-[40px] flex-1 rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                       required
                     />
                     <span className="text-[10px] font-bold text-muted break-words leading-tight">
@@ -930,10 +906,9 @@ export default function CompanyPayrollRulesSection({
                         }),
                       );
                     }}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline cursor-pointer"
                     title="Reset to smart auto-generated summary"
                   >
-                    <Sparkles className="size-3 text-emerald-600" />
                     Auto-Generate
                   </button>
                 </div>
@@ -945,7 +920,7 @@ export default function CompanyPayrollRulesSection({
                     setIsDescriptionCustomized(true);
                   }}
                   placeholder="Summary of this payroll period schedule..."
-                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground outline-none resize-none focus:border-emerald-600 shadow-2xs leading-relaxed"
+                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground outline-none resize-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-relaxed"
                 />
               </div>
 
@@ -962,9 +937,8 @@ export default function CompanyPayrollRulesSection({
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2 text-xs font-extrabold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  <Save className="size-3.5" />
                   {editingRuleId ? "Update Rule" : "Create Payroll Rule"}
                 </button>
               </div>
@@ -974,9 +948,8 @@ export default function CompanyPayrollRulesSection({
           {/* Bottom Container: Configured Payroll Rules (Filling space in a compact responsive grid) */}
           <div className="rounded-xl border border-border bg-surface/30 p-4 sm:p-5 shadow-2xs grid gap-3.5">
             <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
-              <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-foreground">
-                <Coins className="size-3.5 text-emerald-600" />
-                <span>Configured Payroll Rules ({rules.length})</span>
+              <h4 className="text-xs font-black uppercase tracking-wider text-foreground">
+                Configured Payroll Rules ({rules.length})
               </h4>
               <span className="text-[10px] font-bold text-muted bg-background px-2.5 py-0.5 rounded-md border border-border shadow-2xs">
                 Active across company
@@ -995,7 +968,7 @@ export default function CompanyPayrollRulesSection({
                     key={rule.id}
                     className={`grid gap-2.5 rounded-xl border p-3.5 shadow-2xs transition-all ${
                       isDefault
-                        ? "border-emerald-500/40 bg-emerald-50/25"
+                        ? "border-primary/40 bg-surface shadow-2xs"
                         : "border-border bg-surface/40 hover:bg-surface"
                     }`}
                   >
@@ -1004,7 +977,7 @@ export default function CompanyPayrollRulesSection({
                         <div className="flex items-center gap-2">
                           <p className="font-extrabold text-foreground text-sm break-words leading-tight">{rule.name}</p>
                           {isDefault && (
-                            <span className="shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-2xs">
+                            <span className="shrink-0 rounded bg-primary px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-foreground shadow-2xs">
                               Default
                             </span>
                           )}
@@ -1032,7 +1005,6 @@ export default function CompanyPayrollRulesSection({
                           className="rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-bold text-foreground hover:bg-surface-muted transition-all cursor-pointer shadow-2xs"
                           title="Edit rule"
                         >
-                          <Edit3 className="size-3 inline mr-0.5 text-muted" />
                           Edit
                         </button>
                         {!isDefault && (
@@ -1076,9 +1048,9 @@ export default function CompanyPayrollRulesSection({
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-indigo-200/80 bg-indigo-50/70 p-1.5 min-w-0">
-                        <span className="text-[9px] font-bold uppercase text-indigo-800 block break-words leading-tight">Assigned</span>
-                        <span className="font-black text-indigo-950 block text-xs mt-0.5 break-words leading-tight">
+                      <div className="rounded-lg border border-border/80 bg-surface-muted/50 p-1.5 min-w-0">
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Assigned</span>
+                        <span className="font-black text-foreground block text-xs mt-0.5 break-words leading-tight">
                           {assignedCount} employee{assignedCount === 1 ? "" : "s"}
                         </span>
                       </div>
@@ -1137,16 +1109,15 @@ export default function CompanyPayrollRulesSection({
             <button
               type="submit"
               disabled={isPending}
-              className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition-all cursor-pointer"
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-xs font-extrabold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-50 transition-all cursor-pointer"
             >
-              <UserCheck className="size-3.5" />
               <span>Save Assignment</span>
             </button>
           </form>
 
           {/* Search Filter */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex h-10 min-h-[40px] flex-1 max-w-sm items-center gap-2.5 rounded-lg border border-border bg-surface px-3.5 text-xs font-bold text-foreground focus-within:border-emerald-600 focus-within:ring-1 focus-within:ring-emerald-600 transition-colors">
+            <div className="flex h-10 min-h-[40px] flex-1 max-w-sm items-center gap-2.5 rounded-lg border border-border bg-surface px-3.5 text-xs font-bold text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors">
               <Search className="size-4 shrink-0 text-muted" />
               <input
                 type="text"
@@ -1175,7 +1146,6 @@ export default function CompanyPayrollRulesSection({
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {filteredEmployees.map((emp) => {
               const assignedRuleId = employeeAssignments[emp.id] ?? "company-default";
-              const assignedRule = rules.find((r) => r.id === assignedRuleId) ?? initialDefaultRule;
 
               return (
                 <div
@@ -1193,11 +1163,7 @@ export default function CompanyPayrollRulesSection({
                   <select
                     value={assignedRuleId}
                     onChange={(e) => handleQuickReassign(emp.id, e.target.value)}
-                    className={`h-9 min-h-[36px] rounded-lg border px-2.5 py-1.5 text-[11px] font-extrabold outline-none shrink-0 shadow-2xs cursor-pointer leading-normal ${
-                      assignedRuleId === "company-default"
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                        : "border-indigo-300 bg-indigo-50 text-indigo-950"
-                    }`}
+                    className="h-9 min-h-[36px] rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-extrabold text-foreground outline-none shrink-0 shadow-2xs cursor-pointer leading-normal"
                   >
                     {rules.map((r) => (
                       <option key={r.id} value={r.id}>
@@ -1241,7 +1207,7 @@ export default function CompanyPayrollRulesSection({
                 key={period.id}
                 className={`grid gap-2 rounded-xl border p-3.5 text-xs shadow-2xs transition-all ${
                   period.isCurrent
-                    ? "border-emerald-500/50 bg-emerald-50/40 ring-2 ring-emerald-500/20"
+                    ? "border-primary/40 bg-surface shadow-2xs ring-1 ring-primary/20"
                     : "border-border bg-surface/40 hover:bg-surface"
                 }`}
               >
@@ -1249,10 +1215,10 @@ export default function CompanyPayrollRulesSection({
                   <span
                     className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
                       period.isCurrent
-                        ? "bg-emerald-600 text-white shadow-2xs"
+                        ? "bg-primary text-primary-foreground shadow-2xs"
                         : period.isClosed
                           ? "bg-surface-muted text-muted"
-                          : "bg-amber-100 text-amber-950"
+                          : "bg-surface-muted text-foreground border border-border"
                     }`}
                   >
                     {period.isCurrent ? "Current Period" : period.isClosed ? "Closed" : "Upcoming"}
@@ -1269,7 +1235,7 @@ export default function CompanyPayrollRulesSection({
 
                 <div className="mt-1 border-t border-border/60 pt-2 text-[10px] font-bold flex items-center justify-between">
                   <span className="text-muted">Pay Disbursement:</span>
-                  <span className="font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  <span className="font-black text-foreground bg-surface-muted px-1.5 py-0.5 rounded border border-border">
                     {period.payDate}
                   </span>
                 </div>

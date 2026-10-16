@@ -168,27 +168,65 @@ export default function CompanyReportsWorkspace({
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [workstationFilter, setWorkstationFilter] = useState<string>("all");
+  const [showInactive, setShowInactive] = useState<boolean>(false);
+
+  const activeEmployeeStatusMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const fe of fullEmployees ?? []) {
+      map.set(fe.id, fe.employment_status);
+    }
+    return map;
+  }, [fullEmployees]);
+
+  // Exclude terminated and inactive employees by default
+  const filteredEmployeesList = useMemo(() => {
+    if (showInactive) return employees;
+    return employees.filter((emp) => {
+      const status = activeEmployeeStatusMap.get(emp.id) ?? (emp as { employment_status?: string }).employment_status;
+      return status !== "terminated" && status !== "inactive";
+    });
+  }, [employees, showInactive, activeEmployeeStatusMap]);
+
+  const activeEmployeeIdSet = useMemo(
+    () => new Set(filteredEmployeesList.map((e) => e.id)),
+    [filteredEmployeesList],
+  );
+
+  const filteredTimesheetEntriesInput = useMemo(
+    () => timesheetEntries.filter((te) => activeEmployeeIdSet.has(te.employee_id)),
+    [timesheetEntries, activeEmployeeIdSet],
+  );
+
+  const filteredLeaveRequestsInput = useMemo(
+    () => leaveRequests.filter((lr) => activeEmployeeIdSet.has(lr.employee_id)),
+    [leaveRequests, activeEmployeeIdSet],
+  );
+
+  const filteredLeaveAssignmentsInput = useMemo(
+    () => leaveAssignments.filter((la) => activeEmployeeIdSet.has(la.employee_id)),
+    [leaveAssignments, activeEmployeeIdSet],
+  );
 
   // Build structured report datasets
   const aggregatorInput = useMemo(
     () => ({
       startDate: effectiveStartDate,
       endDate: effectiveEndDate,
-      employees,
-      timesheetEntries,
-      leaveRequests,
+      employees: filteredEmployeesList,
+      timesheetEntries: filteredTimesheetEntriesInput,
+      leaveRequests: filteredLeaveRequestsInput,
       leaveTypes,
-      leaveAssignments,
+      leaveAssignments: filteredLeaveAssignmentsInput,
       publicHolidays,
     }),
     [
       effectiveStartDate,
       effectiveEndDate,
-      employees,
-      timesheetEntries,
-      leaveRequests,
+      filteredEmployeesList,
+      filteredTimesheetEntriesInput,
+      filteredLeaveRequestsInput,
       leaveTypes,
-      leaveAssignments,
+      filteredLeaveAssignmentsInput,
       publicHolidays,
     ],
   );
@@ -821,24 +859,22 @@ export default function CompanyReportsWorkspace({
   return (
     <div className="space-y-6">
       {/* Header & Sticky Control Bar */}
-      <div className="rounded-2xl border border-border bg-slate-950 p-5 sm:p-6 text-white shadow-md">
+      <div className="rounded-xl border border-border/80 bg-surface p-5 sm:p-6 text-foreground shadow-2xs">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 flex items-center gap-1">
-                <Sparkles className="size-3" />
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
                 Compliance &amp; Workforce Intelligence
               </span>
-              <span className="text-xs font-bold text-slate-400">
+              <span className="text-xs font-semibold text-muted">
                 · {companyName}
               </span>
             </div>
-            <h2 className="mt-1 text-xl font-black sm:text-2xl">
+            <h2 className="mt-1.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
               Compliance, Payroll &amp; Attendance Reporting Center
             </h2>
-            <p className="mt-0.5 text-xs text-slate-300">
-              Audit attendance punctuality, overtime trends, statutory leave
-              accruals, and pull executive compliance reports.
+            <p className="mt-1 text-xs text-muted">
+              Audit attendance punctuality, overtime trends, statutory leave accruals, and pull executive compliance reports.
             </p>
           </div>
 
@@ -847,56 +883,52 @@ export default function CompanyReportsWorkspace({
             <button
               type="button"
               onClick={handleExportCompleteAuditPack}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all"
-              title="Download full 5-sheet audit pack containing all reports"
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-xs font-semibold text-primary-foreground hover:brightness-110 shadow-2xs transition-all cursor-pointer"
+              title="Download full multi-sheet audit pack containing all reports"
             >
-              <FileSpreadsheet className="size-3.5 text-white" />
-              <span>Full Audit Pack (Excel)</span>
+              Full Audit Pack (Excel)
             </button>
 
             <button
               type="button"
               onClick={handleExportActivePdf}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 px-3 py-2 text-xs font-bold text-white shadow-sm transition-all"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
               title="Export formatted audit PDF"
             >
-              <Download className="size-3.5" />
-              <span>PDF</span>
+              PDF
             </button>
 
             <button
               type="button"
               onClick={handleExportActiveCsv}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 transition-all"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
               title="Export CSV for payroll system"
             >
-              <Download className="size-3.5" />
-              <span>CSV</span>
+              CSV
             </button>
 
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 transition-all"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
               title="Print report"
             >
-              <Printer className="size-3.5" />
-              <span>Print</span>
+              Print
             </button>
           </div>
         </div>
 
         {/* Global Period & Query Filter Bar */}
-        <div className="mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
+        <div className="mt-5 pt-4 border-t border-border flex flex-wrap items-center gap-3">
           {/* Period Selector */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-400">
+            <span className="text-xs font-semibold text-muted">
               Payroll Cycle:
             </span>
             <select
               value={selectedPeriodId}
               onChange={(e) => setSelectedPeriodId(e.target.value)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
+              className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
             >
               {generatedPeriods.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -909,36 +941,36 @@ export default function CompanyReportsWorkspace({
 
           {/* Custom Date Pickers if selected */}
           {selectedPeriodId === "custom" && (
-            <div className="flex items-center gap-2 bg-slate-900 px-3 py-1 rounded-xl border border-slate-700">
+            <div className="flex items-center gap-2 bg-background px-3 py-1.5 sm:py-1 rounded-lg border border-border min-h-[44px] sm:min-h-9 shadow-2xs">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="bg-transparent text-xs text-white focus:outline-none"
+                className="bg-transparent text-base sm:text-xs text-foreground focus:outline-none"
               />
-              <span className="text-slate-400 text-xs">to</span>
+              <span className="text-muted text-xs">to</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="bg-transparent text-xs text-white focus:outline-none"
+                className="bg-transparent text-base sm:text-xs text-foreground focus:outline-none"
               />
             </div>
           )}
 
           {/* Employee Filter */}
-          {employees.length > 0 && (
+          {filteredEmployeesList.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-400">
+              <span className="text-xs font-semibold text-muted">
                 Employee:
               </span>
               <select
                 value={employeeFilter}
                 onChange={(e) => setEmployeeFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 max-w-[200px] truncate"
+                className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
               >
-                <option value="all">All Employees ({employees.length})</option>
-                {employees.map((emp) => (
+                <option value="all">Active Employees ({filteredEmployeesList.length})</option>
+                {filteredEmployeesList.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.known_as ?? emp.full_name} ({emp.employee_number || emp.id.slice(0, 6)})
                   </option>
@@ -947,16 +979,27 @@ export default function CompanyReportsWorkspace({
             </div>
           )}
 
+          {/* Hide Inactive / Terminated Toggle */}
+          <label className="flex min-h-[44px] sm:min-h-9 items-center gap-2 cursor-pointer select-none text-xs font-semibold text-foreground bg-background border border-border px-3 py-2 sm:py-1 rounded-lg hover:bg-surface-muted transition-colors shadow-2xs">
+            <input
+              type="checkbox"
+              checked={!showInactive}
+              onChange={(e) => setShowInactive(!e.target.checked)}
+              className="size-4 shrink-0 rounded border-border text-primary focus:ring-primary/20 accent-primary"
+            />
+            <span>Hide Inactive &amp; Terminated</span>
+          </label>
+
           {/* Department Filter */}
           {departments.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-400">
+              <span className="text-xs font-semibold text-muted">
                 Department:
               </span>
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
               >
                 <option value="all">All Departments</option>
                 {departments.map((d) => (
@@ -971,13 +1014,13 @@ export default function CompanyReportsWorkspace({
           {/* Workstation Filter */}
           {workstations.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-400">
+              <span className="text-xs font-semibold text-muted">
                 Workstation:
               </span>
               <select
                 value={workstationFilter}
                 onChange={(e) => setWorkstationFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
+                className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
               >
                 <option value="all">All Workstations</option>
                 {workstations.map((w) => (
@@ -989,89 +1032,83 @@ export default function CompanyReportsWorkspace({
             </div>
           )}
 
-          <div className="ml-auto text-xs text-slate-400 font-medium">
-            Active Cycle: <span className="text-emerald-400 font-bold">{periodLabel}</span>
+          <div className="ml-auto text-xs text-muted font-medium">
+            Active Cycle: <span className="font-bold text-foreground">{periodLabel}</span>
           </div>
         </div>
       </div>
 
       {/* Navigation Tabs Strip */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-surface rounded-2xl border border-border overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-1.5 p-1.5 bg-surface rounded-xl border border-border/80 shadow-2xs overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveTab("analytics")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "analytics"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <BarChart3 className="size-4" />
           Analytics &amp; Statistics
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("employee-summary")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "employee-summary"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <Users className="size-4" />
           Employee Hours &amp; OT ({filteredEmployeeSummaryRows.length})
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("attendance")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "attendance"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <CheckCircle2 className="size-4" />
           Attendance &amp; Punctuality ({filteredAttendance.length})
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("timesheets")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "timesheets"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <Clock3 className="size-4" />
           Timesheet Payroll Audit ({filteredTimesheets.length})
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("accruals")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "accruals"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <TrendingUp className="size-4" />
           Leave Accruals ({filteredAccruals.length})
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("absences")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "absences"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <CalendarDays className="size-4" />
           Absence Log ({filteredAbsences.length})
         </button>
 
@@ -1079,27 +1116,25 @@ export default function CompanyReportsWorkspace({
           <button
             type="button"
             onClick={() => setActiveTab("payslips")}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
               activeTab === "payslips"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-emerald-700 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-primary hover:text-foreground hover:bg-surface-muted border border-border/60"
             }`}
           >
-            <Printer className="size-4 text-emerald-600" />
-            <span>Official Payslips (Super Admin)</span>
+            Official Payslips (Super Admin)
           </button>
         )}
 
         <button
           type="button"
           onClick={() => setActiveTab("settings")}
-          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-colors ml-auto ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors ml-auto cursor-pointer ${
             activeTab === "settings"
-              ? "bg-slate-800 text-white shadow-xs"
-              : "text-muted hover:text-foreground hover:bg-surface-muted/50"
+              ? "bg-primary text-primary-foreground shadow-2xs"
+              : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
-          <Cog className="size-4" />
           Payroll Cycle Rules
         </button>
       </div>

@@ -1,21 +1,9 @@
 "use client";
 
 import {
-  Briefcase,
-  Building2,
-  Calendar,
-  CheckCircle2,
   ChevronDown,
-  CreditCard,
-  Hash,
   Loader2,
-  Mail,
-  MapPin,
   Search,
-  Shield,
-  Sparkles,
-  User,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
@@ -95,10 +83,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
   if (employees.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-background px-6 py-10 text-center">
-        <Users className="mx-auto size-10 text-muted/60" />
-        <p className="mt-2 text-lg font-bold text-foreground">No employees registered</p>
-        <p className="mt-1 text-sm text-muted">
+      <div className="rounded-xl border border-border/80 bg-surface px-6 py-10 text-center shadow-2xs">
+        <p className="text-base font-bold text-foreground">No employees registered</p>
+        <p className="mt-1 text-xs text-muted">
           Add the first employee to start building the company register.
         </p>
       </div>
@@ -110,26 +97,26 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
       {/* Top Search & Filter Bar */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex h-10 min-h-[40px] flex-1 items-center gap-2.5 rounded-lg border border-border bg-background px-3.5 text-xs font-semibold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors">
+          <label className="flex h-11 min-h-[44px] sm:h-10 sm:min-h-[40px] flex-1 items-center gap-2.5 rounded-xl border border-border bg-background px-3.5 text-base sm:text-xs font-semibold text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-colors">
             <Search className="size-4 shrink-0 text-muted" />
             <input
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
               placeholder="Search by name, email, department, or role..."
-              className="min-w-0 flex-1 bg-transparent py-2 text-xs font-semibold text-foreground placeholder:text-muted outline-none border-0"
+              className="min-w-0 flex-1 bg-transparent py-2 text-base sm:text-xs font-semibold text-foreground placeholder:text-muted outline-none border-0"
             />
             {globalFilter ? (
               <button
                 type="button"
                 onClick={() => setGlobalFilter("")}
-                className="shrink-0 text-xs font-bold text-muted hover:text-foreground px-1"
+                className="shrink-0 text-sm sm:text-xs font-bold text-muted hover:text-foreground px-1.5 py-1 min-h-[32px] flex items-center justify-center cursor-pointer"
                 title="Clear search"
               >
                 ×
               </button>
             ) : null}
           </label>
-          <span className="w-max rounded bg-slate-900 px-2.5 py-1 text-xs font-extrabold text-white shadow-2xs">
+          <span className="w-max rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs">
             {filteredEmployees.length} of {employees.length} employees
           </span>
         </div>
@@ -139,10 +126,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           <button
             type="button"
             onClick={() => setStatusFilter("all")}
-            className={`rounded px-2.5 py-1 text-xs font-bold transition-all ${
+            className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "all"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "border border-border bg-background text-foreground hover:bg-surface-muted"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "border border-border bg-surface text-foreground hover:bg-surface-muted"
             }`}
           >
             All ({counts.all})
@@ -150,10 +137,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           <button
             type="button"
             onClick={() => setStatusFilter("active")}
-            className={`rounded px-2.5 py-1 text-xs font-bold transition-all ${
+            className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "active"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "border border-emerald-200 bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "border border-border bg-surface text-foreground hover:bg-surface-muted"
             }`}
           >
             Active ({counts.active})
@@ -162,10 +149,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <button
               type="button"
               onClick={() => setStatusFilter("probation")}
-              className={`rounded px-2.5 py-1 text-xs font-bold transition-all ${
+              className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 statusFilter === "probation"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "border border-amber-200 bg-amber-50/70 text-amber-900 hover:bg-amber-100"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "border border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
               Probation ({counts.probation})
@@ -175,10 +162,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <button
               type="button"
               onClick={() => setStatusFilter("on_leave")}
-              className={`rounded px-2.5 py-1 text-xs font-bold transition-all ${
+              className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 statusFilter === "on_leave"
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "border border-indigo-200 bg-indigo-50/70 text-indigo-900 hover:bg-indigo-100"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "border border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
               On Leave ({counts.on_leave})
@@ -188,10 +175,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <button
               type="button"
               onClick={() => setStatusFilter("inactive")}
-              className={`rounded px-2.5 py-1 text-xs font-bold transition-all ${
+              className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 statusFilter === "inactive"
-                  ? "bg-slate-700 text-white shadow-xs"
-                  : "border border-slate-200 bg-slate-100/80 text-slate-800 hover:bg-slate-200"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "border border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
               Inactive ({counts.inactive})
@@ -203,13 +190,11 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
               <button
                 type="submit"
                 disabled={assignPending}
-                className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold border border-emerald-500/40 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 shadow-2xs transition-all cursor-pointer"
+                className="inline-flex min-h-[36px] sm:min-h-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border border-border bg-surface text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
               >
                 {assignPending ? (
-                  <Loader2 className="size-3 animate-spin" />
-                ) : (
-                  <Sparkles className="size-3 text-emerald-600" />
-                )}
+                  <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                ) : null}
                 <span>
                   {assignPending
                     ? "Assigning..."
@@ -222,10 +207,10 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
         {assignState.message ? (
           <div
-            className={`rounded-lg border px-3 py-2 text-xs font-bold ${
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
               assignState.ok
-                ? "border-emerald-500/30 bg-emerald-50 text-emerald-950"
-                : "border-rose-500/30 bg-rose-50 text-rose-950"
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-danger/30 bg-danger/10 text-danger"
             }`}
           >
             {assignState.message}
@@ -234,7 +219,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
       </div>
 
       {/* Employees Directory List */}
-      <div className="divide-y divide-border">
+      <div className="divide-y divide-border rounded-xl border border-border/80 bg-surface shadow-2xs overflow-hidden">
         {filteredEmployees.length === 0 ? (
           <p className="p-6 text-center text-xs font-medium text-muted">
             No employees match your search or filter criteria.
@@ -246,110 +231,105 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
             return (
               <details key={employee.id} className="group bg-surface transition-colors">
-                <summary className="grid cursor-pointer list-none gap-2.5 px-4 py-3 text-sm hover:bg-surface-muted/40 sm:grid-cols-[1.2fr_1fr_auto_28px] sm:items-center">
+                <summary className="grid cursor-pointer list-none gap-3 px-4 py-3.5 text-sm hover:bg-surface-muted/40 sm:grid-cols-[1.2fr_1fr_auto_28px] sm:items-center">
                   {/* Name & Avatar */}
-                  <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 items-start sm:items-center gap-3">
                     <EmployeeAvatar
                       name={employee.known_as ?? employee.full_name}
                       src={employee.avatar_url}
-                      className="size-9 ring-1 ring-border shadow-2xs"
+                      className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
                     />
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-extrabold text-foreground">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-foreground break-words leading-tight">
                         {employee.known_as ?? employee.full_name}
                         {employee.employee_number ? (
-                          <span className="ml-1.5 text-[11px] font-semibold text-muted">
+                          <span className="ml-1.5 text-xs font-normal text-muted">
                             #{employee.employee_number}
                           </span>
                         ) : null}
                         {employee.payroll_identifier ? (
-                          <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-mono font-extrabold text-emerald-700 border border-emerald-500/20">
-                            <Hash className="size-2.5" />
+                          <span className="ml-1.5 inline-flex items-center rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-mono font-semibold text-foreground border border-border">
                             {employee.payroll_identifier}
                           </span>
                         ) : null}
                         {employee.role_name ? (
-                          <span className="ml-1.5 inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-800 border border-slate-200">
-                            <Shield className="size-2.5 text-slate-500" />
+                          <span className="ml-1.5 inline-flex items-center rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted border border-border">
                             {employee.role_name}
                           </span>
                         ) : null}
                       </p>
-                      <p className="flex items-center gap-1 truncate text-[11px] text-muted">
-                        <Mail className="size-3 shrink-0" />
-                        <span className="truncate">{employee.email ?? "No email"}</span>
+                      <p className="mt-0.5 text-xs text-muted break-all leading-tight">
+                        {employee.email ?? "No email"}
                       </p>
                     </div>
                   </div>
 
                   {/* Workstation & Department */}
                   <div className="min-w-0 text-xs">
-                    <p className="truncate font-semibold text-foreground flex items-center gap-1">
-                      <Building2 className="size-3 shrink-0 text-muted" />
-                      <span className="truncate">{employee.department_name ?? "General"}</span>
+                    <p className="font-semibold text-foreground break-words leading-tight">
+                      {employee.department_name ?? "General"}
                     </p>
-                    <p className="truncate text-[11px] text-muted flex items-center gap-1">
-                      <MapPin className="size-3 shrink-0 text-muted" />
-                      <span className="truncate">{employee.workstation_name ?? "Assigned workstation"}</span>
+                    <p className="mt-0.5 text-muted break-words leading-tight">
+                      {employee.workstation_name ?? "Assigned workstation"}
                     </p>
                   </div>
 
-                  {/* Solid Status Badge */}
+                  {/* Status Badge */}
                   <div className="flex items-center">
                     <span
-                      className={`inline-flex w-max items-center rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                      className={`inline-flex w-max items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
                         status === "active"
-                          ? "bg-emerald-600 text-white shadow-2xs"
+                          ? "border-emerald-500/30 bg-emerald-50 text-emerald-800"
                           : status === "probation"
-                            ? "bg-amber-500 text-white shadow-2xs"
+                            ? "border-amber-500/30 bg-amber-50 text-amber-800"
                             : status === "on_leave"
-                              ? "bg-indigo-600 text-white shadow-2xs"
+                              ? "border-indigo-500/30 bg-indigo-50 text-indigo-800"
                               : isInactive
-                                ? "bg-slate-700 text-white shadow-2xs"
-                                : "bg-zinc-200 text-zinc-800"
+                                ? "border-slate-300 bg-slate-100 text-slate-700"
+                                : "border-border bg-surface-muted text-foreground"
                       }`}
                     >
                       {labelize(status)}
                     </span>
                   </div>
 
-                  <ChevronDown className="hidden size-4 text-muted transition-transform group-open:rotate-180 sm:block" />
+                  <ChevronDown className="hidden size-4 shrink-0 text-muted transition-transform group-open:rotate-180 sm:block" />
                 </summary>
 
                 {/* Expanded Details Panel */}
-                <div className="grid gap-3 border-t border-border bg-background p-3.5 sm:grid-cols-[1fr_auto]">
+                <div className="grid gap-3 border-t border-border bg-background/50 p-4 sm:grid-cols-[1fr_auto]">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
+                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Job Title</p>
-                      <p className="mt-0.5 truncate text-xs font-extrabold text-foreground">
+                      <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
                         {employee.job_title ?? "Team Member"}
                       </p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
+                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">System Role</p>
-                      <p className="mt-0.5 truncate text-xs font-extrabold text-foreground capitalize">
+                      <p className="mt-0.5 text-xs font-bold text-foreground capitalize break-words leading-tight">
                         {employee.role_name ?? (employee.user_id ? "Employee" : "No Account")}
                       </p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
+                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Department</p>
-                      <p className="mt-0.5 truncate text-xs font-extrabold text-foreground">
+                      <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
                         {employee.department_name ?? "General"}
                       </p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
+                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Start Date</p>
-                      <p className="mt-0.5 truncate text-xs font-extrabold text-foreground">
+                      <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
                         {employee.start_date ?? "--"}
                       </p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-2 text-center shadow-2xs">
+                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Payroll ID</p>
-                      <p className="mt-0.5 truncate text-xs font-mono font-black text-emerald-700">
+                      <p className="mt-0.5 text-xs font-mono font-bold text-foreground break-words leading-tight">
                         {employee.payroll_identifier ?? "Auto-assigned"}
                       </p>
                     </div>
@@ -358,9 +338,8 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                   <div className="flex items-center justify-end">
                     <Link
                       href={`/dashboard?panel=people&employeeId=${employee.id}`}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-slate-900 px-4 text-xs font-extrabold text-white shadow-xs hover:bg-slate-800"
+                      className="inline-flex min-h-[44px] sm:min-h-0 sm:h-9 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 cursor-pointer transition-all"
                     >
-                      <User className="size-3.5" />
                       Manage Record
                     </Link>
                   </div>
