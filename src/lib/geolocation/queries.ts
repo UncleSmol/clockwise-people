@@ -60,7 +60,7 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
       assignments: [],
       employees: (employeesResult.data ?? []).map((employee) => ({
         id: employee.id,
-        label: `${employee.full_name} (${employee.employee_number})`,
+        label: employee.full_name,
         workstation_id: null,
       })) as WorkstationEmployeeOption[],
       workstations: [],
@@ -113,7 +113,7 @@ export const getCompanyGeolocationData = cache(async function getCompanyGeolocat
     assignments,
     employees: (employeesResult.data ?? []).map((employee) => ({
       id: employee.id,
-      label: `${employee.full_name} (${employee.employee_number})`,
+      label: employee.full_name,
       workstation_id: assignmentsByEmployee.get(employee.id) ?? null,
     })) as WorkstationEmployeeOption[],
     workstations: ((workstationsResult.data ?? []) as CompanyWorkstation[]).map(

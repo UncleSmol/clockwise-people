@@ -348,7 +348,7 @@ export default function PayrollPeriodSettingsForm({
                         Closed
                       </span>
                     ) : (
-                      <span className="rounded bg-indigo-100 px-1.5 py-0.2 text-[9px] font-bold text-indigo-700">
+                      <span className="rounded bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 border border-amber-200">
                         Upcoming
                       </span>
                     )}

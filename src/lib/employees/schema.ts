@@ -28,6 +28,8 @@ export const bankAccountTypes = [
   "Transmission",
 ] as const;
 
+import { sanitizeString } from "@/lib/security/sanitizer";
+
 export const paymentModes = [
   "EFT",
   "Cash",
@@ -40,11 +42,12 @@ const optionalUuid = z
   .optional()
   .or(z.literal(""));
 
-const optionalText = z
-  .string()
-  .trim()
-  .optional()
-  .or(z.literal(""));
+const sanitizedOptionalText = (maxLength = 255) =>
+  z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((val) => (val ? sanitizeString(val, maxLength) : ""));
 
 const optionalMoney = z
   .string()
@@ -54,34 +57,38 @@ const optionalMoney = z
 
 export const employeeFormSchema = z
   .object({
-    full_name: z.string().trim().min(2, "Full name is required"),
-    known_as: optionalText,
+    full_name: z
+      .string()
+      .transform((v) => sanitizeString(v, 120))
+      .refine((v) => v.length >= 2, "Full name is required"),
+    known_as: sanitizedOptionalText(80),
     email: z.email("Enter a valid email address").optional().or(z.literal("")),
-    phone_number: optionalText,
+    phone_number: sanitizedOptionalText(40),
     workstation_id: optionalUuid,
     department_id: optionalUuid,
-    job_title: optionalText,
+    job_title: sanitizedOptionalText(100),
     employment_type: z.enum(employmentTypes),
     employment_status: z.enum(employmentStatuses),
     start_date: z.iso.date("Start date is required"),
     work_schedule_id: optionalUuid,
     work_schedule_ids: z.array(z.string()).optional(),
     manager_employee_id: optionalUuid,
-    payroll_identifier: optionalText,
+    payroll_identifier: sanitizedOptionalText(64),
     monthly_salary: optionalMoney,
     hourly_rate: optionalMoney,
-    id_number: optionalText,
-    tax_number: optionalText,
-    address: optionalText,
+    id_number: sanitizedOptionalText(30),
+    tax_number: sanitizedOptionalText(30),
+    address: sanitizedOptionalText(250),
     payment_frequency: z.enum(paymentFrequencies).optional(),
-    bank_name: optionalText,
-    bank_account_number: optionalText,
+    bank_name: sanitizedOptionalText(80),
+    bank_account_number: sanitizedOptionalText(40),
     bank_account_type: z.enum(bankAccountTypes).optional(),
     payment_mode: z.enum(paymentModes).optional(),
   });
 
 export type EmployeeFormInput = z.input<typeof employeeFormSchema>;
 export type EmployeeFormValues = z.output<typeof employeeFormSchema>;
+
 
 export type SelectOption = {
   id: string;

@@ -94,11 +94,11 @@ export default function AppUpdateChangelog({
       header={
         <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex min-w-0 gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary shadow-soft">
               <Sparkles className="size-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
                 What&apos;s new
               </p>
               <h2 id="app-update-title" className="mt-1 text-lg font-bold text-foreground">
@@ -122,7 +122,7 @@ export default function AppUpdateChangelog({
           <button
             ref={clearButtonRef}
             disabled={pending}
-            className="btn btn-accent w-full text-center"
+            className="w-full rounded-full bg-primary py-3 text-center text-sm font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
           >
             {pending ? "Saving..." : `Got it, clear ${updateCount === 1 ? "update" : "updates"}`}
           </button>
@@ -131,7 +131,7 @@ export default function AppUpdateChangelog({
     >
       <div ref={dialogRef} onKeyDown={handleKeyDown}>
         {state.message ? (
-          <p className="mb-3 rounded-lg border border-danger/20 bg-danger/8 px-3 py-2 text-sm font-medium text-danger">
+          <p className="mb-3 rounded-2xl border border-danger/20 bg-danger/8 px-3.5 py-2.5 text-sm font-medium text-danger shadow-soft">
             {state.message}
           </p>
         ) : null}
@@ -142,13 +142,13 @@ export default function AppUpdateChangelog({
             className="group border-b border-border last:border-b-0"
             open={index === 0}
           >
-            <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-lg px-2 py-3 hover:bg-surface-muted">
+            <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] gap-3 rounded-2xl px-3 py-3 hover:bg-surface-muted transition-colors">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate font-semibold text-foreground">
                     {update.title}
                   </h3>
-                  <span className="badge badge-muted">
+                  <span className="inline-flex items-center rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-semibold text-muted">
                     {formatDate(update.published_at)}
                   </span>
                 </div>

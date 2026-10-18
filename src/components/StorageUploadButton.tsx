@@ -39,7 +39,7 @@ export default function StorageUploadButton({
   }
 
   return (
-    <div className="grid gap-1">
+    <div className="grid w-full min-w-0 max-w-full gap-1">
       <input
         ref={inputRef}
         type="file"
@@ -53,13 +53,13 @@ export default function StorageUploadButton({
         type="button"
         disabled={busy}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
+        className="inline-flex h-11 w-full min-w-0 max-w-full items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-bold text-foreground shadow-soft hover:bg-surface-muted transition-colors cursor-pointer disabled:opacity-60"
       >
         <Upload className="size-4 shrink-0" />
         {busy ? "Uploading..." : "Upload file"}
       </button>
-      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
-      {error ? <p className="text-xs font-medium text-danger">{error}</p> : null}
+      {hint ? <p className="text-xs text-muted break-words">{hint}</p> : null}
+      {error ? <p className="text-xs font-medium text-danger break-words">{error}</p> : null}
     </div>
   );
 }

@@ -97,7 +97,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
       {/* Top Search & Filter Bar */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex h-11 min-h-[44px] sm:h-10 sm:min-h-[40px] flex-1 items-center gap-2.5 rounded-xl border border-border bg-background px-3.5 text-base sm:text-xs font-semibold text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-colors">
+          <label className="flex h-11 min-h-[44px] sm:h-10 sm:min-h-[40px] flex-1 items-center gap-2.5 rounded-full border border-border bg-background px-4 text-base sm:text-xs font-semibold text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 shadow-soft transition-colors">
             <Search className="size-4 shrink-0 text-muted" />
             <input
               value={globalFilter}
@@ -116,7 +116,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
               </button>
             ) : null}
           </label>
-          <span className="w-max rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground shadow-2xs">
+          <span className="w-max rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-semibold text-foreground shadow-soft">
             {filteredEmployees.length} of {employees.length} employees
           </span>
         </div>
@@ -126,9 +126,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           <button
             type="button"
             onClick={() => setStatusFilter("all")}
-            className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            className={`min-h-[36px] sm:min-h-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "all"
-                ? "bg-primary text-primary-foreground shadow-2xs"
+                ? "bg-primary text-white shadow-soft"
                 : "border border-border bg-surface text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -137,9 +137,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           <button
             type="button"
             onClick={() => setStatusFilter("active")}
-            className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+            className={`min-h-[36px] sm:min-h-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "active"
-                ? "bg-primary text-primary-foreground shadow-2xs"
+                ? "bg-primary text-white shadow-soft"
                 : "border border-border bg-surface text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -149,9 +149,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <button
               type="button"
               onClick={() => setStatusFilter("probation")}
-              className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`min-h-[36px] sm:min-h-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 statusFilter === "probation"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  ? "bg-primary text-white shadow-soft"
                   : "border border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
@@ -162,9 +162,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <button
               type="button"
               onClick={() => setStatusFilter("on_leave")}
-              className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`min-h-[36px] sm:min-h-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 statusFilter === "on_leave"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  ? "bg-primary text-white shadow-soft"
                   : "border border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
@@ -175,9 +175,9 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
             <button
               type="button"
               onClick={() => setStatusFilter("inactive")}
-              className={`min-h-[36px] sm:min-h-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+              className={`min-h-[36px] sm:min-h-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 statusFilter === "inactive"
-                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  ? "bg-primary text-white shadow-soft"
                   : "border border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
@@ -190,7 +190,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
               <button
                 type="submit"
                 disabled={assignPending}
-                className="inline-flex min-h-[36px] sm:min-h-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border border-border bg-surface text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
+                className="inline-flex min-h-[36px] sm:min-h-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold border border-border bg-surface text-foreground hover:bg-surface-muted shadow-soft transition-all cursor-pointer"
               >
                 {assignPending ? (
                   <Loader2 className="size-3.5 shrink-0 animate-spin" />
@@ -207,7 +207,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
 
         {assignState.message ? (
           <div
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
+            className={`rounded-2xl border px-4 py-3 text-xs font-semibold shadow-soft ${
               assignState.ok
                 ? "border-success/30 bg-success/10 text-success"
                 : "border-danger/30 bg-danger/10 text-danger"
@@ -219,7 +219,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
       </div>
 
       {/* Employees Directory List */}
-      <div className="divide-y divide-border rounded-xl border border-border/80 bg-surface shadow-2xs overflow-hidden">
+      <div className="divide-y divide-border rounded-2xl border border-border/80 bg-surface shadow-soft overflow-hidden">
         {filteredEmployees.length === 0 ? (
           <p className="p-6 text-center text-xs font-medium text-muted">
             No employees match your search or filter criteria.
@@ -237,7 +237,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                     <EmployeeAvatar
                       name={employee.known_as ?? employee.full_name}
                       src={employee.avatar_url}
-                      className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
+                      className="size-9 shrink-0 ring-1 ring-border shadow-soft"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-foreground break-words leading-tight">
@@ -248,12 +248,12 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                           </span>
                         ) : null}
                         {employee.payroll_identifier ? (
-                          <span className="ml-1.5 inline-flex items-center rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-mono font-semibold text-foreground border border-border">
+                          <span className="ml-1.5 inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-mono font-semibold text-foreground border border-border">
                             {employee.payroll_identifier}
                           </span>
                         ) : null}
                         {employee.role_name ? (
-                          <span className="ml-1.5 inline-flex items-center rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-muted border border-border">
+                          <span className="ml-1.5 inline-flex items-center rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-medium text-muted border border-border">
                             {employee.role_name}
                           </span>
                         ) : null}
@@ -277,13 +277,13 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                   {/* Status Badge */}
                   <div className="flex items-center">
                     <span
-                      className={`inline-flex w-max items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex w-max items-center rounded-full border px-3 py-0.5 text-xs font-semibold ${
                         status === "active"
                           ? "border-emerald-500/30 bg-emerald-50 text-emerald-800"
                           : status === "probation"
                             ? "border-amber-500/30 bg-amber-50 text-amber-800"
                             : status === "on_leave"
-                              ? "border-indigo-500/30 bg-indigo-50 text-indigo-800"
+                              ? "border-amber-500/30 bg-amber-50 text-amber-800"
                               : isInactive
                                 ? "border-slate-300 bg-slate-100 text-slate-700"
                                 : "border-border bg-surface-muted text-foreground"
@@ -299,35 +299,35 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                 {/* Expanded Details Panel */}
                 <div className="grid gap-3 border-t border-border bg-background/50 p-4 sm:grid-cols-[1fr_auto]">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
+                    <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Job Title</p>
                       <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
                         {employee.job_title ?? "Team Member"}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
+                    <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">System Role</p>
                       <p className="mt-0.5 text-xs font-bold text-foreground capitalize break-words leading-tight">
                         {employee.role_name ?? (employee.user_id ? "Employee" : "No Account")}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
+                    <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Department</p>
                       <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
                         {employee.department_name ?? "General"}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
+                    <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Start Date</p>
                       <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
                         {employee.start_date ?? "--"}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-surface p-2.5 text-center shadow-2xs">
+                    <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Payroll ID</p>
                       <p className="mt-0.5 text-xs font-mono font-bold text-foreground break-words leading-tight">
                         {employee.payroll_identifier ?? "Auto-assigned"}
@@ -338,7 +338,7 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                   <div className="flex items-center justify-end">
                     <Link
                       href={`/dashboard?panel=people&employeeId=${employee.id}`}
-                      className="inline-flex min-h-[44px] sm:min-h-0 sm:h-9 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 cursor-pointer transition-all"
+                      className="inline-flex min-h-[44px] sm:min-h-0 sm:h-9 items-center justify-center rounded-full bg-primary px-5 text-xs font-bold text-white shadow-soft hover:bg-primary-hover cursor-pointer transition-all"
                     >
                       Manage Record
                     </Link>

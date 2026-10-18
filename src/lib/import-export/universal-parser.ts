@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import { sanitizeSpreadsheetFormula, sanitizeString } from "@/lib/security/sanitizer";
+
 
 export type ImportEntityType = "employees" | "timesheets" | "leave_balances";
 
@@ -482,8 +484,8 @@ export function inspectSpreadsheet(
       headers = rawHeaderCells.map((c, idx) => (c ? String(c).trim() : `Column ${idx + 1}`));
     }
 
-    // Filter out completely blank trailing header labels
-    headers = headers.map((h, idx) => (h ? h : `Column ${idx + 1}`));
+    // Filter out completely blank trailing header labels and sanitize against control chars
+    headers = headers.map((h, idx) => sanitizeString(h, 100) || `Column ${idx + 1}`);
 
     // Extract sample rows (up to 5 rows)
     const sampleRows: Record<string, string>[] = [];
@@ -501,9 +503,12 @@ export function inspectSpreadsheet(
         isSingleCsv = true;
       }
 
-      const parsedCols = isSingleCsv
+      const rawCols = isSingleCsv
         ? parseCsvLine(String(rowCells[0]))
         : rowCells.map((c) => (c !== undefined && c !== null ? String(c).trim() : ""));
+
+      // Formula injection (CWE-1236) & XSS sanitization on extracted cells
+      const parsedCols = rawCols.map((c) => sanitizeString(sanitizeSpreadsheetFormula(c), 500));
 
       headers.forEach((h, colIdx) => {
         rowObj[h] = parsedCols[colIdx] ?? "";
@@ -514,6 +519,7 @@ export function inspectSpreadsheet(
         sampleRows.push(rowObj);
       }
     }
+
 
     // Auto-match headers to target fields based on aliases
     const suggestedMappings: Record<string, string> = {};

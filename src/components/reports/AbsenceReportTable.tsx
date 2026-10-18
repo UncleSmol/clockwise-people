@@ -25,9 +25,12 @@ export default function AbsenceReportTable({
             <div className="font-semibold text-foreground">
               {row.original.employeeName}
             </div>
-            <div className="text-[10px] text-muted font-mono">
-              {row.original.employeeNumber} · {row.original.department}
-            </div>
+            {row.original.department ? (
+              <div className="text-[10px] text-muted">
+                {row.original.department}
+              </div>
+            ) : null}
+
           </div>
         ),
       },
@@ -92,12 +95,12 @@ export default function AbsenceReportTable({
           const isRejected = s === "rejected";
           return (
             <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                 isApproved
-                  ? "bg-emerald-500/15 text-emerald-400"
+                  ? "bg-emerald-500/15 text-emerald-800 border border-emerald-500/30"
                   : isRejected
-                  ? "bg-rose-500/15 text-rose-400"
-                  : "bg-amber-500/15 text-amber-400"
+                  ? "bg-rose-500/15 text-rose-800 border border-rose-500/30"
+                  : "bg-amber-500/15 text-amber-950 border border-amber-500/30"
               }`}
             >
               {isApproved ? (

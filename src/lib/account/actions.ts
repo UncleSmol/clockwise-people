@@ -4,6 +4,11 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  safeJsonParse,
+  sanitizeString,
+  sanitizeUrl,
+} from "@/lib/security/sanitizer";
 
 type ChangePasswordState = {
   ok: boolean;
@@ -33,18 +38,13 @@ const profileSchema = z.object({
     .or(z.literal(""))
     .refine((value) => {
       if (!value) return true;
-
-      try {
-        const url = new URL(value);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
+      return Boolean(sanitizeUrl(value));
     }, "Use a valid profile picture link that starts with http:// or https://"),
   email: z.email("Enter a valid email address").optional().or(z.literal("")),
   known_as: z.string().trim().max(80, "Keep this name shorter than 80 characters").optional(),
   phone_number: z.string().trim().max(40, "Keep this phone number shorter than 40 characters").optional(),
 });
+
 
 const companyProfileSchema = z.object({
   address_line_1: z.string().trim().max(160, "Keep address line 1 shorter than 160 characters").optional(),
@@ -70,13 +70,7 @@ const companyProfileSchema = z.object({
     .or(z.literal(""))
     .refine((value) => {
       if (!value) return true;
-
-      try {
-        const url = new URL(value);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
+      return Boolean(sanitizeUrl(value));
     }, "Use a valid website link that starts with http:// or https://"),
 });
 
@@ -141,10 +135,10 @@ export async function updateOwnProfile(
   formData: FormData,
 ): Promise<UpdateProfileState> {
   const parsed = profileSchema.safeParse({
-    avatar_url: String(formData.get("avatar_url") ?? ""),
-    email: String(formData.get("email") ?? ""),
-    known_as: String(formData.get("known_as") ?? ""),
-    phone_number: String(formData.get("phone_number") ?? ""),
+    avatar_url: sanitizeString(formData.get("avatar_url"), 2048),
+    email: sanitizeString(formData.get("email"), 120),
+    known_as: sanitizeString(formData.get("known_as"), 80),
+    phone_number: sanitizeString(formData.get("phone_number"), 40),
   });
 
   if (!parsed.success) {
@@ -174,25 +168,25 @@ export async function updateCompanyProfile(
   _previousState: UpdateCompanyProfileState,
   formData: FormData,
 ): Promise<UpdateCompanyProfileState> {
-  const companyId = String(formData.get("company_id") ?? "").trim();
+  const companyId = sanitizeString(formData.get("company_id"), 64);
   const parsed = companyProfileSchema.safeParse({
-    address_line_1: String(formData.get("address_line_1") ?? ""),
-    address_line_2: String(formData.get("address_line_2") ?? ""),
-    city: String(formData.get("city") ?? ""),
-    contact_email: String(formData.get("contact_email") ?? ""),
-    contact_phone: String(formData.get("contact_phone") ?? ""),
-    country: String(formData.get("country") ?? ""),
-    industry: String(formData.get("industry") ?? ""),
-    name: String(formData.get("name") ?? ""),
-    payroll_cycle: String(formData.get("payroll_cycle") ?? ""),
-    postal_code: String(formData.get("postal_code") ?? ""),
-    province: String(formData.get("province") ?? ""),
-    registration_number: String(formData.get("registration_number") ?? ""),
-    tax_number: String(formData.get("tax_number") ?? ""),
-    timezone: String(formData.get("timezone") ?? ""),
-    trading_name: String(formData.get("trading_name") ?? ""),
-    vat_number: String(formData.get("vat_number") ?? ""),
-    website_url: String(formData.get("website_url") ?? ""),
+    address_line_1: sanitizeString(formData.get("address_line_1"), 160),
+    address_line_2: sanitizeString(formData.get("address_line_2"), 160),
+    city: sanitizeString(formData.get("city"), 80),
+    contact_email: sanitizeString(formData.get("contact_email"), 120),
+    contact_phone: sanitizeString(formData.get("contact_phone"), 40),
+    country: sanitizeString(formData.get("country"), 80),
+    industry: sanitizeString(formData.get("industry"), 100),
+    name: sanitizeString(formData.get("name"), 120),
+    payroll_cycle: sanitizeString(formData.get("payroll_cycle"), 40),
+    postal_code: sanitizeString(formData.get("postal_code"), 20),
+    province: sanitizeString(formData.get("province"), 80),
+    registration_number: sanitizeString(formData.get("registration_number"), 80),
+    tax_number: sanitizeString(formData.get("tax_number"), 80),
+    timezone: sanitizeString(formData.get("timezone"), 60),
+    trading_name: sanitizeString(formData.get("trading_name"), 120),
+    vat_number: sanitizeString(formData.get("vat_number"), 80),
+    website_url: sanitizeString(formData.get("website_url"), 2048),
   });
 
   if (!companyId) {
@@ -247,25 +241,23 @@ export async function updateCompanyRules(
     return { ok: false, message: "Your session could not be verified." };
   }
 
-  const category = String(formData.get("category") ?? "").trim();
+  const category = sanitizeString(formData.get("category"), 40);
 
   if (!category || !["overtime_rules", "toil_rules", "leave_rules", "approval_rules"].includes(category)) {
     return { ok: false, message: "Invalid rule category." };
   }
 
-  const raw = String(formData.get("rules") ?? "").trim();
+  const raw = sanitizeString(formData.get("rules"), 50000, { allowNewlines: true, trim: true });
 
   if (!raw) {
     return { ok: false, message: "Rules JSON is required." };
   }
 
-  let parsed: Record<string, unknown>;
-
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return { ok: false, message: "Rules must be valid JSON." };
+  const jsonResult = safeJsonParse<Record<string, unknown>>(raw);
+  if (!jsonResult.ok || !jsonResult.data) {
+    return { ok: false, message: jsonResult.error || "Rules must be valid JSON syntax." };
   }
+  const parsed = jsonResult.data;
 
   const { company } = await getActiveCompany();
 
@@ -284,3 +276,4 @@ export async function updateCompanyRules(
 
   return { ok: true, message: `${category.replaceAll("_", " ")} updated.` };
 }
+

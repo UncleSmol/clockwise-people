@@ -56,15 +56,15 @@ export default function CompanyDepartmentPanel({
         </p>
       </div>
 
-      <details className="group rounded-lg border border-border bg-surface shadow-2xs">
-        <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-semibold text-foreground">
-          <Plus className="size-4" />
+      <details className="group rounded-2xl border border-border/80 bg-surface shadow-soft">
+        <summary className="flex cursor-pointer items-center gap-2 px-5 py-3.5 text-sm font-bold text-foreground">
+          <Plus className="size-4 text-primary" />
           Add department
         </summary>
-        <form action={createDepartment} className="grid gap-4 border-t border-border p-4">
+        <form action={createDepartment} className="grid gap-4 border-t border-border/70 p-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Name</span>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Name</span>
               <input
                 name="name"
                 list="department-hints"
@@ -72,7 +72,7 @@ export default function CompanyDepartmentPanel({
                 required
                 value={departmentName}
                 onChange={(e) => setDepartmentName(e.target.value)}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
               />
               <datalist id="department-hints">
                 {departmentHints.map((hint) => (
@@ -81,23 +81,23 @@ export default function CompanyDepartmentPanel({
               </datalist>
             </label>
 
-            <label className="grid gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Code</span>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Code</span>
               <input
                 name="code"
                 value={autoCode}
                 readOnly
                 placeholder="Auto-generated"
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-muted outline-none"
+                className="h-11 w-full rounded-full border border-border/80 bg-background/70 px-4 text-sm text-muted outline-none font-mono"
               />
             </label>
           </div>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Workstation</span>
             <select
               name="workstation_id"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
             >
               <option value="">Company-wide</option>
               {workstations.map((ws) => (
@@ -107,10 +107,10 @@ export default function CompanyDepartmentPanel({
             <span className="text-xs font-normal text-muted">Optional. Link the department to a specific workstation.</span>
           </label>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-1">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 cursor-pointer"
+              className="inline-flex min-h-[44px] h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-bold text-white shadow-soft hover:brightness-105 cursor-pointer transition-all"
             >
               Save department
             </button>
@@ -120,7 +120,7 @@ export default function CompanyDepartmentPanel({
 
       <div className="grid gap-4">
         {departments.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted">
+          <p className="rounded-2xl border border-dashed border-border px-5 py-8 text-center text-sm text-muted">
             No departments yet. Create your first department above.
           </p>
         ) : (
@@ -128,11 +128,11 @@ export default function CompanyDepartmentPanel({
             const deptEmployees = employeesByDepartment.get(department.id) ?? [];
 
             return (
-              <div key={department.id} className="rounded-lg border border-border">
-                <div className="flex items-center justify-between px-4 py-3">
+              <div key={department.id} className="rounded-2xl border border-border/80 bg-surface shadow-soft overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5">
                   <div className="grid gap-0.5">
-                    <span className="text-sm font-semibold text-foreground">{department.name}</span>
-                    <span className="text-xs text-muted">
+                    <span className="text-sm font-bold text-foreground">{department.name}</span>
+                    <span className="text-xs text-muted font-medium">
                       {department.code ? `#${department.code}` : ""}
                       {deptEmployees.length > 0
                         ? ` \u00b7 ${deptEmployees.length} employee${deptEmployees.length === 1 ? "" : "s"}`
@@ -143,7 +143,7 @@ export default function CompanyDepartmentPanel({
                     <input type="hidden" name="department_id" value={department.id} />
                     <button
                       type="submit"
-                      className="inline-flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger/10 hover:text-danger"
+                      className="inline-flex size-8.5 items-center justify-center rounded-full text-muted hover:bg-danger/10 hover:text-danger transition-colors cursor-pointer"
                       title="Deactivate department"
                     >
                       <Trash2 className="size-4" />
@@ -194,17 +194,17 @@ function EmployeeDepartmentSection({
   };
 
   return (
-    <div className="border-t border-border px-4 py-3">
+    <div className="border-t border-border/70 px-5 py-3.5">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
-          <Users className="size-3.5" />
+        <span className="flex items-center gap-1.5 text-xs font-bold text-muted">
+          <Users className="size-3.5 text-primary" />
           Employees
         </span>
         {unassignedEmployees.length > 0 && (
           <button
             type="button"
             onClick={() => setShowAdd(!showAdd)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer"
           >
             <Plus className="size-3" />
             Assign employee
@@ -213,11 +213,11 @@ function EmployeeDepartmentSection({
       </div>
 
       {showAdd && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-2">
           <select
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="h-10 flex-1 rounded-full border border-border/80 bg-background px-4 text-xs font-medium text-foreground outline-none focus:border-primary shadow-xs"
           >
             <option value="">Select employee...</option>
             {unassignedEmployees.map((emp) => (
@@ -228,14 +228,14 @@ function EmployeeDepartmentSection({
             type="button"
             disabled={!selectedEmployeeId || pending}
             onClick={handleAssign}
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+            className="inline-flex h-10 items-center gap-1 rounded-full bg-primary px-4 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-60 cursor-pointer transition-all"
           >
             Add
           </button>
           <button
             type="button"
             onClick={() => setShowAdd(false)}
-            className="inline-flex items-center rounded-lg p-2 text-muted hover:bg-surface-muted"
+            className="inline-flex size-10 items-center justify-center rounded-full text-muted hover:bg-surface-muted transition-colors cursor-pointer"
           >
             <X className="size-4" />
           </button>
@@ -245,15 +245,15 @@ function EmployeeDepartmentSection({
       {deptEmployees.length === 0 ? (
         <p className="mt-2 text-xs text-muted">No employees assigned.</p>
       ) : (
-        <div className="mt-2 grid gap-1">
+        <div className="mt-2.5 grid gap-1.5">
           {deptEmployees.map((emp) => (
-            <div key={emp.id} className="flex items-center justify-between rounded-lg bg-surface px-3 py-1.5">
-              <span className="text-sm text-foreground">{emp.full_name}</span>
+            <div key={emp.id} className="flex items-center justify-between rounded-full bg-background/80 border border-border/60 px-4 py-2">
+              <span className="text-xs font-bold text-foreground">{emp.full_name}</span>
               <button
                 type="button"
                 disabled={pending}
                 onClick={() => handleRemove(emp.id)}
-                className="inline-flex size-6 items-center justify-center rounded text-muted hover:bg-danger/10 hover:text-danger"
+                className="inline-flex size-6 items-center justify-center rounded-full text-muted hover:bg-danger/10 hover:text-danger transition-colors cursor-pointer"
                 title="Remove from department"
               >
                 <X className="size-3.5" />

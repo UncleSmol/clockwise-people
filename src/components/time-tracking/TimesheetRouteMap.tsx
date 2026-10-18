@@ -197,7 +197,7 @@ export default function TimesheetRouteMap({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-3.5 py-1.5 text-[11px]">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1 font-bold text-slate-300">
-            <Navigation className="size-3 text-cyan-400" />
+            <Navigation className="size-3 text-slate-400" />
             Distance Moved:{" "}
             <span className="font-extrabold text-white">
               {totalDistanceMovedMeters >= 1000
@@ -223,7 +223,7 @@ export default function TimesheetRouteMap({
             <span className="size-2 rounded-full bg-amber-500" /> Lunch
           </span>
           <span className="flex items-center gap-1">
-            <span className="size-2 rounded-full bg-cyan-500" /> &gt;25m Move
+            <span className="size-2 rounded-full bg-slate-400" /> &gt;25m Move
           </span>
           <span className="flex items-center gap-1">
             <span className="size-2 rounded-full bg-rose-500" /> Out
@@ -303,7 +303,7 @@ export default function TimesheetRouteMap({
                     </p>
                     {evt.distance_meters ? (
                       <p className="font-bold text-slate-700">
-                        Movement Delta: <span className="font-extrabold text-cyan-600">+{evt.distance_meters}m</span>
+                        Movement Delta: <span className="font-extrabold text-slate-900">+{evt.distance_meters}m</span>
                       </p>
                     ) : null}
                     {evt.accuracy_meters ? (

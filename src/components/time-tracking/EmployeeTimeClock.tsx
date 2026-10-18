@@ -13,6 +13,7 @@ import {
 import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
 import { useRealtimeEvent } from "@/components/realtime/RealtimeSyncProvider";
 import LiveLocationTracker from "./LiveLocationTracker";
+import AnalogTimePicker from "./AnalogTimePicker";
 
 type TodaySchedule = {
   start_time: string | null;
@@ -642,11 +643,11 @@ export default function EmployeeTimeClock({
 
   if (variant === "strip") {
     const statusDot =
-      status === "Not clocked in" ? "bg-muted" :
-      status === "Working" ? "bg-accent" :
-      status === "On lunch" ? "bg-warning" :
-      status === "Shift complete" ? "bg-success" :
-      "bg-muted";
+      status === "Not clocked in" ? "bg-slate-400" :
+      status === "Working" ? "bg-emerald-400" :
+      status === "On lunch" ? "bg-amber-400" :
+      status === "Shift complete" ? "bg-emerald-400" :
+      "bg-slate-400";
 
     const isClockedIn = Boolean(displayEntry?.clock_in) && !displayEntry?.clock_out;
     const isOnLunch = Boolean(displayEntry?.lunch_start) && !displayEntry?.lunch_end;
@@ -684,42 +685,42 @@ export default function EmployeeTimeClock({
     const clockOutLabel = isClockOutBusy ? (locating ? "Locating..." : "Saving...") : "Clock out";
 
     return (
-      <section className="card flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+      <section className="card flex flex-col gap-3.5 p-4 sm:p-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 rounded-2xl border border-border bg-surface shadow-soft">
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
           <div className="flex items-center gap-3">
-            <span className={`inline-block size-2.5 shrink-0 rounded-full ${statusDot}`} />
+            <span className={`inline-block size-3 shrink-0 rounded-full ${statusDot} ring-4 ring-primary/10`} />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-foreground">{status}</p>
+                <p className="text-base font-extrabold text-foreground">{status}</p>
                 {status === "On lunch" && lunchRemainingSeconds !== null ? (() => {
                   const totalSec = Math.max(0, Math.floor(lunchRemainingSeconds));
                   const m = Math.floor(totalSec / 60);
                   const s = totalSec % 60;
                   return (
-                    <span className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-extrabold text-amber-900">
+                    <span className="rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold text-amber-900 shadow-2xs">
                       {m}m {s}s left
                       {isAutoEndLunchActive ? " (Auto-ends lunch)" : ""}
                     </span>
                   );
                 })() : null}
                 {displayEntry?.warning_notes?.includes("Auto lunch break ended") ? (
-                  <span className="rounded bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                  <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
                     Auto Lunch Ended (Resumed Shift)
                   </span>
                 ) : null}
               </div>
-              <p className="text-xs text-muted">
+              <p className="text-xs font-medium text-muted">
                 {displayEntry?.work_date ?? "No time record started yet"}
               </p>
             </div>
           </div>
 
           <div className="flex flex-col items-end sm:hidden">
-            <span className="text-sm font-bold tabular-nums text-foreground">
+            <span className="text-base font-black tabular-nums text-foreground">
               {liveWorked.hoursDecimal}
             </span>
             {displayEntry?.clock_in && !displayEntry?.clock_out ? (
-              <span className="text-[10px] font-medium text-muted tabular-nums">
+              <span className="text-[10px] font-semibold text-muted tabular-nums">
                 {status === "On lunch" ? "Break paused" : liveWorked.durationText}
               </span>
             ) : null}
@@ -727,34 +728,34 @@ export default function EmployeeTimeClock({
         </div>
 
         <div className="hidden sm:flex sm:flex-col sm:items-end sm:ml-auto">
-          <span className="text-sm font-bold tabular-nums text-foreground">
+          <span className="text-lg font-black tabular-nums text-foreground">
             {liveWorked.hoursDecimal}
           </span>
           {displayEntry?.clock_in && !displayEntry?.clock_out ? (
-            <span className="text-[10px] font-medium text-muted tabular-nums">
+            <span className="text-xs font-medium text-muted tabular-nums">
               {status === "On lunch" ? "Break paused" : liveWorked.durationText}
             </span>
           ) : null}
         </div>
 
         {/* Times recorded today */}
-        <div className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border/80 bg-background/60 p-2 sm:grid-cols-4">
-          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+        <div className="grid w-full grid-cols-2 gap-2.5 rounded-2xl border border-border/80 bg-background/50 p-2.5 sm:grid-cols-4">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-surface px-3 py-2 shadow-2xs">
             <span
               className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
                 displayEntry?.clock_in
-                  ? "bg-accent text-accent-foreground"
+                  ? "bg-primary text-primary-foreground shadow-2xs"
                   : "bg-surface-muted text-muted"
               }`}
             >
               1
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
                 Clock in
               </p>
               <p
-                className={`text-xs font-bold break-words leading-tight ${
+                className={`text-xs font-extrabold break-words leading-tight ${
                   displayEntry?.clock_in ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -763,22 +764,22 @@ export default function EmployeeTimeClock({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-surface px-3 py-2 shadow-2xs">
             <span
               className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
                 displayEntry?.lunch_start
-                  ? "bg-warning text-white"
+                  ? "bg-warning text-white shadow-2xs"
                   : "bg-surface-muted text-muted"
               }`}
             >
               2
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
                 Lunch start
               </p>
               <p
-                className={`text-xs font-bold break-words leading-tight ${
+                className={`text-xs font-extrabold break-words leading-tight ${
                   displayEntry?.lunch_start ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -787,22 +788,22 @@ export default function EmployeeTimeClock({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-surface px-3 py-2 shadow-2xs">
             <span
               className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
                 displayEntry?.lunch_end
-                  ? "bg-warning text-white"
+                  ? "bg-warning text-white shadow-2xs"
                   : "bg-surface-muted text-muted"
               }`}
             >
               3
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
                 Lunch end
               </p>
               <p
-                className={`text-xs font-bold break-words leading-tight ${
+                className={`text-xs font-extrabold break-words leading-tight ${
                   displayEntry?.lunch_end ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -811,22 +812,22 @@ export default function EmployeeTimeClock({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-md border border-border/50 bg-surface/70 px-2.5 py-1.5">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-surface px-3 py-2 shadow-2xs">
             <span
               className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
                 displayEntry?.clock_out
-                  ? "bg-danger text-white"
+                  ? "bg-danger text-white shadow-2xs"
                   : "bg-surface-muted text-muted"
               }`}
             >
               4
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted break-words leading-tight">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
                 Clock out
               </p>
               <p
-                className={`text-xs font-bold break-words leading-tight ${
+                className={`text-xs font-extrabold break-words leading-tight ${
                   displayEntry?.clock_out ? "text-foreground" : "text-muted"
                 }`}
               >
@@ -840,7 +841,7 @@ export default function EmployeeTimeClock({
           action={formAction}
           onSubmit={handleSubmit}
           ref={formRef}
-          className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+          className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5"
         >
           <input name="latitude" ref={latitudeRef} type="hidden" />
           <input name="longitude" ref={longitudeRef} type="hidden" />
@@ -851,19 +852,18 @@ export default function EmployeeTimeClock({
           {canClockIn || workstations.length > 0 ? (
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               {canClockIn ? (
-                <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 sm:w-auto sm:px-2 sm:py-1.5">
-                  <Clock className="size-3.5 shrink-0 text-muted" />
-                  <input
+                <div className="w-full sm:w-auto sm:max-w-[7.5rem]">
+                  <AnalogTimePicker
                     name="requested_at"
-                    type="time"
                     defaultValue={localTimeInputValue()}
-                    className="w-full min-w-0 bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[7.5rem]"
+                    compact
+                    className="flex h-9 w-full items-center justify-between gap-1.5 rounded-full border border-border bg-surface px-3 text-xs font-semibold text-foreground outline-none hover:border-primary/50 shadow-2xs"
                   />
-                </label>
+                </div>
               ) : null}
               {workstations.length > 0 ? (
                 <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <label className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 sm:flex-initial sm:px-2 sm:py-1.5">
+                  <label className="flex flex-1 items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 sm:flex-initial sm:px-3 sm:py-1.5 shadow-2xs">
                     <MapPin className="size-3.5 shrink-0 text-muted" />
                     <select
                       value={effectiveWorkstationId}
@@ -885,7 +885,7 @@ export default function EmployeeTimeClock({
                         switchPendingRef.current = true;
                       }}
                       disabled={pending || locating || !effectiveWorkstationId}
-                      className="btn btn-outline shrink-0 px-2.5 py-1.5 text-xs font-medium"
+                      className="btn btn-outline rounded-full shrink-0 px-3.5 py-1.5 text-xs font-bold shadow-2xs"
                     >
                       {switchPendingRef.current && pending
                         ? "Saving..."
@@ -908,9 +908,9 @@ export default function EmployeeTimeClock({
                 pendingActionRef.current = "Clock in";
               }}
               disabled={clockInDisabled}
-              className={`btn px-2 py-2 text-xs font-semibold whitespace-nowrap justify-center text-center sm:px-4 sm:text-sm ${
+              className={`btn rounded-full px-3 py-2.5 text-xs font-bold whitespace-nowrap justify-center text-center sm:px-5 sm:text-sm ${
                 canClockInAction
-                  ? "btn-accent shadow-xs"
+                  ? "btn-primary shadow-primary"
                   : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
               }`}
             >
@@ -925,11 +925,11 @@ export default function EmployeeTimeClock({
                 pendingActionRef.current = lunchActionValue;
               }}
               disabled={lunchDisabled}
-              className={`btn px-2 py-2 text-xs font-semibold whitespace-nowrap justify-center text-center sm:px-4 sm:text-sm ${
+              className={`btn rounded-full px-3 py-2.5 text-xs font-bold whitespace-nowrap justify-center text-center sm:px-5 sm:text-sm ${
                 isOnLunch
-                  ? "btn-accent shadow-xs ring-2 ring-warning/50"
+                  ? "btn-primary shadow-primary ring-2 ring-warning/50"
                   : canLunchAction
-                    ? "border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 shadow-xs"
+                    ? "border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 shadow-2xs"
                     : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
               }`}
             >
@@ -944,9 +944,9 @@ export default function EmployeeTimeClock({
                 pendingActionRef.current = "Clock out";
               }}
               disabled={clockOutDisabled}
-              className={`btn px-2 py-2 text-xs font-semibold whitespace-nowrap justify-center text-center sm:px-4 sm:text-sm ${
+              className={`btn rounded-full px-3 py-2.5 text-xs font-bold whitespace-nowrap justify-center text-center sm:px-5 sm:text-sm ${
                 canClockOutAction
-                  ? "btn-danger shadow-xs"
+                  ? "btn-danger shadow-md shadow-rose-600/25"
                   : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
               }`}
             >
@@ -987,9 +987,18 @@ export default function EmployeeTimeClock({
     );
   }
 
+  const headerBgClass =
+    status === "Working"
+      ? "bg-emerald-700 text-white"
+      : status === "On lunch"
+      ? "bg-amber-600 text-white"
+      : status === "Shift complete"
+      ? "bg-slate-800 text-white"
+      : "bg-slate-800 text-white";
+
   return (
     <div className="card overflow-hidden">
-      <div className="bg-primary text-primary-foreground grid gap-3 p-4 sm:p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className={`${headerBgClass} grid gap-3 p-4 sm:p-5 lg:grid-cols-[1fr_auto] lg:items-center`}>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
             Today&apos;s shift
@@ -1012,15 +1021,13 @@ export default function EmployeeTimeClock({
             <input name="captured_at" ref={capturedAtRef} type="hidden" />
             <input name="workstation_id" type="hidden" value={effectiveWorkstationId} />
             {canClockIn ? (
-              <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
-                <Clock className="size-4 shrink-0 opacity-80" />
-                <input
+              <div className="w-full sm:w-auto">
+                <AnalogTimePicker
                   name="requested_at"
-                  type="time"
                   defaultValue={localTimeInputValue()}
-                  className="h-9 min-w-0 flex-1 bg-transparent text-sm font-semibold text-primary-foreground outline-none"
+                  className="flex h-9 w-full items-center justify-between gap-2 rounded-md bg-primary-foreground/15 px-3 text-sm font-semibold text-primary-foreground outline-none hover:bg-primary-foreground/20"
                 />
-              </label>
+              </div>
             ) : null}
             {workstations.length > 0 ? (
               <label className="flex items-center gap-2 rounded-md bg-primary-foreground/10 px-3 py-2">
@@ -1264,7 +1271,7 @@ export default function EmployeeTimeClock({
                 key={item.label}
                 className={`rounded-md border p-3 shadow-sm ${
                   complete
-                    ? "border-accent/30 bg-accent/10"
+                    ? "border-emerald-500/30 bg-emerald-500/10"
                     : "border-border bg-background/70"
                 }`}
               >
@@ -1272,7 +1279,7 @@ export default function EmployeeTimeClock({
                   <span
                     className={`grid size-7 place-items-center rounded-full text-xs font-semibold ${
                       complete
-                        ? "bg-accent text-white"
+                        ? "bg-emerald-600 text-white"
                         : "bg-surface-muted text-muted"
                     }`}
                   >

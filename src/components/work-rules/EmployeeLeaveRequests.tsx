@@ -86,24 +86,31 @@ export default function EmployeeLeaveRequests({
   const [reason, setReason] = useState("");
   const [useToilFirst, setUseToilFirst] = useState(true);
 
-  // Identify TOIL leave type and current employee balance
-  const toilLeaveType = state.leaveTypes.find(
-    (lt) => lt.category === "toil_taken" || lt.name.toLowerCase().includes("toil"),
-  );
+  // Check if TOIL Engine is enabled for company
+  const isToilEngineActive = Boolean(state.toilEnabled);
 
-  const toilBalanceItem = state.balances.find((b) => {
-    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
-    return (
-      rel?.category === "toil_taken" ||
-      rel?.id === toilLeaveType?.id ||
-      rel?.name?.toLowerCase().includes("toil")
-    );
-  });
+  // Identify TOIL leave type and current employee balance (strictly when active)
+  const toilLeaveType = isToilEngineActive
+    ? state.leaveTypes.find(
+        (lt) => lt.category === "toil_taken" || lt.name.toLowerCase().includes("toil"),
+      )
+    : undefined;
+
+  const toilBalanceItem = isToilEngineActive
+    ? state.balances.find((b) => {
+        const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+        return (
+          rel?.category === "toil_taken" ||
+          rel?.id === toilLeaveType?.id ||
+          rel?.name?.toLowerCase().includes("toil")
+        );
+      })
+    : undefined;
 
   const toilAvailableHours = Number(toilBalanceItem?.balance_hours ?? 0);
-  const hasToilBalance = toilAvailableHours > 0;
+  const hasToilBalance = isToilEngineActive && toilAvailableHours > 0;
   const isSelectingToil =
-    Boolean(leaveTypeId && toilLeaveType?.id && leaveTypeId === toilLeaveType.id);
+    Boolean(isToilEngineActive && leaveTypeId && toilLeaveType?.id && leaveTypeId === toilLeaveType.id);
 
   // Statutory accrual multiplier (default 1.5× under BCEA Section 10(3)(b))
   const multiplier = Number(state.toilMultiplier ?? 1.5);
@@ -243,15 +250,17 @@ export default function EmployeeLeaveRequests({
             Leave &amp; Time Off
           </h2>
           <p className="mt-1 text-xs text-muted">
-            Request leave, convert overtime into TOIL, and review your leave history.
+            {isToilEngineActive
+              ? "Request leave, convert overtime into TOIL, and review your leave history."
+              : "Request leave, review entitlements, and review your leave history."}
           </p>
         </div>
 
-        {toilLeaveType ? (
+        {isToilEngineActive && toilLeaveType ? (
           <button
             type="button"
             onClick={handleTakeTimeOffAsToil}
-            className="inline-flex items-center rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition shadow-2xs"
+            className="inline-flex items-center rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-foreground hover:bg-surface-muted transition shadow-soft"
           >
             Take Time Off as TOIL
           </button>
@@ -260,7 +269,7 @@ export default function EmployeeLeaveRequests({
 
       {visibleMessage ? (
         <p
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={`rounded-2xl border px-4 py-3 text-sm font-medium shadow-soft ${
             visibleOk
               ? "border-success/30 bg-success/10 text-success"
               : "border-danger/30 bg-danger/10 text-danger"
@@ -271,19 +280,28 @@ export default function EmployeeLeaveRequests({
       ) : null}
 
       {/* BALANCES & REQUEST FORM */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1.3fr]">
+      <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         {/* Available Balances */}
-        <div className="min-w-0 rounded-lg border border-border bg-background p-4 shadow-xs">
+        <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-surface p-3.5 sm:p-5 shadow-soft">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-foreground">Available balances</p>
             <span className="text-[11px] font-medium text-muted">Paid hours</span>
           </div>
 
-          <div className="mt-3 grid gap-2">
-            {state.balances.length === 0 ? (
-              <p className="text-sm text-muted">No balances assigned yet.</p>
-            ) : (
-              state.balances.map((balance) => {
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {(() => {
+              const displayBalances = isToilEngineActive
+                ? state.balances
+                : state.balances.filter((b) => {
+                    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+                    return rel?.category !== "toil_taken" && !rel?.name?.toLowerCase().includes("toil");
+                  });
+
+              if (displayBalances.length === 0) {
+                return <p className="text-sm text-muted col-span-full">No balances assigned yet.</p>;
+              }
+
+              return displayBalances.map((balance) => {
                 const relation = Array.isArray(balance.leave_types)
                   ? balance.leave_types[0]
                   : balance.leave_types;
@@ -294,45 +312,68 @@ export default function EmployeeLeaveRequests({
                 const balHours = Number(balance.balance_hours ?? 0);
 
                 return (
-                  <div
+                  <article
                     key={balance.id}
-                    className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm transition ${
+                    className={`flex flex-col justify-between gap-2.5 rounded-2xl p-3.5 text-white shadow-soft min-w-0 ${
                       isToil
-                        ? "border border-amber-500/30 bg-amber-500/10"
-                        : "bg-surface"
+                        ? "card-gold"
+                        : "card-hero-green"
                     }`}
                   >
-                    <div className="flex min-w-0 flex-1 items-center">
-                      <span className="font-bold text-foreground break-words leading-tight">
-                        {leaveTypeName(balance)}
+                    {/* Header: Monogram, Name & Badge */}
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div className="relative flex size-7 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/20 text-[10px] font-black uppercase text-white">
+                          {leaveTypeName(balance).slice(0, 2)}
+                          <span
+                            className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ring-white/50 bg-white"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-extrabold text-white truncate">
+                            {leaveTypeName(balance)}
+                          </p>
+                          <p className="text-[10px] font-medium truncate text-white/80">
+                            {isToil ? "Accrued Overtime" : "Standard Benefit"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-black/20 text-white border border-white/20"
+                      >
+                        {isToil ? "TOIL" : "Accrued"}
                       </span>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-black ${
-                          isToil
-                            ? "bg-amber-400/20 text-amber-300"
-                            : "bg-surface-muted text-foreground"
-                        }`}
-                      >
+                    {/* High-Contrast White Metrics Box */}
+                    <div className="rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-soft">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight">Available Balance</p>
+                      <p className={`text-base font-black font-mono leading-tight mt-0.5 ${isToil ? "text-amber-800" : "text-emerald-800"}`}>
                         {balHours.toFixed(2)}h
+                      </p>
+                    </div>
+
+                    {/* Footer Pills */}
+                    <div className="flex items-center justify-between text-[10px] pt-0.5">
+                      <span className="rounded-full px-2 py-0.5 font-semibold bg-black/20 text-white">
+                        {isToil ? "Time-Off Bank" : "BCEA Accrual"}
                       </span>
 
                       {isToil && balHours > 0 ? (
                         <button
                           type="button"
                           onClick={handleTakeTimeOffAsToil}
-                          className="text-[11px] font-bold text-amber-400 underline underline-offset-2 hover:text-amber-300"
+                          className="rounded-full bg-white px-2.5 py-0.5 font-black text-amber-900 shadow-soft hover:bg-amber-50 cursor-pointer transition-colors"
                         >
-                          Take leave
+                          Take leave &rarr;
                         </button>
                       ) : null}
                     </div>
-                  </div>
+                  </article>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
 
@@ -340,37 +381,43 @@ export default function EmployeeLeaveRequests({
         <form
           id="new-leave-request-form"
           action={formAction}
-          className="grid min-w-0 gap-3 rounded-lg border border-border bg-background p-4 shadow-xs"
+          className="grid w-full min-w-0 max-w-full gap-3.5 rounded-2xl border border-border/80 bg-surface p-3.5 sm:p-5 shadow-soft"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-foreground">New request</p>
             {isSelectingToil ? (
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-bold text-amber-300">
+              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[11px] font-bold text-amber-500">
                 ⚡ TOIL Leave Selected
               </span>
             ) : null}
           </div>
 
-          <label className="grid gap-1">
+          <label className="grid w-full min-w-0 max-w-full gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Leave Type
             </span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
               <List className="size-4 shrink-0 text-muted" />
               <select
                 name="leave_type_id"
                 value={leaveTypeId}
                 onChange={(event) => setLeaveTypeId(event.target.value)}
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                className="h-10 w-full min-w-0 max-w-full flex-1 truncate bg-transparent text-sm text-foreground outline-none"
               >
                 <option value="">Select leave type</option>
-                {state.leaveTypes.map((lt) => {
+                {(isToilEngineActive
+                  ? state.leaveTypes
+                  : state.leaveTypes.filter(
+                      (lt) => lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil"),
+                    )
+                ).map((lt) => {
                   const isToil =
-                    lt.category === "toil_taken" ||
-                    lt.id === toilLeaveType?.id ||
-                    lt.name.toLowerCase().includes("toil");
+                    isToilEngineActive &&
+                    (lt.category === "toil_taken" ||
+                      lt.id === toilLeaveType?.id ||
+                      lt.name.toLowerCase().includes("toil"));
                   return (
-                    <option key={lt.id} value={lt.id}>
+                    <option key={lt.id} value={lt.id} className="truncate">
                       {isToil
                         ? `⚡ ${lt.name} (${toilAvailableHours.toFixed(2)}h balance available)`
                         : lt.name}
@@ -382,12 +429,12 @@ export default function EmployeeLeaveRequests({
           </label>
 
           {/* DEDICATED TOIL ABSENCE BANNER */}
-          {isSelectingToil ? (
-            <div className="rounded-lg border border-border/80 bg-surface-muted/30 p-3 text-xs">
+          {isToilEngineActive && isSelectingToil ? (
+            <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-surface-muted/30 p-3.5 text-xs shadow-soft">
               <div className="font-semibold text-foreground">
                 Taking Time Off as TOIL (Time Off In Lieu)
               </div>
-              <p className="mt-1 text-muted">
+              <p className="mt-1 text-muted break-words">
                 This request will deduct 100% directly from your TOIL balance (
                 <span className="font-bold text-foreground">
                   {toilAvailableHours.toFixed(2)}h available
@@ -395,21 +442,21 @@ export default function EmployeeLeaveRequests({
                 ). Your annual leave balance will remain completely untouched.
               </p>
             </div>
-          ) : hasToilBalance ? (
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-accent/40 bg-accent/10 p-2.5 text-xs font-medium">
+          ) : isToilEngineActive && hasToilBalance ? (
+            <label className="flex w-full min-w-0 max-w-full cursor-pointer items-start gap-2.5 rounded-2xl border border-primary/30 bg-primary/5 p-3 text-xs font-medium">
               <input
                 type="checkbox"
                 name="use_toil_first"
                 value="true"
                 checked={useToilFirst}
                 onChange={(event) => setUseToilFirst(event.target.checked)}
-                className="mt-0.5 size-4 rounded accent-accent"
+                className="mt-0.5 size-4 shrink-0 rounded accent-primary"
               />
               <div className="min-w-0 flex-1">
-                <span className="font-bold text-foreground">
+                <span className="font-bold text-foreground block break-words">
                   Load TOIL first ({toilAvailableHours.toFixed(2)}h available)
                 </span>
-                <p className="mt-0.5 text-muted">
+                <p className="mt-0.5 text-muted break-words">
                   Your overtime comp balance will be loaded first before deducting from your annual leave unless unchecked.
                 </p>
               </div>
@@ -418,34 +465,34 @@ export default function EmployeeLeaveRequests({
             <input type="hidden" name="use_toil_first" value="true" />
           )}
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className="grid min-w-0 gap-1">
+          <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="grid w-full min-w-0 max-w-full gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 Start Date
               </span>
-              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
                 <Calendar className="size-4 shrink-0 text-muted" />
                 <input
                   name="start_date"
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                  className="h-10 w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none"
                 />
               </span>
             </label>
-            <label className="grid min-w-0 gap-1">
+            <label className="grid w-full min-w-0 max-w-full gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 End Date
               </span>
-              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
                 <Calendar className="size-4 shrink-0 text-muted" />
                 <input
                   name="end_date"
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                  className="h-10 w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none"
                 />
               </span>
             </label>
@@ -453,10 +500,10 @@ export default function EmployeeLeaveRequests({
 
           {calculation ? (
             <div
-              className={`grid gap-2 rounded-md border p-3 text-sm ${
+              className={`grid w-full min-w-0 max-w-full gap-2.5 rounded-2xl border p-4 text-sm shadow-soft ${
                 calculation.exceeds_balance
                   ? "border-danger/30 bg-danger/10"
-                  : "border-accent/30 bg-accent/10"
+                  : "border-primary/30 bg-primary/5"
               }`}
             >
               <div className="font-semibold text-foreground">
@@ -465,54 +512,54 @@ export default function EmployeeLeaveRequests({
 
               {calculation.load_toil_first &&
               Number(calculation.toil_hours_to_use ?? 0) > 0 ? (
-                <div className="rounded-md border border-accent/40 bg-surface p-2 text-xs">
+                <div className="rounded-xl border border-primary/40 bg-surface p-2.5 text-xs min-w-0">
                   <p className="font-bold text-foreground">Priority deduction (TOIL loaded first):</p>
                   <div className="mt-1 flex flex-wrap gap-2">
-                    <span className="rounded bg-accent/15 px-2 py-0.5 font-bold text-accent">
+                    <span className="rounded-full bg-primary/15 px-2.5 py-0.5 font-bold text-primary">
                       TOIL: {Number(calculation.toil_hours_to_use).toFixed(2)}h
                     </span>
-                    <span className="rounded bg-surface-muted px-2 py-0.5 font-bold text-foreground">
+                    <span className="rounded-full bg-surface-muted px-2.5 py-0.5 font-bold text-foreground">
                       {calculation.leave_type_name}: {Number(calculation.leave_hours_to_use).toFixed(2)}h
                     </span>
                   </div>
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <span className="rounded-md bg-surface px-2 py-1.5">
-                  <span className="block text-xs text-muted">Hours to take</span>
-                  <span className="font-semibold text-foreground">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 min-w-0">
+                <span className="rounded-xl bg-surface p-2 shadow-soft min-w-0">
+                  <span className="block text-xs text-muted truncate">Hours to take</span>
+                  <span className="font-semibold text-foreground truncate block">
                     {Number(calculation.total_hours).toFixed(2)}h
                   </span>
                 </span>
-                <span className="rounded-md bg-surface px-2 py-1.5">
-                  <span className="block text-xs text-muted">Working days</span>
-                  <span className="font-semibold text-foreground">
+                <span className="rounded-xl bg-surface p-2 shadow-soft min-w-0">
+                  <span className="block text-xs text-muted truncate">Working days</span>
+                  <span className="font-semibold text-foreground truncate block">
                     {calculation.working_days} day{calculation.working_days === 1 ? "" : "s"}
                   </span>
                 </span>
-                <span className="rounded-md bg-surface px-2 py-1.5">
-                  <span className="block text-xs text-muted">As days (approx)</span>
-                  <span className="font-semibold text-foreground">
+                <span className="rounded-xl bg-surface p-2 shadow-soft min-w-0">
+                  <span className="block text-xs text-muted truncate">As days (approx)</span>
+                  <span className="font-semibold text-foreground truncate block">
                     {Number(calculation.days_equivalent).toFixed(2)}d
                   </span>
                 </span>
-                <span className="rounded-md bg-surface px-2 py-1.5">
-                  <span className="block text-xs text-muted">Leave begins</span>
-                  <span className="font-semibold text-foreground">
+                <span className="rounded-xl bg-surface p-2 shadow-soft min-w-0">
+                  <span className="block text-xs text-muted truncate">Leave begins</span>
+                  <span className="font-semibold text-foreground truncate block">
                     {formatFullDate(startDate || calculation.days[0]?.date)}
                   </span>
                 </span>
-                <span className="rounded-md bg-surface px-2 py-1.5">
-                  <span className="block text-xs text-muted">Return to work</span>
-                  <span className="font-semibold text-foreground">
+                <span className="rounded-xl bg-surface p-2 shadow-soft min-w-0">
+                  <span className="block text-xs text-muted truncate">Return to work</span>
+                  <span className="font-semibold text-foreground truncate block">
                     {formatFullDate(calculation.expected_return_date)}
                   </span>
                 </span>
-                <span className="rounded-md bg-surface px-2 py-1.5">
-                  <span className="block text-xs text-muted">Supporting docs</span>
+                <span className="rounded-xl bg-surface p-2 shadow-soft min-w-0">
+                  <span className="block text-xs text-muted truncate">Supporting docs</span>
                   <span
-                    className={`font-semibold ${
+                    className={`font-semibold truncate block ${
                       calculation.requires_attachment ? "text-warning" : "text-success"
                     }`}
                   >
@@ -521,12 +568,12 @@ export default function EmployeeLeaveRequests({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <span className="rounded-md bg-surface px-2 py-1 font-semibold text-foreground">
+              <div className="grid grid-cols-2 gap-2 text-xs min-w-0">
+                <span className="rounded-xl bg-surface px-2.5 py-1.5 font-semibold text-foreground shadow-soft min-w-0 truncate">
                   Available: {Number(calculation.available_hours).toFixed(2)}h
                 </span>
                 <span
-                  className={`rounded-md bg-surface px-2 py-1 font-semibold ${
+                  className={`rounded-xl bg-surface px-2.5 py-1.5 font-semibold shadow-soft min-w-0 truncate ${
                     calculation.exceeds_balance ? "text-danger" : "text-success"
                   }`}
                 >
@@ -535,19 +582,19 @@ export default function EmployeeLeaveRequests({
               </div>
 
               {calculation.exceeds_balance ? (
-                <p className="text-xs font-semibold text-danger">
+                <p className="text-xs font-semibold text-danger break-words">
                   You do not have enough hours for this request.
                 </p>
               ) : null}
 
               {holidayDays.length > 0 ? (
-                <div className="rounded-md bg-surface px-2 py-1.5">
+                <div className="rounded-xl bg-surface p-2.5 shadow-soft min-w-0">
                   <p className="text-xs font-semibold text-foreground">
                     Public holidays in this request
                   </p>
                   <ul className="mt-1 grid gap-1 text-xs text-muted">
                     {holidayDays.map((day) => (
-                      <li key={day.date}>
+                      <li key={day.date} className="break-words">
                         {formatDate(day.date)} - {day.label ?? "Public holiday"}
                       </li>
                     ))}
@@ -556,7 +603,7 @@ export default function EmployeeLeaveRequests({
               ) : null}
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-md border border-border bg-surface px-3 py-2 text-sm">
+            <div className="flex w-full min-w-0 max-w-full items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3 text-sm shadow-soft">
               <span className="font-semibold text-foreground">Hours requested</span>
               <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-semibold text-foreground">
                 0.00h
@@ -564,56 +611,57 @@ export default function EmployeeLeaveRequests({
             </div>
           )}
 
-          <label className="grid min-w-0 gap-1">
+          <label className="grid w-full min-w-0 max-w-full gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Attachment Link
             </span>
-            <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+            <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
               <Link className="size-4 shrink-0 text-muted" />
               <input
                 name="attachment_url"
                 value={attachmentUrl}
                 onChange={(event) => setAttachmentUrl(event.target.value)}
-                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                className="h-10 w-full min-w-0 max-w-full flex-1 truncate bg-transparent text-sm text-foreground outline-none"
                 placeholder="Attachment link, if needed"
               />
             </span>
           </label>
           <StorageUploadButton
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
             folder="attachment"
-            hint="Or upload a supporting file under 5 MB."
+            hint="Allowed: PDF, JPG, PNG, WebP (Max 10 MB). Executable scripts and macro-enabled files are blocked."
             onUploaded={(publicUrl) => setAttachmentUrl(publicUrl)}
           />
 
-          <label className="grid min-w-0 gap-1">
+
+          <label className="grid w-full min-w-0 max-w-full gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
               Reason
             </span>
-            <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-              <FileText className="size-4 shrink-0 text-muted" />
+            <span className="flex w-full min-w-0 max-w-full items-start gap-2 rounded-2xl border border-border bg-background px-3.5 pt-2.5 overflow-hidden">
+              <FileText className="size-4 shrink-0 text-muted mt-0.5" />
               <textarea
                 name="reason"
                 rows={2}
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
+                className="w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
                 placeholder="Reason for absence..."
               />
             </span>
           </label>
 
-          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+          <div className="grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2">
             <button
               formAction={calculationAction}
               disabled={calculationPending}
-              className="min-w-0 inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-foreground disabled:opacity-60"
+              className="w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold text-foreground shadow-soft hover:bg-surface-muted disabled:opacity-60 transition-colors"
             >
               {calculationPending ? "Preparing..." : "Get advice"}
             </button>
             <button
               disabled={pending || Boolean(calculation?.exceeds_balance)}
-              className="min-w-0 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              className="w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-colors"
             >
               <Send className="size-4" />
               {pending ? "Sending..." : "Send request"}
@@ -632,67 +680,123 @@ export default function EmployeeLeaveRequests({
             {state.requests.map((request) => {
               const isApproved = request.status === "approved";
               const isRejected = request.status === "rejected";
-              const isSubmitted = request.status === "submitted";
 
               return (
                 <article
                   key={request.id}
-                  className={`flex flex-col justify-between gap-2.5 rounded-lg border-2 p-3.5 text-sm shadow-2xs min-w-0 ${
+                  className={`flex flex-col justify-between gap-2.5 rounded-2xl p-4 text-white shadow-soft min-w-0 ${
                     isApproved
-                      ? "border-emerald-500 bg-emerald-50/40"
+                      ? "bg-emerald-700 ring-1 ring-emerald-800/60"
                       : isRejected
-                        ? "border-rose-500 bg-rose-50/50"
-                        : isSubmitted
-                          ? "border-amber-400 bg-amber-50/40"
-                          : "border-border bg-white"
+                        ? "bg-rose-700 ring-1 ring-rose-800/60"
+                        : "bg-amber-700 ring-1 ring-amber-800/80"
                   }`}
                 >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap sm:flex-nowrap items-start justify-between gap-2">
-                      <p className="text-xs font-extrabold text-foreground break-words leading-tight flex-1 min-w-0">
-                        {request.leaveTypeName ?? "Leave"}
-                      </p>
-                      <span
-                        className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs whitespace-nowrap ${
+                  {/* Top Bar: Monogram, Title, Dates & Status Badge */}
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div
+                        className={`relative flex size-8.5 shrink-0 items-center justify-center rounded-full border shadow-soft text-xs font-black uppercase leading-none ${
                           isApproved
-                            ? "bg-emerald-600 text-white"
+                            ? "border-emerald-500/50 bg-emerald-850 text-white"
                             : isRejected
-                              ? "bg-rose-600 text-white"
-                              : isSubmitted
-                                ? "bg-amber-500 text-white"
-                                : "bg-slate-900 text-white"
+                              ? "border-rose-500/50 bg-rose-850 text-white"
+                              : "border-amber-300/50 bg-amber-800/90 text-white"
                         }`}
                       >
-                        {request.status}
-                      </span>
-                    </div>
+                        {request.leaveTypeName?.slice(0, 2) ?? "LV"}
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ${
+                            isApproved
+                              ? "bg-emerald-300 ring-emerald-700"
+                              : isRejected
+                                ? "bg-rose-300 ring-rose-700"
+                                : "bg-amber-300 ring-amber-700"
+                          }`}
+                        />
+                      </div>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-medium text-muted">
-                        <span className="font-bold text-foreground">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-extrabold text-white truncate">
+                          {request.leaveTypeName ?? "Leave"}
+                        </p>
+                        <p
+                          className={`text-[11px] font-medium truncate mt-0.5 ${
+                            isApproved
+                              ? "text-emerald-100"
+                              : isRejected
+                                ? "text-rose-100"
+                                : "text-white/85"
+                          }`}
+                        >
                           {request.start_date} to {request.end_date}
-                        </span>{" "}
-                        ·{" "}
-                        <span className="font-extrabold text-foreground">
-                          {Number(request.total_hours).toFixed(2)}h
-                        </span>
-                      </span>
-
-                      {request.use_toil_first ? (
-                        <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-bold text-accent">
-                          ⚡ TOIL First
-                          {request.toil_hours_used && Number(request.toil_hours_used) > 0
-                            ? ` (${Number(request.toil_hours_used).toFixed(2)}h)`
-                            : ""}
-                        </span>
-                      ) : null}
+                        </p>
+                      </div>
                     </div>
 
-                    {request.rejection_reason ? (
-                      <p className="mt-1.5 rounded-md border border-rose-300 bg-rose-100/80 p-2 text-xs font-semibold text-rose-950">
-                        Rejection note: {request.rejection_reason}
-                      </p>
-                    ) : null}
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
+                        isApproved
+                          ? "bg-emerald-950/40 text-emerald-200 border border-emerald-400/30"
+                          : isRejected
+                            ? "bg-rose-950/50 text-rose-200 border border-rose-400/30"
+                            : "bg-black/25 text-white border border-white/20"
+                      }`}
+                    >
+                      {request.status}
+                    </span>
+                  </div>
+
+                  {/* High-Contrast White Metric Boxes */}
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-soft min-w-0">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Start</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight truncate">{request.start_date}</p>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">End</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight truncate">{request.end_date}</p>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
+                      <p className="font-black text-emerald-700 text-xs break-words font-mono leading-tight">{Number(request.total_hours).toFixed(2)}h</p>
+                    </div>
+                  </div>
+
+                  {request.rejection_reason ? (
+                    <div className="rounded-xl bg-white p-2.5 text-xs text-slate-900 shadow-soft break-words">
+                      <span className="font-extrabold uppercase tracking-wider text-rose-600">Rejection note: </span>
+                      <span className="font-semibold text-slate-900">{request.rejection_reason}</span>
+                    </div>
+                  ) : null}
+
+                  {/* Complementary Footer Pills */}
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] min-w-0 pt-0.5">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 font-semibold ${
+                        isApproved
+                          ? "bg-emerald-800/80 text-emerald-100"
+                          : isRejected
+                            ? "bg-rose-800/80 text-rose-100"
+                            : "bg-black/20 text-white"
+                      }`}
+                    >
+                      {request.use_toil_first ? "⚡ TOIL Applied" : "Standard Leave"}
+                    </span>
+
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 font-bold whitespace-nowrap border ${
+                        isApproved
+                          ? "bg-emerald-950/40 text-emerald-200 border border-emerald-400/20"
+                          : isRejected
+                            ? "bg-rose-950/50 text-rose-200 border border-rose-400/20"
+                            : "bg-amber-950/40 text-amber-100 border border-amber-300/20"
+                      }`}
+                    >
+                      {isApproved ? "Approved by Manager" : isRejected ? "Action Needed" : "Pending Review"}
+                    </span>
                   </div>
                 </article>
               );
@@ -701,14 +805,15 @@ export default function EmployeeLeaveRequests({
         </div>
       ) : null}
 
-      {/* ENHANCED TOIL CONVERTER & PREVIEW CARD */}
-      <section className="rounded-xl border border-border/80 bg-surface p-5 text-foreground shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-bold text-foreground">
-                Convert Overtime to TOIL
-              </h3>
+      {/* ENHANCED TOIL CONVERTER & PREVIEW CARD (Strictly rendered only when TOIL engine is enabled) */}
+      {isToilEngineActive ? (
+        <section className="rounded-2xl border border-border/80 bg-surface p-5 sm:p-6 text-foreground shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-foreground">
+                  Convert Overtime to TOIL
+                </h3>
               <span className="rounded-full border border-border bg-surface-muted px-2.5 py-0.5 text-xs font-semibold text-muted">
                 BCEA Statutory (×{multiplier} Rate)
               </span>
@@ -722,7 +827,7 @@ export default function EmployeeLeaveRequests({
             <button
               type="button"
               onClick={handleTakeTimeOffAsToil}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-foreground hover:bg-surface-muted transition shadow-soft cursor-pointer"
             >
               Take Time Off as TOIL
             </button>
@@ -732,7 +837,7 @@ export default function EmployeeLeaveRequests({
         {/* CONTROLS: PERIOD & HOURS SELECTION */}
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Period Selector */}
-          <div className="rounded-lg border border-border/80 bg-surface-muted/30 p-3.5">
+          <div className="rounded-2xl border border-border/80 bg-surface-muted/30 p-4 shadow-soft">
             <div className="flex items-center justify-between gap-2">
               <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 Payroll Period / Cycle
@@ -745,7 +850,7 @@ export default function EmployeeLeaveRequests({
             <select
               value={selectedPeriodKey}
               onChange={(e) => setSelectedPeriodKey(e.target.value)}
-              className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="mt-2.5 h-11 w-full rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value="current">
                 Current Month ({formatDate(currentMonthStart)} - {formatDate(currentMonthEnd)})
@@ -769,7 +874,7 @@ export default function EmployeeLeaveRequests({
                     type="date"
                     value={customStart}
                     onChange={(e) => setCustomStart(e.target.value)}
-                    className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary"
+                    className="mt-1 h-10 w-full rounded-full border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary"
                   />
                 </div>
                 <div>
@@ -778,7 +883,7 @@ export default function EmployeeLeaveRequests({
                     type="date"
                     value={customEnd}
                     onChange={(e) => setCustomEnd(e.target.value)}
-                    className="mt-1 h-9 w-full rounded-lg border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary"
+                    className="mt-1 h-10 w-full rounded-full border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -790,7 +895,7 @@ export default function EmployeeLeaveRequests({
           </div>
 
           {/* Overtime Hours to Convert */}
-          <div className="rounded-lg border border-border/80 bg-surface-muted/30 p-3.5">
+          <div className="rounded-2xl border border-border/80 bg-surface-muted/30 p-4 shadow-soft">
             <div className="flex items-center justify-between gap-2">
               <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                 Overtime to Convert
@@ -800,14 +905,14 @@ export default function EmployeeLeaveRequests({
               </span>
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2.5 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setConversionMode("all")}
-                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                className={`flex-1 rounded-full px-4 py-2 text-xs font-semibold transition shadow-soft ${
                   conversionMode === "all"
-                    ? "bg-primary text-primary-foreground shadow-2xs"
-                    : "border border-border bg-background text-foreground hover:bg-surface-muted"
+                    ? "bg-primary text-white"
+                    : "border border-border bg-surface text-foreground hover:bg-surface-muted"
                 }`}
               >
                 All Overtime ({periodOvertime.toFixed(2)}h)
@@ -821,10 +926,10 @@ export default function EmployeeLeaveRequests({
                     setCustomHoursInput(periodOvertime > 0 ? periodOvertime.toString() : "1.00");
                   }
                 }}
-                className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                className={`flex-1 rounded-full px-4 py-2 text-xs font-semibold transition shadow-soft ${
                   conversionMode === "custom"
-                    ? "bg-primary text-primary-foreground shadow-2xs"
-                    : "border border-border bg-background text-foreground hover:bg-surface-muted"
+                    ? "bg-primary text-white"
+                    : "border border-border bg-surface text-foreground hover:bg-surface-muted"
                 }`}
               >
                 Custom Hours
@@ -840,7 +945,7 @@ export default function EmployeeLeaveRequests({
                   value={customHoursInput}
                   onChange={(e) => setCustomHoursInput(e.target.value)}
                   placeholder="e.g. 4.00"
-                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:border-primary"
+                  className="h-10 w-full rounded-full border border-border bg-background px-4 text-sm font-semibold text-foreground outline-none focus:border-primary"
                 />
                 <span className="text-xs font-semibold text-muted">hours</span>
               </div>
@@ -856,14 +961,14 @@ export default function EmployeeLeaveRequests({
         </div>
 
         {/* LIVE TOIL PROJECTION DASHBOARD ("WHAT YOUR TOIL WILL LOOK LIKE") */}
-        <div className="mt-4 rounded-xl border border-border/80 bg-surface-muted/40 p-4">
+        <div className="mt-4 rounded-2xl border border-border/80 bg-surface-muted/40 p-4 shadow-soft">
           <div className="font-bold text-xs uppercase tracking-wider text-muted">
             Live TOIL Projection (What your balance will look like)
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {/* Metric 1: OT hours */}
-            <div className="rounded-lg border border-border/80 bg-surface p-2.5 shadow-2xs">
+            <div className="rounded-2xl border border-border/80 bg-surface p-3 shadow-soft">
               <span className="block text-[10px] font-bold uppercase text-muted">
                 Overtime To Convert
               </span>
@@ -874,7 +979,7 @@ export default function EmployeeLeaveRequests({
             </div>
 
             {/* Metric 2: Multiplier */}
-            <div className="rounded-lg border border-border/80 bg-surface p-2.5 shadow-2xs">
+            <div className="rounded-2xl border border-border/80 bg-surface p-3 shadow-soft">
               <span className="block text-[10px] font-bold uppercase text-muted">
                 Multiplier Rate
               </span>
@@ -885,7 +990,7 @@ export default function EmployeeLeaveRequests({
             </div>
 
             {/* Metric 3: TOIL Earned */}
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 p-2.5 shadow-2xs">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/50 p-3 shadow-soft">
               <span className="block text-[10px] font-bold uppercase text-emerald-800">
                 TOIL Earned
               </span>
@@ -896,7 +1001,7 @@ export default function EmployeeLeaveRequests({
             </div>
 
             {/* Metric 4: Projected New Balance */}
-            <div className="rounded-lg border border-primary/40 bg-primary/10 p-2.5 shadow-2xs">
+            <div className="rounded-2xl border border-primary/40 bg-primary/10 p-3 shadow-soft">
               <span className="block text-[10px] font-bold uppercase text-primary">
                 New TOIL Balance
               </span>
@@ -910,25 +1015,44 @@ export default function EmployeeLeaveRequests({
           </div>
 
           {/* Visual Step Sequence */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-surface px-3 py-2 text-xs font-semibold text-foreground">
-            <span className="text-muted">
-              Current: <strong className="text-foreground">{toilAvailableHours.toFixed(2)}h</strong>
-            </span>
-            <ArrowRight className="size-3.5 text-muted" />
-            <span className="text-emerald-700">
-              Accrue: <strong>+{projectedEarnedToil.toFixed(2)}h TOIL</strong>
-            </span>
-            <ArrowRight className="size-3.5 text-muted" />
-            <span className="rounded bg-primary/10 px-2 py-0.5 text-primary font-bold">
-              Projected Balance: {projectedNewBalance.toFixed(2)}h
-            </span>
+          <div className="mt-3 rounded-2xl border border-border/80 bg-gradient-to-r from-surface via-surface-muted/30 to-surface p-3 sm:p-3.5 shadow-soft">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 text-xs">
+              <div className="flex items-center justify-between sm:justify-start gap-2 rounded-xl bg-surface p-2 sm:p-0 sm:bg-transparent border sm:border-0 border-border/60">
+                <span className="text-[11px] font-semibold text-muted">Current Balance</span>
+                <span className="font-mono font-black text-foreground">
+                  {toilAvailableHours.toFixed(2)}h
+                </span>
+              </div>
+
+              <div className="hidden sm:flex items-center text-muted">
+                <ArrowRight className="size-3.5 shrink-0 text-muted" />
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-start gap-2 rounded-xl bg-emerald-500/10 px-2.5 py-1.5 border border-emerald-500/20 sm:border-0">
+                <span className="text-[11px] font-semibold text-emerald-800">Accrue TOIL</span>
+                <span className="font-mono font-black text-emerald-700">
+                  +{projectedEarnedToil.toFixed(2)}h
+                </span>
+              </div>
+
+              <div className="hidden sm:flex items-center text-muted">
+                <ArrowRight className="size-3.5 shrink-0 text-muted" />
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-start gap-2 rounded-xl bg-primary/15 px-3 py-1.5 border border-primary/30">
+                <span className="text-[11px] font-bold text-foreground">Projected Balance</span>
+                <span className="font-mono font-black text-primary text-sm">
+                  {projectedNewBalance.toFixed(2)}h
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* FEEDBACK MESSAGE */}
         {toilState.message ? (
           <div
-            className={`mt-4 rounded-lg border p-3 text-xs font-semibold ${
+            className={`mt-4 rounded-2xl border p-4 text-xs font-semibold shadow-soft ${
               toilState.ok
                 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
                 : "border-rose-500/40 bg-rose-500/10 text-rose-700"
@@ -958,7 +1082,7 @@ export default function EmployeeLeaveRequests({
           <button
             type="submit"
             disabled={toilPending || effectiveOtHours <= 0}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-2xs transition hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-bold text-primary-foreground shadow-soft transition hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {toilPending ? (
               <>
@@ -978,6 +1102,7 @@ export default function EmployeeLeaveRequests({
           ) : null}
         </form>
       </section>
+      ) : null}
     </section>
   );
 }

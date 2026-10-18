@@ -21,6 +21,7 @@ function StepItem({
   description,
   step,
   title,
+  tone = "primary",
   open,
   onToggle,
 }: {
@@ -33,30 +34,37 @@ function StepItem({
   open: boolean;
   onToggle: () => void;
 }) {
+  const headerBgClass =
+    tone === "primary"
+      ? "bg-gradient-to-r from-[#2E9B5F] to-[#23834C] text-white shadow-primary"
+      : tone === "warning"
+        ? "bg-gradient-to-r from-[#D97706] to-[#B45309] text-white shadow-soft"
+        : "bg-gradient-to-r from-[#6C5CE7] to-[#5345C7] text-white";
+
   return (
-    <section className="grid min-w-0 grid-cols-1 overflow-hidden rounded-xl border border-border/80 bg-surface shadow-2xs">
+    <section className="grid min-w-0 max-w-full grid-cols-1 overflow-hidden rounded-2xl border border-border bg-surface shadow-soft transition-all">
       <button
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className="flex w-full items-start gap-3 bg-primary px-4 py-4 text-left text-primary-foreground transition-[filter] duration-200 hover:brightness-110 sm:px-5"
+        className={`flex w-full items-start gap-3.5 px-4 py-4 text-left transition-[filter] duration-200 hover:brightness-105 sm:px-5 ${headerBgClass}`}
       >
         <span
-          className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-primary shadow-2xs"
+          className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-[#111827] shadow-sm"
         >
           {step}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-base font-semibold text-white break-words leading-tight">
+          <span className="block text-base font-bold text-white break-words leading-tight">
             {title}
           </span>
-          <span className="mt-0.5 block text-xs leading-snug text-white/80">
+          <span className="mt-0.5 block text-xs leading-snug text-white/90">
             {description}
           </span>
           {badge ? (
-            <span className="mt-2 inline-flex items-center rounded-full bg-white/25 px-1.5 py-1">
+            <div className="mt-2 inline-flex items-center">
               {badge}
-            </span>
+            </div>
           ) : null}
         </span>
         <span className="flex shrink-0 items-start pt-1">
@@ -66,7 +74,7 @@ function StepItem({
         </span>
       </button>
       {open ? (
-        <div className="min-w-0 border-t border-border bg-surface p-4 sm:p-5">{children}</div>
+        <div className="min-w-0 max-w-full border-t border-border bg-surface p-3.5 sm:p-5">{children}</div>
       ) : null}
     </section>
   );
@@ -93,7 +101,7 @@ export default function EmployeeMyTimeHub({
     setOpenSteps((prev) => ({ ...prev, [step]: !prev[step] }));
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-4">
+    <div className="grid min-w-0 max-w-full grid-cols-1 gap-4">
       <StepItem
         step="1"
         title="Clock in and out"
@@ -121,7 +129,7 @@ export default function EmployeeMyTimeHub({
       <StepItem
         step="3"
         title="Leave and accruals"
-        description="Check your balances, plan leave with the advisor, and convert overtime to TOIL."
+        description="Check your balances, plan leave with the advisor, and track your time off."
         badge={leaveBadge}
         tone="holiday"
         open={openSteps["3"]}

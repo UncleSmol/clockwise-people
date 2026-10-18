@@ -33,10 +33,12 @@ export default function EmployeeHoursSummaryReportTable({
             <div className="font-semibold text-foreground">
               {row.original.employeeName}
             </div>
-            <div className="text-[10px] text-muted flex items-center gap-1 font-mono">
-              <span>{row.original.employeeNumber}</span>
-              {row.original.jobTitle ? <span>· {row.original.jobTitle}</span> : null}
-            </div>
+            {row.original.jobTitle ? (
+              <div className="text-[10px] text-muted">
+                {row.original.jobTitle}
+              </div>
+            ) : null}
+
           </div>
         ),
       },

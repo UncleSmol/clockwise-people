@@ -416,10 +416,10 @@ export default function CompanyPayslipsWorkspace({
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {/* Total Employees */}
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+        <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-soft">
           <div className="flex items-center justify-between text-muted">
             <span className="text-[11px] font-bold uppercase tracking-wider">Total Headcount</span>
-            <Users className="size-4 text-slate-400" />
+            <Users className="size-4 text-muted" />
           </div>
           <div className="mt-2 text-2xl font-black text-foreground">
             {stats.totalEmployees}
@@ -430,58 +430,58 @@ export default function CompanyPayslipsWorkspace({
         </div>
 
         {/* Ready to Print */}
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+        <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-soft">
           <div className="flex items-center justify-between text-muted">
             <span className="text-[11px] font-bold uppercase tracking-wider">Ready to Print</span>
-            <CheckCircle2 className="size-4 text-emerald-600" />
+            <CheckCircle2 className="size-4 text-primary" />
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-600">
+          <div className="mt-2 text-2xl font-black text-primary">
             {stats.approvedCount}
           </div>
-          <div className="mt-0.5 text-[11px] text-emerald-700 font-medium">
+          <div className="mt-0.5 text-[11px] text-primary/80 font-medium">
             Timesheets verified
           </div>
         </div>
 
         {/* Locked / Pending */}
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
+        <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-soft">
           <div className="flex items-center justify-between text-muted">
             <span className="text-[11px] font-bold uppercase tracking-wider">Simulation Locked</span>
-            <Lock className="size-4 text-amber-600" />
+            <Lock className="size-4 text-amber-500" />
           </div>
-          <div className="mt-2 text-2xl font-black text-amber-600">
+          <div className="mt-2 text-2xl font-black text-amber-500">
             {stats.lockedCount}
           </div>
-          <div className="mt-0.5 text-[11px] text-amber-700 font-medium">
+          <div className="mt-0.5 text-[11px] text-amber-600 font-medium">
             Pending timesheet sign-off
           </div>
         </div>
 
-        {/* Total Net Payroll */}
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs">
-          <div className="flex items-center justify-between text-muted">
+        {/* Total Net Payroll (Mockup Hero Emerald Card) */}
+        <div className="card-hero-green rounded-2xl p-4 text-white shadow-soft">
+          <div className="flex items-center justify-between text-white/80">
             <span className="text-[11px] font-bold uppercase tracking-wider">Approved Net Pay</span>
-            <DollarSign className="size-4 text-slate-400" />
+            <DollarSign className="size-4 text-white/80" />
           </div>
-          <div className="mt-2 text-2xl font-black text-foreground">
+          <div className="mt-2 text-2xl font-black text-white">
             {formatRand(stats.totalNetApproved)}
           </div>
-          <div className="mt-0.5 text-[11px] text-muted font-medium">
+          <div className="mt-0.5 text-[11px] text-white/80 font-medium">
             {stats.adjustedCount > 0 ? `${stats.adjustedCount} custom adjusted` : "Simulated net total"}
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-surface p-4 shadow-soft sm:flex-row sm:items-center sm:justify-between">
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           <button
             type="button"
             onClick={() => setFilterStatus("all")}
-            className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
               filterStatus === "all"
-                ? "bg-slate-900 text-white shadow-xs"
+                ? "bg-primary text-white shadow-soft"
                 : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -491,9 +491,9 @@ export default function CompanyPayslipsWorkspace({
           <button
             type="button"
             onClick={() => setFilterStatus("approved")}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
               filterStatus === "approved"
-                ? "bg-emerald-600 text-white shadow-xs"
+                ? "bg-primary text-white shadow-soft"
                 : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -504,9 +504,9 @@ export default function CompanyPayslipsWorkspace({
           <button
             type="button"
             onClick={() => setFilterStatus("locked")}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
               filterStatus === "locked"
-                ? "bg-amber-600 text-white shadow-xs"
+                ? "bg-amber-600 text-white shadow-soft"
                 : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -517,9 +517,9 @@ export default function CompanyPayslipsWorkspace({
           <button
             type="button"
             onClick={() => setFilterStatus("adjusted")}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
+            className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
               filterStatus === "adjusted"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-amber-600 text-white shadow-soft"
                 : "text-muted hover:text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -536,7 +536,7 @@ export default function CompanyPayslipsWorkspace({
             placeholder="Search employee name, #, dept..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-border bg-surface pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full rounded-full border border-border bg-background pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted focus:outline-hidden focus:ring-1 focus:ring-primary shadow-soft"
           />
         </div>
       </div>
@@ -582,9 +582,11 @@ export default function CompanyPayslipsWorkspace({
                           <div className="font-bold text-foreground">
                             {payslip.fullName}
                           </div>
-                          <div className="text-[10px] text-muted">
-                            #{payslip.employeeNumber} {payslip.department ? `• ${payslip.department}` : ""}
-                          </div>
+                          {payslip.department && (
+                            <div className="text-[10px] text-muted">
+                              {payslip.department}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -657,7 +659,7 @@ export default function CompanyPayslipsWorkspace({
                           Locked
                         </span>
                       ) : payslip.isAdjusted ? (
-                        <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200">
+                        <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                           Adjusted
                         </span>
                       ) : (
@@ -725,121 +727,132 @@ export default function CompanyPayslipsWorkspace({
               No employee records match the selected filter.
             </div>
           ) : (
-            filteredPayslips.map((payslip) => (
-              <div
-                key={payslip.employeeId}
-                className="p-4 space-y-3 bg-surface hover:bg-surface-muted/20 transition-colors"
-              >
-                {/* Employee Info Header & Status */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                      {payslip.fullName.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-foreground">
-                        {payslip.fullName}
+            filteredPayslips.map((payslip) => {
+              const isLocked = !payslip.isApprovedForSimulation;
+              const cardBg = isLocked
+                ? "bg-amber-700 text-white ring-1 ring-amber-800"
+                : payslip.isAdjusted
+                  ? "bg-amber-700 text-white ring-1 ring-amber-800"
+                  : "bg-slate-800 text-white ring-1 ring-slate-900";
+              const avatarBg = isLocked || payslip.isAdjusted ? "bg-amber-850/90 text-white" : "bg-slate-900 text-slate-200";
+              const dotBg = isLocked ? "bg-amber-300" : "bg-emerald-400";
+              const subText = isLocked || payslip.isAdjusted ? "text-white/85" : "text-slate-300";
+              const badgeClass = isLocked
+                ? "bg-black/25 text-white border border-white/20"
+                : payslip.isAdjusted
+                  ? "bg-black/25 text-white border border-white/20"
+                  : "bg-emerald-900/80 text-emerald-100 border border-emerald-600";
+              const footerPillBg = isLocked || payslip.isAdjusted
+                ? "bg-black/20 text-white border border-white/20"
+                : "bg-slate-900/70 text-slate-300 border-slate-700";
+
+              return (
+                <div
+                  key={payslip.employeeId}
+                  className={`p-3.5 space-y-2.5 rounded-xl transition-all hover:scale-[1.01] hover:shadow-md cursor-default min-w-0 ${cardBg}`}
+                >
+                  {/* Employee Info Header & Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="relative shrink-0">
+                        <div className={`flex size-8 items-center justify-center rounded-full text-xs font-black uppercase ${avatarBg}`}>
+                          {payslip.fullName.charAt(0)}
+                        </div>
+                        <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-slate-900 ${dotBg}`} />
                       </div>
-                      <div className="text-[11px] text-muted">
-                        #{payslip.employeeNumber} {payslip.department ? `• ${payslip.department}` : ""}
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-white truncate leading-tight">
+                          {payslip.fullName}
+                        </div>
+                        {payslip.department && (
+                          <div className={`text-[11px] font-medium truncate mt-0.5 ${subText}`}>
+                            {payslip.department}
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${badgeClass}`}>
+                      {isLocked ? "Locked" : payslip.isAdjusted ? "Adjusted" : "Simulated"}
+                    </span>
                   </div>
 
-                  <div>
-                    {payslip.isAdjusted && (
-                      <span className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200">
-                        Adjusted
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Gate Badge */}
-                <div>
+                  {/* Financial Figures Grid (Crisp Inset White Metrics Island) */}
                   {payslip.isApprovedForSimulation ? (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200">
-                      <CheckCircle2 className="size-3 text-emerald-600" />
-                      <span>
-                        {payslip.timesheetsInPeriodCount > 0
-                          ? `All ${payslip.approvedTimesheetsCount} Timesheets Approved`
-                          : "Contract Monthly Salary"}
-                      </span>
+                    <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 block leading-tight">Gross</span>
+                        <span className="font-mono text-xs font-extrabold text-slate-900 truncate block">
+                          {formatRand(payslip.grossEarnings)}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500 block leading-tight">Deductions</span>
+                        <span className="font-mono text-xs font-extrabold text-rose-600 truncate block">
+                          –{formatRand(payslip.totalDeductions)}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-700 block leading-tight">Net Pay</span>
+                        <span className="font-mono text-xs font-extrabold text-emerald-700 truncate block">
+                          {formatRand(payslip.netPay)}
+                        </span>
+                      </div>
                     </div>
                   ) : (
-                    <div
-                      className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200"
-                      title={payslip.approvalGateMessage}
-                    >
-                      <Lock className="size-3 text-amber-600" />
-                      <span>{payslip.unapprovedTimesheetsCount} Timesheets Pending Approval</span>
+                    <div className="rounded-md border border-white/20 bg-black/25 p-2 text-[11px] text-white">
+                      <p className="font-bold flex items-center gap-1.5 text-white">
+                        <Lock className="size-3 shrink-0 text-white" />
+                        <span>Calculations locked</span>
+                      </p>
+                      <p className="mt-0.5 text-[10px] leading-relaxed text-white/85">
+                        {payslip.approvalGateMessage || "All timesheets in this pay period must be approved first."}
+                      </p>
                     </div>
                   )}
-                </div>
 
-                {/* Financial Figures Grid */}
-                {payslip.isApprovedForSimulation ? (
-                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-surface-muted/60 p-2.5 text-center text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted block">Gross</span>
-                      <span className="font-semibold text-foreground">
-                        {formatRand(payslip.grossEarnings)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted block">Deductions</span>
-                      <span className="font-medium text-rose-700">
-                        –{formatRand(payslip.totalDeductions)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted block">Net Pay</span>
-                      <span className="font-black text-emerald-600">
-                        {formatRand(payslip.netPay)}
-                      </span>
+                  {/* Footer: Gate status pill & Actions */}
+                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/20 text-[11px] min-w-0">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border truncate ${footerPillBg}`}>
+                      {payslip.isApprovedForSimulation ? (
+                        <>
+                          <CheckCircle2 className="size-2.5 shrink-0 text-emerald-300" />
+                          <span className="truncate">{payslip.timesheetsInPeriodCount > 0 ? "Timesheets Approved" : "Contract Salary"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="size-2.5 shrink-0 text-white" />
+                          <span className="truncate">{payslip.unapprovedTimesheetsCount} Pending Approval</span>
+                        </>
+                      )}
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {payslip.isApprovedForSimulation ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPayslipForAdjust(payslip)}
+                            className="inline-flex items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1 text-[11px] font-bold text-white transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="size-3" />
+                            <span>Adjust</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPayslipForPrint(payslip)}
+                            className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-emerald-950 transition-colors hover:bg-slate-100 cursor-pointer shadow-soft"
+                          >
+                            <Printer className="size-3" />
+                            <span>Payslip</span>
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                   </div>
-                ) : (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-2.5 text-[11px] text-amber-800">
-                    <p className="font-semibold">Calculations locked:</p>
-                    <p className="mt-0.5 text-[10.5px] leading-relaxed">
-                      {payslip.approvalGateMessage || "All timesheets in this pay period must be approved first."}
-                    </p>
-                  </div>
-                )}
-
-                {/* Mobile Action Buttons */}
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={!payslip.isApprovedForSimulation}
-                    onClick={() => setSelectedPayslipForAdjust(payslip)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors ${
-                      payslip.isApprovedForSimulation
-                        ? "bg-surface-muted text-slate-800 border border-border hover:bg-slate-200 active:scale-95"
-                        : "bg-surface-muted/50 text-slate-400 cursor-not-allowed border border-transparent"
-                    }`}
-                  >
-                    <Edit3 className="size-3.5" />
-                    <span>Adjust</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={!payslip.isApprovedForSimulation}
-                    onClick={() => setSelectedPayslipForPrint(payslip)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors ${
-                      payslip.isApprovedForSimulation
-                        ? "bg-slate-900 text-white hover:bg-slate-800 active:scale-95"
-                        : "bg-surface-muted/50 text-slate-400 cursor-not-allowed"
-                    }`}
-                  >
-                    <Printer className="size-3.5 text-emerald-400" />
-                    <span>Print Payslip</span>
-                  </button>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

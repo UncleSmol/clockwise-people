@@ -92,7 +92,6 @@ function getCategoryMeta(category: string) {
         "Statutory minimum rate: 1 hour earned for every 17 hours worked (or pro-rated against 40h work schedule).",
         "Must be taken within 6 months after the end of the 12-month annual leave cycle.",
         "Cannot be paid out in cash during active employment — only upon termination of employment.",
-        "Company Policy: Accumulated TOIL is loaded first before annual leave unless specified.",
       ],
     };
   }
@@ -141,11 +140,11 @@ function getCategoryMeta(category: string) {
   if (cat.includes("toil")) {
     return {
       label: "TOIL (Overtime)",
-      badgeClass: "bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950/80 dark:text-indigo-200 dark:border-indigo-700",
-      pillClass: "bg-indigo-100 text-indigo-950 border border-indigo-300 dark:bg-indigo-950/90 dark:text-indigo-200 dark:border-indigo-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
-      dotClass: "bg-indigo-600 dark:bg-indigo-400",
-      cardBg: "from-indigo-500/10 via-indigo-500/5 to-surface border-indigo-500/30",
-      accentText: "text-indigo-800",
+      badgeClass: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700",
+      pillClass: "bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-950/90 dark:text-amber-200 dark:border-amber-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-amber-600 dark:bg-amber-400",
+      cardBg: "from-amber-500/10 via-amber-500/5 to-surface border-amber-500/30",
+      accentText: "text-amber-800",
       statutoryRef: "BCEA Section 10(3)(b)",
       statutoryTitle: "Time Off In Lieu (Overtime Compensation)",
       statutoryNote: "BCEA Sec 10: 1.5× time off in lieu for approved overtime worked",
@@ -163,11 +162,11 @@ function getCategoryMeta(category: string) {
   if (cat.includes("study")) {
     return {
       label: "Study Leave",
-      badgeClass: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700",
-      pillClass: "bg-sky-100 text-sky-950 border border-sky-300 dark:bg-sky-950/90 dark:text-sky-200 dark:border-sky-700 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
-      dotClass: "bg-sky-600 dark:bg-sky-400",
-      cardBg: "from-sky-500/10 via-sky-500/5 to-surface border-sky-500/30",
-      accentText: "text-sky-800",
+      badgeClass: "bg-slate-200 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600",
+      pillClass: "bg-slate-200 text-slate-950 border border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 text-xs shadow-2xs",
+      dotClass: "bg-slate-600 dark:bg-slate-400",
+      cardBg: "from-slate-500/10 via-slate-500/5 to-surface border-slate-500/30",
+      accentText: "text-slate-800",
       statutoryRef: "Company Policy",
       statutoryTitle: "Examination & Educational Study Leave",
       statutoryNote: "Company policy: Dedicated examination and course preparation allocation",
@@ -230,7 +229,22 @@ export default function CompanyAllAccrualsTable({
   // Combine balances with employee & leave type details
   const enrichedBalances = useMemo<EnrichedBalance[]>(() => {
     const balances = data.leaveBalances ?? [];
-    return balances.map((b) => {
+    return balances
+      .filter((b) => {
+        if (!data.toilEnabled) {
+          const leaveType = Array.isArray(b.leave_types)
+            ? b.leave_types[0]
+            : b.leave_types;
+          if (
+            leaveType?.category === "toil_taken" ||
+            leaveType?.name?.toLowerCase().includes("toil")
+          ) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .map((b) => {
       const emp = employeeMap.get(b.employee_id);
       const leaveType = Array.isArray(b.leave_types)
         ? b.leave_types[0]
@@ -453,9 +467,6 @@ export default function CompanyAllAccrualsTable({
                   <h4 className="text-lg font-black text-foreground">
                     {selectedEmployeeInfo.full_name}
                   </h4>
-                  <span className="rounded-full bg-surface border border-border/80 px-2.5 py-0.5 text-[11px] font-mono font-extrabold text-muted">
-                    {selectedEmployeeInfo.employee_number}
-                  </span>
                   <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold text-primary">
                     Employee Balances Profile
                   </span>
@@ -479,7 +490,7 @@ export default function CompanyAllAccrualsTable({
 
           {/* KPI Stat Cards for this Employee */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-3.5 shadow-2xs">
+            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3.5 shadow-soft">
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
                 Total Accrued
               </span>
@@ -491,7 +502,7 @@ export default function CompanyAllAccrualsTable({
               </p>
             </div>
 
-            <div className="rounded-xl border border-rose-500/30 bg-rose-50/60 p-3.5 shadow-2xs">
+            <div className="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-500/10 to-rose-500/5 p-3.5 shadow-soft">
               <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">
                 Total Taken
               </span>
@@ -503,7 +514,7 @@ export default function CompanyAllAccrualsTable({
               </p>
             </div>
 
-            <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-2xs">
+            <div className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 p-3.5 shadow-soft">
               <span className="text-[10px] font-black uppercase tracking-wider text-primary">
                 Net Available Balance
               </span>
@@ -515,7 +526,7 @@ export default function CompanyAllAccrualsTable({
               </p>
             </div>
 
-            <div className="rounded-xl border border-border/80 bg-surface p-3.5 shadow-2xs">
+            <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-surface to-surface-muted/50 p-3.5 shadow-soft">
               <span className="text-[10px] font-black uppercase tracking-wider text-muted">
                 Leave Policies
               </span>
@@ -523,7 +534,7 @@ export default function CompanyAllAccrualsTable({
                 {filteredBalances.length}
               </p>
               <p className="mt-0.5 text-[11px] font-medium text-muted">
-                Assigned leave categories
+                Assigned categories
               </p>
             </div>
           </div>
@@ -742,51 +753,51 @@ export default function CompanyAllAccrualsTable({
         </div>
       ) : (
         /* COMPANY-WIDE ACCRUALS KPI CARDS */
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <div className="rounded-xl border border-border/80 bg-surface-muted/40 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-surface to-surface-muted/50 p-3.5 shadow-soft">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted">
               Employees Tracked
             </span>
-            <p className="mt-1 text-xl font-black text-foreground">
+            <p className="mt-1 text-2xl font-black text-foreground">
               {totals.employeesCount}
             </p>
-            <p className="mt-0.5 text-[10px] text-muted">
+            <p className="mt-0.5 text-[11px] font-medium text-muted">
               Active company workforce
             </p>
           </div>
 
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/50 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+          <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3.5 shadow-soft">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
               Total Accrued
             </span>
-            <p className="mt-1 text-xl font-black text-emerald-950">
+            <p className="mt-1 text-2xl font-black text-emerald-950">
               +{totals.totalAccrued}h
             </p>
-            <p className="mt-0.5 text-[10px] text-emerald-800/80">
+            <p className="mt-0.5 text-[11px] font-semibold text-emerald-800/80">
               ≈ {totals.totalAccruedDays} working days
             </p>
           </div>
 
-          <div className="rounded-xl border border-rose-500/30 bg-rose-50/50 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">
+          <div className="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-500/10 to-rose-500/5 p-3.5 shadow-soft">
+            <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">
               Total Taken
             </span>
-            <p className="mt-1 text-xl font-black text-rose-950">
+            <p className="mt-1 text-2xl font-black text-rose-950">
               -{totals.totalTaken}h
             </p>
-            <p className="mt-0.5 text-[10px] text-rose-800/80">
+            <p className="mt-0.5 text-[11px] font-semibold text-rose-800/80">
               ≈ {totals.totalTakenDays} working days
             </p>
           </div>
 
-          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 shadow-2xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 to-primary/5 p-3.5 shadow-soft">
+            <span className="text-[10px] font-black uppercase tracking-wider text-primary">
               Net Remaining Balance
             </span>
-            <p className="mt-1 text-xl font-black text-foreground">
+            <p className="mt-1 text-2xl font-black text-foreground">
               {totals.totalNet}h
             </p>
-            <p className="mt-0.5 text-[10px] text-muted font-bold">
+            <p className="mt-0.5 text-[11px] font-bold text-muted">
               ≈ {totals.totalNetDays} working days
             </p>
           </div>
@@ -794,7 +805,7 @@ export default function CompanyAllAccrualsTable({
       )}
 
       {/* FULL ACCRUALS REGISTER TABLE (COMPANY OR FILTERED) */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-black uppercase tracking-wider text-muted">
             <span>
@@ -811,27 +822,110 @@ export default function CompanyAllAccrualsTable({
           )}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
-          <div className="w-full overflow-x-hidden md:overflow-x-auto">
-            <table className="w-full text-left text-xs table-fixed sm:table-auto">
+        {/* Mobile View: High-Design Responsive Card List */}
+        <div className="block sm:hidden space-y-2.5">
+          {filteredBalances.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">
+              No leave accrual records found. Try adjusting your search query or leave type filter.
+            </div>
+          ) : (
+            filteredBalances.map((item) => {
+              const isPositive = item.balanceHours > 0;
+              const meta = getCategoryMeta(item.leaveCategory);
+              const isSelected = item.employeeId === selectedEmployeeId;
+
+              return (
+                <article
+                  key={item.id}
+                  className={`rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft transition-all ${
+                    isSelected ? "ring-2 ring-primary/40 bg-primary/[0.03]" : ""
+                  }`}
+                >
+                  {/* Top Row: Employee Avatar + Info & Remaining Balance */}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmployeeId(item.employeeId)}
+                      className="flex items-center gap-2.5 text-left min-w-0 flex-1 group cursor-pointer"
+                    >
+                      <EmployeeAvatar
+                        name={item.employeeName}
+                        className="size-8.5 text-xs group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-extrabold text-foreground group-hover:text-primary transition-colors text-xs leading-snug truncate">
+                          {item.employeeName}
+                        </p>
+                      </div>
+                    </button>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`font-mono font-black text-sm block leading-tight ${
+                          isPositive ? "text-foreground" : "text-rose-600"
+                        }`}
+                      >
+                        {formatHours(item.balanceHours)}
+                      </span>
+                      <span className="text-[10px] font-semibold text-muted">
+                        ({hoursToDays(item.balanceHours)})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Row: Full Badge + Accrued/Taken Chips & Explain Button */}
+                  <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                    <button
+                      type="button"
+                      onClick={() => setExplainingItem(item)}
+                      title={`View statutory audit & calculation for ${item.leaveTypeName}`}
+                      className={`group cursor-pointer inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${meta.pillClass} transition-transform hover:scale-[1.02] shrink-0 max-w-[62%]`}
+                    >
+                      <span className={`size-1.5 rounded-full ${meta.dotClass} shrink-0`} />
+                      <span className="truncate">{item.leaveTypeName}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-mono text-muted bg-surface-muted px-2 py-0.5 rounded-md border border-border/60">
+                        +{formatHours(item.accruedHours).slice(0, -1)} / -{formatHours(item.takenHours).slice(0, -1)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExplainingItem(item)}
+                        className="rounded-lg border border-border bg-surface px-2 py-0.5 text-[10px] font-bold text-foreground hover:bg-surface-muted transition-colors shadow-2xs cursor-pointer"
+                      >
+                        Explain
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop View: Full Tabular Register */}
+        <div className="hidden sm:block overflow-hidden rounded-2xl border border-border bg-surface shadow-soft">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-xs table-auto">
               <thead className="border-b border-border bg-surface-muted text-muted uppercase tracking-wider font-extrabold text-[10px]">
                 <tr>
-                  <th scope="col" className="px-2.5 py-2 sm:px-3.5 sm:py-2.5 w-[38%] sm:w-auto">
+                  <th scope="col" className="px-3.5 py-2.5">
                     Employee
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-3 sm:py-2.5 w-[32%] sm:w-auto">
+                  <th scope="col" className="px-3 py-2.5">
                     Leave Type
                   </th>
-                  <th scope="col" className="hidden md:table-cell px-3 py-2.5 text-right">
+                  <th scope="col" className="px-3 py-2.5 text-right">
                     Accrued
                   </th>
-                  <th scope="col" className="hidden md:table-cell px-3 py-2.5 text-right">
+                  <th scope="col" className="px-3 py-2.5 text-right">
                     Taken
                   </th>
-                  <th scope="col" className="px-2 py-2 sm:px-3.5 sm:py-2.5 text-right w-[30%] sm:w-auto">
+                  <th scope="col" className="px-3.5 py-2.5 text-right">
                     Remaining Balance
                   </th>
-                  <th scope="col" className="hidden sm:table-cell px-3.5 py-2.5 text-right">
+                  <th scope="col" className="px-3.5 py-2.5 text-right">
                     Action
                   </th>
                 </tr>
@@ -859,7 +953,7 @@ export default function CompanyAllAccrualsTable({
                         }`}
                       >
                         {/* Employee Name & Number */}
-                        <td className="px-2.5 py-2 sm:px-3.5 sm:py-2.5">
+                        <td className="px-3.5 py-2.5">
                           <button
                             type="button"
                             onClick={() => setSelectedEmployeeId(item.employeeId)}
@@ -873,15 +967,12 @@ export default function CompanyAllAccrualsTable({
                               <p className="font-bold text-foreground group-hover:text-primary transition-colors text-xs break-words leading-tight">
                                 {item.employeeName}
                               </p>
-                              <p className="text-[10px] text-muted font-mono break-words">
-                                {item.employeeNumber}
-                              </p>
                             </div>
                           </button>
                         </td>
 
                         {/* Leave Type Badge - High Contrast & Interactive */}
-                        <td className="px-2 py-2 sm:px-3 sm:py-2.5">
+                        <td className="px-3 py-2.5">
                           <button
                             type="button"
                             onClick={() => setExplainingItem(item)}
@@ -894,17 +985,17 @@ export default function CompanyAllAccrualsTable({
                         </td>
 
                         {/* Accrued */}
-                        <td className="hidden md:table-cell px-3 py-2.5 text-right font-mono font-bold text-emerald-600">
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600">
                           +{formatHours(item.accruedHours)}
                         </td>
 
                         {/* Taken */}
-                        <td className="hidden md:table-cell px-3 py-2.5 text-right font-mono font-bold text-rose-600">
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600">
                           {item.takenHours > 0 ? `-${formatHours(item.takenHours)}` : "0.00h"}
                         </td>
 
                         {/* Remaining Balance */}
-                        <td className="px-2 py-2 sm:px-3.5 sm:py-2.5 text-right">
+                        <td className="px-3.5 py-2.5 text-right">
                           <div className="inline-flex flex-col items-end">
                             <span
                               className={`font-mono font-black text-xs ${
@@ -918,14 +1009,11 @@ export default function CompanyAllAccrualsTable({
                             <span className="text-[10px] text-muted">
                               ({hoursToDays(item.balanceHours)})
                             </span>
-                            <span className="md:hidden text-[9px] text-slate-400 font-mono">
-                              +{formatHours(item.accruedHours).slice(0, -1)} / -{formatHours(item.takenHours).slice(0, -1)}
-                            </span>
                           </div>
                         </td>
 
                         {/* Action: Inspect Employee & Explain */}
-                        <td className="hidden sm:table-cell px-3.5 py-2.5 text-right">
+                        <td className="px-3.5 py-2.5 text-right">
                           <div className="inline-flex items-center gap-1.5 justify-end">
                             <button
                               type="button"
@@ -1031,9 +1119,6 @@ function LeaveTypeExplanationModal({
             <p className="mt-1 text-xs text-muted flex items-center gap-1.5 font-medium">
               <span>Employee:</span>
               <span className="font-bold text-foreground">{balance.employeeName}</span>
-              {balance.employeeNumber ? (
-                <span className="font-mono text-[11px] text-muted">({balance.employeeNumber})</span>
-              ) : null}
             </p>
           </div>
 

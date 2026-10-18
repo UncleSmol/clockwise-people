@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  sanitizeMultilineText,
+  sanitizeString,
+  sanitizeUrl,
+} from "@/lib/security/sanitizer";
 
 export const leaveCategories = [
   "annual",
@@ -14,7 +19,10 @@ export const workScheduleFormSchema = z.object({
   daily_hours: z.string().trim().optional().or(z.literal("")),
   end_time: z.string().trim().min(1, "End time is required"),
   lunch_minutes: z.string().trim().optional().or(z.literal("")),
-  name: z.string().trim().min(2, "Schedule name is required"),
+  name: z
+    .string()
+    .transform((v) => sanitizeString(v, 80))
+    .refine((v) => v.length >= 2, "Schedule name is required"),
   start_time: z.string().trim().min(1, "Start time is required"),
   working_days: z.array(z.string()).min(1, "Choose at least one working day"),
 });
@@ -27,7 +35,10 @@ export const updateWorkScheduleFormSchema = workScheduleFormSchema.extend({
 export const leaveTypeFormSchema = z.object({
   category: z.enum(leaveCategories),
   is_paid: z.string().optional(),
-  name: z.string().trim().min(2, "Leave name is required"),
+  name: z
+    .string()
+    .transform((v) => sanitizeString(v, 80))
+    .refine((v) => v.length >= 2, "Leave name is required"),
   requires_attachment: z.string().optional(),
   yearly_hours: z.string().trim().optional().or(z.literal("")),
 });
@@ -51,20 +62,19 @@ export const leaveRequestFormSchema = z.object({
     .or(z.literal(""))
     .refine((value) => {
       if (!value) return true;
-
-      try {
-        const url = new URL(value);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
+      return Boolean(sanitizeUrl(value));
     }, "Use a valid attachment link that starts with http:// or https://"),
   end_date: z.iso.date("End date is required"),
   leave_type_id: z.uuid("Choose a leave type"),
-  reason: z.string().trim().optional().or(z.literal("")),
+  reason: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => sanitizeMultilineText(v, 1000)),
   start_date: z.iso.date("Start date is required"),
   use_toil_first: z.string().optional(),
 });
+
 
 export const leaveAccrualPreviewFormSchema = z.object({
   leave_type_id: z.uuid("Choose a leave type"),
@@ -220,6 +230,8 @@ export type CompanyWorkRulesData = {
   payrollRules?: CustomPayrollRule[];
   payrollAssignments?: Record<string, string>;
   payrollConfig?: PayrollPeriodConfig;
+  toilEnabled?: boolean;
+  toilMultiplier?: number;
 };
 
 export type EmployeeLeaveState = {
@@ -230,4 +242,5 @@ export type EmployeeLeaveState = {
   standardAnnualHours: number;
   standardDailyHours: number;
   toilMultiplier?: number;
+  toilEnabled?: boolean;
 };

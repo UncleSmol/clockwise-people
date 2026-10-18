@@ -61,11 +61,11 @@ export default function ManageSuperAdminModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative w-full max-w-lg rounded-t-3xl sm:rounded-3xl border border-border/80 bg-surface p-5 sm:p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-white shadow-sm">
+            <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-soft">
               <ShieldCheck className="size-5" />
             </div>
             <div>
@@ -78,14 +78,14 @@ export default function ManageSuperAdminModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid size-8 shrink-0 place-items-center rounded-lg border border-border text-muted hover:bg-surface-muted hover:text-foreground transition-colors cursor-pointer"
+            className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-muted text-muted hover:bg-surface-muted/80 hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="size-4" />
           </button>
         </div>
 
         {errorMessage ? (
-          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-700">
+          <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-700 shadow-soft">
             <ShieldAlert className="size-4 shrink-0 mt-0.5" />
             <div className="flex-1 font-medium">{errorMessage}</div>
           </div>
@@ -103,7 +103,7 @@ export default function ManageSuperAdminModal({
                 placeholder="e.g. name@gmail.com, name@yahoo.co.za, name@formalize.co.za"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
             <p className="mt-1.5 text-[11px] text-muted leading-relaxed">
@@ -111,7 +111,7 @@ export default function ManageSuperAdminModal({
             </p>
           </div>
 
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 space-y-1.5">
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-900 space-y-1.5 shadow-soft">
             <div className="font-bold flex items-center gap-1.5 text-amber-950">
               <Shield className="size-4 text-amber-600 shrink-0" />
               Universal Access Scope
@@ -126,14 +126,14 @@ export default function ManageSuperAdminModal({
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
+              className="rounded-full border border-border px-5 py-2.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending || !normalizedInput || isAlreadySuperAdmin}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-900 px-5 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-slate-800 disabled:opacity-50 transition-all cursor-pointer"
             >
               {isPending ? (
                 <>

@@ -29,10 +29,12 @@ export default function AttendanceReportTable({
             <div className="font-semibold text-foreground">
               {row.original.employeeName}
             </div>
-            <div className="text-[10px] text-muted flex items-center gap-1">
-              <span className="font-mono">{row.original.employeeNumber}</span>
-              <span>· {row.original.jobTitle}</span>
-            </div>
+            {row.original.jobTitle ? (
+              <div className="text-[10px] text-muted">
+                {row.original.jobTitle}
+              </div>
+            ) : null}
+
           </div>
         ),
       },
@@ -144,7 +146,7 @@ export default function AttendanceReportTable({
         cell: ({ row }) => {
           const val = row.original.earlyDepartures;
           return val > 0 ? (
-            <span className="font-mono font-semibold text-indigo-400">
+            <span className="font-mono font-semibold text-amber-500 dark:text-amber-400">
               {val}
             </span>
           ) : (

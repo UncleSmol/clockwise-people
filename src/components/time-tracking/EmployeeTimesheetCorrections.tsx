@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CalendarDays,
   CalendarPlus,
+  Check,
   CheckCircle2,
   CheckSquare,
   ChevronDown,
@@ -19,7 +20,6 @@ import {
   FileText,
   Footprints,
   LocateFixed,
-  LogOut,
   MapPin,
   Plus,
   Save,
@@ -34,6 +34,7 @@ import { useActionState, useCallback, useEffect, useMemo, useRef, useState } fro
 import { createPortal } from "react-dom";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
+import RecordStatusBadge from "./RecordStatusBadge";
 
 const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
   ssr: false,
@@ -57,6 +58,7 @@ import type {
   TimesheetCorrectionRequest,
 } from "@/lib/time-tracking/schema";
 import { usePanel, useWorkspaceSection } from "@/components/dashboard/workspace-context";
+import AnalogTimePicker from "@/components/time-tracking/AnalogTimePicker";
 
 type EmployeeTimesheetCorrectionsProps = {
   collapsedCalendar?: boolean;
@@ -88,6 +90,20 @@ function formatDate(value: string) {
   }).format(new Date(year, month - 1, day));
 }
 
+function getDateBadgeParts(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return {
+    day: String(day),
+    month: new Intl.DateTimeFormat("en-ZA", { month: "short" }).format(date).toUpperCase(),
+    weekday: new Intl.DateTimeFormat("en-ZA", { weekday: "short" }).format(date),
+  };
+}
+
+function getEntryWorkstationName(entry: TimeEntryRecord): string | null {
+  return entry.locationEvents?.find((e) => e.workstationName)?.workstationName ?? null;
+}
+
 function formatTime(value: string | null) {
   if (!value) return "Not recorded";
 
@@ -108,9 +124,9 @@ function formatHours(value: number | string | null | undefined) {
 function entryNeedsAttention(entry: TimeEntryRecord) {
   return Boolean(
     entry.missing_clocking ||
-      entry.late_arrival ||
-      entry.early_departure ||
-      (entry.clock_in && Number(entry.paid_hours) <= 0),
+    entry.late_arrival ||
+    entry.early_departure ||
+    (entry.clock_in && Number(entry.paid_hours) <= 0),
   );
 }
 
@@ -165,29 +181,6 @@ function geofenceClass(status: string | null | undefined) {
   return "border-border bg-surface-muted text-muted";
 }
 
-function getPaidHoursContainerClass(validation: TimeEntryRecord["scheduleValidation"]) {
-  if (!validation) return "border-border bg-background";
-  return validation.isCompliant
-    ? "border-success/30 bg-success/10"
-    : "border-danger/30 bg-danger/10";
-}
-
-function getPaidHoursTextClass(validation: TimeEntryRecord["scheduleValidation"]) {
-  if (!validation) return "text-foreground";
-  return validation.isCompliant ? "text-success" : "text-danger";
-}
-
-function getEntryBorderClass(entry: TimeEntryRecord) {
-  const validation = entry.scheduleValidation;
-  if (validation) {
-    return validation.isCompliant
-      ? "border-success/30 bg-success/10"
-      : "border-danger/30 bg-danger/10";
-  }
-  return entry.missing_clocking || entry.late_arrival || entry.early_departure
-    ? "border-danger/30 bg-danger/10"
-    : "border-success/30 bg-success/10";
-}
 
 function renderLocationHistory(entry: TimeEntryRecord) {
   const events = entry.locationEvents ?? [];
@@ -275,8 +268,8 @@ function addDays(value: string, days: number) {
 
 function viewButtonClass(active: boolean) {
   return active
-    ? "bg-slate-900 text-white shadow-xs font-bold"
-    : "border border-border bg-white text-foreground hover:bg-slate-100 font-semibold";
+    ? "bg-primary text-white shadow-soft font-bold rounded-full"
+    : "border border-border/80 bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground font-semibold rounded-full";
 }
 
 function dateKey(date: Date) {
@@ -287,116 +280,8 @@ function dateKey(date: Date) {
   ].join("-");
 }
 
-function weekLabel(start: Date) {
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
 
-  const formatter = new Intl.DateTimeFormat("en-ZA", {
-    day: "numeric",
-    month: "short",
-  });
 
-  return `${formatter.format(start)} - ${formatter.format(end)}`;
-}
-
-function groupByWeek(entries: TimeEntryRecord[]) {
-  const groups = new Map<string, { entries: TimeEntryRecord[]; label: string }>();
-
-  entries.forEach((entry) => {
-    const start = weekStartDate(entry.work_date);
-    const key = dateKey(start);
-    const existing = groups.get(key);
-
-    if (existing) {
-      existing.entries.push(entry);
-      return;
-    }
-
-    groups.set(key, {
-      entries: [entry],
-      label: weekLabel(start),
-    });
-  });
-
-  return Array.from(groups.entries()).map(([key, group]) => ({
-    key,
-    ...group,
-  }));
-}
-
-function PaginationControl({
-  currentPage,
-  totalPages,
-  totalItems,
-  pageSize,
-  onPageChange,
-  itemLabel = "records",
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  itemLabel?: string;
-}) {
-  if (totalItems <= pageSize) return null;
-
-  const startItem = (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(currentPage * pageSize, totalItems);
-
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background p-2.5 text-xs text-muted">
-      <span>
-        Showing <strong className="text-foreground">{startItem}</strong> -{" "}
-        <strong className="text-foreground">{endItem}</strong> of{" "}
-        <strong className="text-foreground">{totalItems}</strong> {itemLabel}
-      </span>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={currentPage <= 1}
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          className="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-surface-muted disabled:opacity-40"
-        >
-          Previous
-        </button>
-
-        {Array.from({ length: totalPages }, (_, i) => i + 1)
-          .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-          .map((page, idx, arr) => {
-            const prevPage = arr[idx - 1];
-            const showEllipsis = prevPage && page - prevPage > 1;
-
-            return (
-              <span key={page} className="flex items-center">
-                {showEllipsis ? <span className="px-1 text-muted">…</span> : null}
-                <button
-                  type="button"
-                  onClick={() => onPageChange(page)}
-                  className={`size-6 rounded text-xs font-bold ${
-                    currentPage === page
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-surface text-foreground hover:bg-surface-muted"
-                  }`}
-                >
-                  {page}
-                </button>
-              </span>
-            );
-          })}
-
-        <button
-          type="button"
-          disabled={currentPage >= totalPages}
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          className="rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-surface-muted disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function EmployeeTimesheetCorrections({
   collapsedCalendar = false,
@@ -406,12 +291,6 @@ export default function EmployeeTimesheetCorrections({
   publicHolidays,
   liveOverview = null,
 }: EmployeeTimesheetCorrectionsProps) {
-  const activeColleagues = useMemo(() => {
-    if (!liveOverview?.entries) return [];
-    return liveOverview.entries.filter(
-      (c) => c.status === "working" || c.status === "on_lunch",
-    );
-  }, [liveOverview]);
 
   const [attendanceFilter, setAttendanceFilter] = useState<"working" | "on_lunch" | "worked" | "not_started" | "all">("working");
 
@@ -696,30 +575,22 @@ export default function EmployeeTimesheetCorrections({
     [entries, holidayDates],
   );
 
-  const [timesheetsPage, setTimesheetsPage] = useState(1);
-  const [requestsPage, setRequestsPage] = useState(1);
-  const timesheetsPageSize = 6;
-  const requestsPageSize = 6;
+  const paginatedEntries = filteredEntries;
+  const paginatedSubmittedEntries = submittedEntries;
 
-  const totalTimesheetsPages = Math.max(1, Math.ceil(filteredEntries.length / timesheetsPageSize));
-  const paginatedEntries = useMemo(
-    () =>
-      filteredEntries.slice(
-        (timesheetsPage - 1) * timesheetsPageSize,
-        timesheetsPage * timesheetsPageSize,
-      ),
-    [filteredEntries, timesheetsPage, timesheetsPageSize],
-  );
+  const timesheetSectionRef = useRef<HTMLDivElement>(null);
 
-  const totalRequestsPages = Math.max(1, Math.ceil(submittedEntries.length / requestsPageSize));
-  const paginatedSubmittedEntries = useMemo(
-    () =>
-      submittedEntries.slice(
-        (requestsPage - 1) * requestsPageSize,
-        requestsPage * requestsPageSize,
-      ),
-    [submittedEntries, requestsPage, requestsPageSize],
-  );
+  const scrollToTimesheetSection = useCallback(() => {
+    if (typeof window === "undefined") return;
+    requestAnimationFrame(() => {
+      timesheetSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  const handleTabChange = useCallback((tab: "timesheets" | "requests") => {
+    setActiveTab(tab);
+    scrollToTimesheetSection();
+  }, [scrollToTimesheetSection]);
 
   const readyEntries = useMemo(
     () =>
@@ -845,11 +716,6 @@ export default function EmployeeTimesheetCorrections({
         : saveState.message
           ? saveState.ok
           : submitState.ok;
-  const shouldGroupWeeks = filteredEntries.length >= 7;
-  const weekGroups = useMemo(
-    () => groupByWeek(filteredEntries),
-    [filteredEntries],
-  );
   const selectedEntry = selectedDate ? entriesByDate.get(selectedDate) : null;
   const selectedIsHoliday = selectedDate ? holidayDates.has(selectedDate) : false;
   const selectedCanAdd =
@@ -893,212 +759,180 @@ export default function EmployeeTimesheetCorrections({
     const isDraft = entry.status === "draft" && !isFixed;
     const rejected = entry.status === "rejected" && !isFixed;
     const isApproved = entry.status === "approved";
-    const isSubmitted = entry.status === "submitted";
-    const hasWarning = (entry.missing_clocking || entry.late_arrival || entry.early_departure || rejected) && !isFixed;
     const managerNote = extractManagerNote(entry.notes);
-    const validation = entry.scheduleValidation;
-    const isCompliant = validation?.isCompliant ?? !hasWarning;
     const isExpanded = expandedDraftIds.has(entry.id);
+    const dateParts = getDateBadgeParts(entry.work_date);
+
+    let cardBg = "bg-slate-800 text-white ring-1 ring-slate-900/60";
+    let dateBoxBg = "bg-slate-900/80 border-slate-700 text-white";
+    let statusDotColor = "bg-emerald-400 ring-slate-800";
+    let subtitleText = "Submitted · Pending Approval";
+    let subtitleColor = "text-slate-300";
+    let badgeBg = "bg-slate-900/80 text-emerald-400 border border-slate-700";
+    let badgeText = "Submitted";
+    let badgeIcon = <CheckCircle2 className="size-2.5 text-emerald-400" />;
+    let footerLeftBg = "bg-slate-700/80 text-slate-200";
+    let footerRightBg = "bg-slate-900/60 text-slate-300 border border-slate-700";
+
+    if (isApproved) {
+      cardBg = "bg-emerald-700 text-white ring-1 ring-emerald-800/60";
+      dateBoxBg = "bg-emerald-800/80 border-emerald-500/50 text-white";
+      statusDotColor = "bg-emerald-300 ring-emerald-700";
+      subtitleText = "Approved Timesheet";
+      subtitleColor = "text-emerald-100";
+      badgeBg = "bg-emerald-950/40 text-emerald-200 border border-emerald-400/30";
+      badgeText = "Approved";
+      badgeIcon = <CheckCircle2 className="size-2.5 text-emerald-300" />;
+      footerLeftBg = "bg-emerald-800/80 text-emerald-100";
+      footerRightBg = "bg-emerald-950/40 text-white border border-emerald-400/20";
+    } else if (isFixed) {
+      cardBg = "bg-emerald-800 text-white ring-1 ring-emerald-900/60";
+      dateBoxBg = "bg-emerald-900/80 border-emerald-500/50 text-white";
+      statusDotColor = "bg-emerald-300 ring-emerald-800";
+      subtitleText = "Fixed · Ready to Submit";
+      subtitleColor = "text-emerald-100";
+      badgeBg = "bg-emerald-950/40 text-emerald-200 border border-emerald-400/30";
+      badgeText = "Fixed";
+      badgeIcon = <CheckCircle2 className="size-2.5 text-emerald-300" />;
+      footerLeftBg = "bg-emerald-900/80 text-emerald-100";
+      footerRightBg = "bg-emerald-950/40 text-white border border-emerald-400/20";
+    } else if (rejected) {
+      cardBg = "bg-rose-700 text-white ring-1 ring-rose-800/60";
+      dateBoxBg = "bg-rose-800/80 border-rose-500/50 text-white";
+      statusDotColor = "bg-rose-300 ring-rose-700";
+      subtitleText = "Action Required · Rejected";
+      subtitleColor = "text-rose-100";
+      badgeBg = "bg-rose-950/50 text-rose-200 border border-rose-400/30";
+      badgeText = "Rejected";
+      badgeIcon = <AlertTriangle className="size-2.5 text-rose-200" />;
+      footerLeftBg = "bg-rose-800/80 text-rose-100";
+      footerRightBg = "bg-rose-950/50 text-white border border-rose-400/20";
+    } else if (isDraft || editable) {
+      cardBg = "bg-amber-700 text-white ring-1 ring-amber-800/80";
+      dateBoxBg = "bg-amber-800/90 border-amber-400/50 text-white";
+      statusDotColor = "bg-amber-300 ring-amber-700";
+      subtitleText = "Draft Timesheet";
+      subtitleColor = "text-white/85";
+      badgeBg = "bg-black/25 text-white border border-white/20";
+      badgeText = "Draft";
+      badgeIcon = <Edit3 className="size-2.5 text-white" />;
+      footerLeftBg = "bg-black/20 text-white";
+      footerRightBg = "bg-black/25 text-white border border-white/20";
+    }
 
     return (
       <article
         key={entry.id}
-        className={`grid gap-2 sm:gap-3 rounded-lg border-2 p-2.5 sm:p-3.5 shadow-sm transition-all w-full max-w-full overflow-hidden ${
-          isApproved
-            ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
-            : isFixed
-              ? "border-teal-500 bg-teal-50/60 hover:bg-teal-50/80 ring-2 ring-teal-500/30 shadow-md"
-              : rejected
-                ? "border-rose-500 bg-rose-50/50 hover:bg-rose-50/80"
-                : isSubmitted
-                  ? "border-slate-700 bg-slate-900/5 hover:bg-slate-900/10"
-                  : isDraft
-                    ? "border-amber-400 bg-amber-50/50 ring-2 ring-amber-400/50 shadow-md animate-[pulse_2.5s_cubic-bezier(0.4,0,0.6,1)_infinite]"
-                    : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
-        }`}
+        className={`group flex flex-col justify-between gap-2.5 rounded-xl p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md min-w-0 w-full max-w-full scroll-mt-20 sm:scroll-mt-24 ${cardBg}`}
       >
-        {/* Top Header: Date, Status Badge, Paid Hours & Edit Toggle */}
-        <div className="flex items-start justify-between gap-1.5 border-b border-border/60 pb-2 min-w-0 max-w-full">
-          <div className="flex flex-col gap-1 min-w-0 flex-1">
-            {/* Status indicator on top for mobile; inline on desktop */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
-              <span
-                className={`inline-flex w-fit shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
-                  isApproved
-                    ? "bg-emerald-600 text-white shadow-2xs"
-                    : isFixed
-                      ? "bg-teal-600 text-white shadow-2xs"
-                      : rejected
-                        ? "bg-rose-600 text-white shadow-2xs"
-                        : isSubmitted
-                          ? "bg-slate-900 text-white shadow-2xs"
-                          : "bg-amber-500 text-white shadow-2xs"
-                }`}
+        {/* Top: Date Monogram Box, Date & Status Badge */}
+        <div className="flex items-start justify-between gap-2 min-w-0">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="relative shrink-0">
+              <div
+                className={`flex size-8.5 flex-col items-center justify-center rounded-lg border shadow-xs leading-none select-none ${dateBoxBg}`}
               >
-                {isFixed ? (
-                  <CheckCircle2 className="size-2.5 text-white" />
-                ) : isDraft ? (
-                  <span className="relative flex size-1.5 shrink-0">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-200 opacity-80" />
-                    <span className="relative inline-flex size-1.5 rounded-full bg-white" />
-                  </span>
-                ) : rejected ? (
-                  <AlertTriangle className="size-2.5 text-white" />
-                ) : isApproved ? (
-                  <CheckCircle2 className="size-2.5 text-white" />
-                ) : isSubmitted ? (
-                  <Clock3 className="size-2.5 text-emerald-400" />
-                ) : (
-                  <Edit3 className="size-2.5 text-white" />
-                )}
-                {isFixed ? "Fixed · Ready to Submit" : rejected ? "Rejected" : editable ? "Draft" : entry.status}
-              </span>
-
-              {/* Work date & mobile hours stacked under status badge on mobile */}
-              <div className="flex items-center gap-1.5 min-w-0">
-                <p className="text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">
-                  {formatDate(entry.work_date)}
-                </p>
-                <span
-                  className={`inline-flex sm:hidden w-max shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-black shadow-2xs whitespace-nowrap ${
-                    isApproved
-                      ? "bg-emerald-950 text-emerald-200"
-                      : isFixed
-                        ? "bg-teal-950 text-teal-200"
-                        : rejected
-                          ? "bg-rose-950 text-rose-200"
-                          : isSubmitted
-                            ? "bg-slate-900 text-emerald-400"
-                            : "bg-amber-950 text-amber-200"
-                  }`}
-                >
-                  <Clock3 className="size-2.5" />
-                  {formatHours(entry.paid_hours)}
+                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">
+                  {dateParts.month}
+                </span>
+                <span className="text-xs font-black mt-0.5">
+                  {dateParts.day}
                 </span>
               </div>
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ${statusDotColor}`}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-extrabold text-white break-words leading-tight">
+                {formatDate(entry.work_date)}
+              </p>
+              <p className={`text-[11px] font-medium break-words leading-tight mt-0.5 ${subtitleColor}`}>
+                {subtitleText}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Desktop: Hours appear inline on the right */}
-            <span
-              className={`hidden sm:inline-flex w-max shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs font-black shadow-2xs whitespace-nowrap ${
-                isApproved
-                  ? "bg-emerald-950 text-emerald-200"
-                  : isFixed
-                    ? "bg-teal-950 text-teal-200"
-                    : rejected
-                      ? "bg-rose-950 text-rose-200"
-                      : isSubmitted
-                        ? "bg-slate-900 text-emerald-400"
-                        : "bg-amber-950 text-amber-200"
-              }`}
-            >
-              <Clock3 className="size-3" />
-              {formatHours(entry.paid_hours)}
-            </span>
-
-            {editable ? (
-              <button
-                type="button"
-                onClick={() => toggleDraftExpand(entry.id)}
-                className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs whitespace-nowrap ${
-                  isExpanded
-                    ? "bg-slate-900 text-white"
-                    : isFixed
-                      ? "bg-teal-600 text-white hover:bg-teal-700"
-                      : isDraft
-                        ? "bg-amber-600 text-white hover:bg-amber-700"
-                        : "bg-slate-800 text-white hover:bg-slate-900"
-                }`}
-                title={isExpanded ? "Collapse time editor" : "Edit times"}
-              >
-                <Edit3 className="size-2.5" />
-                {isExpanded ? "Collapse" : "Edit"}
-                <ChevronDown
-                  className={`size-2.5 sm:size-3 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                />
-              </button>
-            ) : null}
-          </div>
+          <RecordStatusBadge
+            status={isApproved ? "verified" : entry.status}
+            isFixed={isFixed}
+          />
         </div>
 
+        {/* Manager note / alerts */}
         {isFixed ? (
-          <div className="flex items-center gap-2 rounded-md border border-teal-300 bg-teal-100/80 p-2 text-[11px] font-semibold text-teal-950 shadow-2xs">
-            <CheckCircle2 className="size-3.5 shrink-0 text-teal-700" />
-            <div>
-              <p className="font-extrabold text-teal-950">
-                Timesheet fixed & ready to resubmit
-              </p>
+          <div className="flex items-center gap-2 rounded-md bg-emerald-950/40 p-2 text-[11px] font-semibold text-emerald-100 border border-emerald-400/30">
+            <CheckCircle2 className="size-3.5 shrink-0 text-emerald-300" />
+            <div className="min-w-0">
+              <p className="font-extrabold text-white">Timesheet fixed &amp; ready to resubmit</p>
               {managerNote ? (
-                <p className="text-[10.5px] text-teal-800 font-medium">
-                  Previous manager note: &ldquo;{managerNote}&rdquo;
-                </p>
+                <p className="text-[10px] text-emerald-200 mt-0.5 truncate">Note: &ldquo;{managerNote}&rdquo;</p>
               ) : null}
             </div>
           </div>
         ) : rejected ? (
-          <div className="rounded-md border border-rose-300 bg-rose-100/80 p-2 text-[11px] font-semibold text-rose-950 shadow-2xs">
+          <div className="rounded-md bg-rose-950/60 p-2 text-[11px] font-semibold text-rose-100 border border-rose-400/30">
             {managerNote
               ? `Rejected by manager: ${managerNote}`
-              : "This timesheet was rejected. Correct the recorded times below, save, and submit."}
+              : "This timesheet was rejected. Correct recorded times below and resubmit."}
           </div>
         ) : null}
 
+        {/* Middle: High-Contrast Inset White Metrics Box OR Expanded Editor */}
         {editable && isExpanded ? (
-          <form action={saveAction} className="grid gap-2 min-w-0 w-full">
+          <form action={saveAction} className="grid gap-2 min-w-0 w-full rounded-md bg-white p-2.5 text-slate-900 shadow-xs">
             <input type="hidden" name="time_entry_id" value={entry.id} />
             <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 min-w-0 w-full">
-              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
-                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">In</span>
-                <input
-                  type="time"
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
+                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">In</span>
+                <AnalogTimePicker
                   name="clock_in"
                   defaultValue={inputTime(entry.clock_in)}
                   onChange={() => handleEntryModified(entry.id)}
-                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
+                  compact
+                  className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
-                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch In</span>
-                <input
-                  type="time"
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
+                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Lunch In</span>
+                <AnalogTimePicker
                   name="lunch_start"
                   defaultValue={inputTime(entry.lunch_start)}
                   onChange={() => handleEntryModified(entry.id)}
-                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
+                  compact
+                  className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
-                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Lunch Out</span>
-                <input
-                  type="time"
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
+                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Lunch Out</span>
+                <AnalogTimePicker
                   name="lunch_end"
                   defaultValue={inputTime(entry.lunch_end)}
                   onChange={() => handleEntryModified(entry.id)}
-                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
+                  compact
+                  className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
-              <div className="rounded-md border border-border bg-white p-1 shadow-2xs min-w-0">
-                <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Out</span>
-                <input
-                  type="time"
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
+                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Out</span>
+                <AnalogTimePicker
                   name="clock_out"
                   defaultValue={inputTime(entry.clock_out)}
                   onChange={() => handleEntryModified(entry.id)}
-                  className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-extrabold text-foreground outline-none"
+                  compact
+                  className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
             </div>
 
-            <div className="rounded-md border border-border bg-white p-1.5 shadow-2xs min-w-0 w-full">
-              <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted truncate whitespace-nowrap block">Note</span>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5 min-w-0 w-full">
+              <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Note</span>
               <textarea
                 name="notes"
                 rows={1}
                 defaultValue={entry.notes ?? ""}
                 onChange={() => handleEntryModified(entry.id)}
-                className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-medium text-foreground outline-none resize-none"
+                className="mt-0.5 w-full bg-transparent text-[11px] sm:text-xs font-medium text-slate-900 outline-none resize-none"
                 placeholder="Optional timesheet note"
               />
             </div>
@@ -1109,7 +943,7 @@ export default function EmployeeTimesheetCorrections({
               <button
                 formAction={deleteAction}
                 disabled={deletePending}
-                className="inline-flex items-center gap-1 rounded border border-rose-400/60 bg-rose-50 px-2.5 py-1 text-[11px] font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
               >
                 <Trash2 className="size-3" />
                 {deletePending ? "Deleting..." : "Delete"}
@@ -1118,17 +952,16 @@ export default function EmployeeTimesheetCorrections({
                 <button
                   type="button"
                   onClick={() => toggleDraftExpand(entry.id)}
-                  className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-1 text-[11px] font-bold text-muted hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded border border-slate-300 bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-200"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={savePending}
-                  className={`inline-flex items-center justify-center gap-1 rounded px-3 py-1 text-[11px] font-extrabold text-white shadow-xs disabled:opacity-50 ${
-                    isFixed || entry.status === "rejected"
-                      ? "bg-teal-600 hover:bg-teal-700"
-                      : "bg-emerald-600 hover:bg-emerald-700"
-                  }`}
+                  className={`inline-flex items-center justify-center gap-1 rounded px-3 py-1 text-[11px] font-extrabold text-white shadow-xs disabled:opacity-50 ${isFixed || entry.status === "rejected"
+                    ? "bg-teal-600 hover:bg-teal-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                    }`}
                 >
                   <Save className="size-3" />
                   {savePending
@@ -1141,46 +974,77 @@ export default function EmployeeTimesheetCorrections({
             </div>
           </form>
         ) : (
-          <div className="grid gap-1.5 min-w-0 w-full">
-            {/* High-Contrast Compact Smart Metric Grid */}
-            <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center min-w-0 w-full">
-              <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Clock In</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">{shortTime(entry.clock_in)}</p>
-              </div>
-              <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Lunch</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
-              </div>
-              <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Clock Out</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words leading-tight">{shortTime(entry.clock_out)}</p>
-              </div>
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1 sm:p-1.5 shadow-2xs min-w-0">
-                <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800 break-words leading-tight">Total Paid</p>
-                <p className="mt-0.5 text-[11px] sm:text-xs font-black text-emerald-950 break-words leading-tight">{formatHours(entry.paid_hours)}</p>
-              </div>
+          <div className="grid grid-cols-4 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
+              <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clock_in)}</p>
             </div>
-
-            {entry.warning_notes ? (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-1.5 text-[11px] font-semibold text-amber-950">
-                {entry.warning_notes}
-              </div>
-            ) : null}
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
+              <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
+              <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clock_out)}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
+              <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(entry.paid_hours)}</p>
+            </div>
           </div>
         )}
+
+        {entry.warning_notes ? (
+          <div className="rounded-md bg-black/35 p-1.5 text-[11px] font-medium text-white border border-white/20">
+            {entry.warning_notes}
+          </div>
+        ) : null}
+
+        {/* Footer Pills */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0 pt-0.5">
+          <span
+            className={`inline-flex items-center rounded px-2 py-0.5 font-semibold text-[10px] break-words ${footerLeftBg}`}
+            title={getEntryWorkstationName(entry) ?? "Workstation logged"}
+          >
+            <MapPin className="mr-1 inline size-2.5 shrink-0 opacity-80" />
+            <span className="break-words leading-tight">
+              {getEntryWorkstationName(entry) ?? "Workstation"}
+            </span>
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            {editable ? (
+              <button
+                type="button"
+                onClick={() => toggleDraftExpand(entry.id)}
+                className="inline-flex items-center gap-1 rounded bg-white px-2 py-0.5 text-[10px] font-black text-slate-900 shadow-2xs hover:bg-slate-100 transition-colors"
+                title={isExpanded ? "Collapse time editor" : "Edit times"}
+              >
+                <Edit3 className="size-2.5" />
+                {isExpanded ? "Collapse" : "Edit"}
+                <ChevronDown
+                  className={`size-2.5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                />
+              </button>
+            ) : (
+              <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold whitespace-nowrap border ${footerRightBg}`}>
+                {Number(entry.overtime_hours ?? 0) > 0 ? `+${formatHours(entry.overtime_hours)} OT` : `${formatHours(entry.paid_hours)} Paid`}
+              </span>
+            )}
+          </div>
+        </div>
       </article>
     );
   };
 
   const quickSubmitForm =
     editableEntries.length > 0 ? (
-      <form action={submitAction} className="rounded-xl border border-border bg-surface p-4 sm:p-5 shadow-xs">
+      <form action={submitAction} className="rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-4">
           <div>
             <div className="flex items-center gap-2">
               <p className="text-sm sm:text-base font-extrabold text-foreground">Submit timesheets</p>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+              <span className="rounded-full bg-surface-muted px-2.5 py-0.5 text-xs font-bold text-muted">
                 {selectedEntryIds.size} of {editableEntries.length} selected
               </span>
             </div>
@@ -1193,7 +1057,7 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={clearSelection}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-muted hover:text-foreground hover:bg-slate-50 shadow-2xs transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-bold text-muted hover:text-foreground hover:bg-surface-muted shadow-soft transition-colors"
               >
                 <X className="size-3.5" />
                 Clear
@@ -1201,7 +1065,7 @@ export default function EmployeeTimesheetCorrections({
             ) : null}
             <button
               disabled={submitBlocked || submitPending}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition-all"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-xs font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-all"
             >
               <Send className="size-3.5" />
               {submitPending
@@ -1223,11 +1087,10 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={() => setSelectorFilter("all")}
-              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                selectorFilter === "all"
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "bg-surface-muted text-muted hover:text-foreground hover:bg-slate-200"
-              }`}
+              className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${selectorFilter === "all"
+                ? "bg-primary text-white shadow-soft"
+                : "bg-surface-muted text-muted hover:text-foreground hover:bg-slate-200"
+                }`}
             >
               All ({editableEntries.length})
             </button>
@@ -1235,11 +1098,10 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => setSelectorFilter("ready")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  selectorFilter === "ready"
-                    ? "bg-emerald-700 text-white shadow-2xs"
-                    : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                }`}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${selectorFilter === "ready"
+                  ? "bg-primary text-white shadow-soft"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  }`}
               >
                 Ready ({readyEntries.length})
               </button>
@@ -1248,11 +1110,10 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => setSelectorFilter("fixed")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  selectorFilter === "fixed"
-                    ? "bg-teal-700 text-white shadow-2xs"
-                    : "bg-teal-50 text-teal-800 hover:bg-teal-100"
-                }`}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${selectorFilter === "fixed"
+                  ? "bg-primary text-white shadow-soft"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  }`}
               >
                 Fixed ({fixedEntries.length})
               </button>
@@ -1261,11 +1122,10 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => setSelectorFilter("attention")}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  selectorFilter === "attention"
-                    ? "bg-amber-600 text-white shadow-2xs"
-                    : "bg-amber-50 text-amber-800 hover:bg-amber-100"
-                }`}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${selectorFilter === "attention"
+                  ? "bg-amber-600 text-white shadow-soft"
+                  : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  }`}
               >
                 Needs Review ({attentionEntries.length})
               </button>
@@ -1276,7 +1136,7 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={selectAllDisplayed}
-              className="rounded-md border border-border bg-white px-2.5 py-1 text-[11px] font-bold text-foreground hover:bg-slate-50 shadow-2xs transition-colors"
+              className="rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-bold text-foreground hover:bg-surface-muted shadow-soft transition-colors"
             >
               {isAllDisplayedSelected ? "Deselect view" : "Select all in view"}
             </button>
@@ -1284,7 +1144,7 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => selectByType("ready")}
-                className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 shadow-2xs transition-colors"
+                className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 shadow-soft transition-colors"
               >
                 Select all Ready
               </button>
@@ -1293,7 +1153,7 @@ export default function EmployeeTimesheetCorrections({
               <button
                 type="button"
                 onClick={() => selectByType("fixed")}
-                className="rounded-md border border-teal-300 bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-teal-800 hover:bg-teal-100 shadow-2xs transition-colors"
+                className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 shadow-soft transition-colors"
               >
                 Select all Fixed
               </button>
@@ -1306,12 +1166,12 @@ export default function EmployeeTimesheetCorrections({
         ))}
         {acknowledgedFlags
           ? flaggedSelected.map((entry) => (
-              <input key={`ack-${entry.id}`} type="hidden" name="acknowledged_ids" value={entry.id} />
-            ))
+            <input key={`ack-${entry.id}`} type="hidden" name="acknowledged_ids" value={entry.id} />
+          ))
           : null}
 
         {hasFlaggedSelected ? (
-          <div className="mt-3.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-950">
+          <div className="mt-3.5 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold text-amber-950 shadow-soft">
             <div className="flex items-center gap-1.5 text-amber-800">
               <AlertTriangle className="size-4 shrink-0 text-amber-600" />
               <span>Selected records that need attention:</span>
@@ -1335,17 +1195,16 @@ export default function EmployeeTimesheetCorrections({
                 onClick={(e) => {
                   toggleEntrySelection(entry.id, e.shiftKey);
                 }}
-                className={`group flex cursor-pointer select-none items-center justify-between gap-3 rounded-xl border-2 p-3 transition-all ${
-                  isSelected
-                    ? "border-slate-900 bg-slate-900/5 shadow-xs ring-1 ring-slate-900"
-                    : isFixed
-                      ? "border-teal-300/80 bg-white hover:border-teal-500 hover:bg-teal-50/30"
-                      : isRejected
-                        ? "border-rose-300/80 bg-white hover:border-rose-500 hover:bg-rose-50/30"
-                        : needsAttention
-                          ? "border-amber-300/80 bg-white hover:border-amber-500 hover:bg-amber-50/30"
-                          : "border-border bg-white hover:border-slate-400 hover:bg-slate-50/50"
-                }`}
+                className={`group flex cursor-pointer select-none items-center justify-between gap-3 rounded-2xl border p-3 transition-all ${isSelected
+                  ? "border-primary bg-primary/5 shadow-soft ring-2 ring-primary/20"
+                  : isFixed
+                    ? "border-emerald-300/80 bg-surface hover:border-primary hover:bg-emerald-50/30"
+                    : isRejected
+                      ? "border-rose-300/80 bg-surface hover:border-rose-500 hover:bg-rose-50/30"
+                      : needsAttention
+                        ? "border-amber-300/80 bg-surface hover:border-amber-500 hover:bg-amber-50/30"
+                        : "border-border/80 bg-surface hover:border-primary/50 hover:bg-surface-muted/30"
+                  }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <input
@@ -1354,7 +1213,7 @@ export default function EmployeeTimesheetCorrections({
                     onChange={() => {
                       // Handled by parent click
                     }}
-                    className="size-4.5 rounded border-2 border-slate-400 text-slate-900 focus:ring-slate-900 accent-slate-900 cursor-pointer shrink-0"
+                    className="size-4.5 rounded border border-border text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
                   />
                   <div className="flex flex-wrap items-center gap-x-2 min-w-0">
                     <span className="font-extrabold text-xs sm:text-sm text-foreground">
@@ -1372,15 +1231,14 @@ export default function EmployeeTimesheetCorrections({
                 </div>
 
                 <span
-                  className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${
-                    isFixed
-                      ? "bg-teal-600 text-white shadow-2xs"
-                      : isRejected
-                        ? "bg-rose-600 text-white shadow-2xs"
-                        : needsAttention
-                          ? "bg-amber-500 text-white shadow-2xs"
-                          : "bg-emerald-600 text-white shadow-2xs"
-                  }`}
+                  className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded px-2.5 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${isFixed
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : isRejected
+                      ? "bg-rose-600 text-white shadow-2xs"
+                      : needsAttention
+                        ? "bg-amber-500 text-white shadow-2xs"
+                        : "bg-emerald-600 text-white shadow-2xs"
+                    }`}
                 >
                   {isFixed ? (
                     <CheckCircle2 className="size-3" />
@@ -1464,11 +1322,10 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={() => setAttendanceFilter("working")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
-                attendanceFilter === "working"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "border border-emerald-300/80 bg-emerald-50/50 text-emerald-900 hover:bg-emerald-100"
-              }`}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "working"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "border border-emerald-300/80 bg-emerald-50/50 text-emerald-900 hover:bg-emerald-100"
+                }`}
             >
               Clocked in ({liveOverview.totals.activeEmployees})
             </button>
@@ -1476,11 +1333,10 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={() => setAttendanceFilter("on_lunch")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
-                attendanceFilter === "on_lunch"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "border border-amber-300/80 bg-amber-50/50 text-amber-900 hover:bg-amber-100"
-              }`}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "on_lunch"
+                ? "bg-amber-500 text-white shadow-xs"
+                : "border border-amber-300/80 bg-amber-50/50 text-amber-900 hover:bg-amber-100"
+                }`}
             >
               Lunch ({liveOverview.totals.onLunch})
             </button>
@@ -1488,11 +1344,10 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={() => setAttendanceFilter("worked")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
-                attendanceFilter === "worked"
-                  ? "bg-slate-800 text-white shadow-xs"
-                  : "border border-slate-300 bg-slate-100/60 text-slate-800 hover:bg-slate-200"
-              }`}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "worked"
+                ? "bg-slate-800 text-white shadow-xs"
+                : "border border-slate-300 bg-slate-100/60 text-slate-800 hover:bg-slate-200"
+                }`}
             >
               Shift done ({liveOverview.totals.workedToday})
             </button>
@@ -1500,11 +1355,10 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={() => setAttendanceFilter("not_started")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
-                attendanceFilter === "not_started"
-                  ? "bg-zinc-700 text-white shadow-xs"
-                  : "border border-border bg-background text-muted hover:bg-surface-muted"
-              }`}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "not_started"
+                ? "bg-zinc-700 text-white shadow-xs"
+                : "border border-border bg-background text-muted hover:bg-surface-muted"
+                }`}
             >
               Not started ({liveOverview.totals.notStarted})
             </button>
@@ -1512,89 +1366,357 @@ export default function EmployeeTimesheetCorrections({
             <button
               type="button"
               onClick={() => setAttendanceFilter("all")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${
-                attendanceFilter === "all"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "border border-border bg-background text-muted hover:bg-surface-muted"
-              }`}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "all"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "border border-border bg-background text-muted hover:bg-surface-muted"
+                }`}
             >
               All ({liveOverview.totals.totalEmployees})
             </button>
           </div>
 
           {/* Colleague List */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-3">
             {filteredAttendanceColleagues.length === 0 ? (
               <p className="py-2 text-xs font-medium text-muted">
                 No colleagues matching this status right now.
               </p>
             ) : (
-              filteredAttendanceColleagues.map((colleague) => {
-                const isWorking = colleague.status === "working";
-                const isOnLunch = colleague.status === "on_lunch";
-                const isWorked = colleague.status === "worked";
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredAttendanceColleagues.map((colleague) => {
+                  if (colleague.status === "worked") {
+                    return (
+                      <article
+                        key={colleague.employeeId}
+                        onClick={() => openPanel("attendance")}
+                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-slate-800 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-slate-900/60 min-w-0"
+                      >
+                        {/* Top: Avatar, Name & Solid Status Badge */}
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative shrink-0">
+                              <EmployeeAvatar
+                                name={colleague.knownAs ?? colleague.fullName}
+                                src={colleague.avatarUrl}
+                                className="size-8.5 ring-2 ring-slate-600 shadow-xs"
+                              />
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">
+                                {colleague.knownAs ?? colleague.fullName}
+                              </p>
+                              <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">
+                                {colleague.jobTitle ?? "Team Member"}
+                              </p>
+                            </div>
+                          </div>
 
-                const cardBorder = isWorking
-                  ? "border-emerald-300/80 bg-white hover:bg-emerald-50"
-                  : isOnLunch
-                    ? "border-amber-300/80 bg-white hover:bg-amber-50"
-                    : isWorked
-                      ? "border-slate-300 bg-white hover:bg-slate-50"
-                      : "border-zinc-300/80 bg-zinc-50 hover:bg-zinc-100";
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
+                            <CheckCircle2 className="size-2.5 text-emerald-400" />
+                            Shift Done
+                          </span>
+                        </div>
 
-                const avatarRing = isWorking
-                  ? "ring-emerald-500"
-                  : isOnLunch
-                    ? "ring-amber-500"
-                    : isWorked
-                      ? "ring-slate-600"
-                      : "ring-zinc-300";
+                        {/* High-Contrast White Metrics Box */}
+                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockOut)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
+                            <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(colleague.paidHours)}</p>
+                          </div>
+                        </div>
 
-                const statusDot = isWorking
-                  ? "bg-emerald-500"
-                  : isOnLunch
-                    ? "bg-amber-500"
-                    : isWorked
-                      ? "bg-emerald-500"
-                      : "bg-zinc-400";
+                        {/* Footer Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
+                          <span
+                            className="inline-flex items-center rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px] break-words"
+                            title={colleague.workstationName ?? "Assigned workstation"}
+                          >
+                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-slate-400" />
+                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
+                          </span>
+                          <span className="shrink-0 rounded bg-slate-900/60 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700 whitespace-nowrap">
+                            {colleague.departmentName ?? "General"}
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  }
 
-                const statusDetail = isWorking
-                  ? `In ${shortTime(colleague.clockIn)}`
-                  : isOnLunch
-                    ? "On lunch"
-                    : isWorked
-                      ? `Shift done · ${formatHours(colleague.paidHours)}`
-                      : "Not started";
+                  if (colleague.status === "working") {
+                    return (
+                      <article
+                        key={colleague.employeeId}
+                        onClick={() => openPanel("attendance")}
+                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-emerald-700 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-emerald-800/60 min-w-0"
+                      >
+                        {/* Top: Avatar, Name & Status Badge */}
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative shrink-0">
+                              <EmployeeAvatar
+                                name={colleague.knownAs ?? colleague.fullName}
+                                src={colleague.avatarUrl}
+                                className="size-8.5 ring-2 ring-emerald-400 shadow-xs"
+                              />
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-300 ring-2 ring-emerald-700" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">
+                                {colleague.knownAs ?? colleague.fullName}
+                              </p>
+                              <p className="text-[11px] font-medium text-emerald-100 break-words leading-tight mt-0.5">
+                                {colleague.jobTitle ?? "Team Member"}
+                              </p>
+                            </div>
+                          </div>
 
-                return (
-                  <button
-                    key={colleague.employeeId}
-                    type="button"
-                    onClick={() => openPanel("attendance")}
-                    title={`View today's attendance for ${colleague.knownAs ?? colleague.fullName}`}
-                    className={`flex items-center gap-2 rounded-md border p-1.5 pr-3 shadow-2xs transition-all text-left ${cardBorder}`}
-                  >
-                    <div className="relative shrink-0">
-                      <EmployeeAvatar
-                        name={colleague.knownAs ?? colleague.fullName}
-                        src={colleague.avatarUrl}
-                        className={`size-7 ring-2 ${avatarRing}`}
-                      />
-                      <span
-                        className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white ${statusDot}`}
-                      />
-                    </div>
-                    <div className="min-w-0 text-left">
-                      <p className="break-words leading-tight text-xs font-extrabold text-foreground">
-                        {colleague.knownAs ?? colleague.fullName}
-                      </p>
-                      <p className="break-words leading-tight text-[10px] font-semibold text-muted">
-                        {statusDetail}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-200 border border-emerald-400/30 whitespace-nowrap">
+                            <span className="relative flex size-1.5 shrink-0">
+                              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
+                            </span>
+                            Clocked In
+                          </span>
+                        </div>
+
+                        {/* High-Contrast White Metrics Box */}
+                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 break-words leading-tight">Status</p>
+                            <p className="font-extrabold text-emerald-600 text-xs break-words leading-tight">Active</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Duration</p>
+                            <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(colleague.paidHours)}</p>
+                          </div>
+                        </div>
+
+                        {/* Footer Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
+                          <span
+                            className="inline-flex items-center rounded bg-emerald-800/80 px-2 py-0.5 font-semibold text-emerald-100 text-[10px] break-words"
+                            title={colleague.workstationName ?? "Assigned workstation"}
+                          >
+                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-emerald-200" />
+                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
+                          </span>
+                          <span className="shrink-0 rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-emerald-400/20 whitespace-nowrap">
+                            {colleague.departmentName ?? "General"}
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  if (colleague.status === "on_lunch") {
+                    return (
+                      <article
+                        key={colleague.employeeId}
+                        onClick={() => openPanel("attendance")}
+                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-amber-600 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-amber-700/60 min-w-0"
+                      >
+                        {/* Top: Avatar, Name & Status Badge */}
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative shrink-0">
+                              <EmployeeAvatar
+                                name={colleague.knownAs ?? colleague.fullName}
+                                src={colleague.avatarUrl}
+                                className="size-8.5 ring-2 ring-amber-400 shadow-xs"
+                              />
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-amber-300 ring-2 ring-amber-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">
+                                {colleague.knownAs ?? colleague.fullName}
+                              </p>
+                              <p className="text-[11px] font-medium text-amber-100 break-words leading-tight mt-0.5">
+                                {colleague.jobTitle ?? "Team Member"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-amber-300/30 whitespace-nowrap">
+                            <UtensilsCrossed className="size-2.5 text-amber-200" />
+                            On Lunch
+                          </span>
+                        </div>
+
+                        {/* High-Contrast White Metrics Box */}
+                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-amber-600 break-words leading-tight">Lunch</p>
+                            <p className="font-extrabold text-amber-600 text-xs break-words font-mono leading-tight">{shortTime(colleague.lunchStart)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-700 break-words leading-tight">Worked</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(colleague.paidHours)}</p>
+                          </div>
+                        </div>
+
+                        {/* Footer Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
+                          <span
+                            className="inline-flex items-center rounded bg-amber-700/80 px-2 py-0.5 font-semibold text-amber-100 text-[10px] break-words"
+                            title={colleague.workstationName ?? "Assigned workstation"}
+                          >
+                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-amber-200" />
+                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
+                          </span>
+                          <span className="shrink-0 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-amber-300/20 whitespace-nowrap">
+                            {colleague.departmentName ?? "General"}
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  if (colleague.status === "needs_review") {
+                    return (
+                      <article
+                        key={colleague.employeeId}
+                        onClick={() => openPanel("attendance")}
+                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-rose-700 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-rose-800/60 min-w-0"
+                      >
+                        {/* Top: Avatar, Name & Status Badge */}
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative shrink-0">
+                              <EmployeeAvatar
+                                name={colleague.knownAs ?? colleague.fullName}
+                                src={colleague.avatarUrl}
+                                className="size-8.5 ring-2 ring-white shadow-xs"
+                              />
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-rose-300 ring-2 ring-rose-700" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">
+                                {colleague.knownAs ?? colleague.fullName}
+                              </p>
+                              <p className="text-[11px] font-medium text-rose-100 break-words leading-tight mt-0.5">
+                                {colleague.jobTitle ?? "Team Member"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-rose-950/50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-rose-400/30 whitespace-nowrap">
+                            <AlertTriangle className="size-2.5 text-rose-200" />
+                            Review
+                          </span>
+                        </div>
+
+                        {/* High-Contrast White Metrics Box */}
+                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockOut)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-rose-700 break-words leading-tight">Flag</p>
+                            <p className="font-extrabold text-rose-600 text-xs break-words leading-tight">Review</p>
+                          </div>
+                        </div>
+
+                        {/* Footer Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
+                          <span
+                            className="inline-flex items-center rounded bg-rose-800/80 px-2 py-0.5 font-semibold text-rose-100 text-[10px] break-words"
+                            title={colleague.workstationName ?? "Assigned workstation"}
+                          >
+                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-rose-200" />
+                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
+                          </span>
+                          <span className="shrink-0 rounded bg-rose-950/50 px-2 py-0.5 text-[10px] font-bold text-white border border-rose-400/20 whitespace-nowrap">
+                            {colleague.departmentName ?? "General"}
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  // Default: not_started (Sizwe card from screenshot)
+                  return (
+                    <article
+                      key={colleague.employeeId}
+                      onClick={() => openPanel("attendance")}
+                      className="group flex flex-col justify-between gap-2.5 rounded-xl border border-zinc-300/80 bg-zinc-100/90 p-3 text-zinc-800 shadow-xs transition-all hover:bg-zinc-100 hover:border-zinc-400 hover:shadow-sm cursor-pointer min-w-0"
+                    >
+                      {/* Top: Avatar, Name & Status Badge */}
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <div className="relative shrink-0">
+                            <EmployeeAvatar
+                              name={colleague.knownAs ?? colleague.fullName}
+                              src={colleague.avatarUrl}
+                              className="size-8.5 ring-2 ring-zinc-300 shadow-xs"
+                            />
+                            <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-zinc-400 ring-2 ring-zinc-100" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-extrabold text-zinc-900 break-words leading-tight">
+                              {colleague.knownAs ?? colleague.fullName}
+                            </p>
+                            <p className="text-[11px] font-medium text-zinc-500 break-words leading-tight mt-0.5">
+                              {colleague.jobTitle ?? "Team Member"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-zinc-700 border border-zinc-300 whitespace-nowrap">
+                          Not Started
+                        </span>
+                      </div>
+
+                      {/* High-Contrast White Metrics Box */}
+                      <div className="grid grid-cols-2 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 break-words leading-tight">Status</p>
+                          <p className="font-extrabold text-slate-600 text-xs break-words leading-tight">Not Started</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 break-words leading-tight">Logged</p>
+                          <p className="font-extrabold text-zinc-500 text-xs break-words font-mono leading-tight">--:--</p>
+                        </div>
+                      </div>
+
+                      {/* Footer Pills */}
+                      <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
+                        <span
+                          className="inline-flex items-center rounded bg-zinc-200/80 px-2 py-0.5 font-semibold text-zinc-600 text-[10px] break-words"
+                          title={colleague.workstationName ?? "Assigned workstation"}
+                        >
+                          <MapPin className="mr-1 inline size-2.5 shrink-0 text-zinc-400" />
+                          <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
+                        </span>
+                        <span className="shrink-0 rounded bg-zinc-200/80 px-2 py-0.5 text-[10px] font-bold text-zinc-600 border border-zinc-300 whitespace-nowrap">
+                          {colleague.departmentName ?? "General"}
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -1617,9 +1739,8 @@ export default function EmployeeTimesheetCorrections({
               <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
                 <span>{calendarExpanded ? "Collapse" : "Expand"}</span>
                 <ChevronDown
-                  className={`size-3.5 transition-transform duration-200 ${
-                    calendarExpanded ? "rotate-180" : ""
-                  }`}
+                  className={`size-3.5 transition-transform duration-200 ${calendarExpanded ? "rotate-180" : ""
+                    }`}
                 />
               </span>
             </button>
@@ -1627,423 +1748,411 @@ export default function EmployeeTimesheetCorrections({
 
           {(!collapsedCalendar || calendarExpanded) && (
             <div className="grid min-w-0 max-w-full gap-3">
-        {message && (
-          <div
-            className={`rounded-md border px-3 py-2 text-sm font-semibold shadow-2xs ${
-              messageOk
-                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                : "border-rose-300 bg-rose-50 text-rose-950"
-            }`}
-          >
-            {message}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="inline-flex items-center gap-2 font-semibold text-foreground">
-              <CalendarDays className="size-4 text-accent" />
-              Calendar
-            </p>
-            <p className="mt-1 text-xs text-muted max-sm:hidden">
-              Click any day or draft event on the calendar to view, edit, or create draft timesheets.
-            </p>
-          </div>
-          <div className="hidden sm:flex sm:flex-wrap sm:gap-1.5">
-            {([
-              ["day", "Daily View"],
-              ["week", "Weekly View"],
-              ["payroll", "Payroll Period"],
-              ["month", "Monthly View"],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setCalendarWindow(value)}
-                className={`rounded-md px-3 py-1.5 text-xs ${viewButtonClass(calendarWindow === value)}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {calendarWindow === "payroll" ? (
-          <p className="rounded-md border border-slate-300 bg-slate-100/70 px-3 py-2 text-xs font-bold text-foreground">
-            Payroll period anchored to the selected week: {payrollRangeLabel}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setShowLegend(!showLegend)}
-          className="flex items-center gap-1.5 text-xs font-bold text-muted sm:hidden"
-        >
-          <span
-            className="inline-flex size-2 rounded-full"
-            style={{
-              background:
-                "conic-gradient(var(--color-holiday),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
-            }}
-          />
-          Legend ({showLegend ? "hide" : "show"})
-        </button>
-
-        <div
-          className={`flex flex-wrap gap-1.5 text-xs font-bold ${showLegend ? "" : "hidden sm:flex"}`}
-        >
-          <span className="inline-flex items-center gap-1 rounded border border-purple-300 bg-purple-100/70 px-2 py-0.5 text-[11px] text-purple-900">
-            <span className="size-1.5 rounded-full bg-purple-600" />
-            Public Holiday
-          </span>
-          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] text-amber-900">
-            <span className="size-1.5 rounded-full bg-amber-600" />
-            Draft
-          </span>
-          <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white">
-            <span className="size-1.5 rounded-full bg-emerald-400" />
-            Submitted
-          </span>
-          <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] text-emerald-900">
-            <span className="size-1.5 rounded-full bg-emerald-600" />
-            Approved
-          </span>
-          <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
-            <span className="size-1.5 rounded-full bg-rose-600" />
-            Rejected
-          </span>
-          <span className="inline-flex items-center gap-1 rounded border border-teal-300 bg-teal-100/70 px-2 py-0.5 text-[11px] text-teal-900">
-            <span className="size-1.5 rounded-full bg-teal-600" />
-            Fixed
-          </span>
-        </div>
-        <div ref={calendarRef} className="cw-timesheet-calendar min-w-0 max-sm:hidden">
-          <FullCalendar
-            key={`${calendarWindow}-${calendarFocusDate}`}
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialDate={calendarFocusDate}
-            initialView={
-              calendarWindow === "day"
-                ? "dayGridDay"
-                : calendarWindow === "week"
-                  ? "dayGridWeek"
-                  : calendarWindow === "payroll"
-                    ? "dayGridPayroll"
-                    : "dayGridMonth"
-            }
-            height="auto"
-            firstDay={1}
-            events={calendarEvents}
-            dayMaxEventRows={3}
-            dayMaxEvents={2}
-            dateClick={handleDateClick}
-            eventClick={handleEventClick}
-            eventMouseEnter={(info) => {
-              setDayTooltip(null);
-              const rect = info.el.getBoundingClientRect();
-              const calRect = calendarRef.current?.getBoundingClientRect();
-              const entry = info.event.extendedProps.entry as TimeEntryRecord | undefined;
-              if (entry) {
-                const lines = [
-                  entry.status,
-                  `${formatTime(entry.clock_in)} \u2192 ${formatTime(entry.clock_out)}`,
-                  formatHours(entry.paid_hours),
-                  entry.missing_clocking ? "Missing clocking" : "",
-                  entry.late_arrival ? "Late arrival" : "",
-                  entry.early_departure ? "Early departure" : "",
-                  entry.warning_notes || entry.notes || "",
-                ].filter(Boolean).join(" · ");
-                let x = rect.left + rect.width / 2;
-                let y = rect.top - 8;
-                if (calRect) {
-                  x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
-                  y = Math.max(calRect.top + 4, y);
-                }
-                setTooltip({ content: lines, x, y });
-              } else {
-                let x = rect.left + rect.width / 2;
-                let y = rect.top - 8;
-                if (calRect) {
-                  x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
-                  y = Math.max(calRect.top + 4, y);
-                }
-                setTooltip({ content: info.event.title, x, y });
-              }
-            }}
-            eventMouseLeave={() => setTooltip(null)}
-            dayCellDidMount={(arg: DayCellMountArg) => {
-              const dateStr = arg.dateStr;
-              const eventsForDay = dayEventsMap.get(dateStr);
-              if (!eventsForDay) return;
-              arg.el.addEventListener("mouseenter", (e: MouseEvent) => {
-                const target = e.target as HTMLElement;
-                if (target.closest(".fc-event")) return;
-                const calRect = calendarRef.current?.getBoundingClientRect();
-                if (!calRect) return;
-                const cellRect = arg.el.getBoundingClientRect();
-                let x = cellRect.left + cellRect.width / 2;
-                let y = cellRect.top - 4;
-                x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
-                y = Math.max(calRect.top + 4, y);
-                setDayTooltip({
-                  content: eventsForDay.join(" · "),
-                  x,
-                  y,
-                });
-              });
-              arg.el.addEventListener("mouseleave", () => {
-                setDayTooltip(null);
-              });
-            }}
-            headerToolbar={{
-              left: "prev,next today",
-              center: "title",
-              right: "",
-            }}
-            moreLinkClick="popover"
-            views={{
-              dayGridPayroll: {
-                buttonText: "Payroll",
-                duration: { days: 14 },
-                type: "dayGrid",
-              },
-            }}
-          />
-        </div>
-
-        <div className="hidden max-sm:block min-w-0 max-w-full">
-          <div className="flex items-center gap-3 min-w-0">
-            <input
-              type="date"
-              value={calendarFocusDate}
-              onChange={(e) => setCalendarFocusDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setCalendarFocusDate(currentWorkDate)}
-              className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent"
-            >
-              Today
-            </button>
-          </div>
-
-          <div className="mt-3 space-y-2 min-w-0 max-w-full">
-            {publicHolidays
-              .filter((h) => h.holiday_date === calendarFocusDate)
-              .map((holiday) => (
+              {message && (
                 <div
-                  key={`holiday-${holiday.id}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5 min-w-0"
-                >
-                  <span className="text-sm font-semibold text-holiday break-words leading-tight min-w-0">{holiday.name}</span>
-                  <span className="shrink-0 rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday whitespace-nowrap">
-                    Holiday
-                  </span>
-                </div>
-              ))}
-            {entries
-              .filter(
-                (e) =>
-                  e.work_date === calendarFocusDate &&
-                  !holidayDates.has(e.work_date) &&
-                  !e.notes?.startsWith("Public holiday:"),
-              )
-              .map((entry) => {
-                const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
-                return (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => {
-                      setCalendarFocusDate(entry.work_date);
-                      setDetailEntry(entry);
-                    }}
-                    className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                      hasWarning
-                        ? "border-danger/30 bg-danger/[0.07]"
-                        : "border-border bg-background"
+                  className={`rounded-md border px-3 py-2 text-sm font-semibold shadow-2xs ${messageOk
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                    : "border-rose-300 bg-rose-50 text-rose-950"
                     }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 min-w-0 w-full">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {entry.status === "draft" ? "Draft" : entry.status}
-                      </p>
-                      <span className="shrink-0 text-sm font-semibold text-foreground whitespace-nowrap">
-                        {formatHours(entry.paid_hours)}
-                        {Number(entry.overtime_hours ?? 0) > 0
-                          ? ` +${formatHours(entry.overtime_hours)}`
-                          : ""}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 break-words leading-tight text-xs text-muted">
-                      {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
-                      {entry.lunch_start || entry.lunch_end
-                        ? ` \u00b7 Lunch ${formatTimeRange(entry.lunch_start, entry.lunch_end)}`
-                        : ""}
-                    </p>
-                    {entry.warning_notes || (entry.notes && !entry.notes.startsWith("Public holiday:")) ? (
-                      <p className="mt-1 text-xs text-muted break-words line-clamp-2">
-                        {entry.warning_notes || entry.notes}
-                      </p>
-                    ) : null}
-                  </button>
-                );
-              })}
-            {entries.filter((e) => e.work_date === calendarFocusDate).length === 0 &&
-            publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
-                No entries for this day
-              </div>
-            ) : null}
-          </div>
-        </div>
+                >
+                  {message}
+                </div>
+              )}
 
-        {(tooltip ?? dayTooltip) ? createPortal(
-          <div
-            className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
-            style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
-          >
-            {(tooltip ?? dayTooltip)!.content}
-          </div>,
-          document.body,
-        ) : null}
-
-        {/* Calendar Selected Day Inspector & Draft Editor */}
-        {(() => {
-          const focusedDate = selectedDate || calendarFocusDate;
-          const activeCalendarEntry = (focusedDate ? entriesByDate.get(focusedDate) : null) ?? detailEntry;
-          const activeHoliday = focusedDate
-            ? publicHolidays.find((h) => h.holiday_date === focusedDate)
-            : null;
-          const isPastFocusedDay = Boolean(focusedDate) && focusedDate < currentWorkDate && !activeCalendarEntry && !activeHoliday;
-
-          if (!focusedDate) return null;
-
-          return (
-            <div className="grid gap-2.5 border-t border-border/80 pt-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="size-4 text-accent" />
-                  <p className="text-xs font-black uppercase tracking-wider text-muted">
-                    Selected Day · <span className="text-foreground">{formatDate(focusedDate)}</span>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="inline-flex items-center gap-2 font-semibold text-foreground">
+                    <CalendarDays className="size-4 text-accent" />
+                    Calendar
+                  </p>
+                  <p className="mt-1 text-xs text-muted max-sm:hidden">
+                    Click any day or draft event on the calendar to view, edit, or create draft timesheets.
                   </p>
                 </div>
-                {(selectedDate || detailEntry) ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate("");
-                      setDetailEntry(null);
-                    }}
-                    className="text-[11px] font-bold text-muted hover:text-foreground underline decoration-dotted"
-                  >
-                    Clear selection
-                  </button>
-                ) : null}
+                <div className="hidden sm:flex sm:flex-wrap sm:gap-1.5">
+                  {([
+                    ["day", "Daily View"],
+                    ["week", "Weekly View"],
+                    ["payroll", "Payroll Period"],
+                    ["month", "Monthly View"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setCalendarWindow(value)}
+                      className={`rounded-md px-3 py-1.5 text-xs ${viewButtonClass(calendarWindow === value)}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {calendarWindow === "payroll" ? (
+                <p className="rounded-md border border-slate-300 bg-slate-100/70 px-3 py-2 text-xs font-bold text-foreground">
+                  Payroll period anchored to the selected week: {payrollRangeLabel}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowLegend(!showLegend)}
+                className="flex items-center gap-1.5 text-xs font-bold text-muted sm:hidden"
+              >
+                <span
+                  className="inline-flex size-2 rounded-full"
+                  style={{
+                    background:
+                      "conic-gradient(var(--color-holiday),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
+                  }}
+                />
+                Legend ({showLegend ? "hide" : "show"})
+              </button>
+
+              <div
+                className={`flex flex-wrap gap-1.5 text-xs font-bold ${showLegend ? "" : "hidden sm:flex"}`}
+              >
+                <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] text-emerald-900">
+                  <span className="size-1.5 rounded-full bg-emerald-600" />
+                  Approved / Working
+                </span>
+                <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white">
+                  <span className="size-1.5 rounded-full bg-emerald-400" />
+                  Shift Done / Submitted
+                </span>
+                <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] text-amber-900">
+                  <span className="size-1.5 rounded-full bg-amber-600" />
+                  Draft / On Lunch
+                </span>
+                <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
+                  <span className="size-1.5 rounded-full bg-rose-600" />
+                  Review Needed / Rejected
+                </span>
+                <span className="inline-flex items-center gap-1 rounded border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700">
+                  <span className="size-1.5 rounded-full bg-zinc-400" />
+                  Not Started
+                </span>
+              </div>
+              <div ref={calendarRef} className="cw-timesheet-calendar min-w-0 max-sm:hidden">
+                <FullCalendar
+                  key={`${calendarWindow}-${calendarFocusDate}`}
+                  plugins={[dayGridPlugin, interactionPlugin]}
+                  initialDate={calendarFocusDate}
+                  initialView={
+                    calendarWindow === "day"
+                      ? "dayGridDay"
+                      : calendarWindow === "week"
+                        ? "dayGridWeek"
+                        : calendarWindow === "payroll"
+                          ? "dayGridPayroll"
+                          : "dayGridMonth"
+                  }
+                  height="auto"
+                  firstDay={1}
+                  events={calendarEvents}
+                  dayMaxEventRows={3}
+                  dayMaxEvents={2}
+                  dateClick={handleDateClick}
+                  eventClick={handleEventClick}
+                  eventMouseEnter={(info) => {
+                    setDayTooltip(null);
+                    const rect = info.el.getBoundingClientRect();
+                    const calRect = calendarRef.current?.getBoundingClientRect();
+                    const entry = info.event.extendedProps.entry as TimeEntryRecord | undefined;
+                    if (entry) {
+                      const lines = [
+                        entry.status,
+                        `${formatTime(entry.clock_in)} \u2192 ${formatTime(entry.clock_out)}`,
+                        formatHours(entry.paid_hours),
+                        entry.missing_clocking ? "Missing clocking" : "",
+                        entry.late_arrival ? "Late arrival" : "",
+                        entry.early_departure ? "Early departure" : "",
+                        entry.warning_notes || entry.notes || "",
+                      ].filter(Boolean).join(" · ");
+                      let x = rect.left + rect.width / 2;
+                      let y = rect.top - 8;
+                      if (calRect) {
+                        x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                        y = Math.max(calRect.top + 4, y);
+                      }
+                      setTooltip({ content: lines, x, y });
+                    } else {
+                      let x = rect.left + rect.width / 2;
+                      let y = rect.top - 8;
+                      if (calRect) {
+                        x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                        y = Math.max(calRect.top + 4, y);
+                      }
+                      setTooltip({ content: info.event.title, x, y });
+                    }
+                  }}
+                  eventMouseLeave={() => setTooltip(null)}
+                  dayCellDidMount={(arg: DayCellMountArg) => {
+                    const dateStr = arg.dateStr;
+                    const eventsForDay = dayEventsMap.get(dateStr);
+                    if (!eventsForDay) return;
+                    arg.el.addEventListener("mouseenter", (e: MouseEvent) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest(".fc-event")) return;
+                      const calRect = calendarRef.current?.getBoundingClientRect();
+                      if (!calRect) return;
+                      const cellRect = arg.el.getBoundingClientRect();
+                      let x = cellRect.left + cellRect.width / 2;
+                      let y = cellRect.top - 4;
+                      x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                      y = Math.max(calRect.top + 4, y);
+                      setDayTooltip({
+                        content: eventsForDay.join(" · "),
+                        x,
+                        y,
+                      });
+                    });
+                    arg.el.addEventListener("mouseleave", () => {
+                      setDayTooltip(null);
+                    });
+                  }}
+                  headerToolbar={{
+                    left: "prev,next today",
+                    center: "title",
+                    right: "",
+                  }}
+                  moreLinkClick="popover"
+                  views={{
+                    dayGridPayroll: {
+                      buttonText: "Payroll",
+                      duration: { days: 14 },
+                      type: "dayGrid",
+                    },
+                  }}
+                />
               </div>
 
-              {activeCalendarEntry ? (
-                <div className="grid gap-2">
-                  {activeCalendarEntry.status === "draft" || activeCalendarEntry.status === "rejected" ? (
-                    <div
-                      className={`rounded-lg border-2 p-3 shadow-2xs ${
-                        isEntryFixed(activeCalendarEntry)
-                          ? "border-teal-400 bg-teal-50/40"
-                          : activeCalendarEntry.status === "rejected"
-                            ? "border-rose-400 bg-rose-50/40"
-                            : "border-amber-400 bg-amber-50/40"
-                      }`}
-                    >
+              <div className="hidden max-sm:block min-w-0 max-w-full">
+                <div className="flex items-center gap-3 min-w-0">
+                  <input
+                    type="date"
+                    value={calendarFocusDate}
+                    onChange={(e) => setCalendarFocusDate(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCalendarFocusDate(currentWorkDate)}
+                    className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent"
+                  >
+                    Today
+                  </button>
+                </div>
+
+                <div className="mt-3 space-y-2 min-w-0 max-w-full">
+                  {publicHolidays
+                    .filter((h) => h.holiday_date === calendarFocusDate)
+                    .map((holiday) => (
                       <div
-                        className={`mb-2 flex items-center justify-between gap-2 border-b pb-2 ${
-                          isEntryFixed(activeCalendarEntry)
-                            ? "border-teal-200/80"
-                            : activeCalendarEntry.status === "rejected"
-                              ? "border-rose-200/80"
-                              : "border-amber-200/80"
-                        }`}
+                        key={`holiday-${holiday.id}`}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5 min-w-0"
                       >
-                        <div className="flex items-center gap-2">
-                          {isEntryFixed(activeCalendarEntry) ? (
-                            <CheckCircle2 className="size-4 text-teal-600" />
-                          ) : activeCalendarEntry.status === "rejected" ? (
-                            <AlertTriangle className="size-4 text-rose-600" />
-                          ) : (
-                            <Edit3 className="size-4 text-amber-600" />
-                          )}
-                          <h4
-                            className={`text-xs font-black uppercase tracking-wider ${
-                              isEntryFixed(activeCalendarEntry)
-                                ? "text-teal-950"
-                                : activeCalendarEntry.status === "rejected"
-                                  ? "text-rose-950"
-                                  : "text-amber-950"
-                            }`}
-                          >
-                            {isEntryFixed(activeCalendarEntry)
-                              ? "Fixed Timesheet (Ready to Resubmit)"
-                              : activeCalendarEntry.status === "rejected"
-                                ? "Correct Rejected Timesheet"
-                                : "Edit Draft Timesheet"}
-                          </h4>
-                        </div>
+                        <span className="text-sm font-semibold text-holiday break-words leading-tight min-w-0">{holiday.name}</span>
+                        <span className="shrink-0 rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday whitespace-nowrap">
+                          Holiday
+                        </span>
                       </div>
-                      {renderTimesheetEntry(activeCalendarEntry)}
+                    ))}
+                  {entries
+                    .filter(
+                      (e) =>
+                        e.work_date === calendarFocusDate &&
+                        !holidayDates.has(e.work_date) &&
+                        !e.notes?.startsWith("Public holiday:"),
+                    )
+                    .map((entry) => {
+                      const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => {
+                            setCalendarFocusDate(entry.work_date);
+                            setDetailEntry(entry);
+                          }}
+                          className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-colors ${hasWarning
+                            ? "border-danger/30 bg-danger/[0.07]"
+                            : "border-border bg-background"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                            <p className="truncate text-sm font-semibold text-foreground">
+                              {entry.status === "draft" ? "Draft" : entry.status}
+                            </p>
+                            <span className="shrink-0 text-sm font-semibold text-foreground whitespace-nowrap">
+                              {formatHours(entry.paid_hours)}
+                              {Number(entry.overtime_hours ?? 0) > 0
+                                ? ` +${formatHours(entry.overtime_hours)}`
+                                : ""}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 break-words leading-tight text-xs text-muted">
+                            {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
+                            {entry.lunch_start || entry.lunch_end
+                              ? ` \u00b7 Lunch ${formatTimeRange(entry.lunch_start, entry.lunch_end)}`
+                              : ""}
+                          </p>
+                          {entry.warning_notes || (entry.notes && !entry.notes.startsWith("Public holiday:")) ? (
+                            <p className="mt-1 text-xs text-muted break-words line-clamp-2">
+                              {entry.warning_notes || entry.notes}
+                            </p>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  {entries.filter((e) => e.work_date === calendarFocusDate).length === 0 &&
+                    publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+                      No entries for this day
                     </div>
-                  ) : (
-                    <div>
-                      {renderTimesheetEntry(activeCalendarEntry)}
+                  ) : null}
+                </div>
+              </div>
+
+              {(tooltip ?? dayTooltip) ? createPortal(
+                <div
+                  className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
+                  style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
+                >
+                  {(tooltip ?? dayTooltip)!.content}
+                </div>,
+                document.body,
+              ) : null}
+
+              {/* Calendar Selected Day Inspector & Draft Editor */}
+              {(() => {
+                const focusedDate = selectedDate || calendarFocusDate;
+                const activeCalendarEntry = (focusedDate ? entriesByDate.get(focusedDate) : null) ?? detailEntry;
+                const activeHoliday = focusedDate
+                  ? publicHolidays.find((h) => h.holiday_date === focusedDate)
+                  : null;
+                const isPastFocusedDay = Boolean(focusedDate) && focusedDate < currentWorkDate && !activeCalendarEntry && !activeHoliday;
+
+                if (!focusedDate) return null;
+
+                return (
+                  <div className="grid gap-2.5 border-t border-border/80 pt-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="size-4 text-accent" />
+                        <p className="text-xs font-black uppercase tracking-wider text-muted">
+                          Selected Day · <span className="text-foreground">{formatDate(focusedDate)}</span>
+                        </p>
+                      </div>
+                      {(selectedDate || detailEntry) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDate("");
+                            setDetailEntry(null);
+                          }}
+                          className="text-[11px] font-bold text-muted hover:text-foreground underline decoration-dotted"
+                        >
+                          Clear selection
+                        </button>
+                      ) : null}
                     </div>
-                  )}
-                </div>
-              ) : activeHoliday ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-purple-300 bg-purple-50 p-3 text-xs shadow-2xs">
-                  <div>
-                    <span className="font-extrabold text-purple-950">{activeHoliday.name}</span>
-                    <p className="text-[11px] font-medium text-purple-700">Public Holiday · {formatDate(focusedDate)}</p>
+
+                    {activeCalendarEntry ? (
+                      <div className="grid gap-2">
+                        {renderTimesheetEntry(activeCalendarEntry)}
+                      </div>
+                    ) : activeHoliday ? (
+                      <article className="group flex flex-col justify-between gap-2.5 rounded-xl bg-slate-800 p-3.5 text-white shadow-sm ring-1 ring-slate-900/60 min-w-0">
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative shrink-0">
+                              <div className="flex size-8.5 flex-col items-center justify-center rounded-lg border border-slate-700 bg-slate-900/80 shadow-xs leading-none text-white">
+                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">{getDateBadgeParts(focusedDate).month}</span>
+                                <span className="text-xs font-black mt-0.5">{getDateBadgeParts(focusedDate).day}</span>
+                              </div>
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">{activeHoliday.name}</p>
+                              <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">Public Holiday · {formatDate(focusedDate)}</p>
+                            </div>
+                          </div>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
+                            Holiday Paid
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Type</p>
+                            <p className="font-extrabold text-slate-900 text-xs">Public Holiday</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Benefit</p>
+                            <p className="font-extrabold text-emerald-700 text-xs">Paid Day</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Hours</p>
+                            <p className="font-extrabold text-emerald-700 text-xs">8.00h</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] pt-0.5">
+                          <span className="rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px]">BCEA Protected Holiday</span>
+                          <span className="rounded bg-slate-900/60 px-2 py-0.5 font-bold text-slate-300 text-[10px] border border-slate-700">Full Day Off</span>
+                        </div>
+                      </article>
+                    ) : isPastFocusedDay ? (
+                      <article className="group flex flex-col justify-between gap-2.5 rounded-xl bg-amber-700 p-3.5 text-white shadow-sm ring-1 ring-amber-800/80 min-w-0">
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="relative shrink-0">
+                              <div className="flex size-8.5 flex-col items-center justify-center rounded-lg border border-amber-400/50 bg-amber-800/90 shadow-xs leading-none text-white">
+                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">{getDateBadgeParts(focusedDate).month}</span>
+                                <span className="text-xs font-black mt-0.5">{getDateBadgeParts(focusedDate).day}</span>
+                              </div>
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-amber-300 ring-2 ring-amber-700" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">No timesheet recorded</p>
+                              <p className="text-[11px] font-medium text-white/85 break-words leading-tight mt-0.5">Missing record for {formatDate(focusedDate)}</p>
+                            </div>
+                          </div>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-black/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-white/20 whitespace-nowrap">
+                            Unrecorded
+                          </span>
+                        </div>
+                        <div className="rounded-md bg-white p-2 text-center text-slate-900 shadow-xs">
+                          <p className="text-xs font-semibold text-slate-700">Create a past draft timesheet for this day to record your work hours.</p>
+                        </div>
+                        <div className="flex items-center justify-end pt-0.5">
+                          <form action={createAction}>
+                            <input type="hidden" name="work_date" value={focusedDate} />
+                            <button
+                              disabled={createPending}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-black text-amber-950 shadow-xs hover:bg-amber-50 disabled:opacity-50 transition-colors"
+                            >
+                              <Plus className="size-3.5" />
+                              {createPending ? "Creating Draft..." : `Create Draft for ${formatDate(focusedDate)}`}
+                            </button>
+                          </form>
+                        </div>
+                      </article>
+                    ) : null}
                   </div>
-                  <span className="rounded bg-purple-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
-                    Holiday
-                  </span>
-                </div>
-              ) : isPastFocusedDay ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 p-3.5 shadow-2xs">
-                  <div>
-                    <p className="text-xs font-black text-amber-950">
-                      No timesheet recorded for {formatDate(focusedDate)}
-                    </p>
-                    <p className="text-[11px] font-medium text-amber-800">
-                      Create a past draft timesheet for this day and record your work hours.
-                    </p>
-                  </div>
-                  <form action={createAction}>
-                    <input type="hidden" name="work_date" value={focusedDate} />
-                    <button
-                      disabled={createPending}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-xs hover:bg-amber-700 disabled:opacity-50"
-                    >
-                      <Plus className="size-3.5" />
-                      {createPending ? "Creating Draft..." : `Create Draft for ${formatDate(focusedDate)}`}
-                    </button>
-                  </form>
+                );
+              })()}
+
+              {section === "calendar" ? (
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openPanel("leave")}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
+                  >
+                    <CalendarPlus className="size-4" />
+                    Request leave
+                  </button>
+                  {quickSubmitForm}
                 </div>
               ) : null}
-            </div>
-          );
-        })()}
-
-        {section === "calendar" ? (
-          <div className="grid gap-2">
-            <button
-              type="button"
-              onClick={() => openPanel("leave")}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
-            >
-              <CalendarPlus className="size-4" />
-              Request leave / TOIL
-            </button>
-            {quickSubmitForm}
-          </div>
-        ) : null}
             </div>
           )}
         </div>
@@ -2051,397 +2160,406 @@ export default function EmployeeTimesheetCorrections({
 
       {/* Timesheet Records / Requests Section (Divided by clean line) */}
       {section !== "calendar" ? (
-        <div className="grid gap-3 border-t border-border pt-4">
+        <div ref={timesheetSectionRef} className="grid gap-3 border-t border-border pt-4 scroll-mt-20 sm:scroll-mt-24">
           <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab("timesheets")}
-          className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
-            activeTab === "timesheets"
-              ? "bg-primary text-primary-foreground"
-              : "text-foreground"
-          }`}
-        >
-          <ClipboardCheck className="size-4" />
-          Timesheets
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("requests")}
-          className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
-            activeTab === "requests"
-              ? "bg-primary text-primary-foreground"
-              : "text-foreground"
-          }`}
-        >
-          <FileQuestion className="size-4" />
-          Requests
-        </button>
-      </div>
-
-      {message && (
-        <div
-            className={`rounded-md border px-3 py-2 text-sm font-medium ${
-            messageOk
-              ? "border-accent/30 bg-accent/10 text-foreground"
-              : "border-danger/30 bg-danger/10 text-danger"
-          }`}
-        >
-          {message}
-        </div>
-      )}
-
-      {filteredEntries.length === 0 ? (
-        <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-          No time entries yet.
-        </p>
-      ) : activeTab === "timesheets" ? (
-        <div className="grid gap-3">
-          <div className="columns-1 gap-3 sm:columns-2 xl:columns-3 [column-fill:_balance]">
-            {paginatedEntries.map((entry) => (
-              <div key={entry.id} className="break-inside-avoid mb-3 w-full min-w-0 max-w-full">
-                {renderTimesheetEntry(entry)}
-              </div>
-            ))}
+            <button
+              type="button"
+              onClick={() => handleTabChange("timesheets")}
+              className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${activeTab === "timesheets"
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground"
+                }`}
+            >
+              <ClipboardCheck className="size-4" />
+              <span>Timesheets</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                activeTab === "timesheets"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-surface-muted text-muted"
+              }`}>
+                {filteredEntries.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange("requests")}
+              className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${activeTab === "requests"
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground"
+                }`}
+            >
+              <FileQuestion className="size-4" />
+              <span>Requests</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                activeTab === "requests"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-surface-muted text-muted"
+              }`}>
+                {submittedEntries.length}
+              </span>
+            </button>
           </div>
 
-          <PaginationControl
-            currentPage={timesheetsPage}
-            totalPages={totalTimesheetsPages}
-            totalItems={filteredEntries.length}
-            pageSize={timesheetsPageSize}
-            onPageChange={setTimesheetsPage}
-            itemLabel="timesheets"
-          />
+          {message && (
+            <div
+              className={`rounded-md border px-3 py-2 text-sm font-medium ${messageOk
+                ? "border-accent/30 bg-accent/10 text-foreground"
+                : "border-danger/30 bg-danger/10 text-danger"
+                }`}
+            >
+              {message}
+            </div>
+          )}
 
-          {section === "full" ? quickSubmitForm : null}
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted">
-              Select past submitted timesheets to request time corrections from your manager in bulk.
-            </p>
-            {eligibleCorrectionEntries.length > 0 ? (
-              <button
-                type="button"
-                onClick={toggleSelectAllCorrections}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface"
-              >
-                {allCorrectionsSelected ? (
-                  <>
-                    <Square className="size-3.5" />
-                    Deselect all
-                  </>
-                ) : (
-                  <>
-                    <CheckSquare className="size-3.5" />
-                    Select all ({eligibleCorrectionEntries.length})
-                  </>
-                )}
-              </button>
-            ) : null}
-          </div>
-
-          {selectedCorrectionIds.size > 0 ? (
-            <form action={correctionAction} className="grid gap-3 rounded-lg border border-accent/40 bg-accent/5 p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Request correction for {selectedCorrectionIds.size} {selectedCorrectionIds.size === 1 ? "timesheet" : "timesheets"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Selected:{" "}
-                    {Array.from(selectedCorrectionIds)
-                      .map((id) => entries.find((e) => e.id === id)?.work_date)
-                      .filter(Boolean)
-                      .sort()
-                      .map((d) => formatDate(d!))
-                      .join(", ")}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCorrectionIds(new Set())}
-                  className="w-max text-xs font-semibold text-muted hover:text-foreground"
-                >
-                  Clear selection
-                </button>
-              </div>
-
-              {Array.from(selectedCorrectionIds).map((id) => (
-                <input key={id} type="hidden" name="time_entry_ids" value={id} />
-              ))}
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="grid gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock in</span>
-                  <input
-                    type="time"
-                    name="proposed_clock_in"
-                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
-                  />
-                </div>
-                <div className="grid gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch start</span>
-                  <input
-                    type="time"
-                    name="proposed_lunch_start"
-                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
-                  />
-                </div>
-                <div className="grid gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch end</span>
-                  <input
-                    type="time"
-                    name="proposed_lunch_end"
-                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
-                  />
-                </div>
-                <div className="grid gap-1">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock out</span>
-                  <input
-                    type="time"
-                    name="proposed_clock_out"
-                    className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none"
-                  />
-                </div>
-              </div>
-
-              <label className="grid gap-1">
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason for correction *</span>
-                <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                  <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                  <textarea
-                    name="reason"
-                    required
-                    rows={2}
-                    className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
-                    placeholder="Explain what happened and why these times are correct for all selected days."
-                  />
-                </span>
-              </label>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <button
-                  disabled={correctionPending}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
-                >
-                  <Send className="size-4" />
-                  {correctionPending
-                    ? "Sending..."
-                    : `Send ${selectedCorrectionIds.size} request${selectedCorrectionIds.size === 1 ? "" : "s"}`}
-                </button>
-              </div>
-            </form>
-          ) : null}
-
-          {submittedEntries.length === 0 ? (
+          {filteredEntries.length === 0 ? (
             <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-              Submit a timesheet first. Then requests will appear here.
+              No time entries yet.
             </p>
-          ) : null}
-          <div className="columns-1 gap-3 sm:columns-2 xl:columns-3 [column-fill:_balance]">
-            {paginatedSubmittedEntries.map((entry) => {
-              const correction = latestRequestByEntry.get(entry.id);
-              const hasSubmittedCorrection = correction?.status === "submitted";
-              const canRequestCorrection = entry.work_date < currentWorkDate;
-              const isSelected = selectedCorrectionIds.has(entry.id);
+          ) : activeTab === "timesheets" ? (
+            <div className="grid gap-3">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 items-start">
+                {paginatedEntries.map((entry) => (
+                  <div key={entry.id} className="w-full min-w-0 max-w-full">
+                    {renderTimesheetEntry(entry)}
+                  </div>
+                ))}
+              </div>
 
-              return (
-                <div key={entry.id} className="break-inside-avoid mb-3 w-full min-w-0 max-w-full">
-                  <article
-                    className={`grid gap-3 rounded-lg border-2 p-3.5 text-sm shadow-2xs transition-all w-full max-w-full overflow-hidden ${
-                      isSelected
-                        ? "border-slate-900 bg-slate-900/5 ring-1 ring-slate-900"
-                        : "border-border bg-white hover:bg-slate-50"
-                    }`}
+              {section === "full" ? quickSubmitForm : null}
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-muted">
+                  Select past submitted timesheets to request time corrections from your manager in bulk.
+                </p>
+                {eligibleCorrectionEntries.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllCorrections}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface"
                   >
-                  <div className="grid gap-2 lg:grid-cols-[auto_130px_1fr_auto] lg:items-center">
-                    {canRequestCorrection && !hasSubmittedCorrection ? (
-                      <label
-                        className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleCorrectionSelect(entry.id)}
-                          aria-label={`Select timesheet for ${formatDate(entry.work_date)}`}
-                          className="size-4 accent-slate-900"
-                        />
-                      </label>
-                    ) : null}
+                    {allCorrectionsSelected ? (
+                      <>
+                        <Square className="size-3.5" />
+                        Deselect all
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare className="size-3.5" />
+                        Select all ({eligibleCorrectionEntries.length})
+                      </>
+                    )}
+                  </button>
+                ) : null}
+              </div>
 
+              {selectedCorrectionIds.size > 0 ? (
+                <form action={correctionAction} className="grid gap-3 rounded-lg border border-accent/40 bg-accent/5 p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <span className="inline-flex rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
-                        {entry.status}
-                      </span>
-                      <p className="mt-1 flex items-center gap-1.5 text-xs font-extrabold text-foreground">
-                        <Edit3 className="size-3.5 text-accent" />
-                        {formatDate(entry.work_date)}
+                      <p className="font-semibold text-foreground">
+                        Request correction for {selectedCorrectionIds.size} {selectedCorrectionIds.size === 1 ? "timesheet" : "timesheets"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Selected:{" "}
+                        {Array.from(selectedCorrectionIds)
+                          .map((id) => entries.find((e) => e.id === id)?.work_date)
+                          .filter(Boolean)
+                          .sort()
+                          .map((d) => formatDate(d!))
+                          .join(", ")}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCorrectionIds(new Set())}
+                      className="w-max text-xs font-semibold text-muted hover:text-foreground"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
 
-                    <div className="grid grid-cols-2 items-start gap-x-2 gap-y-1 sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
-                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                        <Clock className="size-3.5 text-accent" />
-                        <span className="text-xs font-semibold text-foreground whitespace-nowrap" title={`In ${shortTime(entry.clock_in)}`}>
-                          {shortTime(entry.clock_in)}
-                        </span>
-                      </span>
-                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                        <UtensilsCrossed className="size-3.5 text-accent" />
-                        <span className="text-xs font-semibold text-foreground whitespace-nowrap" title={`Lunch ${shortLunch(entry.lunch_start, entry.lunch_end)}`}>
-                          {shortLunch(entry.lunch_start, entry.lunch_end)}
-                        </span>
-                      </span>
-                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                        <LogOut className="size-3.5 text-accent" />
-                        <span className="text-xs font-semibold text-foreground whitespace-nowrap" title={`Out ${shortTime(entry.clock_out)}`}>
-                          {shortTime(entry.clock_out)}
-                        </span>
-                      </span>
-                      <span className="grid min-w-0 gap-0.5 sm:inline-flex sm:flex-row sm:items-center sm:gap-1.5">
-                        {entry.missing_clocking || entry.late_arrival || entry.early_departure ? (
-                          <AlertTriangle className="size-3.5 text-amber-500" />
-                        ) : (
-                          <CheckCircle2 className="size-3.5 text-emerald-600" />
-                        )}
-                        <span className="text-xs font-extrabold text-foreground whitespace-nowrap">
-                          {entry.missing_clocking || entry.late_arrival || entry.early_departure
-                            ? "Review Needed"
-                            : "Compliant"}
-                        </span>
-                      </span>
+                  {Array.from(selectedCorrectionIds).map((id) => (
+                    <input key={id} type="hidden" name="time_entry_ids" value={id} />
+                  ))}
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock in</span>
+                      <AnalogTimePicker
+                        name="proposed_clock_in"
+                        placeholder="Select clock in"
+                      />
                     </div>
-
-                    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-right shadow-2xs">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Paid</p>
-                      <p className="text-xs font-black text-emerald-950">
-                        {formatHours(entry.paid_hours)}
-                      </p>
+                    <div className="grid gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch start</span>
+                      <AnalogTimePicker
+                        name="proposed_lunch_start"
+                        placeholder="Select lunch start"
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch end</span>
+                      <AnalogTimePicker
+                        name="proposed_lunch_end"
+                        placeholder="Select lunch end"
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock out</span>
+                      <AnalogTimePicker
+                        name="proposed_clock_out"
+                        placeholder="Select clock out"
+                      />
                     </div>
                   </div>
 
-                  {correction ? (
-                    <div className="rounded-md border border-border bg-surface px-3 py-2">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="font-semibold text-foreground">
-                            Correction request
-                          </p>
-                          <p className="mt-1 text-xs text-muted">
-                            Submitted {new Date(correction.submitted_at).toLocaleString("en-ZA")}
-                          </p>
-                        </div>
-                        <span
-                          className={`w-max rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(correction.status)}`}
-                        >
-                          {correction.status}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-muted">{correction.reason}</p>
-                      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">In</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_in)}</span>
-                        </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Lunch start</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_start)}</span>
-                        </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Lunch end</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_end)}</span>
-                        </div>
-                        <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                          <p className="text-[10px] text-muted leading-none">Out</p>
-                          <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_out)}</span>
-                        </div>
-                      </div>
-                      {correction.review_notes ? (
-                        <p className="mt-2 text-sm font-medium text-foreground">
-                          Review note: {correction.review_notes}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
+                  <label className="grid gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason for correction *</span>
+                    <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                      <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                      <textarea
+                        name="reason"
+                        required
+                        rows={2}
+                        className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
+                        placeholder="Explain what happened and why these times are correct for all selected days."
+                      />
+                    </span>
+                  </label>
 
-                  {canRequestCorrection && !hasSubmittedCorrection ? (
-                    <details className="rounded-lg border border-border bg-surface">
-                      <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
-                        Request individual correction
-                      </summary>
-                      <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
-                        <input type="hidden" name="time_entry_id" value={entry.id} />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <button
+                      disabled={correctionPending}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
+                    >
+                      <Send className="size-4" />
+                      {correctionPending
+                        ? "Sending..."
+                        : `Send ${selectedCorrectionIds.size} request${selectedCorrectionIds.size === 1 ? "" : "s"}`}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          <div className="grid gap-1">
-                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
-                            <input type="time" name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+              {submittedEntries.length === 0 ? (
+                <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
+                  Submit a timesheet first. Then requests will appear here.
+                </p>
+              ) : null}
+
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 items-start">
+                {paginatedSubmittedEntries.map((entry) => {
+                  const correction = latestRequestByEntry.get(entry.id);
+                  const hasSubmittedCorrection = correction?.status === "submitted";
+                  const canRequestCorrection = entry.work_date < currentWorkDate;
+                  const isSelected = selectedCorrectionIds.has(entry.id);
+                  const dateParts = getDateBadgeParts(entry.work_date);
+
+                  return (
+                    <div key={entry.id} className="w-full min-w-0 max-w-full">
+                      <article
+                        className={`group flex flex-col justify-between gap-2.5 rounded-xl bg-slate-800 p-3 sm:p-3.5 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md min-w-0 w-full max-w-full scroll-mt-20 sm:scroll-mt-24 ${isSelected
+                          ? "ring-2 ring-emerald-400 bg-slate-850"
+                          : "ring-1 ring-slate-900/80"
+                          }`}
+                      >
+                        {/* Top: Checkbox, Date & Status Badge */}
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {canRequestCorrection && !hasSubmittedCorrection ? (
+                              <label
+                                className={`grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg border transition-all ${
+                                  isSelected
+                                    ? "bg-emerald-500 border-emerald-400 text-white shadow-xs"
+                                    : "bg-slate-900/80 border-slate-700 text-transparent hover:border-slate-500 hover:bg-slate-900"
+                                }`}
+                                onClick={(e) => e.stopPropagation()}
+                                title={isSelected ? "Deselect timesheet" : "Select timesheet"}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleCorrectionSelect(entry.id)}
+                                  aria-label={`Select timesheet for ${formatDate(entry.work_date)}`}
+                                  className="sr-only"
+                                />
+                                <Check
+                                  className={`size-4 stroke-[3] transition-all ${
+                                    isSelected ? "scale-100 opacity-100" : "scale-75 opacity-0"
+                                  }`}
+                                />
+                              </label>
+                            ) : null}
+
+                            <div className="relative shrink-0">
+                              <div className="flex size-8.5 flex-col items-center justify-center rounded-lg border border-slate-700 bg-slate-900/80 shadow-xs leading-none text-white">
+                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">{dateParts.month}</span>
+                                <span className="text-xs font-black mt-0.5">{dateParts.day}</span>
+                              </div>
+                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-extrabold text-white break-words leading-tight">
+                                {formatDate(entry.work_date)}
+                              </p>
+                              <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">
+                                {hasSubmittedCorrection ? "Correction Submitted" : "Submitted Timesheet"}
+                              </p>
+                            </div>
                           </div>
-                          <div className="grid gap-1">
-                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
-                            <input type="time" name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+
+                          <RecordStatusBadge
+                            status={hasSubmittedCorrection ? "submitted" : entry.status}
+                          />
+                        </div>
+
+                        {/* Middle: High-Contrast White Metrics Box */}
+                        <div className="grid grid-cols-4 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clock_in)}</p>
                           </div>
-                          <div className="grid gap-1">
-                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
-                            <input type="time" name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
                           </div>
-                          <div className="grid gap-1">
-                            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
-                            <input type="time" name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none" />
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
+                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clock_out)}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
+                            <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(entry.paid_hours)}</p>
                           </div>
                         </div>
 
-                        <label className="grid gap-1">
-                          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
-                          <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                            <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                            <textarea name="reason" required rows={3} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Explain what happened and why these times are correct." />
-                          </span>
-                        </label>
-
-                        <div className="flex flex-col gap-2">
-                          <p className="text-xs text-muted">
-                            Submitted correction requests cannot be edited by employees.
-                          </p>
-                          <button
-                            disabled={correctionPending}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        {/* Footer Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0 pt-0.5">
+                          <span
+                            className="inline-flex items-center rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px] break-words"
+                            title={getEntryWorkstationName(entry) ?? "Assigned workstation"}
                           >
-                            <Send className="size-4" />
-                            {correctionPending ? "Sending..." : "Send request"}
-                          </button>
-                        </div>
-                      </form>
-                    </details>
-                  ) : hasSubmittedCorrection ? (
-                    <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
-                      A submitted correction is locked for this record until management reviews it.
-                    </p>
-                  ) : (
-                    <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-muted">
-                      Corrections become available after the work date has passed.
-                    </p>
-                  )}
-                </article>
-              </div>
-            );
-          })}
-        </div>
+                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-slate-400" />
+                            <span className="break-words leading-tight">{getEntryWorkstationName(entry) ?? "Workstation logged"}</span>
+                          </span>
 
-          <PaginationControl
-            currentPage={requestsPage}
-            totalPages={totalRequestsPages}
-            totalItems={submittedEntries.length}
-            pageSize={requestsPageSize}
-            onPageChange={setRequestsPage}
-            itemLabel="submitted timesheets"
-          />
-        </div>
-      )}
+                          <span className="shrink-0 rounded bg-slate-900/60 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700 whitespace-nowrap">
+                            {entry.missing_clocking || entry.late_arrival || entry.early_departure ? "Review Needed" : "Compliant"}
+                          </span>
+                        </div>
+
+                        {correction ? (
+                          <div className="rounded-md border border-border bg-surface px-3 py-2">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="font-semibold text-foreground">
+                                  Correction request
+                                </p>
+                                <p className="mt-1 text-xs text-muted">
+                                  Submitted {new Date(correction.submitted_at).toLocaleString("en-ZA")}
+                                </p>
+                              </div>
+                              <span
+                                className={`w-max rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(correction.status)}`}
+                              >
+                                {correction.status}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-muted">{correction.reason}</p>
+                            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                                <p className="text-[10px] text-muted leading-none">In</p>
+                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_in)}</span>
+                              </div>
+                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                                <p className="text-[10px] text-muted leading-none">Lunch start</p>
+                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_start)}</span>
+                              </div>
+                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                                <p className="text-[10px] text-muted leading-none">Lunch end</p>
+                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_end)}</span>
+                              </div>
+                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
+                                <p className="text-[10px] text-muted leading-none">Out</p>
+                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_out)}</span>
+                              </div>
+                            </div>
+                            {correction.review_notes ? (
+                              <p className="mt-2 text-sm font-medium text-foreground">
+                                Review note: {correction.review_notes}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {canRequestCorrection && !hasSubmittedCorrection ? (
+                          <details className="rounded-lg border border-border bg-surface">
+                            <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
+                              Request individual correction
+                            </summary>
+                            <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
+                              <input type="hidden" name="time_entry_id" value={entry.id} />
+
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div className="grid gap-1">
+                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
+                                  <AnalogTimePicker name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} />
+                                </div>
+                                <div className="grid gap-1">
+                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
+                                  <AnalogTimePicker name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} />
+                                </div>
+                                <div className="grid gap-1">
+                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
+                                  <AnalogTimePicker name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} />
+                                </div>
+                                <div className="grid gap-1">
+                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
+                                  <AnalogTimePicker name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} />
+                                </div>
+                              </div>
+
+                              <label className="grid gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
+                                <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
+                                  <FileText className="size-4 shrink-0 text-muted mt-0.5" />
+                                  <textarea name="reason" required rows={3} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Explain what happened and why these times are correct." />
+                                </span>
+                              </label>
+
+                              <div className="flex flex-col gap-2">
+                                <p className="text-xs text-muted">
+                                  Submitted correction requests cannot be edited by employees.
+                                </p>
+                                <button
+                                  disabled={correctionPending}
+                                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                                >
+                                  <Send className="size-4" />
+                                  {correctionPending ? "Sending..." : "Send request"}
+                                </button>
+                              </div>
+                            </form>
+                          </details>
+                        ) : hasSubmittedCorrection ? (
+                          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+                            A submitted correction is locked for this record until management reviews it.
+                          </p>
+                        ) : (
+                          <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-muted">
+                            Corrections become available after the work date has passed.
+                          </p>
+                        )}
+                      </article>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -2458,55 +2576,35 @@ export default function EmployeeTimesheetCorrections({
           <div className="grid gap-4">
             {/* Solid Status Hero Card */}
             <div
-              className={`flex items-center justify-between gap-3 rounded-lg p-4 shadow-sm ${
-                detailEntry.status === "approved"
-                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
-                  : detailEntry.status === "submitted"
-                    ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
-                    : isEntryFixed(detailEntry)
-                      ? "bg-teal-600 text-white ring-1 ring-teal-700/60"
-                      : detailEntry.status === "rejected"
-                        ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
-                        : "border border-zinc-300 bg-zinc-100 text-zinc-900"
-              }`}
+              className={`flex items-center justify-between gap-3 rounded-2xl p-4 shadow-soft ${detailEntry.status === "approved"
+                ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                : detailEntry.status === "submitted"
+                  ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                  : isEntryFixed(detailEntry)
+                    ? "bg-emerald-700 text-white ring-1 ring-emerald-800/60"
+                    : detailEntry.status === "rejected"
+                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                      : "border border-zinc-200 bg-surface text-foreground"
+                }`}
             >
               <div>
-                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-zinc-500" : "opacity-80"}`}>
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-muted" : "opacity-80"}`}>
                   Timesheet Status
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
-                      detailEntry.status === "approved"
-                        ? "bg-emerald-950/40 text-white border border-emerald-400/30"
-                        : detailEntry.status === "submitted"
-                          ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
-                          : isEntryFixed(detailEntry)
-                            ? "bg-teal-950/50 text-white border border-teal-400/30"
-                            : detailEntry.status === "rejected"
-                              ? "bg-rose-950/50 text-white border border-rose-400/30"
-                              : "bg-zinc-200 text-zinc-800 border border-zinc-300"
-                    }`}
-                  >
-                    {isEntryFixed(detailEntry) ? (
-                      <CheckCircle2 className="size-3 text-teal-200" />
-                    ) : detailEntry.status === "approved" ? (
-                      <CheckCircle2 className="size-3 text-emerald-300" />
-                    ) : detailEntry.status === "rejected" ? (
-                      <AlertTriangle className="size-3 text-rose-200" />
-                    ) : (
-                      <Clock className="size-3" />
-                    )}
-                    {isEntryFixed(detailEntry) ? "Fixed" : detailEntry.status}
-                  </span>
-                  <span className={`text-xs font-bold ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-zinc-600" : "text-white/90"}`}>
+                  <RecordStatusBadge
+                    status={detailEntry.status === "approved" ? "verified" : detailEntry.status}
+                    isFixed={isEntryFixed(detailEntry)}
+                    size={32}
+                  />
+                  <span className={`text-xs font-bold ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-muted" : "text-white/90"}`}>
                     {formatDate(detailEntry.work_date)}
                   </span>
                 </div>
               </div>
 
               <div className="text-right">
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${detailEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${detailEntry.status === "draft" ? "text-muted" : "opacity-80"}`}>
                   Paid duration
                 </p>
                 <p className="mt-0.5 text-2xl font-black">{formatHours(detailEntry.paid_hours)}</p>
@@ -2515,28 +2613,28 @@ export default function EmployeeTimesheetCorrections({
 
             {/* Time Grid Cards */}
             <div className="grid gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock in</p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatTime(detailEntry.clock_in)}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch</p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatTimeRange(detailEntry.lunch_start, detailEntry.lunch_end)}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock out</p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatTime(detailEntry.clock_out)}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-center">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 text-center shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Total Paid</p>
                 <p className="mt-1 text-sm font-black text-emerald-950">
                   {formatHours(detailEntry.paid_hours)}
@@ -2546,21 +2644,21 @@ export default function EmployeeTimesheetCorrections({
 
             {/* Hours Calculation Details */}
             <div className="grid gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Normal (NT)</p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatHours(detailEntry.normal_hours)}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-100/70 p-3 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-700">Overtime (OT)</p>
-                <p className="mt-1 text-sm font-black text-slate-900">
+              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-3 text-center shadow-soft">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Overtime (OT)</p>
+                <p className="mt-1 text-sm font-black text-amber-950">
                   {formatHours(detailEntry.overtime_hours)}
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border bg-background p-3 text-center">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch break</p>
                 <p className="mt-1 text-sm font-extrabold text-foreground">
                   {formatHours(detailEntry.lunch_hours)}
@@ -2568,11 +2666,10 @@ export default function EmployeeTimesheetCorrections({
               </div>
 
               <div
-                className={`rounded-lg border p-3 text-center ${
-                  detailEntry.scheduleValidation?.isCompliant
-                    ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
-                    : "border-rose-200 bg-rose-50/70 text-rose-950"
-                }`}
+                className={`rounded-2xl border p-3 text-center shadow-soft ${detailEntry.scheduleValidation?.isCompliant
+                  ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
+                  : "border-rose-200 bg-rose-50/70 text-rose-950"
+                  }`}
               >
                 <p className="text-[10px] font-bold uppercase tracking-wider">Schedule Check</p>
                 <p className="mt-1 text-xs font-black">
@@ -2583,7 +2680,7 @@ export default function EmployeeTimesheetCorrections({
 
             {/* Schedule issues alert if any */}
             {detailEntry.scheduleValidation && !detailEntry.scheduleValidation.isCompliant && (
-              <div className="rounded-lg border border-rose-300 bg-rose-50 p-3.5 text-rose-950">
+              <div className="rounded-2xl border border-rose-300 bg-rose-50 p-3.5 text-rose-950 shadow-soft">
                 <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-800">
                   <AlertTriangle className="size-4 text-rose-600" />
                   Schedule Exceptions Detected
@@ -2598,7 +2695,7 @@ export default function EmployeeTimesheetCorrections({
 
             {/* Notes */}
             {detailEntry.notes ? (
-              <div className="rounded-lg border border-border bg-background p-3.5">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Shift notes</p>
                 <p className="mt-1 text-xs font-medium text-foreground">{detailEntry.notes}</p>
               </div>
@@ -2606,7 +2703,7 @@ export default function EmployeeTimesheetCorrections({
 
             {/* Calculation Warning notes */}
             {detailEntry.warning_notes ? (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3.5 text-amber-950">
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-amber-950 shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Calculation notice</p>
                 <p className="mt-1 text-xs font-medium text-amber-900">
                   {detailEntry.warning_notes}
@@ -2616,7 +2713,7 @@ export default function EmployeeTimesheetCorrections({
 
             {/* Location events history & Visual Map */}
             {detailEntry.locationEvents?.length ? (
-              <div className="rounded-lg border border-border bg-background p-3.5">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft">
                 <div className="flex items-center justify-between gap-2 pb-2">
                   <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
                     <MapPin className="size-4 text-accent" />
@@ -2625,9 +2722,9 @@ export default function EmployeeTimesheetCorrections({
                   <button
                     type="button"
                     onClick={() => setShowDetailMap((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-800"
+                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-primary-hover shadow-soft transition-colors"
                   >
-                    <Footprints className="size-3 text-emerald-400" />
+                    <Footprints className="size-3 text-white" />
                     {showDetailMap ? "Hide Route Map" : "View Route Map"}
                   </button>
                 </div>
@@ -2685,8 +2782,8 @@ export default function EmployeeTimesheetCorrections({
       >
         {selectedEntry ? (
           <>
-            <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-muted">
-              This day already has a {selectedEntry.status} timesheet.
+            <p className="rounded-xl border border-border/80 bg-surface px-4 py-3 text-sm text-muted shadow-soft">
+              This day already has a <strong className="text-foreground">{selectedEntry.status}</strong> timesheet.
             </p>
             <button
               type="button"
@@ -2694,18 +2791,18 @@ export default function EmployeeTimesheetCorrections({
                 setDetailEntry(selectedEntry);
                 setSelectedDate("");
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover transition-colors"
             >
               <Clock3 className="size-4" />
               Open timesheet
             </button>
           </>
         ) : selectedIsHoliday ? (
-          <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
+          <p className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-foreground shadow-soft">
             This day is a company public holiday and is handled automatically.
           </p>
         ) : selectedDate >= currentWorkDate ? (
-          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+          <p className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-soft">
             Employees can only add past timesheets from the calendar.
           </p>
         ) : (
@@ -2716,7 +2813,7 @@ export default function EmployeeTimesheetCorrections({
             </p>
             <button
               disabled={!selectedCanAdd || createPending}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
               <Plus className="size-4" />
               {createPending ? "Adding..." : "Add draft"}

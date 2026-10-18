@@ -42,30 +42,32 @@ export default function CreateCompanyForm() {
         </div>
       )}
 
-      <label className="grid gap-1.5 text-sm font-medium text-foreground">
+      <label className="grid gap-1.5 text-sm font-bold text-foreground">
         Your full name
         <input
           name="full_name"
           type="text"
           required
           placeholder="e.g. John Doe"
+          className="h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
         />
       </label>
 
-      <label className="grid gap-1.5 text-sm font-medium text-foreground">
+      <label className="grid gap-1.5 text-sm font-bold text-foreground">
         Company / workspace name
         <input
           name="company_name"
           type="text"
           required
           placeholder="e.g. Acme Corp"
+          className="h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
         />
       </label>
 
       <button
         type="submit"
         disabled={pending}
-        className="btn btn-accent w-full text-center"
+        className="btn btn-primary min-h-[48px] rounded-full w-full font-bold shadow-soft mt-2 cursor-pointer"
       >
         {pending ? "Creating workspace..." : "Create workspace"}
       </button>

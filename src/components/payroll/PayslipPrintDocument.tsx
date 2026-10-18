@@ -204,13 +204,13 @@ export default function PayslipPrintDocument({
               Super Admin Payslip Printout
             </span>
             {payslip.isAdjusted && (
-              <span className="rounded bg-indigo-600/80 px-2 py-0.5 text-xs font-bold text-indigo-100">
+              <span className="rounded bg-amber-600 px-2 py-0.5 text-xs font-bold text-white shadow-2xs">
                 Adjusted
               </span>
             )}
             {!payslip.isApprovedForSimulation && (
-              <span className="inline-flex items-center gap-1 rounded bg-amber-600/90 px-2 py-0.5 text-xs font-bold text-amber-100">
-                <ShieldAlert className="size-3" /> Unapproved Timesheets
+              <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-xs font-bold text-white shadow-2xs">
+                <ShieldAlert className="size-3 text-white" /> Unapproved Timesheets
               </span>
             )}
           </div>
@@ -222,7 +222,7 @@ export default function PayslipPrintDocument({
                 onClick={onOpenAdjust}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition-all cursor-pointer"
               >
-                <Edit3 className="size-3.5 text-amber-400" />
+                <Edit3 className="size-3.5 text-amber-300" />
                 Adjust Payslip
               </button>
             )}
@@ -251,8 +251,8 @@ export default function PayslipPrintDocument({
 
         {/* Warning Banner if timesheets are pending approval */}
         {!payslip.isApprovedForSimulation && payslip.approvalGateMessage && (
-          <div className="no-print border-b border-amber-500/30 bg-amber-950/40 px-4 py-2.5 text-xs font-medium text-amber-200 flex items-center gap-2">
-            <ShieldAlert className="size-4 shrink-0 text-amber-400" />
+          <div className="no-print border-b border-amber-500/30 bg-amber-950 px-4 py-2.5 text-xs font-medium text-white flex items-center gap-2">
+            <ShieldAlert className="size-4 shrink-0 text-amber-300" />
             <span>{payslip.approvalGateMessage}</span>
           </div>
         )}

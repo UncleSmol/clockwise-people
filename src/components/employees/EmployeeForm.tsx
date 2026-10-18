@@ -123,53 +123,53 @@ export default function EmployeeForm({
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Full name</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Full name</span>
           <input
             autoComplete="name"
             placeholder="Legal or payroll name"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("full_name")}
           />
           {errors.full_name && <span className="text-xs text-danger">{errors.full_name.message}</span>}
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Known as</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Known as</span>
           <input
             autoComplete="nickname"
             placeholder="Preferred display name"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("known_as")}
           />
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Email</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Email</span>
           <input
             type="email"
             autoComplete="email"
             placeholder="name@company.co.za"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("email")}
           />
           {errors.email && <span className="text-xs text-danger">{errors.email.message}</span>}
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Phone</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Phone</span>
           <input
             autoComplete="tel"
             placeholder="+27 82 000 0000"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("phone_number")}
           />
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Workstation</span>
           <select
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("workstation_id")}
           >
             <option value="">No workstation</option>
@@ -180,10 +180,10 @@ export default function EmployeeForm({
           {errors.workstation_id && <span className="text-xs text-danger">{errors.workstation_id.message}</span>}
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Department</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Department</span>
           <select
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("department_id")}
           >
             <option value="">No department</option>
@@ -193,12 +193,12 @@ export default function EmployeeForm({
           </select>
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Job title</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Job title</span>
           <input
             list="job-title-hints"
             placeholder="Start typing a role"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("job_title")}
           />
           <datalist id="job-title-hints">
@@ -208,10 +208,10 @@ export default function EmployeeForm({
           </datalist>
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employment type</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Employment type</span>
           <select
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("employment_type")}
           >
             {employmentTypes.map((type) => (
@@ -220,20 +220,20 @@ export default function EmployeeForm({
           </select>
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start date</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Start date</span>
           <input
             type="date"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("start_date")}
           />
           {errors.start_date && <span className="text-xs text-danger">{errors.start_date.message}</span>}
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employment status</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Employment status</span>
           <select
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("employment_status")}
           >
             {employmentStatuses.map((status) => (
@@ -242,19 +242,19 @@ export default function EmployeeForm({
           </select>
         </label>
 
-        <fieldset className="grid gap-1 md:col-span-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Work rule</span>
+        <fieldset className="grid gap-1.5 md:col-span-2">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Work rule</span>
           <input type="hidden" value="" {...register("work_schedule_id")} />
-          <div className="grid max-h-44 gap-2 overflow-y-auto rounded-lg border border-border bg-background p-2">
+          <div className="grid max-h-48 gap-2 overflow-y-auto rounded-2xl border border-border/80 bg-background p-3 shadow-xs">
             {schedules.map((schedule) => (
               <label
                 key={schedule.id}
-                className="flex cursor-pointer items-center gap-2 rounded-md bg-surface px-2 py-1.5 text-sm font-semibold text-foreground hover:bg-surface-muted"
+                className="flex cursor-pointer items-center gap-2.5 rounded-full bg-surface px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-muted transition-colors"
               >
                 <input
                   type="checkbox"
                   value={schedule.id}
-                  className="size-4 accent-current"
+                  className="size-4 rounded accent-primary text-primary"
                   {...register("work_schedule_ids")}
                 />
                 <span>{schedule.label}</span>
@@ -263,10 +263,10 @@ export default function EmployeeForm({
           </div>
         </fieldset>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Manager</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Manager</span>
           <select
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("manager_employee_id")}
           >
             <option value="">No manager</option>
@@ -278,8 +278,8 @@ export default function EmployeeForm({
           </select>
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted flex items-center justify-between">
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted flex items-center justify-between">
             <span>Payroll identifier</span>
             <span className="text-[10px] font-normal lowercase text-muted">
               (auto-assigned if blank)
@@ -287,37 +287,37 @@ export default function EmployeeForm({
           </span>
           <input
             placeholder="e.g. ee023 (Auto-assigned automatically)"
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
             {...register("payroll_identifier")}
           />
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Monthly salary (ZAR)</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Monthly salary (ZAR)</span>
           <div className="relative flex items-center">
-            <span className="absolute left-3 text-sm font-semibold text-muted">R</span>
+            <span className="absolute left-4 text-sm font-bold text-muted">R</span>
             <input
               type="number"
               step="0.01"
               min="0"
               placeholder="0.00"
-              className="h-10 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background pl-9 pr-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("monthly_salary")}
             />
           </div>
           {errors.monthly_salary && <span className="text-xs text-danger">{errors.monthly_salary.message}</span>}
         </label>
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Hourly rate (ZAR)</span>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Hourly rate (ZAR)</span>
           <div className="relative flex items-center">
-            <span className="absolute left-3 text-sm font-semibold text-muted">R</span>
+            <span className="absolute left-4 text-sm font-bold text-muted">R</span>
             <input
               type="number"
               step="0.01"
               min="0"
               placeholder="0.00"
-              className="h-10 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background pl-9 pr-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("hourly_rate")}
             />
           </div>
@@ -326,34 +326,34 @@ export default function EmployeeForm({
       </div>
 
       {/* Statutory Identification Details (For Payslips & Tax Compliance) */}
-      <div className="rounded-xl border border-border bg-surface/40 p-4">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted mb-3">
+      <div className="rounded-2xl border border-border/80 bg-surface/50 p-5 shadow-soft">
+        <p className="text-xs font-extrabold uppercase tracking-wider text-muted mb-3.5">
           Statutory Identification &amp; Address (For Payslips &amp; BCEA)
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">National ID / Passport Number</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">National ID / Passport Number</span>
             <input
               placeholder="e.g. 940322 0456 083"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("id_number")}
             />
           </label>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">SARS Tax Reference Number</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">SARS Tax Reference Number</span>
             <input
               placeholder="e.g. 9012345678"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("tax_number")}
             />
           </label>
 
-          <label className="grid gap-1 md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Physical / Residential Address</span>
+          <label className="grid gap-1.5 md:col-span-2">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Physical / Residential Address</span>
             <input
               placeholder="e.g. 49 Duncan Street, Witbank, 1039"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("address")}
             />
           </label>
@@ -361,15 +361,15 @@ export default function EmployeeForm({
       </div>
 
       {/* Payroll & Banking Information (For Payslip Printout & EFT Disbursements) */}
-      <div className="rounded-xl border border-border bg-surface/40 p-4">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted mb-3">
+      <div className="rounded-2xl border border-border/80 bg-surface/50 p-5 shadow-soft">
+        <p className="text-xs font-extrabold uppercase tracking-wider text-muted mb-3.5">
           Payroll Cycle &amp; Banking Details (For Payslips &amp; EFT)
         </p>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payment Frequency</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Payment Frequency</span>
             <select
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("payment_frequency")}
             >
               {paymentFrequencies.map((freq) => (
@@ -378,10 +378,10 @@ export default function EmployeeForm({
             </select>
           </label>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Payment Mode</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Payment Mode</span>
             <select
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("payment_mode")}
             >
               {paymentModes.map((mode) => (
@@ -390,28 +390,28 @@ export default function EmployeeForm({
             </select>
           </label>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bank Name</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Bank Name</span>
             <input
               placeholder="e.g. Standard Bank, FNB, Capitec, Nedbank"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("bank_name")}
             />
           </label>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bank Account Number</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Bank Account Number</span>
             <input
               placeholder="e.g. 10149977458"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("bank_account_number")}
             />
           </label>
 
-          <label className="grid gap-1 md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Account Type</span>
+          <label className="grid gap-1.5 md:col-span-2">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Account Type</span>
             <select
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("bank_account_type")}
             >
               {bankAccountTypes.map((t) => (
@@ -422,11 +422,11 @@ export default function EmployeeForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-end gap-3 pt-2">
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[44px] h-12 items-center justify-center gap-2 rounded-full bg-primary px-8 text-sm font-bold text-white shadow-soft hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 transition-all cursor-pointer"
         >
           {isPending ? "Saving..." : employee ? "Save employee" : "Add employee"}
         </button>

@@ -32,9 +32,7 @@ export default function TimesheetPayrollReportTable({
             <div className="font-semibold text-foreground">
               {row.original.employeeName}
             </div>
-            <div className="text-[10px] text-muted font-mono">
-              {row.original.employeeNumber}
-            </div>
+
           </div>
         ),
       },
@@ -133,7 +131,7 @@ export default function TimesheetPayrollReportTable({
         cell: ({ row }) => {
           const val = row.original.holidayHours;
           return val > 0 ? (
-            <span className="font-mono font-semibold text-purple-400">
+            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
               {val.toFixed(2)}h
             </span>
           ) : (
@@ -233,7 +231,7 @@ export default function TimesheetPayrollReportTable({
       <td className="py-3 px-3.5 font-mono text-emerald-400">{totals.normal}h</td>
       <td className="py-3 px-3.5 font-mono text-amber-400">{totals.ot15}h</td>
       <td className="py-3 px-3.5 font-mono text-amber-500">{totals.ot20}h</td>
-      <td className="py-3 px-3.5 font-mono text-purple-400">{totals.holiday}h</td>
+      <td className="py-3 px-3.5 font-mono text-slate-700 dark:text-slate-300">{totals.holiday}h</td>
       <td className="py-3 px-3.5 font-mono text-emerald-400 text-sm">{totals.totalPaid}h</td>
       <td colSpan={2} className="py-3 px-3.5 text-muted font-normal text-[11px]">
         {data.length} total shift entries

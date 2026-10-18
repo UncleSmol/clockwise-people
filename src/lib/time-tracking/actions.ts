@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
+import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
 import type { ClockEventType, TimeClockLocationEvent, TimeEntryRecord } from "./schema";
 
 type ClockActionState = {
@@ -165,9 +166,9 @@ export async function submitTimesheetCorrection(
     ...formData.getAll("time_entry_ids"),
     ...formData.getAll("time_entry_id"),
   ]
-    .map((v) => String(v).trim())
+    .map((v) => sanitizeString(v, 64))
     .filter(Boolean);
-  const reason = String(formData.get("reason") ?? "").trim();
+  const reason = sanitizeMultilineText(formData.get("reason"), 1000);
 
   if (timeEntryIds.length === 0) {
     return { ok: false, message: "Choose at least one time entry to correct." };
@@ -237,11 +238,11 @@ export async function reviewTimesheetCorrection(
     ...formData.getAll("correction_ids"),
     ...formData.getAll("correction_id"),
   ]
-    .map((v) => String(v).trim())
+    .map((v) => sanitizeString(v, 64))
     .filter(Boolean);
 
-  const decision = String(formData.get("decision") ?? "").trim();
-  const notes = String(formData.get("review_notes") ?? "").trim();
+  const decision = sanitizeString(formData.get("decision"), 20);
+  const notes = sanitizeMultilineText(formData.get("review_notes"), 1000);
 
   if (correctionIds.length === 0) {
     return { ok: false, message: "Pick at least one correction request to review." };
@@ -303,7 +304,7 @@ export async function saveDraftTimeEntry(
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("update_own_draft_time_entry", {
-    entry_notes: String(formData.get("notes") ?? "").trim() || null,
+    entry_notes: sanitizeMultilineText(formData.get("notes"), 1000) || null,
     proposed_clock_in: optionalTime(formData, "clock_in"),
     proposed_clock_out: optionalTime(formData, "clock_out"),
     proposed_lunch_end: optionalTime(formData, "lunch_end"),
@@ -423,7 +424,7 @@ export async function updateManagedDraftTimeEntry(
     proposed_lunch_start: optionalTime(formData, "lunch_start"),
     proposed_lunch_end: optionalTime(formData, "lunch_end"),
     proposed_clock_out: optionalTime(formData, "clock_out"),
-    entry_notes: String(formData.get("notes") ?? "").trim() || null,
+    entry_notes: sanitizeMultilineText(formData.get("notes"), 1000) || null,
   });
 
   if (error) {
@@ -565,9 +566,9 @@ export async function approveSubmittedTimesheets(
 ): Promise<TimeEntryActionState> {
   const timeEntryIds = formData
     .getAll("time_entry_ids")
-    .map((value) => String(value).trim())
+    .map((value) => sanitizeString(value, 64))
     .filter(Boolean);
-  const notes = String(formData.get("approval_notes") ?? "").trim();
+  const notes = sanitizeMultilineText(formData.get("approval_notes"), 1000);
 
   if (timeEntryIds.length === 0) {
     return { ok: false, message: "Pick at least one timesheet to approve." };
@@ -602,10 +603,10 @@ export async function reviewSubmittedTimesheets(
 ): Promise<TimeEntryActionState> {
   const timeEntryIds = formData
     .getAll("time_entry_ids")
-    .map((value) => String(value).trim())
+    .map((value) => sanitizeString(value, 64))
     .filter(Boolean);
-  const decision = String(formData.get("decision") ?? "").trim();
-  const notes = String(formData.get("approval_notes") ?? "").trim();
+  const decision = sanitizeString(formData.get("decision"), 20);
+  const notes = sanitizeMultilineText(formData.get("approval_notes"), 1000);
 
   if (timeEntryIds.length === 0) {
     return { ok: false, message: "Pick at least one timesheet." };

@@ -18,6 +18,8 @@ import {
   type LeaveCalculation,
 } from "./schema";
 import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
+import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
+
 
 type ActionState = {
   calculation?: LeaveCalculation;
@@ -478,9 +480,39 @@ export async function submitLeaveRequest(
   }
 
   const useToilFirst = formData.get("use_toil_first");
-  const requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
+  let requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
 
+  const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
+
+  // Guard: If TOIL engine is disabled for this company, reject TOIL requests and disable use_toil_first
+  const { data: companySettings } = await supabase
+    .from("company_settings")
+    .select("toil_rules")
+    .eq("company_id", company.id)
+    .maybeSingle();
+
+  const isToilEnabled = Boolean((companySettings?.toil_rules as Record<string, unknown> | undefined)?.enabled);
+  if (!isToilEnabled) {
+    requestUseToilFirst = false;
+
+    const { data: selectedLeaveType } = await supabase
+      .from("leave_types")
+      .select("category, name")
+      .eq("id", parsed.data.leave_type_id)
+      .maybeSingle();
+
+    if (
+      selectedLeaveType?.category === "toil_taken" ||
+      selectedLeaveType?.name?.toLowerCase().includes("toil")
+    ) {
+      return {
+        ok: false,
+        message: "The TOIL engine is currently disabled for your company in Company Setup.",
+      };
+    }
+  }
+
   const { error } = await supabase.rpc("submit_own_leave_request", {
     request_attachment_url: parsed.data.attachment_url || null,
     request_end_date: parsed.data.end_date,
@@ -501,6 +533,19 @@ export async function submitLeaveRequest(
 
 export async function ensureCompanyToilLeaveType(companyId: string) {
   const adminClient = createSupabaseAdminClient();
+
+  // Guard: Check if TOIL engine is enabled for company
+  const { data: settings } = await adminClient
+    .from("company_settings")
+    .select("toil_rules")
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  const isEnabled = Boolean((settings?.toil_rules as Record<string, unknown> | undefined)?.enabled);
+  if (!isEnabled) {
+    return null;
+  }
+
   const { data: existing } = await adminClient
     .from("leave_types")
     .select("id, name, category, is_paid, requires_attachment, accrual_rules, is_active")
@@ -550,6 +595,19 @@ export async function ensureEmployeeToilBalance(
   toilTypeId: string,
 ) {
   const adminClient = createSupabaseAdminClient();
+
+  // Guard: Check if TOIL engine is enabled for company
+  const { data: settings } = await adminClient
+    .from("company_settings")
+    .select("toil_rules")
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  const isEnabled = Boolean((settings?.toil_rules as Record<string, unknown> | undefined)?.enabled);
+  if (!isEnabled) {
+    return null;
+  }
+
   const { data: existing } = await adminClient
     .from("leave_balances")
     .select("id, balance_hours, accrued_hours, taken_hours")
@@ -621,6 +679,14 @@ export async function accrueToilBalance(
   if (overtimeResult.error) return { ok: false, message: overtimeResult.error.message };
 
   const toilRules = (settingsResult.data?.toil_rules ?? {}) as Record<string, unknown>;
+  const isToilEnabled = Boolean(toilRules.enabled);
+  if (!isToilEnabled) {
+    return {
+      ok: false,
+      message: "The TOIL engine is currently disabled in Company Setup. Please enable it before converting overtime.",
+    };
+  }
+
   const multiplier = Number(toilRules.accrual_multiplier ?? 1.5);
 
   const totalPeriodOvertime = (overtimeResult.data ?? []).reduce(
@@ -805,9 +871,10 @@ export async function reviewLeaveRequest(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const leaveRequestId = String(formData.get("leave_request_id") ?? "").trim();
-  const decision = String(formData.get("decision") ?? "").trim();
-  const notes = String(formData.get("review_notes") ?? "").trim();
+  const leaveRequestId = sanitizeString(formData.get("leave_request_id"), 64);
+  const decision = sanitizeString(formData.get("decision"), 20);
+  const notes = sanitizeMultilineText(formData.get("review_notes"), 1000);
+
 
   if (!leaveRequestId) {
     return { ok: false, message: "Choose a request to review." };
@@ -986,6 +1053,7 @@ export async function syncEmployeeAccruals(
         : null;
 
   const toilMultiplier = Number(toilRules.accrual_multiplier ?? 1.5);
+  const isToilEnabled = Boolean(toilRules.enabled);
 
   // 2. Fetch active leave types
   const { data: leaveTypes, error: leaveTypesError } = await supabase
@@ -1164,9 +1232,13 @@ export async function syncEmployeeAccruals(
         }
         empAnnualAccrued = accruedHours;
       } else if (lt.category === "toil_taken") {
-        // BCEA Section 10(3)(b): 1.5 hours of TOIL for every 1 hour of overtime
-        accruedHours = Number((totalOvertimeHours * toilMultiplier).toFixed(2));
-        empToilAccrued = accruedHours;
+        if (isToilEnabled) {
+          // BCEA Section 10(3)(b): 1.5 hours of TOIL for every 1 hour of overtime
+          accruedHours = Number((totalOvertimeHours * toilMultiplier).toFixed(2));
+          empToilAccrued = accruedHours;
+        } else {
+          continue;
+        }
       } else if (lt.category === "sick") {
         // BCEA Section 22: Sick leave entitlement (1 day per 26 days worked, capped at 80h/yr)
         const shiftBasedSick = Number(((shiftsWorked / 26.0) * standardDailyHours).toFixed(2));
@@ -1272,7 +1344,7 @@ export async function autoSyncOwnLeaveAccruals(
 
   const empDetail = result.details?.[0];
   const summaryMsg = empDetail
-    ? `Accruals synchronized via SA BCEA (1h/17h worked): ${empDetail.totalHoursWorked.toFixed(2)}h worked \u2192 ${empDetail.annualAccrued.toFixed(2)}h annual leave, ${empDetail.totalOvertimeHours.toFixed(2)}h overtime \u2192 ${empDetail.toilAccrued.toFixed(2)}h TOIL.`
+    ? `Accruals synchronized via SA BCEA (1h/17h worked): ${empDetail.totalHoursWorked.toFixed(2)}h worked → ${empDetail.annualAccrued.toFixed(2)}h annual leave${empDetail.toilAccrued > 0 ? `, ${empDetail.totalOvertimeHours.toFixed(2)}h overtime → ${empDetail.toilAccrued.toFixed(2)}h TOIL.` : '.'}`
     : result.message;
 
   return {
@@ -1454,6 +1526,13 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
 
     const supabase = await createSupabaseServerClient();
 
+    const { data: settings } = await supabase
+      .from("company_settings")
+      .select("toil_rules")
+      .eq("company_id", company.id)
+      .maybeSingle();
+    const isToilEnabled = Boolean((settings?.toil_rules as Record<string, unknown> | undefined)?.enabled);
+
     const STANDARD_LEAVE_TYPES = [
       { name: "Annual Leave", category: "annual", is_paid: true, requires_attachment: false },
       { name: "Sick Leave", category: "sick", is_paid: true, requires_attachment: true },
@@ -1461,7 +1540,7 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
       { name: "Study Leave", category: "other", is_paid: true, requires_attachment: false },
       { name: "Maternity Leave", category: "maternity", is_paid: true, requires_attachment: true },
       { name: "Parental Leave", category: "family_responsibility", is_paid: true, requires_attachment: false },
-      { name: "TOIL / Overtime Comp Leave", category: "toil_taken", is_paid: true, requires_attachment: false },
+      ...(isToilEnabled ? [{ name: "TOIL / Overtime Comp Leave", category: "toil_taken", is_paid: true, requires_attachment: false }] : []),
       { name: "Unpaid Leave", category: "unpaid", is_paid: false, requires_attachment: false },
     ];
 
@@ -1546,6 +1625,68 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
     };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Failed to provision leave types.", createdCount: 0 };
+  }
+}
+
+export async function updateCompanyToilPolicy(
+  _prevState: unknown,
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { company } = await getActiveCompany();
+    const access = await getCurrentUserAccess();
+    if (!access.canManageCompany) {
+      return { ok: false, message: "Unauthorized. Admin access required." };
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const toilEnabled = formData.get("toil_enabled") === "on";
+    const rawMultiplier = formData.get("accrual_multiplier") as string | null;
+    const accrualMultiplier = rawMultiplier && Number(rawMultiplier) > 0 ? Number(rawMultiplier) : 1.5;
+
+    const { data: existingSettings } = await supabase
+      .from("company_settings")
+      .select("toil_rules")
+      .eq("company_id", company.id)
+      .maybeSingle();
+
+    const existingToilRules = (existingSettings?.toil_rules ?? {}) as Record<string, unknown>;
+
+    const updatedToilRules = {
+      ...existingToilRules,
+      enabled: toilEnabled,
+      accrual_multiplier: accrualMultiplier,
+    };
+
+    const { error } = await supabase.from("company_settings").upsert(
+      {
+        company_id: company.id,
+        toil_rules: updatedToilRules,
+      },
+      { onConflict: "company_id" },
+    );
+
+    if (error) {
+      return { ok: false, message: error.message };
+    }
+
+    revalidateTag(`company-settings-${company.id}`, "max");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/company");
+    revalidatePath("/dashboard/leave");
+    revalidatePath("/dashboard/time");
+
+    return {
+      ok: true,
+      message: toilEnabled
+        ? "TOIL Engine enabled. Employees can now convert overtime into TOIL and request time off in lieu."
+        : "TOIL Engine disabled. All TOIL features, balance views, and conversions are now deactivated.",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Failed to update TOIL engine policy.",
+    };
   }
 }
 

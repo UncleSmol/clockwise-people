@@ -107,21 +107,21 @@ export default function CompanyTimesheetApprovalQueue({
   return (
     <section className="grid gap-4 min-w-0">
       {/* Header */}
-      <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
-        <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
+      <div className="card-hero-green rounded-2xl p-5 text-white shadow-soft sm:p-6">
+        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">
               Management Approval
             </p>
-            <h2 className="mt-0.5 flex items-center gap-2 text-xl font-black text-primary-foreground sm:text-2xl">
-              <ClipboardCheck className="size-5 text-emerald-400" />
+            <h2 className="mt-0.5 flex items-center gap-2 text-xl font-black text-white sm:text-2xl">
+              <ClipboardCheck className="size-5 text-white" />
               Submitted Timesheets
             </h2>
-            <p className="mt-0.5 text-xs text-primary-foreground/85">
+            <p className="mt-0.5 text-xs text-white/85">
               Approve ready timesheets or reject them with a clear note.
             </p>
           </div>
-          <span className="w-max rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white shadow-2xs">
+          <span className="w-max rounded-full bg-white/20 px-3.5 py-1 text-xs font-bold text-white shadow-soft backdrop-blur-xs">
             {timesheets.length} ready
           </span>
         </div>
@@ -129,7 +129,7 @@ export default function CompanyTimesheetApprovalQueue({
 
       {state.message && (
         <div
-          className={`rounded-md border px-3 py-2 text-sm font-semibold ${
+          className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-soft ${
             state.ok
               ? "border-emerald-300 bg-emerald-50 text-emerald-950"
               : "border-rose-300 bg-rose-50 text-rose-950"
@@ -140,12 +140,12 @@ export default function CompanyTimesheetApprovalQueue({
       )}
 
       {timesheets.length === 0 ? (
-        <p className="rounded-lg border border-border bg-background p-4 text-center text-sm font-medium text-muted">
+        <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm font-medium text-muted shadow-soft">
           No submitted timesheets need approval.
         </p>
       ) : (
-        <form action={formAction} className="grid gap-3.5">
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5 items-start">
+        <form action={formAction} className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
             {timesheets.map((timesheet) => {
               const hasWarning =
                 timesheet.missing_clocking ||
@@ -157,102 +157,140 @@ export default function CompanyTimesheetApprovalQueue({
               return (
                 <article
                   key={timesheet.id}
-                  className={`grid gap-2 sm:gap-3 rounded-lg border-2 p-2.5 sm:p-3.5 shadow-2xs transition-all w-full max-w-full overflow-hidden ${
+                  className={`flex flex-col justify-between gap-3 rounded-2xl p-4 shadow-soft transition-all w-full max-w-full overflow-hidden ${
                     isCompliant
-                      ? "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70"
-                      : "border-rose-500 bg-rose-50/50 hover:bg-rose-50/70"
+                      ? "card-hero-green text-white"
+                      : "bg-rose-600 text-white"
                   }`}
                 >
-                  {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}
+                  {/* Top Bar: Checkbox, Avatar Monogram, Name & Status Badge */}
                   <div className="flex items-center justify-between gap-1.5 min-w-0 max-w-full">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <label className="grid size-6 sm:size-7 shrink-0 cursor-pointer place-items-center rounded border border-border bg-white shadow-xs hover:border-slate-400">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <label className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full border border-white/30 bg-white/20 shadow-soft hover:bg-white/30 transition-colors">
                         <input
                           type="checkbox"
                           name="time_entry_ids"
                           value={timesheet.id}
                           aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
-                          className="size-3.5 sm:size-4 accent-slate-900"
+                          className="size-4 accent-primary cursor-pointer"
                         />
                       </label>
-                      <EmployeeAvatar
-                        name={timesheet.knownAs ?? timesheet.fullName}
-                        src={timesheet.avatarUrl}
-                        className="size-7 sm:size-9 shrink-0 ring-1 ring-border shadow-2xs"
-                      />
+
+                      <div className="relative shrink-0">
+                        <EmployeeAvatar
+                          name={timesheet.knownAs ?? timesheet.fullName}
+                          src={timesheet.avatarUrl}
+                          className="size-9 rounded-full border border-white/30 bg-white/20 shadow-soft ring-2 ring-white/30"
+                        />
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full ring-2 ${
+                            isCompliant
+                              ? "bg-emerald-300 ring-emerald-600"
+                              : "bg-rose-300 ring-rose-700"
+                          }`}
+                        />
+                      </div>
+
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-foreground break-words leading-tight">
+                        <p className="text-xs font-extrabold text-white break-words leading-tight">
                           {timesheet.knownAs ?? timesheet.fullName}
                         </p>
-                        <p className="text-[10px] sm:text-[11px] font-medium text-muted break-words leading-tight mt-0.5">
+                        <p
+                          className={`text-[11px] font-medium break-words leading-tight mt-0.5 ${
+                            isCompliant ? "text-white/85" : "text-rose-100"
+                          }`}
+                        >
                           {timesheet.workstationName ?? "Assigned workstation"} ·{" "}
-                          <span className="font-semibold text-foreground">{formatDate(timesheet.work_date)}</span>
+                          <span className="font-semibold text-white">{formatDate(timesheet.work_date)}</span>
                         </p>
                       </div>
                     </div>
 
                     <span
-                      className={`inline-flex shrink-0 items-center gap-1 rounded px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
                         isCompliant
-                          ? "bg-emerald-600 text-white shadow-2xs"
-                          : "bg-rose-600 text-white shadow-2xs"
+                          ? "bg-white/20 text-white border border-white/30"
+                          : "bg-rose-950/50 text-rose-200 border border-rose-400/30"
                       }`}
                     >
                       {isCompliant ? (
-                        <CheckCircle2 className="size-2.5 sm:size-3 text-white" />
+                        <CheckCircle2 className="size-2.5 text-white" />
                       ) : (
-                        <AlertTriangle className="size-2.5 sm:size-3 text-white" />
+                        <AlertTriangle className="size-2.5 text-rose-200" />
                       )}
                       {isCompliant ? "Ready" : "Exception"}
                     </span>
                   </div>
 
                   {/* High-Contrast White Metric Boxes (Smart Auto-Fit Grid) */}
-                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 text-center min-w-0 w-full">
-                    <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Clock In</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words font-mono leading-tight">{shortTime(timesheet.clock_in)}</p>
+                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0 w-full">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock In</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(timesheet.clock_in)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Lunch</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words font-mono leading-tight">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white p-1 sm:p-1.5 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Clock Out</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-foreground break-words font-mono leading-tight">{shortTime(timesheet.clock_out)}</p>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock Out</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(timesheet.clock_out)}</p>
                     </div>
 
-                    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-1 sm:p-1.5 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-800 break-words leading-tight">Total Paid</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatHours(timesheet.paid_hours)}</p>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total Paid</p>
+                      <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(timesheet.paid_hours)}</p>
                     </div>
                   </div>
 
                   {/* Hours Breakdown Subgrid */}
-                  <div className="grid grid-cols-3 gap-1 text-center min-w-0 w-full">
-                    <div className="rounded-md border border-border bg-white/90 p-1 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase text-muted break-words leading-tight">Normal</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-bold text-foreground break-words font-mono leading-tight">{formatHours(timesheet.normal_hours)}</p>
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-1.5 text-center text-slate-900 shadow-xs min-w-0 w-full">
+                    <div className="min-w-0">
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Normal</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(timesheet.normal_hours)}</p>
                     </div>
 
-                    <div className="rounded-md border border-slate-200 bg-slate-100/80 p-1 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase text-slate-700 break-words leading-tight">Overtime</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-extrabold text-slate-900 break-words font-mono leading-tight">{formatHours(timesheet.overtime_hours)}</p>
+                    <div className="min-w-0">
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 break-words leading-tight">Overtime</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(timesheet.overtime_hours)}</p>
                     </div>
 
-                    <div className="rounded-md border border-border bg-white/90 p-1 shadow-2xs min-w-0">
-                      <p className="text-[8.5px] sm:text-[9px] font-bold uppercase text-muted break-words leading-tight">Lunch</p>
-                      <p className="mt-0.5 text-[11px] sm:text-xs font-bold text-foreground break-words font-mono leading-tight">{formatHours(timesheet.lunch_hours)}</p>
+                    <div className="min-w-0">
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(timesheet.lunch_hours)}</p>
                     </div>
                   </div>
 
+                  {/* Complementary Footer Pills */}
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0 pt-0.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-semibold text-[10px] break-words ${
+                        isCompliant ? "bg-white/20 text-white" : "bg-rose-800/80 text-rose-100"
+                      }`}
+                      title={timesheet.workstationName ?? "Assigned workstation"}
+                    >
+                      <MapPin className="mr-1 inline size-2.5 shrink-0 opacity-80" />
+                      <span className="break-words leading-tight">{timesheet.workstationName ?? "Workstation logged"}</span>
+                    </span>
+
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap border ${
+                        isCompliant
+                          ? "bg-white/20 text-white border-white/30"
+                          : "bg-rose-950/50 text-rose-200 border border-rose-400/30"
+                      }`}
+                    >
+                      {isCompliant ? "Fully Compliant" : "Review Required"}
+                    </span>
+                  </div>
+
                   {/* Location History Dropdown & Visual Route Map */}
-                  <details className="rounded-md border border-border/80 bg-white/80" open={activeMapEntryId === timesheet.id}>
-                    <summary className="flex cursor-pointer items-center justify-between gap-1.5 px-3 py-2 text-xs font-bold text-foreground hover:bg-slate-50">
+                  <details className="rounded-2xl border border-border/80 bg-surface overflow-hidden shadow-soft text-foreground" open={activeMapEntryId === timesheet.id}>
+                    <summary className="flex cursor-pointer items-center justify-between gap-1.5 px-3 py-2.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors">
                       <span className="flex items-center gap-1.5">
-                        <MapPin className="size-3.5 text-accent" />
+                        <MapPin className="size-3.5 text-primary" />
                         Location history ({timesheet.locationEvents.length})
                       </span>
                       {timesheet.locationEvents.length > 0 && (
@@ -262,9 +300,9 @@ export default function CompanyTimesheetApprovalQueue({
                             e.preventDefault();
                             setActiveMapEntryId((prev) => (prev === timesheet.id ? null : timesheet.id));
                           }}
-                          className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-slate-800"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-primary-hover shadow-soft transition-all"
                         >
-                          <Footprints className="size-3 text-emerald-400" />
+                          <Footprints className="size-3 text-white" />
                           {activeMapEntryId === timesheet.id ? "Hide Map" : "View Route Map"}
                         </button>
                       )}
@@ -307,7 +345,7 @@ export default function CompanyTimesheetApprovalQueue({
                               </p>
                             </div>
                             <span
-                              className={`inline-flex w-max items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold ${geofenceClass(event.geofence_status)}`}
+                              className={`inline-flex w-max items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${geofenceClass(event.geofence_status)} shadow-soft`}
                             >
                               <LocateFixed className="size-3" />
                               {geofenceLabel(event.geofence_status)}
@@ -323,10 +361,10 @@ export default function CompanyTimesheetApprovalQueue({
           </div>
 
           {/* Action Note Box & Decision Buttons */}
-          <div className="grid gap-3 rounded-lg border border-border bg-background p-3.5">
+          <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-soft">
             <label className="grid gap-1.5">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Review note</span>
-              <span className="flex items-start gap-2 rounded-md border border-border bg-white px-3 pt-2">
+              <span className="flex items-start gap-2 rounded-2xl border border-border/80 bg-background px-3 pt-2 shadow-soft focus-within:border-primary">
                 <FileText className="size-4 shrink-0 text-muted mt-0.5" />
                 <textarea
                   name="approval_notes"
@@ -342,7 +380,7 @@ export default function CompanyTimesheetApprovalQueue({
                 name="decision"
                 value="reject"
                 disabled={pending}
-                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-rose-400/60 bg-rose-50 px-4 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-6 py-2.5 text-xs font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-all shadow-soft cursor-pointer"
               >
                 <XCircle className="size-4 shrink-0" />
                 {pending ? "Working..." : "Reject selected"}
@@ -351,9 +389,9 @@ export default function CompanyTimesheetApprovalQueue({
                 name="decision"
                 value="approve"
                 disabled={pending}
-                className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-xs"
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-xs font-extrabold text-white hover:bg-primary-hover disabled:opacity-50 shadow-soft transition-all cursor-pointer"
               >
-                <CheckCircle2 className="size-4 shrink-0" />
+                <CheckCircle2 className="size-4 shrink-0 text-white" />
                 {pending ? "Working..." : "Approve selected"}
               </button>
             </div>

@@ -319,7 +319,7 @@ export default function CompanyGeolocationPanel({
     <section className="grid min-w-0 gap-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
             Geolocation
           </p>
           <h2 className="mt-1 text-xl font-extrabold text-foreground">Workstations &amp; Geofencing</h2>
@@ -328,7 +328,7 @@ export default function CompanyGeolocationPanel({
             Assigned employees are verified against the workstation radius when clocking.
           </p>
           {data.userAssignedWorkstationId ? (
-            <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success">
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
               <MapPin className="size-3.5 shrink-0" />
               <span>
                 Map defaulted to your assigned workstation:{" "}
@@ -339,20 +339,20 @@ export default function CompanyGeolocationPanel({
             </div>
           ) : null}
         </div>
-        <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 text-xs font-medium text-foreground lg:max-w-xs shrink-0 leading-relaxed shadow-2xs">
+        <div className="rounded-2xl border border-border/80 bg-surface p-4 text-xs font-medium text-foreground lg:max-w-xs shrink-0 leading-relaxed shadow-soft">
           Tip: You can paste a Google Maps link or enter exact coordinates to achieve pin-point accuracy for large sites.
         </div>
       </div>
 
       {(saveState.message || assignState.message) ? (
         <p
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={`rounded-full border px-4 py-2.5 text-sm font-semibold shadow-xs ${
             saveState.message
               ? saveState.ok
-                ? "border-success/30 bg-success/10 text-success"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
                 : "border-danger/30 bg-danger/10 text-danger"
               : assignState.ok
-                ? "border-success/30 bg-success/10 text-success"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
                 : "border-danger/30 bg-danger/10 text-danger"
           }`}
         >
@@ -361,38 +361,40 @@ export default function CompanyGeolocationPanel({
       ) : null}
 
       {locationNotice ? (
-        <div className="flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent">
+        <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-semibold text-primary shadow-xs">
           <Sparkles className="size-4 shrink-0" />
           <span>{locationNotice}</span>
         </div>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[1fr_390px] min-w-0">
-        <div className="grid min-w-0 gap-3">
-          <WorkstationMap
-            latitude={position.latitude}
-            longitude={position.longitude}
-            onChange={handleMapPositionChange}
-            radiusMeters={radiusMeters}
-            onLocateSuccess={(acc) => {
-              setGpsAccuracy(acc);
-              setLocationNotice(`Current location captured via GPS (±${Math.round(acc)}m accuracy).`);
-              handleReverseGeocode();
-            }}
-          />
+        <div className="grid min-w-0 gap-3.5">
+          <div className="rounded-2xl overflow-hidden border border-border/80 shadow-soft">
+            <WorkstationMap
+              latitude={position.latitude}
+              longitude={position.longitude}
+              onChange={handleMapPositionChange}
+              radiusMeters={radiusMeters}
+              onLocateSuccess={(acc) => {
+                setGpsAccuracy(acc);
+                setLocationNotice(`Current location captured via GPS (±${Math.round(acc)}m accuracy).`);
+                handleReverseGeocode();
+              }}
+            />
+          </div>
 
           {/* Quick Location & Map URL Fallback Bar */}
-          <div className="rounded-md border border-border bg-surface p-3 text-xs">
+          <div className="rounded-2xl border border-border/80 bg-surface p-4 text-xs shadow-soft">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                <Compass className="size-4 text-accent" />
+              <span className="flex items-center gap-1.5 font-bold text-foreground">
+                <Compass className="size-4 text-primary" />
                 Define via Coordinates or Map URL
               </span>
               <span className="text-[11px] text-muted">
                 Supports Google Maps (including short links), Apple Maps, OSM, or lat/lon
               </span>
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2.5 flex gap-2">
               <input
                 value={quickLocationInput}
                 onChange={(e) => setQuickLocationInput(e.target.value)}
@@ -403,13 +405,13 @@ export default function CompanyGeolocationPanel({
                   }
                 }}
                 placeholder="Paste URL (e.g. https://maps.app.goo.gl/...) or coords (-26.2041, 28.0473)"
-                className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-accent"
+                className="h-11 min-w-0 flex-1 rounded-full border border-border/80 bg-background px-4 text-xs text-foreground outline-none focus:border-primary shadow-xs"
               />
               <button
                 type="button"
                 onClick={handleApplyQuickLocation}
                 disabled={parsingLocation || !quickLocationInput.trim()}
-                className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md bg-accent px-3 text-xs font-semibold text-accent-foreground disabled:opacity-50"
+                className="inline-flex h-11 shrink-0 items-center gap-1 rounded-full bg-primary px-5 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-50 transition-all cursor-pointer"
               >
                 {parsingLocation ? "Extracting..." : "Apply"}
               </button>
@@ -417,28 +419,28 @@ export default function CompanyGeolocationPanel({
           </div>
 
           {/* Direct Coordinate Readouts & Live GPS Info */}
-          <div className="grid gap-3 rounded-md border border-border bg-background p-3 text-sm sm:grid-cols-3">
+          <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-4 text-sm sm:grid-cols-3 shadow-soft">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
                 Current Latitude
               </p>
-              <p className="mt-1 font-mono font-semibold text-foreground break-words">
+              <p className="mt-1 font-mono font-bold text-foreground break-words">
                 {formatCoordinate(position.latitude)}
               </p>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
                 Current Longitude
               </p>
-              <p className="mt-1 font-mono font-semibold text-foreground break-words">
+              <p className="mt-1 font-mono font-bold text-foreground break-words">
                 {formatCoordinate(position.longitude)}
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
                 Geofence Radius
               </p>
-              <p className="mt-1 font-semibold text-foreground">
+              <p className="mt-1 font-bold text-foreground">
                 {radiusMeters}m
                 {gpsAccuracy !== null ? (
                   <span className="ml-2 text-xs font-normal text-muted">
@@ -451,22 +453,22 @@ export default function CompanyGeolocationPanel({
         </div>
 
         {/* Workstation Form */}
-        <form action={saveAction} className="grid h-max gap-3.5 rounded-md border border-border bg-background p-4">
+        <form action={saveAction} className="grid h-max gap-4 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft">
           <input name="workstation_id" type="hidden" value={effectiveWorkstationId} />
 
-          <div className="flex items-center justify-between gap-3 border-b border-border pb-2.5">
+          <div className="flex items-center justify-between gap-3 border-b border-border/70 pb-3">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-foreground">
+                <h3 className="font-extrabold text-foreground">
                   {selectedWorkstation ? "Edit workstation" : "Add workstation"}
                 </h3>
                 {selectedWorkstation ? (
-                  <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-bold text-accent">
+                  <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-bold text-primary">
                     Active selection
                   </span>
                 ) : null}
               </div>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-muted mt-0.5">
                 {selectedWorkstation ? "Update location coordinates or radius" : "Create a new geofence boundary"}
               </p>
             </div>
@@ -475,7 +477,7 @@ export default function CompanyGeolocationPanel({
               <button
                 type="button"
                 onClick={startNewWorkstation}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-accent hover:bg-surface-muted"
+                className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-background px-3 py-1.5 text-xs font-semibold text-primary hover:bg-surface-muted shadow-xs transition-colors cursor-pointer"
               >
                 <Plus className="size-3" />
                 New
@@ -484,22 +486,22 @@ export default function CompanyGeolocationPanel({
           </div>
 
           {/* Workstation Name */}
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation Name</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Workstation Name</span>
             <input
               key={selectedWorkstation?.id ?? "new-name"}
               name="name"
               required
               defaultValue={selectedWorkstation?.name ?? ""}
               placeholder="e.g. Head Office, Site A, Warehouse"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
             />
           </label>
 
           {/* Editable Coordinates: Latitude and Longitude */}
           <div className="grid grid-cols-2 gap-2.5">
-            <label className="grid gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
                 Latitude (-90 to 90)
               </span>
               <input
@@ -510,12 +512,12 @@ export default function CompanyGeolocationPanel({
                 value={latInput}
                 onChange={(e) => handleLatInputChange(e.target.value)}
                 placeholder="-26.204100"
-                className="h-10 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground outline-none focus:border-accent"
+                className="h-11 sm:h-12 rounded-full border border-border/80 bg-background px-4 font-mono text-sm text-foreground outline-none focus:border-primary shadow-xs"
               />
             </label>
 
-            <label className="grid gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
                 Longitude (-180 to 180)
               </span>
               <input
@@ -526,21 +528,21 @@ export default function CompanyGeolocationPanel({
                 value={lngInput}
                 onChange={(e) => handleLngInputChange(e.target.value)}
                 placeholder="28.047300"
-                className="h-10 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground outline-none focus:border-accent"
+                className="h-11 sm:h-12 rounded-full border border-border/80 bg-background px-4 font-mono text-sm text-foreground outline-none focus:border-primary shadow-xs"
               />
             </label>
           </div>
 
           {/* Address Search & Reverse Geocoding */}
-          <label className="grid gap-1">
+          <label className="grid gap-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Address / Landmark</span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Address / Landmark</span>
               <button
                 type="button"
                 onClick={handleReverseGeocode}
                 disabled={reversingAddress}
                 title="Lookup street address for current latitude & longitude pin"
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline disabled:opacity-50 cursor-pointer"
               >
                 <RotateCcw className={`size-3 ${reversingAddress ? "animate-spin" : ""}`} />
                 {reversingAddress ? "Resolving..." : "Get address from pin"}
@@ -553,7 +555,7 @@ export default function CompanyGeolocationPanel({
                 name="address"
                 defaultValue={selectedWorkstation?.address ?? ""}
                 placeholder="Search street, building, or paste coordinates/URL"
-                className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+                className="h-11 sm:h-12 min-w-0 flex-1 rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -571,22 +573,22 @@ export default function CompanyGeolocationPanel({
                 type="button"
                 disabled={geocoding}
                 onClick={handleSearch}
-                className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground disabled:opacity-60 cursor-pointer"
+                className="inline-flex h-11 sm:h-12 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-bold text-white hover:brightness-105 disabled:opacity-60 shadow-soft transition-all cursor-pointer"
               >
                 <Search className="size-4 shrink-0" />
                 {geocoding ? "..." : "Search"}
               </button>
 
               {showResults && searchResults.length > 0 ? (
-                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-md border border-border bg-surface shadow-xl">
+                <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-52 overflow-y-auto rounded-2xl border border-border/80 bg-surface shadow-soft p-1">
                   {searchResults.map((result, i) => (
                     <button
                       key={i}
                       type="button"
                       onMouseDown={() => selectSearchResult(result)}
-                      className="w-full border-b border-border/50 px-3 py-2 text-left text-xs text-foreground last:border-0 hover:bg-surface-muted"
+                      className="w-full rounded-xl border-b border-border/40 px-3.5 py-2 text-left text-xs text-foreground last:border-0 hover:bg-surface-muted transition-colors cursor-pointer"
                     >
-                      <p className="font-semibold">{result.display_name}</p>
+                      <p className="font-bold">{result.display_name}</p>
                       <p className="font-mono text-[11px] text-muted">
                         {Number(result.lat).toFixed(6)}, {Number(result.lon).toFixed(6)}
                       </p>
@@ -597,13 +599,13 @@ export default function CompanyGeolocationPanel({
             </div>
 
             {searchFeedback ? (
-              <p className="mt-1 text-xs text-warning leading-relaxed">{searchFeedback}</p>
+              <p className="mt-1 text-xs text-amber-600 leading-relaxed font-semibold">{searchFeedback}</p>
             ) : null}
           </label>
 
           {/* Radius Slider */}
           <label className="grid gap-2">
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.12em] text-muted">
               <span>Geofence Radius</span>
               <span className="font-mono text-sm text-foreground">{radiusMeters}m</span>
             </div>
@@ -615,7 +617,7 @@ export default function CompanyGeolocationPanel({
               step={25}
               type="range"
               value={radiusMeters}
-              className="accent-[var(--color-accent)]"
+              className="accent-primary"
             />
             <span className="text-[11px] text-muted">
               Standard office: 100m–150m. Large industrial/farm or weak GPS area: 250m–500m.
@@ -624,11 +626,11 @@ export default function CompanyGeolocationPanel({
 
           {/* Submit / Remove Buttons */}
           {selectedWorkstation ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pt-1">
               <button
                 type="submit"
                 disabled={savePending || isPendingDelete}
-                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 cursor-pointer"
+                className="inline-flex min-h-[44px] h-11 sm:h-12 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-60 transition-all cursor-pointer"
               >
                 {savePending ? "Saving workstation..." : "Save changes"}
               </button>
@@ -637,7 +639,7 @@ export default function CompanyGeolocationPanel({
                 type="button"
                 disabled={isPendingDelete || savePending}
                 onClick={() => handleRemoveWorkstation(selectedWorkstation.id, selectedWorkstation.name)}
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger/20 disabled:opacity-60 cursor-pointer"
+                className="inline-flex min-h-[44px] h-11 sm:h-12 items-center justify-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-4 text-sm font-bold text-danger hover:bg-danger/20 disabled:opacity-60 transition-all cursor-pointer"
                 title="Remove this workstation"
               >
                 <Trash2 className="size-4 shrink-0" />
@@ -648,7 +650,7 @@ export default function CompanyGeolocationPanel({
             <button
               type="submit"
               disabled={savePending || isPendingDelete}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 cursor-pointer"
+              className="inline-flex min-h-[44px] h-11 sm:h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-60 transition-all cursor-pointer mt-1"
             >
               {savePending ? "Saving workstation..." : "Create workstation"}
             </button>
@@ -658,17 +660,17 @@ export default function CompanyGeolocationPanel({
 
       {/* Active Workstations & Employee Assignment */}
       <div className="grid gap-4 xl:grid-cols-[1fr_340px] min-w-0">
-        <div className="min-w-0 rounded-md border border-border bg-background">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h3 className="font-semibold text-foreground">
+        <div className="min-w-0 rounded-2xl border border-border/80 bg-surface shadow-soft overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border/70 px-5 py-3.5">
+            <h3 className="font-extrabold text-foreground">
               Configured Workstations ({data.workstations.length})
             </h3>
-            <span className="text-xs text-muted">Click any workstation to view or edit</span>
+            <span className="text-xs text-muted font-medium">Click any workstation to view or edit</span>
           </div>
 
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/60">
             {data.workstations.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted">
+              <div className="px-5 py-10 text-center text-sm text-muted">
                 No workstations configured yet. Add your first location above.
               </div>
             ) : (
@@ -678,25 +680,25 @@ export default function CompanyGeolocationPanel({
                 return (
                   <div
                     key={workstation.id}
-                    className={`grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center transition-colors ${
-                      isSelected ? "bg-accent/10 border-l-4 border-l-accent" : "hover:bg-surface-muted/50"
+                    className={`grid gap-3 px-5 py-3.5 sm:grid-cols-[1fr_auto] sm:items-center transition-colors ${
+                      isSelected ? "bg-primary/10 border-l-4 border-l-primary" : "hover:bg-surface-muted/50"
                     }`}
                   >
                     <button
                       type="button"
                       onClick={() => selectWorkstation(workstation)}
-                      className="grid cursor-pointer gap-1 text-left"
+                      className="grid cursor-pointer gap-1.5 text-left"
                     >
-                      <div className="flex flex-wrap items-center gap-2 font-semibold text-foreground">
-                        <MapPin className="size-4 text-accent shrink-0" />
+                      <div className="flex flex-wrap items-center gap-2 font-bold text-foreground">
+                        <MapPin className="size-4 text-primary shrink-0" />
                         <span>{workstation.name}</span>
                         {isUserAssigned ? (
-                          <span className="rounded border border-success/30 bg-success/15 px-1.5 py-0.5 text-[10px] font-bold text-success">
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                             Your assigned workstation
                           </span>
                         ) : null}
                         {isSelected ? (
-                          <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                          <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
                             Editing
                           </span>
                         ) : null}
@@ -722,9 +724,9 @@ export default function CompanyGeolocationPanel({
                       <button
                         type="button"
                         onClick={() => selectWorkstation(workstation)}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-muted"
+                        className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-border/80 bg-background px-3.5 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted shadow-xs transition-colors cursor-pointer"
                       >
-                        <Edit3 className="size-3 text-accent" />
+                        <Edit3 className="size-3 text-primary" />
                         Edit
                       </button>
 
@@ -732,7 +734,7 @@ export default function CompanyGeolocationPanel({
                         type="button"
                         disabled={deletingId === workstation.id || isPendingDelete}
                         onClick={() => handleRemoveWorkstation(workstation.id, workstation.name)}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs font-semibold text-danger hover:bg-danger/20 disabled:opacity-50"
+                        className="inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-danger/30 bg-danger/10 px-3.5 py-1.5 text-xs font-bold text-danger hover:bg-danger/20 disabled:opacity-50 shadow-xs transition-colors cursor-pointer"
                         title="Remove workstation"
                       >
                         <Trash2 className="size-3.5 shrink-0" />
@@ -747,10 +749,10 @@ export default function CompanyGeolocationPanel({
         </div>
 
         {/* Employee Assignment Panel */}
-        <form action={assignAction} className="grid h-max gap-3 rounded-md border border-border bg-background p-4">
+        <form action={assignAction} className="grid h-max gap-4 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft">
           <div>
-            <p className="flex items-center gap-2 font-semibold text-foreground">
-              <Users className="size-4 text-accent" />
+            <p className="flex items-center gap-2 font-bold text-foreground">
+              <Users className="size-4 text-primary" />
               Employee workstation assignment
             </p>
             <p className="mt-1 text-xs text-muted">
@@ -758,12 +760,12 @@ export default function CompanyGeolocationPanel({
             </p>
           </div>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Employee</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Employee</span>
             <select
               name="employee_id"
               required
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
             >
               <option value="">Choose employee</option>
               {data.employees.map((employee) => (
@@ -774,11 +776,11 @@ export default function CompanyGeolocationPanel({
             </select>
           </label>
 
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Workstation</span>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Workstation</span>
             <select
               name="workstation_id"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-accent"
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
             >
               <option value="">No workstation</option>
               {data.workstations.map((workstation) => (
@@ -791,19 +793,19 @@ export default function CompanyGeolocationPanel({
 
           <button
             disabled={assignPending}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 sm:min-h-0 cursor-pointer"
+            className="inline-flex min-h-[44px] h-11 sm:h-12 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-60 transition-all cursor-pointer"
           >
             {assignPending ? "Saving..." : "Save assignment"}
           </button>
 
-          <details className="group border-t border-border pt-2">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+          <details className="group border-t border-border/70 pt-2.5">
+            <summary className="flex cursor-pointer items-center justify-between gap-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-muted [&::-webkit-details-marker]:hidden [&::marker]:hidden">
               <span>
                 Assigned employees ({data.employees.filter((e) => e.workstation_id).length})
               </span>
               <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" />
             </summary>
-            <div className="mt-2 grid gap-1.5">
+            <div className="mt-2.5 grid gap-2">
               {data.employees.filter((e) => e.workstation_id).length === 0 ? (
                 <p className="py-2 text-xs text-muted">No employees assigned yet.</p>
               ) : (
@@ -816,7 +818,7 @@ export default function CompanyGeolocationPanel({
 
                     return (
                       <p key={employee.id} className="flex items-center gap-2 text-xs text-muted">
-                        <Navigation className="size-3.5 shrink-0 text-accent" />
+                        <Navigation className="size-3.5 shrink-0 text-primary" />
                         <span className="break-words leading-tight">
                           {employee.label} · {workstation?.name ?? "Unknown workstation"}
                         </span>

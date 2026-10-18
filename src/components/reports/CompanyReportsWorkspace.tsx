@@ -859,18 +859,18 @@ export default function CompanyReportsWorkspace({
   return (
     <div className="space-y-6">
       {/* Header & Sticky Control Bar */}
-      <div className="rounded-xl border border-border/80 bg-surface p-5 sm:p-6 text-foreground shadow-2xs">
+      <div className="rounded-2xl border border-border/80 bg-surface p-5 sm:p-6 text-foreground shadow-soft">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
                 Compliance &amp; Workforce Intelligence
               </span>
               <span className="text-xs font-semibold text-muted">
                 · {companyName}
               </span>
             </div>
-            <h2 className="mt-1.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            <h2 className="mt-2 text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
               Compliance, Payroll &amp; Attendance Reporting Center
             </h2>
             <p className="mt-1 text-xs text-muted">
@@ -883,7 +883,7 @@ export default function CompanyReportsWorkspace({
             <button
               type="button"
               onClick={handleExportCompleteAuditPack}
-              className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-xs font-semibold text-primary-foreground hover:brightness-110 shadow-2xs transition-all cursor-pointer"
+              className="inline-flex h-9 items-center justify-center rounded-full bg-primary px-4 text-xs font-bold text-white hover:brightness-105 shadow-soft transition-all cursor-pointer"
               title="Download full multi-sheet audit pack containing all reports"
             >
               Full Audit Pack (Excel)
@@ -892,7 +892,7 @@ export default function CompanyReportsWorkspace({
             <button
               type="button"
               onClick={handleExportActivePdf}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-border/80 bg-surface px-3.5 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-xs transition-all cursor-pointer"
               title="Export formatted audit PDF"
             >
               PDF
@@ -901,7 +901,7 @@ export default function CompanyReportsWorkspace({
             <button
               type="button"
               onClick={handleExportActiveCsv}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-border/80 bg-surface px-3.5 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-xs transition-all cursor-pointer"
               title="Export CSV for payroll system"
             >
               CSV
@@ -910,7 +910,7 @@ export default function CompanyReportsWorkspace({
             <button
               type="button"
               onClick={() => window.print()}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-border/80 bg-surface px-3.5 text-xs font-semibold text-foreground hover:bg-surface-muted shadow-xs transition-all cursor-pointer"
               title="Print report"
             >
               Print
@@ -919,7 +919,7 @@ export default function CompanyReportsWorkspace({
         </div>
 
         {/* Global Period & Query Filter Bar */}
-        <div className="mt-5 pt-4 border-t border-border flex flex-wrap items-center gap-3">
+        <div className="mt-5 pt-4 border-t border-border/60 flex flex-wrap items-center gap-3">
           {/* Period Selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-muted">
@@ -928,7 +928,7 @@ export default function CompanyReportsWorkspace({
             <select
               value={selectedPeriodId}
               onChange={(e) => setSelectedPeriodId(e.target.value)}
-              className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
+              className="min-h-[44px] sm:min-h-9 px-3.5 py-1.5 text-base sm:text-xs font-semibold rounded-full bg-background border border-border/80 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs leading-normal"
             >
               {generatedPeriods.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -941,7 +941,7 @@ export default function CompanyReportsWorkspace({
 
           {/* Custom Date Pickers if selected */}
           {selectedPeriodId === "custom" && (
-            <div className="flex items-center gap-2 bg-background px-3 py-1.5 sm:py-1 rounded-lg border border-border min-h-[44px] sm:min-h-9 shadow-2xs">
+            <div className="flex items-center gap-2 bg-background px-3.5 py-1.5 rounded-full border border-border/80 min-h-[44px] sm:min-h-9 shadow-xs">
               <input
                 type="date"
                 value={customStart}
@@ -967,25 +967,26 @@ export default function CompanyReportsWorkspace({
               <select
                 value={employeeFilter}
                 onChange={(e) => setEmployeeFilter(e.target.value)}
-                className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
+                className="min-h-[44px] sm:min-h-9 px-3.5 py-1.5 text-base sm:text-xs font-semibold rounded-full bg-background border border-border/80 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs leading-normal"
               >
                 <option value="all">Active Employees ({filteredEmployeesList.length})</option>
                 {filteredEmployeesList.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.known_as ?? emp.full_name} ({emp.employee_number || emp.id.slice(0, 6)})
+                    {emp.known_as ?? emp.full_name}
                   </option>
                 ))}
+
               </select>
             </div>
           )}
 
           {/* Hide Inactive / Terminated Toggle */}
-          <label className="flex min-h-[44px] sm:min-h-9 items-center gap-2 cursor-pointer select-none text-xs font-semibold text-foreground bg-background border border-border px-3 py-2 sm:py-1 rounded-lg hover:bg-surface-muted transition-colors shadow-2xs">
+          <label className="flex min-h-[44px] sm:min-h-9 items-center gap-2 cursor-pointer select-none text-xs font-semibold text-foreground bg-background border border-border/80 px-3.5 py-1.5 rounded-full hover:bg-surface-muted transition-colors shadow-xs">
             <input
               type="checkbox"
               checked={!showInactive}
               onChange={(e) => setShowInactive(!e.target.checked)}
-              className="size-4 shrink-0 rounded border-border text-primary focus:ring-primary/20 accent-primary"
+              className="size-4 shrink-0 rounded-full border-border text-primary focus:ring-primary/20 accent-primary"
             />
             <span>Hide Inactive &amp; Terminated</span>
           </label>
@@ -999,7 +1000,7 @@ export default function CompanyReportsWorkspace({
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
+                className="min-h-[44px] sm:min-h-9 px-3.5 py-1.5 text-base sm:text-xs font-semibold rounded-full bg-background border border-border/80 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs leading-normal"
               >
                 <option value="all">All Departments</option>
                 {departments.map((d) => (
@@ -1020,7 +1021,7 @@ export default function CompanyReportsWorkspace({
               <select
                 value={workstationFilter}
                 onChange={(e) => setWorkstationFilter(e.target.value)}
-                className="min-h-[44px] sm:min-h-9 px-3 py-2 sm:py-1 text-base sm:text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-normal"
+                className="min-h-[44px] sm:min-h-9 px-3.5 py-1.5 text-base sm:text-xs font-semibold rounded-full bg-background border border-border/80 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs leading-normal"
               >
                 <option value="all">All Workstations</option>
                 {workstations.map((w) => (
@@ -1039,13 +1040,13 @@ export default function CompanyReportsWorkspace({
       </div>
 
       {/* Navigation Tabs Strip */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-surface rounded-xl border border-border/80 shadow-2xs overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-1.5 p-1.5 bg-surface rounded-full border border-border/80 shadow-soft overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveTab("analytics")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "analytics"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
@@ -1055,9 +1056,9 @@ export default function CompanyReportsWorkspace({
         <button
           type="button"
           onClick={() => setActiveTab("employee-summary")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "employee-summary"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
@@ -1067,9 +1068,9 @@ export default function CompanyReportsWorkspace({
         <button
           type="button"
           onClick={() => setActiveTab("attendance")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "attendance"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
@@ -1079,9 +1080,9 @@ export default function CompanyReportsWorkspace({
         <button
           type="button"
           onClick={() => setActiveTab("timesheets")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "timesheets"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
@@ -1091,9 +1092,9 @@ export default function CompanyReportsWorkspace({
         <button
           type="button"
           onClick={() => setActiveTab("accruals")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "accruals"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
@@ -1103,9 +1104,9 @@ export default function CompanyReportsWorkspace({
         <button
           type="button"
           onClick={() => setActiveTab("absences")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
             activeTab === "absences"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >
@@ -1116,10 +1117,10 @@ export default function CompanyReportsWorkspace({
           <button
             type="button"
             onClick={() => setActiveTab("payslips")}
-            className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors cursor-pointer ${
               activeTab === "payslips"
-                ? "bg-primary text-primary-foreground shadow-2xs"
-                : "text-primary hover:text-foreground hover:bg-surface-muted border border-border/60"
+                ? "bg-primary text-white shadow-soft"
+                : "text-primary hover:text-foreground hover:bg-surface-muted border border-border/80"
             }`}
           >
             Official Payslips (Super Admin)
@@ -1129,9 +1130,9 @@ export default function CompanyReportsWorkspace({
         <button
           type="button"
           onClick={() => setActiveTab("settings")}
-          className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-colors ml-auto cursor-pointer ${
+          className={`px-4 py-2 text-xs font-bold rounded-full whitespace-nowrap transition-colors ml-auto cursor-pointer ${
             activeTab === "settings"
-              ? "bg-primary text-primary-foreground shadow-2xs"
+              ? "bg-primary text-white shadow-soft"
               : "text-muted hover:text-foreground hover:bg-surface-muted"
           }`}
         >

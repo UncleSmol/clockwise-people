@@ -205,11 +205,11 @@ export default function UniversalSpreadsheetImporter() {
   return (
     <div className="space-y-6">
       {/* Top Stepper Header */}
-      <div className="rounded-2xl border border-border bg-surface p-4 sm:p-6 shadow-xs">
+      <div className="rounded-2xl border border-border/80 bg-surface p-4 sm:p-6 shadow-soft">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-black text-foreground tracking-tight flex items-center gap-2.5">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 shadow-2xs">
+              <span className="flex size-9 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 shadow-soft">
                 <FileSpreadsheet className="size-5" />
               </span>
               Universal Spreadsheet Import System
@@ -222,7 +222,7 @@ export default function UniversalSpreadsheetImporter() {
           {step !== "select" && (
             <button
               onClick={handleReset}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-xl transition-colors cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-full transition-colors cursor-pointer shrink-0 shadow-soft"
             >
               <RotateCcw className="size-3.5" />
               Start New Import
@@ -247,16 +247,16 @@ export default function UniversalSpreadsheetImporter() {
             return (
               <div
                 key={s.id}
-                className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs sm:text-sm transition-all ${
+                className={`flex items-center gap-2 p-2.5 rounded-full border text-xs sm:text-sm transition-all shadow-soft ${
                   isActive
-                    ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-2xs"
+                    ? "bg-primary/10 border-primary/40 text-primary font-bold"
                     : isCompleted
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-semibold"
                     : "bg-surface-muted/50 border-border/60 text-muted"
                 }`}
               >
                 <div
-                  className={`size-6 rounded-lg flex items-center justify-center shrink-0 text-xs ${
+                  className={`size-6 rounded-full flex items-center justify-center shrink-0 text-xs ${
                     isActive
                       ? "bg-primary text-primary-foreground font-bold"
                       : isCompleted
@@ -313,18 +313,18 @@ export default function UniversalSpreadsheetImporter() {
                     key={card.id}
                     type="button"
                     onClick={() => handleEntityChange(card.id)}
-                    className={`relative p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+                    className={`relative p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-soft ${
                       isSelected
-                        ? "border-2 border-primary bg-primary/5 shadow-xs scale-[1.01]"
-                        : "bg-surface border-border hover:border-primary/40 text-foreground hover:bg-surface-muted/30"
+                        ? "border-2 border-primary bg-primary/5 scale-[1.01]"
+                        : "bg-surface border-border/80 hover:border-primary/40 text-foreground hover:bg-surface-muted/30"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <div className="p-2.5 rounded-xl bg-surface-muted text-primary border border-border">
+                      <div className="p-2.5 rounded-2xl bg-surface-muted text-primary border border-border">
                         <Icon className="size-5" />
                       </div>
                       {isSelected && (
-                        <span className="flex items-center gap-1 text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                        <span className="flex items-center gap-1 text-[10px] font-extrabold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
                           <Check className="size-3 stroke-[3]" /> Selected
                         </span>
                       )}
@@ -338,16 +338,16 @@ export default function UniversalSpreadsheetImporter() {
           </div>
 
           {targetEntity === "leave_balances" && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 shadow-soft">
               <div className="flex items-start gap-2.5">
                 <Sparkles className="size-5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <span className="font-extrabold block text-sm">Full Leave Type Setup &amp; Matrix Plotting</span>
                   <p className="mt-0.5 text-muted">
-                    Supports single-column (<code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Leave Type</code> + <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Balance</code>) OR multi-column formats (<code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Annual</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Sick</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Family</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Study</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">Maternity</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded">TOIL</code>). Missing leave types auto-provision!
+                    Supports single-column (<code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Leave Type</code> + <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Balance</code>) OR multi-column formats (<code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Annual</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Sick</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Family</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Study</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">Maternity</code>, <code className="font-mono text-amber-900 font-bold bg-amber-200/60 px-1 py-0.5 rounded-full">TOIL</code>). Missing leave types auto-provision!
                   </p>
                   {provisionMessage && (
-                    <p className="mt-1.5 font-bold text-emerald-700 bg-emerald-500/15 p-1.5 rounded border border-emerald-500/30">
+                    <p className="mt-1.5 font-bold text-emerald-700 bg-emerald-500/15 p-1.5 rounded-xl border border-emerald-500/30">
                       ✓ {provisionMessage}
                     </p>
                   )}
@@ -357,7 +357,7 @@ export default function UniversalSpreadsheetImporter() {
                 type="button"
                 onClick={handleProvisionAllLeaveTypes}
                 disabled={isPendingProvision}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-extrabold rounded-xl bg-amber-600 text-white hover:bg-amber-700 shadow-2xs transition-colors shrink-0 cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-full bg-amber-600 text-white hover:bg-amber-700 shadow-soft transition-colors shrink-0 cursor-pointer disabled:opacity-60"
               >
                 {isPendingProvision ? <RefreshCw className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
                 Provision All Leave Types &amp; Balances
@@ -370,7 +370,7 @@ export default function UniversalSpreadsheetImporter() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative flex flex-col items-center justify-center p-10 sm:p-14 border-2 border-dashed rounded-2xl transition-all ${
+            className={`relative flex flex-col items-center justify-center p-10 sm:p-14 border-2 border-dashed rounded-2xl transition-all shadow-soft ${
               isDragging
                 ? "border-primary bg-primary/5 scale-[1.01]"
                 : "border-border/80 hover:border-primary/50 bg-surface-muted/30"
@@ -383,7 +383,7 @@ export default function UniversalSpreadsheetImporter() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               disabled={isPendingInspect}
             />
-            <div className="p-4 rounded-2xl bg-emerald-500/10 text-emerald-600 mb-4 border border-emerald-500/20">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 text-emerald-600 mb-4 border border-emerald-500/20 shadow-soft">
               <Upload className="size-8" />
             </div>
             <p className="text-base font-bold text-foreground text-center">
@@ -394,7 +394,7 @@ export default function UniversalSpreadsheetImporter() {
             </p>
             <button
               type="button"
-              className="mt-5 btn btn-primary cursor-pointer shadow-xs"
+              className="mt-5 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-primary-hover transition-colors cursor-pointer"
               disabled={isPendingInspect}
             >
               {isPendingInspect ? (
@@ -457,7 +457,7 @@ export default function UniversalSpreadsheetImporter() {
             <button
               onClick={handleProceedToPreview}
               disabled={isPendingPreview}
-              className="inline-flex items-center gap-2 btn btn-primary cursor-pointer shadow-xs shrink-0"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer shrink-0"
             >
               {isPendingPreview ? (
                 <>
@@ -474,7 +474,7 @@ export default function UniversalSpreadsheetImporter() {
           </div>
 
           {/* Column Mapping Table */}
-          <div className="rounded-2xl border border-border bg-surface overflow-hidden shadow-2xs">
+          <div className="rounded-2xl border border-border/80 bg-surface overflow-hidden shadow-soft">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-foreground">
                 <thead className="bg-surface-muted text-muted uppercase tracking-wider font-extrabold text-[10px] border-b border-border">
@@ -495,7 +495,7 @@ export default function UniversalSpreadsheetImporter() {
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-foreground">{field.label}</span>
                             {field.required ? (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
                                 Required
                               </span>
                             ) : (
@@ -514,7 +514,7 @@ export default function UniversalSpreadsheetImporter() {
                                 [field.key]: e.target.value,
                               }))
                             }
-                            className={`w-full px-3 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                            className={`w-full px-3 py-2 text-xs font-semibold rounded-full border transition-all ${
                               mappedVal
                                 ? "bg-emerald-500/5 text-emerald-800 border-emerald-500/40"
                                 : field.required
@@ -533,7 +533,7 @@ export default function UniversalSpreadsheetImporter() {
 
                         <td className="px-4 py-3">
                           {sampleVal ? (
-                            <span className="font-mono text-emerald-700 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 truncate block max-w-xs font-bold text-[11px]">
+                            <span className="font-mono text-emerald-700 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 truncate block max-w-xs font-bold text-[11px]">
                               {sampleVal}
                             </span>
                           ) : (
@@ -555,33 +555,33 @@ export default function UniversalSpreadsheetImporter() {
         <div className="space-y-6">
           {/* Summary Diagnostics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-surface border border-border shadow-2xs">
+            <div className="p-4 rounded-2xl bg-surface border border-border/80 shadow-soft">
               <span className="text-xs font-bold text-muted uppercase">Total Rows Read</span>
               <p className="text-2xl font-black text-foreground mt-1">{previewResult.totalRows}</p>
             </div>
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-soft">
               <span className="text-xs font-bold text-emerald-700 uppercase">Valid Rows</span>
               <p className="text-2xl font-black text-emerald-700 mt-1">{previewResult.validCount}</p>
             </div>
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-soft">
               <span className="text-xs font-bold text-amber-700 uppercase">Warnings</span>
               <p className="text-2xl font-black text-amber-700 mt-1">{previewResult.warningCount}</p>
             </div>
-            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30">
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 shadow-soft">
               <span className="text-xs font-bold text-rose-700 uppercase">Critical Errors</span>
               <p className="text-2xl font-black text-rose-700 mt-1">{previewResult.errorCount}</p>
             </div>
           </div>
 
           {/* Missing Lookups & Conflict Options */}
-          <div className="p-5 rounded-2xl bg-surface border border-border space-y-4 shadow-2xs">
+          <div className="p-5 rounded-2xl bg-surface border border-border/80 space-y-4 shadow-soft">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Sliders className="size-4 text-emerald-600" />
               Import Settings &amp; Conflict Handling
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="flex items-center gap-3 p-3.5 rounded-xl bg-surface-muted/50 border border-border cursor-pointer hover:bg-surface-muted transition-colors">
+              <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-surface-muted/50 border border-border cursor-pointer hover:bg-surface-muted transition-colors shadow-soft">
                 <input
                   type="checkbox"
                   checked={skipExisting}
@@ -596,7 +596,7 @@ export default function UniversalSpreadsheetImporter() {
                 </div>
               </label>
 
-              <label className="flex items-center gap-3 p-3.5 rounded-xl bg-surface-muted/50 border border-border cursor-pointer hover:bg-surface-muted transition-colors">
+              <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-surface-muted/50 border border-border cursor-pointer hover:bg-surface-muted transition-colors shadow-soft">
                 <input
                   type="checkbox"
                   checked={autoCreateMissing}
@@ -614,7 +614,7 @@ export default function UniversalSpreadsheetImporter() {
 
             {/* Missing Lookup Warnings */}
             {(previewResult.unmatchedWorkstations.length > 0 || previewResult.unmatchedLeaveTypes.length > 0) && (
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5 shadow-soft">
                 <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-extrabold block">Missing Reference Items Detected:</span>
@@ -635,14 +635,14 @@ export default function UniversalSpreadsheetImporter() {
 
           {/* Table Filters & Execution Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-muted border border-border">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-surface-muted border border-border shadow-soft">
               {(["all", "valid", "warnings", "errors"] as TableFilter[]).map((tf) => (
                 <button
                   key={tf}
                   onClick={() => setTableFilter(tf)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg capitalize transition-colors cursor-pointer ${
+                  className={`px-4 py-1.5 text-xs font-bold rounded-full capitalize transition-colors cursor-pointer ${
                     tableFilter === tf
-                      ? "bg-surface text-foreground shadow-2xs border border-border"
+                      ? "bg-surface text-foreground shadow-soft border border-border"
                       : "text-muted hover:text-foreground"
                   }`}
                 >
@@ -654,7 +654,7 @@ export default function UniversalSpreadsheetImporter() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setStep("map")}
-                className="btn btn-outline text-xs font-semibold cursor-pointer"
+                className="rounded-full border border-border bg-surface px-5 py-2 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
               >
                 Back to Mapping
               </button>
@@ -662,7 +662,7 @@ export default function UniversalSpreadsheetImporter() {
               <button
                 onClick={handleExecuteImport}
                 disabled={isPendingExecute || previewResult.validCount + previewResult.warningCount === 0}
-                className="inline-flex items-center gap-2 btn btn-primary cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
               >
                 {isPendingExecute ? (
                   <>
@@ -775,15 +775,15 @@ export default function UniversalSpreadsheetImporter() {
           </div>
 
           <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
-            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 shadow-soft">
               <span className="text-xs font-bold text-muted block">Inserted</span>
               <span className="text-xl font-black text-emerald-700">{executionResult.insertedCount || 0}</span>
             </div>
-            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-soft">
               <span className="text-xs font-bold text-muted block">Updated</span>
-              <span className="text-xl font-black text-blue-700">{executionResult.updatedCount || 0}</span>
+              <span className="text-xl font-black text-amber-700">{executionResult.updatedCount || 0}</span>
             </div>
-            <div className="p-4 rounded-xl bg-surface-muted border border-border">
+            <div className="p-4 rounded-2xl bg-surface-muted border border-border shadow-soft">
               <span className="text-xs font-bold text-muted block">Skipped</span>
               <span className="text-xl font-black text-muted">{executionResult.skippedCount || 0}</span>
             </div>
@@ -791,7 +791,7 @@ export default function UniversalSpreadsheetImporter() {
 
           <button
             onClick={handleReset}
-            className="btn btn-primary px-6 py-2.5 text-xs font-bold cursor-pointer shadow-xs"
+            className="rounded-full bg-primary px-7 py-3 text-sm font-bold text-white shadow-soft hover:bg-primary-hover transition-colors cursor-pointer"
           >
             Done / Perform Another Import
           </button>

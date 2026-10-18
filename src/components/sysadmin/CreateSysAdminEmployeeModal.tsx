@@ -138,20 +138,20 @@ export default function CreateSysAdminEmployeeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-border/80 bg-surface p-5 sm:p-6 shadow-2xl">
         <button
           type="button"
           onClick={onClose}
           disabled={loading}
-          className="absolute right-4 top-4 rounded-lg p-1.5 text-muted hover:bg-surface-muted hover:text-foreground transition-colors"
+          className="absolute right-4 top-4 grid size-8 place-items-center rounded-full bg-surface-muted text-muted hover:bg-surface-muted/80 hover:text-foreground transition-colors cursor-pointer"
           aria-label="Close add employee modal"
         >
-          <X className="size-5" />
+          <X className="size-4" />
         </button>
 
         <div className="flex items-center gap-3 pb-4 border-b border-border">
-          <div className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+          <div className="grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
             <UserPlus className="size-6" />
           </div>
           <div>
@@ -163,21 +163,21 @@ export default function CreateSysAdminEmployeeModal({
         </div>
 
         {errorMessage ? (
-          <div className="mt-4 rounded-xl border border-danger/20 bg-danger/10 p-3 text-xs text-danger font-medium">
+          <div className="mt-4 rounded-2xl border border-danger/20 bg-danger/10 p-3 text-xs text-danger font-medium">
             {errorMessage}
           </div>
         ) : null}
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-5">
           {/* Target Company Selector */}
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3.5">
             <label className="block text-xs font-bold text-primary mb-1 uppercase tracking-wider">
               Target Company
             </label>
             <select
               value={selectedCompanyId}
               onChange={(e) => handleCompanyChange(e.target.value)}
-              className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             >
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -199,7 +199,7 @@ export default function CreateSysAdminEmployeeModal({
                 placeholder="e.g. John Doe"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
 
@@ -213,7 +213,7 @@ export default function CreateSysAdminEmployeeModal({
                 placeholder="john.doe@company.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
 
@@ -224,7 +224,7 @@ export default function CreateSysAdminEmployeeModal({
                 placeholder="e.g. Software Engineer"
                 value={formData.job_title ?? ""}
                 onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
 
@@ -235,7 +235,7 @@ export default function CreateSysAdminEmployeeModal({
                 placeholder="+27..."
                 value={formData.phone_number ?? ""}
                 onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
 
@@ -247,7 +247,7 @@ export default function CreateSysAdminEmployeeModal({
                 <select
                   value={formData.workstation_id}
                   onChange={(e) => setFormData({ ...formData, workstation_id: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 >
                   {filteredWorkstations.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -256,7 +256,7 @@ export default function CreateSysAdminEmployeeModal({
                   ))}
                 </select>
               ) : (
-                <div className="rounded-xl border border-warning/30 bg-warning/10 p-2.5 text-xs text-warning">
+                <div className="rounded-2xl border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
                   No workstations found for this company.
                 </div>
               )}
@@ -267,7 +267,7 @@ export default function CreateSysAdminEmployeeModal({
               <select
                 value={formData.work_schedule_id ?? ""}
                 onChange={(e) => setFormData({ ...formData, work_schedule_id: e.target.value })}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               >
                 <option value="">Default Schedule</option>
                 {filteredSchedules.map((s) => (
@@ -288,7 +288,7 @@ export default function CreateSysAdminEmployeeModal({
                     employment_type: e.target.value as "full_time" | "part_time" | "contract" | "intern",
                   })
                 }
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               >
                 <option value="full_time">Full Time</option>
                 <option value="part_time">Part Time</option>
@@ -304,7 +304,7 @@ export default function CreateSysAdminEmployeeModal({
                 required
                 value={formData.start_date}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
           </div>
@@ -319,10 +319,10 @@ export default function CreateSysAdminEmployeeModal({
               {ROLES_INFO.map((role) => (
                 <label
                   key={role.key}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 text-left transition-all shadow-soft ${
                     formData.role_key === role.key
                       ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border bg-surface hover:bg-surface-muted"
+                      : "border-border/80 bg-surface hover:bg-surface-muted"
                   }`}
                 >
                   <input
@@ -374,14 +374,14 @@ export default function CreateSysAdminEmployeeModal({
                   placeholder="Leave blank to generate secure 14-character password"
                   value={formData.temporary_password ?? ""}
                   onChange={(e) => setFormData({ ...formData, temporary_password: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-xs text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
             ) : null}
 
             {canAssignSuperAdmin && formData.create_login ? (
               <div className="mt-3 pl-7">
-                <label className="flex items-center gap-2.5 cursor-pointer rounded-xl border border-primary/20 bg-primary/[0.04] p-3 hover:bg-primary/[0.08] transition-colors">
+                <label className="flex items-center gap-2.5 cursor-pointer rounded-2xl border border-primary/20 bg-primary/[0.04] p-3.5 hover:bg-primary/[0.08] transition-colors shadow-soft">
                   <input
                     type="checkbox"
                     checked={Boolean(formData.is_super_admin)}
@@ -407,14 +407,14 @@ export default function CreateSysAdminEmployeeModal({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors"
+              className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !formData.full_name.trim() || !formData.email.trim()}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
             >
               {loading ? (
                 <>

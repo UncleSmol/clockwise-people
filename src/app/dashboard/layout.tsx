@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getActiveCompany } from "@/lib/foundation/queries";
+import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
 import { getAccountProfile } from "@/lib/account/queries";
 import { getUnseenAppUpdates } from "@/lib/app-updates/queries";
 import { getDashboardNotifications } from "@/lib/dashboard/queries";
@@ -10,23 +10,27 @@ import AppUpdateChangelog from "@/components/AppUpdateChangelog";
 import DashboardNavigation from "@/components/DashboardNavigation";
 import BrandMark from "@/components/BrandMark";
 import PwaInstallPrompt from "@/components/PwaInstallPrompt";
-import { UIQADashboard } from "@/components/UIQADashboard";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const [{ company }, unseenUpdates, accountProfile] = await Promise.all([
+  const [{ company, companies }, unseenUpdates, accountProfile, access] = await Promise.all([
     getActiveCompany(),
     getUnseenAppUpdates(),
     getAccountProfile(),
+    getCurrentUserAccess(),
   ]);
   const notifications = await getDashboardNotifications();
   const updateNoticeKey =
     unseenUpdates.map((update) => update.id).sort().join(":") || "no-updates";
 
+  // Backend restriction: ONLY SuperAdmins and SuperUsers can see or switch companies!
+  const isSuperAdminOrUser = Boolean(access.isSuperAdmin || access.isSuperUser);
+  const switcherCompanies = isSuperAdminOrUser ? companies : [];
+
   return (
-    <main className="min-h-screen text-foreground transition-colors duration-200">
+    <main className="min-h-screen text-foreground transition-colors duration-200 pb-32 sm:pb-8">
       <RealtimeSyncProvider companyId={company.id}>
         <PanelBridgeProvider>
-          <div className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur-xs">
+          <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md shadow-2xs">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
               <Link
                 href="/dashboard"
@@ -44,6 +48,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
               <DashboardNavigation
                 companyId={company.id}
+                currentCompanyName={company.name}
+                companies={switcherCompanies}
+                isSuperAdmin={isSuperAdminOrUser}
                 notifications={notifications}
                 profileAvatarUrl={accountProfile.employee?.avatarUrl ?? null}
                 profileName={accountProfile.employee?.knownAs ?? accountProfile.employee?.fullName ?? null}
@@ -55,7 +62,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       </RealtimeSyncProvider>
       <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
       <PwaInstallPrompt />
-      {process.env.NODE_ENV === "development" && <UIQADashboard />}
     </main>
   );
 }

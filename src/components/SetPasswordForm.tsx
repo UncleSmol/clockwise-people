@@ -47,7 +47,7 @@ export default function SetPasswordForm() {
         </div>
       )}
 
-      <label className="grid gap-1.5 text-sm font-medium text-foreground">
+      <label className="grid gap-1.5 text-sm font-bold text-foreground">
         New password
         <input
           name="password"
@@ -55,10 +55,11 @@ export default function SetPasswordForm() {
           minLength={8}
           required
           autoComplete="new-password"
+          className="h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
         />
       </label>
 
-      <label className="grid gap-1.5 text-sm font-medium text-foreground">
+      <label className="grid gap-1.5 text-sm font-bold text-foreground">
         Confirm password
         <input
           name="confirm_password"
@@ -66,13 +67,14 @@ export default function SetPasswordForm() {
           minLength={8}
           required
           autoComplete="new-password"
+          className="h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
         />
       </label>
 
       <button
         type="submit"
         disabled={saving}
-        className="btn btn-accent w-full text-center"
+        className="btn btn-primary min-h-[48px] rounded-full w-full font-bold shadow-soft mt-2 cursor-pointer"
       >
         {saving ? "Saving..." : "Save password"}
       </button>

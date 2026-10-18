@@ -91,28 +91,28 @@ export default function PwaInstallPrompt() {
   };
 
   return (
-    <div className="card fixed inset-x-3 bottom-3 z-[70] mx-auto max-w-xl p-3">
+    <div className="fixed inset-x-4 bottom-20 sm:bottom-4 z-[70] mx-auto max-w-xl rounded-2xl border border-border/80 bg-surface p-4 shadow-2xl">
       <div className="flex items-start gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent/10 text-accent">
+        <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary shadow-soft">
           <Download className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-foreground">Install ClockWise People</p>
-          <p className="mt-1 text-sm text-muted">
+          <p className="font-bold text-foreground">Install ClockWise People</p>
+          <p className="mt-1 text-xs text-muted leading-relaxed">
             Install this device for faster clocking and reminder notifications.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={install}
-              className="btn btn-accent"
+              className="rounded-full bg-primary px-5 py-2 text-xs font-bold text-white shadow-soft hover:bg-primary-hover transition-colors cursor-pointer"
             >
               Install
             </button>
             <button
               type="button"
               onClick={dismiss}
-              className="btn btn-outline"
+              className="rounded-full border border-border bg-surface px-5 py-2 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
             >
               Not now
             </button>
@@ -120,7 +120,7 @@ export default function PwaInstallPrompt() {
         </div>
         <button
           aria-label="Close install prompt"
-          className="icon-btn text-muted hover:text-foreground"
+          className="grid size-7 place-items-center rounded-full text-muted hover:bg-surface-muted hover:text-foreground transition-colors cursor-pointer"
           onClick={dismiss}
           type="button"
         >

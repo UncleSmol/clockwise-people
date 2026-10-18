@@ -43,6 +43,7 @@ type EmployeeMiniReportingPanelProps = {
   publicHolidays?: CompanyPublicHoliday[];
   payrollConfig?: PayrollPeriodConfig;
   companyName?: string;
+  toilEnabled?: boolean;
 };
 
 type RecordFilterType = "all" | "timesheets" | "leave" | "balances";
@@ -84,6 +85,7 @@ export default function EmployeeMiniReportingPanel({
   publicHolidays = [],
   payrollConfig = defaultPayrollConfig,
   companyName = "ClockWise People",
+  toilEnabled,
 }: EmployeeMiniReportingPanelProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -144,7 +146,20 @@ export default function EmployeeMiniReportingPanel({
 
   // Formatted live leave balances
   const formattedBalances = useMemo(() => {
-    return leaveBalances.map((b) => {
+    return leaveBalances
+      .filter((b) => {
+        if (toilEnabled === false) {
+          const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+          if (
+            rel?.category === "toil_taken" ||
+            rel?.name?.toLowerCase().includes("toil")
+          ) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .map((b) => {
       const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
       const name = rel?.name ?? "Leave";
       const category = rel?.category ?? "general";
@@ -168,7 +183,19 @@ export default function EmployeeMiniReportingPanel({
         takenDays,
       };
     });
-  }, [leaveBalances]);
+  }, [leaveBalances, toilEnabled]);
+
+  // Search-filtered live leave balances
+  const filteredBalances = useMemo(() => {
+    if (!searchTerm) return formattedBalances;
+    const term = searchTerm.toLowerCase();
+    return formattedBalances.filter(
+      (b) =>
+        b.name.toLowerCase().includes(term) ||
+        b.category.toLowerCase().includes(term) ||
+        (b.isPaid ? "paid" : "unpaid").includes(term),
+    );
+  }, [formattedBalances, searchTerm]);
 
   // Filtered Timesheet entries in period
   const periodTimesheets = useMemo(() => {
@@ -454,41 +481,57 @@ export default function EmployeeMiniReportingPanel({
   return (
     <div className="space-y-4">
       {/* Header & Payroll Cycle Selector */}
-      <div className="rounded-xl border border-border/80 bg-surface p-4 sm:p-5 text-foreground shadow-2xs">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+      <div className="rounded-2xl border border-border bg-surface p-3.5 sm:p-5 text-foreground shadow-soft">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <span className="hidden sm:inline-flex rounded-full bg-primary/10 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
                 Personal Audit
               </span>
-              <span className="text-xs text-muted font-mono">
-                {employeeNumber ? `#${employeeNumber}` : ""}
-              </span>
               {departmentName && (
-                <span className="rounded-full bg-surface-muted border border-border/60 px-2 py-0.5 text-[10px] font-semibold text-muted">
+                <span className="rounded-full bg-surface-muted border border-border px-2.5 py-0.5 text-[10px] font-bold text-muted truncate max-w-[150px]">
                   {departmentName}
                 </span>
               )}
+
             </div>
-            <h3 className="mt-1.5 text-lg font-bold sm:text-xl tracking-tight text-foreground">
-              {employeeName}&apos;s Time &amp; Leave Statement
-            </h3>
-            <p className="mt-0.5 text-xs text-muted">
+            <div className="flex items-center justify-between gap-2 mt-1 sm:mt-1.5">
+              <h3 className="text-base font-extrabold sm:text-xl tracking-tight text-foreground truncate">
+                {employeeName}&apos;s Statement
+              </h3>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={isExporting}
+                className="btn btn-primary sm:hidden rounded-full px-3 py-1.5 text-xs font-bold shadow-primary disabled:opacity-50 shrink-0"
+                title="Download or print personal PDF statement"
+              >
+                {isExporting ? (
+                  <div className="size-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Download className="size-3" />
+                )}
+                <span>Export PDF</span>
+              </button>
+            </div>
+            <p className="hidden sm:block mt-0.5 text-xs text-muted">
               Audit your worked hours, overtime, and leave by payroll cycle or custom date range.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap">
             <button
               type="button"
               onClick={handleExportPdf}
               disabled={isExporting}
-              className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-xs font-semibold text-primary-foreground hover:brightness-110 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+              className="btn btn-primary rounded-full px-5 py-2 text-xs font-bold shadow-primary disabled:opacity-50"
               title="Download or print personal PDF statement directly on mobile or desktop"
             >
               {isExporting ? (
                 <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : null}
+              ) : (
+                <Download className="size-3.5" />
+              )}
               <span>{isExporting ? "Preparing PDF..." : "Export Statement (PDF)"}</span>
             </button>
           </div>
@@ -496,7 +539,7 @@ export default function EmployeeMiniReportingPanel({
 
         {/* Mobile PDF Tip Helper Banner */}
         {showMobilePdfTip && (
-          <div className="mt-3 flex items-start justify-between gap-2 rounded-lg bg-surface-muted border border-border p-2.5 text-[11px] text-foreground">
+          <div className="mt-3 flex items-start justify-between gap-2 rounded-xl bg-surface-muted border border-border p-3 text-[11px] text-foreground">
             <span>
               <strong>Mobile PDF Generation Active:</strong> On iPhone/iPad, tap the <strong>Share</strong> icon on the print preview to save as PDF. On Android, select <strong>&quot;Save as PDF&quot;</strong> in the printer dropdown.
             </span>
@@ -511,15 +554,15 @@ export default function EmployeeMiniReportingPanel({
         )}
 
         {/* Period Selector Bar */}
-        <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted">
+        <div className="mt-2.5 pt-2.5 sm:mt-4 sm:pt-3 border-t border-border flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider text-muted shrink-0">
               Payroll Cycle:
             </span>
             <select
               value={selectedPeriodId}
               onChange={(e) => setSelectedPeriodId(e.target.value)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
+              className="h-9 sm:h-10 px-3 sm:px-4 text-xs font-bold rounded-xl sm:rounded-full bg-background border border-border text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 shadow-2xs cursor-pointer w-full"
             >
               {generatedPeriods.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -531,99 +574,100 @@ export default function EmployeeMiniReportingPanel({
           </div>
 
           {selectedPeriodId === "custom" && (
-            <div className="flex items-center gap-2 bg-background px-3 py-1 rounded-lg border border-border shadow-2xs">
+            <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-xl border border-border shadow-2xs w-full sm:w-auto">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer flex-1"
               />
-              <span className="text-muted text-xs">to</span>
+              <span className="text-muted text-xs font-bold">to</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer flex-1"
               />
             </div>
           )}
 
-          <div className="ml-auto text-xs text-muted font-medium">
+          <div className="hidden sm:block ml-auto text-xs text-muted font-medium">
             Active: <span className="font-bold text-foreground">{periodLabel}</span>
           </div>
         </div>
       </div>
 
       {/* Bold Segmented Stat Filter Cards */}
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-5 gap-2 min-w-0">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 min-w-0">
         {/* Normal Worked */}
-        <div className="rounded-lg p-3 text-left border border-border bg-surface text-foreground shadow-2xs min-w-0 flex flex-col justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted break-words leading-tight">
+        <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left border border-border bg-surface text-foreground shadow-2xs min-w-0 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
             Normal Worked
           </p>
-          <p className="mt-1 text-2xl font-extrabold font-mono text-foreground break-words">
+          <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-foreground break-words">
             {metrics.workedHours.toFixed(2)}h
           </p>
-          <p className="text-[10px] text-muted font-medium break-words leading-tight mt-0.5">
+          <p className="text-[9px] sm:text-[10px] text-muted font-semibold break-words leading-tight mt-0.5">
             {metrics.daysWorked} days worked
           </p>
         </div>
 
         {/* Overtime (OT) */}
-        <div className="rounded-lg p-3 text-left border border-amber-300/80 bg-amber-50/80 text-amber-950 shadow-2xs min-w-0 flex flex-col justify-between">
+        <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left border border-amber-300/80 bg-amber-50/80 text-amber-950 shadow-2xs min-w-0 flex flex-col justify-between">
           <div className="flex items-center justify-between gap-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-800 break-words leading-tight">
+            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-amber-800 break-words leading-tight">
               Overtime (OT)
             </p>
             {metrics.totalOvertime > 0 && (
               <span className="flex size-2 rounded-full bg-amber-500 shrink-0" />
             )}
           </div>
-          <p className="mt-1 text-2xl font-extrabold font-mono text-amber-950 break-words">
+          <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-950 break-words">
             {metrics.totalOvertime.toFixed(2)}h
           </p>
-          <p className="text-[10px] text-amber-700 font-medium break-words leading-tight mt-0.5">
+          <p className="text-[9px] sm:text-[10px] text-amber-700 font-semibold break-words leading-tight mt-0.5 truncate">
             1.5x: {metrics.ot15.toFixed(1)}h · 2.0x: {metrics.ot20.toFixed(1)}h
           </p>
         </div>
 
         {/* Leave Taken */}
-        <div className="rounded-lg p-3 text-left border border-teal-300/80 bg-teal-50/80 text-teal-950 shadow-2xs min-w-0 flex flex-col justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-teal-800 break-words leading-tight">
+        <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left border border-emerald-300/80 bg-emerald-50/80 text-emerald-950 shadow-2xs min-w-0 flex flex-col justify-between">
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-800 break-words leading-tight">
             Leave Taken
           </p>
-          <p className="mt-1 text-2xl font-extrabold font-mono text-teal-950 break-words">
+          <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-emerald-950 break-words">
             {metrics.leaveHours.toFixed(2)}h
           </p>
-          <p className="text-[10px] text-teal-700 font-medium break-words leading-tight mt-0.5">
+          <p className="text-[9px] sm:text-[10px] text-emerald-700 font-semibold break-words leading-tight mt-0.5">
             {metrics.leaveDays} {metrics.leaveDays === 1 ? "day" : "days"} taken
           </p>
         </div>
 
         {/* Grand Total Paid */}
-        <div className="rounded-lg p-3 text-left bg-primary text-primary-foreground shadow-2xs min-w-0 flex flex-col justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/80 break-words leading-tight">
+        <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left bg-gradient-to-br from-[#2E9B5F] to-[#207A48] text-white shadow-primary min-w-0 flex flex-col justify-between border border-white/10">
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white/90 break-words leading-tight">
             Grand Total Paid
           </p>
-          <p className="mt-1 text-2xl font-extrabold font-mono text-white break-words">
+          <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-white break-words">
             {metrics.totalPaid.toFixed(2)}h
           </p>
-          <p className="text-[10px] text-white/70 font-medium break-words leading-tight mt-0.5">
+          <p className="text-[9px] sm:text-[10px] text-white/80 font-semibold break-words leading-tight mt-0.5">
             Worked + OT + Leave
           </p>
         </div>
 
         {/* Issues / Alerts */}
-        <div className="rounded-lg p-3 text-left border border-border bg-surface text-slate-900 shadow-2xs col-span-2 min-[480px]:col-span-1 min-w-0 flex flex-col justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted break-words leading-tight">
-            Issues / Alerts
-          </p>
-          <p className={`mt-1 text-2xl font-extrabold font-mono break-words ${metrics.missingClockings > 0 ? "text-rose-600" : "text-emerald-600"
-            }`}>
+        <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left border border-border bg-surface text-slate-900 shadow-2xs col-span-2 min-[480px]:col-span-1 min-w-0 flex flex-row min-[480px]:flex-col justify-between items-center min-[480px]:items-start">
+          <div>
+            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-muted break-words leading-tight">
+              Issues / Alerts
+            </p>
+            <p className="text-[9px] sm:text-[10px] text-muted font-semibold break-words leading-tight mt-0.5">
+              {metrics.missingClockings > 0 ? "Missing clockings" : "Complete records"}
+            </p>
+          </div>
+          <p className={`text-xl sm:text-2xl font-black font-mono break-words ${metrics.missingClockings > 0 ? "text-rose-600" : "text-[#2E9B5F]"}`}>
             {metrics.missingClockings > 0 ? `${metrics.missingClockings}` : "0"}
-          </p>
-          <p className="text-[10px] text-muted font-medium break-words leading-tight mt-0.5">
-            {metrics.missingClockings > 0 ? "Missing clockings" : "Complete records"}
           </p>
         </div>
       </div>
@@ -632,7 +676,7 @@ export default function EmployeeMiniReportingPanel({
       <div className="rounded-xl border border-border bg-surface p-3.5 sm:p-4 shadow-2xs">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-teal-700 text-white">
+            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-emerald-700 text-white">
               <Palmtree className="size-3.5" />
             </span>
             <div>
@@ -693,7 +737,7 @@ export default function EmployeeMiniReportingPanel({
                         </p>
                       </div>
 
-                      <span className="inline-flex shrink-0 items-center rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-teal-300 border border-slate-700 whitespace-nowrap">
+                      <span className="inline-flex shrink-0 items-center rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
                         {b.isPaid ? "Paid" : "Unpaid"}
                       </span>
                     </div>
@@ -744,13 +788,13 @@ export default function EmployeeMiniReportingPanel({
       </div>
 
       {/* Navigation Tabs Bar & View Switcher */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between min-w-0">
         {/* Segmented Tab Buttons */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200 overflow-x-auto max-w-full">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200 overflow-x-auto max-w-full scrollbar-none min-w-0">
           <button
             type="button"
             onClick={() => setRecordType("all")}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${recordType === "all"
+            className={`rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${recordType === "all"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
@@ -760,7 +804,7 @@ export default function EmployeeMiniReportingPanel({
           <button
             type="button"
             onClick={() => setRecordType("timesheets")}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${recordType === "timesheets"
+            className={`rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${recordType === "timesheets"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
@@ -770,7 +814,7 @@ export default function EmployeeMiniReportingPanel({
           <button
             type="button"
             onClick={() => setRecordType("leave")}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${recordType === "leave"
+            className={`rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${recordType === "leave"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
@@ -780,7 +824,7 @@ export default function EmployeeMiniReportingPanel({
           <button
             type="button"
             onClick={() => setRecordType("balances")}
-            className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${recordType === "balances"
+            className={`rounded-lg px-2.5 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${recordType === "balances"
               ? "bg-slate-900 text-white shadow-xs"
               : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
@@ -819,14 +863,18 @@ export default function EmployeeMiniReportingPanel({
       </div>
 
       {/* Global App-Standard Search & Filter Toolbar (Full width, responsive on all devices) */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 rounded-xl border border-border bg-surface p-2.5 sm:p-3 shadow-2xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-xl border border-border bg-surface p-2.5 sm:p-3 shadow-2xs min-w-0">
         {/* Search Bar matching EmployeeTable.tsx */}
-        <label className="flex h-10 min-h-[40px] flex-1 items-center gap-2.5 rounded-lg border border-border bg-background px-3.5 text-xs font-semibold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors">
+        <label className="flex h-10 min-h-[40px] flex-1 items-center gap-2.5 rounded-lg border border-border bg-background px-3.5 text-xs font-semibold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors min-w-0">
           <Search className="size-4 shrink-0 text-muted" />
           <input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search by date (YYYY-MM-DD), shift note, or leave reason..."
+            placeholder={
+              recordType === "balances"
+                ? "Search leave balance type..."
+                : "Search by date (YYYY-MM-DD), shift note, or leave reason..."
+            }
             className="min-w-0 flex-1 bg-transparent py-2 text-xs font-semibold text-foreground placeholder:text-muted outline-none border-0"
           />
           {searchTerm ? (
@@ -841,99 +889,204 @@ export default function EmployeeMiniReportingPanel({
           ) : null}
         </label>
 
-        {/* Status Dropdown Filter matching EmployeeTable.tsx */}
-        <label className="flex h-10 min-h-[40px] items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors shrink-0">
-          <Filter className="size-3.5 shrink-0 text-muted" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted whitespace-nowrap">
-            Status:
-          </span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer pr-2"
-          >
-            <option value="all">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="submitted">Submitted / Pending</option>
-            <option value="draft">Draft</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </label>
+        {/* Status Dropdown Filter (Only relevant for timesheets and leave activity) */}
+        {recordType !== "balances" ? (
+          <label className="flex h-10 min-h-[40px] w-full sm:w-auto items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors shrink-0">
+            <Filter className="size-3.5 shrink-0 text-muted" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted whitespace-nowrap">
+              Status:
+            </span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="flex-1 sm:flex-none bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer pr-2"
+            >
+              <option value="all">All Statuses</option>
+              <option value="approved">Approved</option>
+              <option value="submitted">Submitted / Pending</option>
+              <option value="draft">Draft</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+        ) : null}
 
         {/* Result Counter Pill */}
         <span className="hidden md:inline-flex shrink-0 items-center rounded-lg bg-slate-900 px-3 py-2 text-xs font-extrabold text-white shadow-2xs">
-          {filteredRecords.length} records
+          {recordType === "balances" ? filteredBalances.length : filteredRecords.length} records
         </span>
       </div>
 
       {/* Main Content Area based on RecordType & Display Mode */}
       {recordType === "balances" ? (
-        /* Leave Balances Ledger View */
-        <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-2xs">
-          <div className="p-3.5 border-b border-border bg-surface-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Palmtree className="size-4 text-teal-700" />
-              <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                Employee Leave Entitlement Ledger
-              </h4>
+        displayMode === "cards" ? (
+          /* Leave Balances Cards Grid (Consistent with Timesheets and Leave cards) */
+          filteredBalances.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center text-xs text-muted">
+              No leave balances match the search query.
             </div>
-            <span className="text-xs text-muted font-medium">
-              Standard daily basis: 8 hours
-            </span>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5 min-w-0">
+              {filteredBalances.map((b) => {
+                const isToil =
+                  b.category === "toil_taken" ||
+                  b.name.toLowerCase().includes("toil");
+                const isPositive = b.balanceHours > 0;
+                const isSick = b.category === "sick";
+                const isAnnual = b.category === "annual";
 
-          <div className="w-full overflow-x-hidden sm:overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse table-fixed sm:table-auto">
-              <thead>
-                <tr className="border-b border-border bg-slate-900 text-[10px] font-bold uppercase tracking-wider text-white">
-                  <th className="p-2 sm:p-3 w-[42%] sm:w-auto">Leave Type</th>
-                  <th className="p-2 sm:hidden text-right w-[28%]">Accrued / Taken</th>
-                  <th className="hidden sm:table-cell p-3">Category</th>
-                  <th className="hidden sm:table-cell p-3 text-right">Accrued Hours</th>
-                  <th className="hidden sm:table-cell p-3 text-right">Taken Hours</th>
-                  <th className="p-2 sm:p-3 text-right font-black text-white w-[30%] sm:w-auto">
-                    Available Balance
-                  </th>
-                  <th className="hidden sm:table-cell p-3 text-center">Benefit Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {formattedBalances.map((b) => (
-                  <tr key={b.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-2 sm:p-3 font-bold text-foreground">
-                      <div className="break-words leading-tight">{b.name}</div>
-                      <div className="sm:hidden text-[10px] text-muted font-normal capitalize mt-0.5 break-words">
-                        {b.category} · {b.isPaid ? "Paid" : "Unpaid"}
+                const cardBg = isToil
+                  ? "card-gold"
+                  : isSick
+                    ? "bg-rose-700 text-white ring-1 ring-rose-800"
+                    : isAnnual
+                      ? "card-hero-green"
+                      : "bg-indigo-700 text-white ring-1 ring-indigo-800";
+
+                return (
+                  <article
+                    key={`balance-card-${b.id}`}
+                    className={`group flex flex-col justify-between gap-2.5 rounded-xl p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-default min-w-0 ${cardBg}`}
+                  >
+                    {/* Top: Monogram / Name Header */}
+                    <div className="border-b border-white/20 pb-2 flex items-start justify-between gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <h5 className="text-sm font-black text-white tracking-tight break-words">
+                          {b.name}
+                        </h5>
+                        <div className="text-[11px] font-medium text-white/80 mt-0.5 capitalize truncate">
+                          {b.category.replace(/_/g, " ")} · {b.isPaid ? "Paid Benefit" : "Unpaid"}
+                        </div>
                       </div>
-                    </td>
-                    <td className="p-2 sm:hidden text-right font-mono text-[11px] leading-tight">
-                      <div className="text-slate-600 font-semibold break-words">+{b.accruedHours.toFixed(1)}h</div>
-                      <div className="text-rose-600 font-bold break-words">-{b.takenHours.toFixed(1)}h</div>
-                    </td>
-                    <td className="hidden sm:table-cell p-3 text-muted capitalize">
-                      {b.category}
-                    </td>
-                    <td className="hidden sm:table-cell p-3 text-right font-mono text-muted">
-                      {b.accruedHours.toFixed(2)}h ({b.accruedDays}d)
-                    </td>
-                    <td className="hidden sm:table-cell p-3 text-right font-mono text-rose-600 font-bold">
-                      {b.takenHours.toFixed(2)}h ({b.takenDays}d)
-                    </td>
-                    <td className="p-2 sm:p-3 text-right font-mono font-black text-emerald-700 text-xs sm:text-sm">
-                      <div>{b.balanceHours.toFixed(2)}h</div>
-                      <div className="text-[10px] text-slate-500 font-medium">({b.balanceDays}d)</div>
-                    </td>
-                    <td className="hidden sm:table-cell p-3 text-center">
-                      <span className="inline-flex rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-800">
-                        {b.isPaid ? "Paid Benefit" : "Unpaid"}
+
+                      <span className="shrink-0 rounded-full bg-black/25 text-white border border-white/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                        {isToil ? "TOIL" : b.isPaid ? "Paid" : "Unpaid"}
                       </span>
-                    </td>
+                    </div>
+
+                    {/* Distinct High-Contrast White Metrics Box */}
+                    <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">
+                          Accrued
+                        </p>
+                        <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">
+                          +{b.accruedHours.toFixed(1)}h
+                        </p>
+                        <p className="text-[9px] text-slate-400 font-medium leading-tight">
+                          ({b.accruedDays}d)
+                        </p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-rose-600 break-words leading-tight">
+                          Taken
+                        </p>
+                        <p className="font-extrabold text-rose-600 text-xs break-words font-mono leading-tight">
+                          -{b.takenHours.toFixed(1)}h
+                        </p>
+                        <p className="text-[9px] text-slate-400 font-medium leading-tight">
+                          ({b.takenDays}d)
+                        </p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">
+                          Available
+                        </p>
+                        <p className={`font-extrabold text-xs break-words font-mono leading-tight ${
+                          isPositive ? "text-emerald-700" : "text-slate-500"
+                        }`}>
+                          {b.balanceHours.toFixed(1)}h
+                        </p>
+                        <p className="text-[9px] text-emerald-800 font-medium leading-tight">
+                          ({b.balanceDays}d)
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Footer: Balance Status & Rules Pill */}
+                    <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/20 text-[11px] min-w-0">
+                      <span className="rounded bg-black/20 px-2 py-0.5 text-[10px] font-bold text-white/90">
+                        {isToil ? "Time-Off Bank" : "BCEA Statutory"}
+                      </span>
+
+                      <span className="font-mono font-bold text-[10px] text-white/90">
+                        Net: {b.balanceHours.toFixed(2)}h
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          /* Leave Balances Ledger View (Table mode) */
+          <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-2xs">
+            <div className="p-3.5 border-b border-border bg-surface-muted/30 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Palmtree className="size-4 text-emerald-700" />
+                <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                  Employee Leave Entitlement Ledger
+                </h4>
+              </div>
+              <span className="text-xs text-muted font-medium">
+                Standard daily basis: 8 hours
+              </span>
+            </div>
+
+            <div className="w-full overflow-x-hidden sm:overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse table-fixed sm:table-auto">
+                <thead>
+                  <tr className="border-b border-border bg-slate-900 text-[10px] font-bold uppercase tracking-wider text-white">
+                    <th className="p-2 sm:p-3 w-[42%] sm:w-auto">Leave Type</th>
+                    <th className="p-2 sm:hidden text-right w-[28%]">Accrued / Taken</th>
+                    <th className="hidden sm:table-cell p-3">Category</th>
+                    <th className="hidden sm:table-cell p-3 text-right">Accrued Hours</th>
+                    <th className="hidden sm:table-cell p-3 text-right">Taken Hours</th>
+                    <th className="p-2 sm:p-3 text-right font-black text-white w-[30%] sm:w-auto">
+                      Available Balance
+                    </th>
+                    <th className="hidden sm:table-cell p-3 text-center">Benefit Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredBalances.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-2 sm:p-3 font-bold text-foreground">
+                        <div className="break-words leading-tight">{b.name}</div>
+                        <div className="sm:hidden text-[10px] text-muted font-normal capitalize mt-0.5 break-words">
+                          {b.category} · {b.isPaid ? "Paid" : "Unpaid"}
+                        </div>
+                      </td>
+                      <td className="p-2 sm:hidden text-right font-mono text-[11px] leading-tight">
+                        <div className="text-slate-600 font-semibold break-words">+{b.accruedHours.toFixed(1)}h</div>
+                        <div className="text-rose-600 font-bold break-words">-{b.takenHours.toFixed(1)}h</div>
+                      </td>
+                      <td className="hidden sm:table-cell p-3 text-muted capitalize">
+                        {b.category}
+                      </td>
+                      <td className="hidden sm:table-cell p-3 text-right font-mono text-muted">
+                        {b.accruedHours.toFixed(2)}h ({b.accruedDays}d)
+                      </td>
+                      <td className="hidden sm:table-cell p-3 text-right font-mono text-rose-600 font-bold">
+                        {b.takenHours.toFixed(2)}h ({b.takenDays}d)
+                      </td>
+                      <td className="p-2 sm:p-3 text-right font-mono font-black text-emerald-700 text-xs sm:text-sm">
+                        <div>{b.balanceHours.toFixed(2)}h</div>
+                        <div className="text-[10px] text-slate-500 font-medium">({b.balanceDays}d)</div>
+                      </td>
+                      <td className="hidden sm:table-cell p-3 text-center">
+                        <span className="inline-flex rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-800">
+                          {b.isPaid ? "Paid Benefit" : "Unpaid"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )
       ) : filteredRecords.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-surface p-8 text-center text-xs text-muted">
           No records match the selected filters for this payroll cycle.
@@ -1028,7 +1181,7 @@ export default function EmployeeMiniReportingPanel({
                           : isRejected
                             ? "text-rose-400 border-slate-700"
                             : isSubmitted
-                              ? "text-sky-300 border-slate-700"
+                              ? "text-slate-200 border-slate-700"
                               : "text-amber-400 border-slate-700"
                         }`}
                     >
@@ -1039,7 +1192,7 @@ export default function EmployeeMiniReportingPanel({
                         </>
                       ) : isSubmitted ? (
                         <>
-                          <Clock className="size-2.5 text-sky-300" />
+                          <Clock className="size-2.5 text-slate-300" />
                           <span>Submitted</span>
                         </>
                       ) : (
@@ -1056,20 +1209,41 @@ export default function EmployeeMiniReportingPanel({
             } else {
               const leave = item.data;
               const isApproved = leave.status === "approved";
+              const isRejected = leave.status === "rejected";
+              const leaveBg = isApproved
+                ? "bg-emerald-700 text-white ring-1 ring-emerald-800"
+                : isRejected
+                  ? "bg-rose-700 text-white ring-1 ring-rose-800"
+                  : "bg-amber-600 text-white ring-1 ring-amber-700";
+              const leaveSubText = isApproved
+                ? "text-emerald-100"
+                : isRejected
+                  ? "text-rose-100"
+                  : "text-amber-100";
+              const leaveAccentText = isApproved
+                ? "text-emerald-700"
+                : isRejected
+                  ? "text-rose-700"
+                  : "text-amber-700";
+              const leavePillBg = isApproved
+                ? "bg-emerald-900/60 text-emerald-100 border-emerald-600/70"
+                : isRejected
+                  ? "bg-rose-900/60 text-rose-100 border-rose-600/70"
+                  : "bg-amber-800/60 text-amber-100 border-amber-500/70";
 
               return (
                 <article
                   key={`leave-card-${leave.id}`}
-                  className="group flex flex-col justify-between gap-2.5 rounded-lg bg-slate-800 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-default ring-1 ring-slate-900/60 min-w-0 border-l-4 border-l-teal-500"
+                  className={`group flex flex-col justify-between gap-2.5 rounded-xl p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-default min-w-0 ${leaveBg}`}
                 >
-                  {/* Top: Full-Width Leave Date Header (NO ICONS! Zero truncation!) */}
-                  <div className="border-b border-slate-700/60 pb-2">
+                  {/* Top: Full-Width Leave Date Header */}
+                  <div className="border-b border-white/20 pb-2">
                     <h5 className="text-sm font-black text-white tracking-tight">
                       {formatDate(leave.start_date)}
                       {leave.start_date !== leave.end_date && ` → ${formatDate(leave.end_date)}`}
                     </h5>
-                    <div className="text-[11px] font-medium text-teal-300 mt-0.5">
-                      {leave.leaveTypeName ?? "Leave"} · Approved Absence
+                    <div className={`text-[11px] font-medium mt-0.5 ${leaveSubText}`}>
+                      {leave.leaveTypeName ?? "Leave"} · {isApproved ? "Approved Absence" : isRejected ? "Rejected Request" : "Pending Approval"}
                     </div>
                   </div>
 
@@ -1092,27 +1266,27 @@ export default function EmployeeMiniReportingPanel({
                       </p>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-teal-700 break-words leading-tight">
+                      <p className={`text-[9px] font-bold uppercase tracking-wider break-words leading-tight ${leaveAccentText}`}>
                         Leave
                       </p>
-                      <p className="font-extrabold text-teal-700 text-xs break-words font-mono leading-tight">
+                      <p className={`font-extrabold text-xs break-words font-mono leading-tight ${leaveAccentText}`}>
                         {Number(leave.total_hours ?? 0).toFixed(1)}h
                       </p>
                     </div>
                   </div>
 
                   {leave.reason && (
-                    <div className="text-[10px] text-slate-300 italic px-0.5 break-words" title={leave.reason}>
+                    <div className="text-[10px] text-white/90 italic px-0.5 break-words" title={leave.reason}>
                       Reason: {leave.reason}
                     </div>
                   )}
 
-                  {/* Footer: Repositioned Status of Leave Card on Left, Duration on Right */}
-                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-700/60 text-[11px] min-w-0">
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-teal-300 border border-slate-700 whitespace-nowrap">
+                  {/* Footer: Complementary Status & Duration Pills */}
+                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/20 text-[11px] min-w-0">
+                    <span className={`inline-flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border whitespace-nowrap ${leavePillBg}`}>
                       {leave.status}
                     </span>
-                    <span className="shrink-0 rounded bg-slate-900/60 px-2 py-0.5 text-[10px] font-bold text-teal-300 border border-slate-700 whitespace-nowrap font-mono">
+                    <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold border whitespace-nowrap font-mono ${leavePillBg}`}>
                       {Number(leave.total_hours ?? 0).toFixed(1)}h Leave
                     </span>
                   </div>
@@ -1272,43 +1446,43 @@ export default function EmployeeMiniReportingPanel({
                     return (
                       <tr
                         key={`leave-row-${leave.id}`}
-                        className="bg-teal-50/40 hover:bg-teal-50/80 transition-colors"
+                        className="bg-emerald-50/40 hover:bg-emerald-50/80 transition-colors"
                       >
                         {/* Col 1: Date (Mobile + Desktop) */}
-                        <td className="p-2 sm:p-2.5 md:p-3 align-middle bg-teal-50/40">
-                          <div className="font-extrabold text-teal-950 font-mono text-xs whitespace-nowrap">
+                        <td className="p-2 sm:p-2.5 md:p-3 align-middle bg-emerald-50/40">
+                          <div className="font-extrabold text-emerald-950 font-mono text-xs whitespace-nowrap">
                             {leave.start_date}
                           </div>
-                          <div className="md:hidden flex flex-wrap items-center gap-1 text-[10px] text-teal-800 mt-0.5">
+                          <div className="md:hidden flex flex-wrap items-center gap-1 text-[10px] text-emerald-800 mt-0.5">
                             <span>{formatDayOfWeek(leave.start_date)}</span>
                             <span>·</span>
-                            <span className="font-semibold text-teal-700 break-words">
+                            <span className="font-semibold text-emerald-700 break-words">
                               {leave.leaveTypeName ?? "Leave"}
                             </span>
                           </div>
                         </td>
 
                         {/* Col 2: Mobile Shift & Hours */}
-                        <td className="p-2 sm:p-2.5 md:hidden align-middle bg-teal-50/40">
-                          <div className="font-mono text-xs font-semibold text-teal-900 whitespace-nowrap">
+                        <td className="p-2 sm:p-2.5 md:hidden align-middle bg-emerald-50/40">
+                          <div className="font-mono text-xs font-semibold text-emerald-900 whitespace-nowrap">
                             {leave.start_date === leave.end_date
                               ? "1 Full Day"
                               : `${leave.start_date.slice(5)} → ${leave.end_date.slice(5)}`}
                           </div>
-                          <div className="text-[10px] text-teal-700 break-words leading-tight mt-0.5" title={leave.reason || undefined}>
+                          <div className="text-[10px] text-emerald-700 break-words leading-tight mt-0.5" title={leave.reason || undefined}>
                             {leave.reason || "Approved Absence"}
                           </div>
                         </td>
 
                         {/* Col 3: Mobile Total & Status */}
-                        <td className="p-2 sm:p-2.5 md:hidden text-right align-middle bg-teal-50/40">
-                          <div className="font-mono font-black text-xs text-teal-800 whitespace-nowrap">
+                        <td className="p-2 sm:p-2.5 md:hidden text-right align-middle bg-emerald-50/40">
+                          <div className="font-mono font-black text-xs text-emerald-800 whitespace-nowrap">
                             {Number(leave.total_hours ?? 0).toFixed(1)}h
                           </div>
                           <div className="mt-0.5">
                             <span
                               className={`inline-block rounded px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${isApproved
-                                  ? "bg-teal-700 text-white"
+                                  ? "bg-emerald-700 text-white"
                                   : "bg-slate-900 text-white"
                                 }`}
                             >
@@ -1318,11 +1492,11 @@ export default function EmployeeMiniReportingPanel({
                         </td>
 
                         {/* Desktop Only Columns */}
-                        <td className="hidden md:table-cell p-3 text-teal-800 whitespace-nowrap">
+                        <td className="hidden md:table-cell p-3 text-emerald-800 whitespace-nowrap">
                           {formatDayOfWeek(leave.start_date)}
                         </td>
                         <td className="hidden md:table-cell p-3 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 rounded bg-teal-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          <span className="inline-flex items-center gap-1 rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
                             <Palmtree className="size-2.5" />
                             {leave.leaveTypeName ?? "Leave"}
                           </span>
@@ -1336,20 +1510,20 @@ export default function EmployeeMiniReportingPanel({
                         <td className="hidden md:table-cell p-3 text-right font-mono text-muted whitespace-nowrap">
                           0.00h
                         </td>
-                        <td className="hidden md:table-cell p-3 text-right font-mono font-black text-teal-800 whitespace-nowrap">
+                        <td className="hidden md:table-cell p-3 text-right font-mono font-black text-emerald-800 whitespace-nowrap">
                           {Number(leave.total_hours ?? 0).toFixed(2)}h
                         </td>
                         <td className="hidden md:table-cell p-3 text-center whitespace-nowrap">
                           <span
                             className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${isApproved
-                                ? "bg-teal-700 text-white"
+                                ? "bg-emerald-700 text-white"
                                 : "bg-slate-900 text-white"
                               }`}
                           >
                             {leave.status}
                           </span>
                         </td>
-                        <td className="hidden md:table-cell p-3 text-teal-900 text-[11px] max-w-xs break-words" title={leave.reason || undefined}>
+                        <td className="hidden md:table-cell p-3 text-emerald-900 text-[11px] max-w-xs break-words" title={leave.reason || undefined}>
                           {leave.reason || "Approved Leave"}
                         </td>
                       </tr>

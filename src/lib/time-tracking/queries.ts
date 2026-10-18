@@ -1344,7 +1344,7 @@ export const getCompanyCalendarEmployeeOptions = cache(async function getCompany
 
   return (data ?? []).map((employee) => ({
     id: employee.id,
-    label: `${employee.known_as ?? employee.full_name} (${employee.employee_number})`,
+    label: employee.known_as ?? employee.full_name,
   }));
 });
 

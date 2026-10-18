@@ -9,6 +9,12 @@ import {
   parseLocationInput,
   parseMapUrl,
 } from "./location-parser";
+import {
+  sanitizeMapUrl,
+  sanitizeString,
+  sanitizeMultilineText,
+} from "@/lib/security/sanitizer";
+
 
 export type ActionState = {
   ok: boolean;
@@ -55,7 +61,9 @@ export async function saveCompanyWorkstation(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const name = String(formData.get("name") ?? "").trim();
+  const name = sanitizeString(formData.get("name"), 100);
+  const rawAddress = sanitizeMultilineText(formData.get("address"), 250);
+  const address = rawAddress || null;
   const latitude = numberValue(formData, "latitude");
   const longitude = numberValue(formData, "longitude");
   const radiusMeters = numberValue(formData, "radius_meters");
@@ -90,7 +98,7 @@ export async function saveCompanyWorkstation(
       .from("company_workstations")
       .update({
         name,
-        address: String(formData.get("address") ?? "").trim() || null,
+        address,
         latitude,
         longitude,
         radius_meters: Math.round(radiusMeters),
@@ -106,7 +114,7 @@ export async function saveCompanyWorkstation(
     if (updateError) {
       const { data: rpcId, error: rpcError } = await supabase.rpc("upsert_company_workstation", {
         target_workstation_id: workstationId,
-        workstation_address: String(formData.get("address") ?? "").trim() || null,
+        workstation_address: address,
         workstation_latitude: latitude,
         workstation_longitude: longitude,
         workstation_name: name,
@@ -130,7 +138,7 @@ export async function saveCompanyWorkstation(
       .insert({
         company_id: company.id,
         name,
-        address: String(formData.get("address") ?? "").trim() || null,
+        address,
         latitude,
         longitude,
         radius_meters: Math.round(radiusMeters),
@@ -138,6 +146,7 @@ export async function saveCompanyWorkstation(
       })
       .select("id")
       .single();
+
 
     if (insertError) {
       const { data: rpcId, error: rpcError } = await supabase.rpc("upsert_company_workstation", {
@@ -329,6 +338,18 @@ export async function resolveMapLocationUrl(
     targetUrl = `https://${targetUrl}`;
   }
 
+  // SSRF Protection: strictly validate URL against authorized mapping providers and block internal/cloud metadata IPs
+  const mapValidation = sanitizeMapUrl(targetUrl);
+  if (!mapValidation.ok || !mapValidation.url) {
+    return {
+      ok: false,
+      message:
+        mapValidation.error ||
+        "Invalid map URL. Only official Google Maps, OpenStreetMap, or Waze links are permitted.",
+    };
+  }
+  targetUrl = mapValidation.url;
+
   try {
     const response = await fetch(targetUrl, {
       method: "GET",
@@ -394,10 +415,11 @@ export async function resolveMapLocationUrl(
 export async function searchGeocodedLocations(
   query: string,
 ): Promise<{ ok: boolean; results: GeocodeSearchResult[]; message?: string }> {
-  const trimmed = String(query ?? "").trim();
+  const trimmed = sanitizeString(query, 120);
   if (!trimmed || trimmed.length < 2) {
     return { ok: true, results: [] };
   }
+
 
   // 1. If user typed/pasted coordinates
   const coords = parseCoordinates(trimmed);

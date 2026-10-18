@@ -94,7 +94,8 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     redirect("/login?message=Unable to access this workspace. Contact your administrator.");
   }
 
-  const isSuperAdmin = (appUsers ?? []).some((u) => u.is_super_admin);
+  const appMeta = user.app_metadata as Record<string, unknown> | undefined;
+  const userMeta = user.user_metadata as Record<string, unknown> | undefined;
 
   // Super Admin Grantors are strictly enforced on the server-side.
   // Only Doctor Khoza (doctor@formalize.co.za) and Sizwe Hlatshwayo (admin@formalize.co.za)
@@ -105,6 +106,13 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   ]);
   const userEmail = user.email?.toLowerCase();
   const canAssignSuperAdmin = Boolean(userEmail && SUPER_ADMIN_GRANTORS.has(userEmail));
+
+  const isSuperAdmin =
+    (appUsers ?? []).some((u) => u.is_super_admin) ||
+    Boolean(userEmail && SUPER_ADMIN_GRANTORS.has(userEmail)) ||
+    Boolean(appMeta?.is_super_admin) ||
+    Boolean(appMeta?.claims_admin) ||
+    Boolean(userMeta?.is_super_admin);
 
   const targetAppUser =
     appUsers?.find((u) => u.company_id === activeCompany.id) ??
@@ -148,6 +156,14 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     }
   });
 
+  const isSuperUser =
+    isSuperAdmin ||
+    Boolean(appMeta?.is_super_user) ||
+    Boolean(userMeta?.is_super_user) ||
+    Boolean(appMeta?.role === "superuser" || appMeta?.role === "super_user") ||
+    Boolean(userMeta?.role === "superuser" || userMeta?.role === "super_user") ||
+    roleKeys.has("owner");
+
   const directReportsResult = activeEmployeeId
     ? await supabase
         .from("employees")
@@ -167,8 +183,10 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   return {
     appUserId: targetAppUser?.id ?? null,
     employeeId: activeEmployeeId,
+    companyIds,
     roles: Array.from(roleKeys),
     isSuperAdmin,
+    isSuperUser,
     canAssignSuperAdmin,
     isOwner: isSuperAdmin || roleKeys.has("owner"),
     isHrAdmin: isSuperAdmin || roleKeys.has("hr_admin"),

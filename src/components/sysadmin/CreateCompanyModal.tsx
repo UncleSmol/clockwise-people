@@ -61,20 +61,20 @@ export default function CreateCompanyModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-border/80 bg-surface p-5 sm:p-6 shadow-2xl">
         <button
           type="button"
           onClick={onClose}
           disabled={loading}
-          className="absolute right-4 top-4 rounded-lg p-1.5 text-muted hover:bg-surface-muted hover:text-foreground transition-colors"
+          className="absolute right-4 top-4 grid size-8 place-items-center rounded-full bg-surface-muted text-muted hover:bg-surface-muted/80 hover:text-foreground transition-colors cursor-pointer"
           aria-label="Close create company modal"
         >
-          <X className="size-5" />
+          <X className="size-4" />
         </button>
 
         <div className="flex items-center gap-3 pb-4 border-b border-border">
-          <div className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+          <div className="grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
             <Building2 className="size-6" />
           </div>
           <div>
@@ -86,7 +86,7 @@ export default function CreateCompanyModal({
         </div>
 
         {errorMessage ? (
-          <div className="mt-4 rounded-xl border border-danger/20 bg-danger/10 p-3 text-xs text-danger font-medium">
+          <div className="mt-4 rounded-2xl border border-danger/20 bg-danger/10 p-3 text-xs text-danger font-medium">
             {errorMessage}
           </div>
         ) : null}
@@ -109,7 +109,7 @@ export default function CreateCompanyModal({
                   placeholder="e.g. Acme Corporation"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -120,7 +120,7 @@ export default function CreateCompanyModal({
                   placeholder="Optional trading name"
                   value={formData.trading_name ?? ""}
                   onChange={(e) => setFormData({ ...formData, trading_name: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -131,7 +131,7 @@ export default function CreateCompanyModal({
                   placeholder="e.g. 2026/123456/07"
                   value={formData.registration_number ?? ""}
                   onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -142,7 +142,7 @@ export default function CreateCompanyModal({
                   required
                   value={formData.country}
                   onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -156,7 +156,7 @@ export default function CreateCompanyModal({
                       payroll_cycle: e.target.value as "monthly" | "weekly" | "bi-weekly",
                     })
                   }
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 >
                   <option value="monthly">Monthly</option>
                   <option value="weekly">Weekly</option>
@@ -171,7 +171,7 @@ export default function CreateCompanyModal({
                   placeholder="admin@company.com"
                   value={formData.contact_email ?? ""}
                   onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -182,7 +182,7 @@ export default function CreateCompanyModal({
                   placeholder="e.g. Technology, Retail, Manufacturing"
                   value={formData.industry ?? ""}
                   onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
             </div>
@@ -203,7 +203,7 @@ export default function CreateCompanyModal({
                   placeholder="Headquarters"
                   value={formData.workstation_name}
                   onChange={(e) => setFormData({ ...formData, workstation_name: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -217,7 +217,7 @@ export default function CreateCompanyModal({
                   onChange={(e) =>
                     setFormData({ ...formData, workstation_radius: Number(e.target.value) || 150 })
                   }
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -228,7 +228,7 @@ export default function CreateCompanyModal({
                   placeholder="e.g. 100 Main St, Johannesburg"
                   value={formData.workstation_address ?? ""}
                   onChange={(e) => setFormData({ ...formData, workstation_address: e.target.value })}
-                  className="w-full rounded-xl border border-border bg-surface px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full rounded-full border border-border bg-surface px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
             </div>
@@ -239,14 +239,14 @@ export default function CreateCompanyModal({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors"
+              className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !formData.name.trim()}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
             >
               {loading ? (
                 <>

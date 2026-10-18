@@ -164,40 +164,40 @@ export default function CompanyLiveWorkforce({
   return (
     <section className="grid min-w-0 gap-4">
       {/* Header */}
-      <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-end">
+      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
             Live workforce
           </p>
           <h2 className="mt-1 flex items-center gap-2 text-xl font-bold text-foreground">
-            <Users className="size-5 text-accent" />
+            <Users className="size-5 text-primary" />
             Today&apos;s attendance
           </h2>
           <p className="mt-1 text-xs text-muted">
             Real-time workforce presence, break status, and daily time logs.
           </p>
         </div>
-        <span className="w-max rounded border border-border bg-background px-2.5 py-1 text-xs font-bold text-foreground shadow-xs">
+        <span className="w-max rounded-full border border-border/80 bg-surface px-3.5 py-1 text-xs font-bold text-foreground shadow-soft">
           {overview.workDate}
         </span>
       </div>
 
       {/* Bold Segmented Stat Filter Cards */}
-      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-5 gap-2 min-w-0">
+      <div className="grid grid-cols-2 min-[480px]:grid-cols-3 lg:grid-cols-5 gap-3 min-w-0">
         {/* Total Team */}
         <button
           type="button"
           onClick={() => setActiveFilter("all")}
-          className={`rounded-lg p-3 text-left transition-all min-w-0 ${
+          className={`rounded-2xl p-4 text-left transition-all min-w-0 cursor-pointer shadow-soft ${
             activeFilter === "all"
-              ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-900 ring-offset-1"
-              : "border border-border bg-surface hover:bg-surface-muted text-foreground"
+              ? "card-hero-green text-white"
+              : "border border-border/80 bg-surface hover:bg-surface-muted text-foreground"
           }`}
         >
-          <p className={`text-[11px] font-bold uppercase tracking-[0.12em] break-words leading-tight ${activeFilter === "all" ? "text-slate-300" : "text-muted"}`}>
+          <p className={`text-[11px] font-bold uppercase tracking-[0.12em] break-words leading-tight ${activeFilter === "all" ? "text-white/80" : "text-muted"}`}>
             Total team
           </p>
-          <p className="mt-1 text-2xl font-extrabold break-words">
+          <p className="mt-1.5 text-2xl font-extrabold break-words">
             {overview.totals.totalEmployees}
           </p>
         </button>
@@ -206,10 +206,10 @@ export default function CompanyLiveWorkforce({
         <button
           type="button"
           onClick={() => setActiveFilter("working")}
-          className={`rounded-lg p-3 text-left transition-all min-w-0 ${
+          className={`rounded-2xl p-4 text-left transition-all min-w-0 cursor-pointer shadow-soft ${
             activeFilter === "working"
-              ? "bg-emerald-600 text-white shadow-md ring-2 ring-emerald-600 ring-offset-1"
-              : "border border-emerald-300/80 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-950"
+              ? "bg-emerald-600 text-white"
+              : "border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-950"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -218,7 +218,7 @@ export default function CompanyLiveWorkforce({
             </p>
             <span className="flex size-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
           </div>
-          <p className="mt-1 text-2xl font-extrabold break-words">
+          <p className="mt-1.5 text-2xl font-extrabold break-words">
             {overview.totals.activeEmployees}
           </p>
         </button>
@@ -227,19 +227,19 @@ export default function CompanyLiveWorkforce({
         <button
           type="button"
           onClick={() => setActiveFilter("on_lunch")}
-          className={`rounded-lg p-3 text-left transition-all min-w-0 ${
+          className={`rounded-2xl p-4 text-left transition-all min-w-0 cursor-pointer shadow-soft ${
             activeFilter === "on_lunch"
-              ? "bg-amber-500 text-white shadow-md ring-2 ring-amber-500 ring-offset-1"
-              : "border border-amber-300/80 bg-amber-50/80 hover:bg-amber-100 text-amber-950"
+              ? "card-gold text-slate-900"
+              : "border border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-950"
           }`}
         >
           <div className="flex items-center justify-between">
-            <p className={`text-[11px] font-bold uppercase tracking-[0.12em] break-words leading-tight ${activeFilter === "on_lunch" ? "text-amber-100" : "text-amber-800"}`}>
+            <p className={`text-[11px] font-bold uppercase tracking-[0.12em] break-words leading-tight ${activeFilter === "on_lunch" ? "text-slate-800" : "text-amber-800"}`}>
               On Lunch
             </p>
             <span className="flex size-2 rounded-full bg-amber-400 shrink-0" />
           </div>
-          <p className="mt-1 text-2xl font-extrabold break-words">
+          <p className="mt-1.5 text-2xl font-extrabold break-words">
             {overview.totals.onLunch}
           </p>
         </button>
@@ -248,16 +248,16 @@ export default function CompanyLiveWorkforce({
         <button
           type="button"
           onClick={() => setActiveFilter("worked")}
-          className={`rounded-lg p-3 text-left transition-all min-w-0 ${
+          className={`rounded-2xl p-4 text-left transition-all min-w-0 cursor-pointer shadow-soft ${
             activeFilter === "worked"
-              ? "bg-slate-800 text-white shadow-md ring-2 ring-slate-800 ring-offset-1"
-              : "border border-slate-300 bg-slate-100/80 hover:bg-slate-200 text-slate-900"
+              ? "bg-slate-800 text-white"
+              : "border border-slate-200 bg-slate-100/70 hover:bg-slate-200 text-slate-900"
           }`}
         >
           <p className={`text-[11px] font-bold uppercase tracking-[0.12em] break-words leading-tight ${activeFilter === "worked" ? "text-slate-300" : "text-slate-600"}`}>
             Shift Done
           </p>
-          <p className="mt-1 text-2xl font-extrabold break-words">
+          <p className="mt-1.5 text-2xl font-extrabold break-words">
             {overview.totals.workedToday}
           </p>
         </button>
@@ -266,16 +266,16 @@ export default function CompanyLiveWorkforce({
         <button
           type="button"
           onClick={() => setActiveFilter("not_started")}
-          className={`rounded-lg p-3 text-left transition-all min-w-0 ${
+          className={`rounded-2xl p-4 text-left transition-all min-w-0 cursor-pointer shadow-soft ${
             activeFilter === "not_started"
-              ? "bg-zinc-700 text-white shadow-md ring-2 ring-zinc-700 ring-offset-1"
-              : "border border-border bg-background hover:bg-surface text-muted"
+              ? "bg-zinc-700 text-white"
+              : "border border-border/80 bg-background hover:bg-surface text-muted"
           }`}
         >
           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted break-words leading-tight">
             Not Started
           </p>
-          <p className="mt-1 text-2xl font-extrabold text-foreground break-words">
+          <p className="mt-1.5 text-2xl font-extrabold text-foreground break-words">
             {overview.totals.notStarted}
           </p>
         </button>
@@ -283,7 +283,7 @@ export default function CompanyLiveWorkforce({
 
       {/* Real-time Clocked In Avatar Strip */}
       {workingColleagues.length > 0 && (
-        <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-50/50 p-4 shadow-2xs">
+        <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-50/40 p-4 shadow-soft">
           <div className="flex items-center gap-2">
             <span className="relative flex size-2.5">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
@@ -294,13 +294,13 @@ export default function CompanyLiveWorkforce({
             </p>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {workingColleagues.map((colleague) => (
               <button
                 key={colleague.employeeId}
                 type="button"
                 onClick={() => setSelectedColleague(colleague)}
-                className="flex items-center gap-2 rounded-md border border-emerald-300/80 bg-white p-1 pr-2.5 shadow-2xs transition-all hover:bg-emerald-50"
+                className="flex items-center gap-2 rounded-full border border-emerald-200 bg-white p-1.5 pr-3 shadow-soft transition-all hover:bg-emerald-50 cursor-pointer"
               >
                 <div className="relative shrink-0">
                   <EmployeeAvatar
@@ -327,7 +327,7 @@ export default function CompanyLiveWorkforce({
       {/* Attendance Entries Distinct Strong-Colored Grid */}
       <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5">
         {filteredEntries.length === 0 ? (
-          <p className="col-span-full rounded-lg border border-border bg-background p-5 text-center text-sm font-medium text-muted">
+          <p className="col-span-full rounded-2xl border border-border/80 bg-surface p-6 text-center text-sm font-medium text-muted shadow-soft">
             No colleagues match the selected status filter.
           </p>
         ) : (
@@ -337,40 +337,40 @@ export default function CompanyLiveWorkforce({
                 <article
                   key={entry.employeeId}
                   onClick={() => setSelectedColleague(entry)}
-                  className="group flex flex-col justify-between gap-2.5 rounded-lg bg-emerald-600 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-emerald-700/60 min-w-0"
+                  className="group flex flex-col justify-between gap-3 rounded-2xl card-hero-green p-4 text-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer border border-white/20 min-w-0"
                 >
                   {/* Top: Avatar, Name & Solid Status Badge */}
                   <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <div className="relative shrink-0">
                         <EmployeeAvatar
                           name={entry.knownAs ?? entry.fullName}
                           src={entry.avatarUrl}
-                          className="size-8.5 ring-2 ring-white shadow-xs"
+                          className="size-9 ring-2 ring-white/90 shadow-xs"
                         />
-                        <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-300 ring-2 ring-emerald-600" />
+                        <span className="absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full bg-emerald-300 ring-2 ring-[#2E9B5F]" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-white break-words leading-tight">
+                        <p className="text-sm font-extrabold text-white break-words leading-tight">
                           {entry.knownAs ?? entry.fullName}
                         </p>
-                        <p className="text-[11px] font-medium text-emerald-100 break-words leading-tight mt-0.5">
+                        <p className="text-xs font-medium text-emerald-100/90 break-words leading-tight mt-0.5">
                           {entry.jobTitle ?? "Team Member"}
                         </p>
                       </div>
                     </div>
 
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-emerald-400/30 whitespace-nowrap">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white border border-white/20 whitespace-nowrap backdrop-blur-xs">
                       <span className="relative flex size-1.5">
-                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-300 opacity-75" />
-                        <span className="relative inline-flex size-1.5 rounded-full bg-emerald-300" />
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-200 opacity-75" />
+                        <span className="relative inline-flex size-1.5 rounded-full bg-emerald-200" />
                       </span>
                       Clocked in
                     </span>
                   </div>
 
                   {/* High-Contrast White Metrics Box */}
-                  <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0">
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
                       <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clockIn)}</p>
@@ -390,13 +390,13 @@ export default function CompanyLiveWorkforce({
                   {/* Footer Pills */}
                   <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
                     <span
-                      className="inline-flex items-center rounded bg-emerald-700/70 px-2 py-0.5 font-semibold text-emerald-50 text-[10px] break-words"
+                      className="inline-flex items-center rounded-full bg-black/20 px-2.5 py-1 font-semibold text-emerald-50 text-[10px] break-words border border-white/10"
                       title={entry.workstationName ?? "Assigned workstation"}
                     >
                       <MapPin className="mr-1 inline size-2.5 shrink-0 text-emerald-200" />
                       <span className="break-words leading-tight">{entry.workstationName ?? geofenceLabel(entry)}</span>
                     </span>
-                    <span className="shrink-0 rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-emerald-400/20 whitespace-nowrap">
+                    <span className="shrink-0 rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-bold text-white border border-white/15 whitespace-nowrap">
                       {entry.departmentName ?? "General"}
                     </span>
                   </div>
@@ -409,37 +409,37 @@ export default function CompanyLiveWorkforce({
                 <article
                   key={entry.employeeId}
                   onClick={() => setSelectedColleague(entry)}
-                  className="group flex flex-col justify-between gap-2.5 rounded-lg bg-amber-500 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-amber-600/60 min-w-0"
+                  className="group flex flex-col justify-between gap-3 rounded-2xl card-gold p-4 text-amber-950 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer border border-amber-300/40 min-w-0"
                 >
                   {/* Top: Avatar, Name & Solid Status Badge */}
                   <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <div className="relative shrink-0">
                         <EmployeeAvatar
                           name={entry.knownAs ?? entry.fullName}
                           src={entry.avatarUrl}
-                          className="size-8.5 ring-2 ring-white shadow-xs"
+                          className="size-9 ring-2 ring-white/90 shadow-xs"
                         />
-                        <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-amber-300 ring-2 ring-amber-600" />
+                        <span className="absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full bg-amber-400 ring-2 ring-amber-600" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-white break-words leading-tight">
+                        <p className="text-sm font-extrabold text-amber-950 break-words leading-tight">
                           {entry.knownAs ?? entry.fullName}
                         </p>
-                        <p className="text-[11px] font-medium text-amber-100 break-words leading-tight mt-0.5">
+                        <p className="text-xs font-medium text-amber-900/80 break-words leading-tight mt-0.5">
                           {entry.jobTitle ?? "Team Member"}
                         </p>
                       </div>
                     </div>
 
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-amber-300/30 whitespace-nowrap">
-                      <UtensilsCrossed className="size-2.5 text-amber-200" />
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-black/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-950 border border-amber-900/20 whitespace-nowrap">
+                      <UtensilsCrossed className="size-2.5 text-amber-900" />
                       On Lunch
                     </span>
                   </div>
 
                   {/* High-Contrast White Metrics Box */}
-                  <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-xs min-w-0">
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
                       <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clockIn)}</p>
@@ -459,13 +459,13 @@ export default function CompanyLiveWorkforce({
                   {/* Footer Pills */}
                   <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
                     <span
-                      className="inline-flex items-center rounded bg-amber-600/70 px-2 py-0.5 font-semibold text-amber-50 text-[10px] break-words"
+                      className="inline-flex items-center rounded-full bg-black/15 px-2.5 py-1 font-semibold text-amber-950 text-[10px] break-words border border-amber-900/15"
                       title={entry.workstationName ?? "Assigned workstation"}
                     >
-                      <MapPin className="mr-1 inline size-2.5 shrink-0 text-amber-200" />
+                      <MapPin className="mr-1 inline size-2.5 shrink-0 text-amber-800" />
                       <span className="break-words leading-tight">{entry.workstationName ?? geofenceLabel(entry)}</span>
                     </span>
-                    <span className="shrink-0 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-amber-300/20 whitespace-nowrap">
+                    <span className="shrink-0 rounded-full bg-black/15 px-2.5 py-1 text-[10px] font-bold text-amber-950 border border-amber-900/15 whitespace-nowrap">
                       {entry.departmentName ?? "General"}
                     </span>
                   </div>
@@ -478,37 +478,37 @@ export default function CompanyLiveWorkforce({
                 <article
                   key={entry.employeeId}
                   onClick={() => setSelectedColleague(entry)}
-                  className="group flex flex-col justify-between gap-2.5 rounded-lg bg-slate-800 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-slate-900/60 min-w-0"
+                  className="group flex flex-col justify-between gap-3 rounded-2xl bg-slate-900 p-4 text-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer border border-slate-700/60 min-w-0"
                 >
                   {/* Top: Avatar, Name & Solid Status Badge */}
                   <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <div className="relative shrink-0">
                         <EmployeeAvatar
                           name={entry.knownAs ?? entry.fullName}
                           src={entry.avatarUrl}
-                          className="size-8.5 ring-2 ring-slate-600 shadow-xs"
+                          className="size-9 ring-2 ring-slate-700 shadow-xs"
                         />
-                        <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
+                        <span className="absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-white break-words leading-tight">
+                        <p className="text-sm font-extrabold text-white break-words leading-tight">
                           {entry.knownAs ?? entry.fullName}
                         </p>
-                        <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">
+                        <p className="text-xs font-medium text-slate-300 break-words leading-tight mt-0.5">
                           {entry.jobTitle ?? "Team Member"}
                         </p>
                       </div>
                     </div>
 
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-950/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-emerald-600/30 whitespace-nowrap">
                       <CheckCircle2 className="size-2.5 text-emerald-400" />
                       Shift Done
                     </span>
                   </div>
 
                   {/* High-Contrast White Metrics Box */}
-                  <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0">
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
                       <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clockIn)}</p>
@@ -526,13 +526,13 @@ export default function CompanyLiveWorkforce({
                   {/* Footer Pills */}
                   <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
                     <span
-                      className="inline-flex items-center rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px] break-words"
+                      className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-1 font-semibold text-slate-200 text-[10px] break-words border border-slate-700/80"
                       title={entry.workstationName ?? "Assigned workstation"}
                     >
                       <MapPin className="mr-1 inline size-2.5 shrink-0 text-slate-400" />
                       <span className="break-words leading-tight">{entry.workstationName ?? geofenceLabel(entry)}</span>
                     </span>
-                    <span className="shrink-0 rounded bg-slate-900/60 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700 whitespace-nowrap">
+                    <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold text-slate-300 border border-slate-700 whitespace-nowrap">
                       {entry.departmentName ?? "General"}
                     </span>
                   </div>
@@ -545,37 +545,37 @@ export default function CompanyLiveWorkforce({
                 <article
                   key={entry.employeeId}
                   onClick={() => setSelectedColleague(entry)}
-                  className="group flex flex-col justify-between gap-2.5 rounded-lg bg-rose-600 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-rose-700/60 min-w-0"
+                  className="group flex flex-col justify-between gap-3 rounded-2xl bg-rose-600 p-4 text-white shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer border border-rose-700/60 min-w-0"
                 >
                   {/* Top: Avatar, Name & Solid Status Badge */}
                   <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
                       <div className="relative shrink-0">
                         <EmployeeAvatar
                           name={entry.knownAs ?? entry.fullName}
                           src={entry.avatarUrl}
-                          className="size-8.5 ring-2 ring-white shadow-xs"
+                          className="size-9 ring-2 ring-white shadow-xs"
                         />
-                        <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-rose-300 ring-2 ring-rose-600" />
+                        <span className="absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full bg-rose-300 ring-2 ring-rose-600" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-white break-words leading-tight">
+                        <p className="text-sm font-extrabold text-white break-words leading-tight">
                           {entry.knownAs ?? entry.fullName}
                         </p>
-                        <p className="text-[11px] font-medium text-rose-100 break-words leading-tight mt-0.5">
+                        <p className="text-xs font-medium text-rose-100 break-words leading-tight mt-0.5">
                           {entry.jobTitle ?? "Team Member"}
                         </p>
                       </div>
                     </div>
 
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-rose-950/50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-rose-400/30 whitespace-nowrap">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-950/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white border border-rose-400/30 whitespace-nowrap">
                       <AlertTriangle className="size-2.5 text-rose-200" />
                       Review
                     </span>
                   </div>
 
                   {/* High-Contrast White Metrics Box */}
-                  <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0">
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
                       <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clockIn)}</p>
@@ -593,13 +593,13 @@ export default function CompanyLiveWorkforce({
                   {/* Footer Pills */}
                   <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
                     <span
-                      className="inline-flex items-center rounded bg-rose-700/70 px-2 py-0.5 font-semibold text-rose-50 text-[10px] break-words"
+                      className="inline-flex items-center rounded-full bg-rose-700/70 px-2.5 py-1 font-semibold text-rose-50 text-[10px] break-words"
                       title={entry.workstationName ?? "Assigned workstation"}
                     >
                       <MapPin className="mr-1 inline size-2.5 shrink-0 text-rose-200" />
                       <span className="break-words leading-tight">{entry.workstationName ?? geofenceLabel(entry)}</span>
                     </span>
-                    <span className="shrink-0 rounded bg-rose-950/50 px-2 py-0.5 text-[10px] font-bold text-white border border-rose-400/20 whitespace-nowrap">
+                    <span className="shrink-0 rounded-full bg-rose-950/50 px-2.5 py-1 text-[10px] font-bold text-white border border-rose-400/20 whitespace-nowrap">
                       {entry.departmentName ?? "General"}
                     </span>
                   </div>
@@ -612,56 +612,56 @@ export default function CompanyLiveWorkforce({
               <article
                 key={entry.employeeId}
                 onClick={() => setSelectedColleague(entry)}
-                className="group flex flex-col justify-between gap-2.5 rounded-lg border border-zinc-300/80 bg-zinc-100/90 p-3 text-zinc-800 shadow-xs transition-all hover:bg-zinc-100 hover:border-zinc-400 hover:shadow-sm cursor-pointer min-w-0"
+                className="group flex flex-col justify-between gap-3 rounded-2xl border border-border/80 bg-surface p-4 text-foreground shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer min-w-0"
               >
                 {/* Top: Avatar, Name & Status Badge */}
                 <div className="flex items-start justify-between gap-2 min-w-0">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     <div className="relative shrink-0">
                       <EmployeeAvatar
                         name={entry.knownAs ?? entry.fullName}
                         src={entry.avatarUrl}
-                        className="size-8.5 ring-2 ring-zinc-300 shadow-xs"
+                        className="size-9 ring-2 ring-border shadow-xs"
                       />
-                      <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-zinc-400 ring-2 ring-zinc-100" />
+                      <span className="absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full bg-zinc-400 ring-2 ring-surface" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-extrabold text-zinc-900 break-words leading-tight">
+                      <p className="text-sm font-extrabold text-foreground break-words leading-tight">
                         {entry.knownAs ?? entry.fullName}
                       </p>
-                      <p className="text-[11px] font-medium text-zinc-500 break-words leading-tight mt-0.5">
+                      <p className="text-xs font-medium text-muted break-words leading-tight mt-0.5">
                         {entry.jobTitle ?? "Team Member"}
                       </p>
                     </div>
                   </div>
 
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-zinc-700 border border-zinc-300 whitespace-nowrap">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-muted-foreground border border-border/80 whitespace-nowrap">
                     Not Started
                   </span>
                 </div>
 
                 {/* High-Contrast White Metrics Box */}
-                <div className="grid grid-cols-2 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-background/80 border border-border/60 p-2 text-center text-foreground shadow-xs min-w-0">
                   <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 break-words leading-tight">Status</p>
-                    <p className="font-extrabold text-slate-600 text-xs break-words leading-tight">Not Started</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Status</p>
+                    <p className="font-extrabold text-muted-foreground text-xs break-words leading-tight">Not Started</p>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 break-words leading-tight">Logged</p>
-                    <p className="font-extrabold text-zinc-500 text-xs break-words font-mono leading-tight">--:--</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-muted break-words leading-tight">Logged</p>
+                    <p className="font-extrabold text-muted-foreground text-xs break-words font-mono leading-tight">--:--</p>
                   </div>
                 </div>
 
                 {/* Footer Pills */}
                 <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
                   <span
-                    className="inline-flex items-center rounded bg-zinc-200/80 px-2 py-0.5 font-semibold text-zinc-600 text-[10px] break-words"
+                    className="inline-flex items-center rounded-full bg-secondary/80 px-2.5 py-1 font-semibold text-muted-foreground text-[10px] break-words border border-border/70"
                     title={entry.workstationName ?? "Assigned workstation"}
                   >
-                    <MapPin className="mr-1 inline size-2.5 shrink-0 text-zinc-400" />
+                    <MapPin className="mr-1 inline size-2.5 shrink-0 text-muted" />
                     <span className="break-words leading-tight">{entry.workstationName ?? geofenceLabel(entry)}</span>
                   </span>
-                  <span className="shrink-0 rounded bg-zinc-200/60 px-2 py-0.5 text-[10px] font-bold text-zinc-600 border border-zinc-300 whitespace-nowrap">
+                  <span className="shrink-0 rounded-full bg-secondary/70 px-2.5 py-1 text-[10px] font-bold text-muted-foreground border border-border/80 whitespace-nowrap">
                     {entry.departmentName ?? "General"}
                   </span>
                 </div>
@@ -685,35 +685,35 @@ export default function CompanyLiveWorkforce({
           <div className="grid gap-4">
             {/* Solid Status Hero Card */}
             <div
-              className={`flex items-center gap-3.5 rounded-lg p-4 shadow-sm ${
+              className={`flex items-center gap-3.5 rounded-2xl p-4.5 shadow-soft ${
                 selectedColleague.status === "working"
-                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                  ? "card-hero-green text-white border border-white/20"
                   : selectedColleague.status === "on_lunch"
-                    ? "bg-amber-500 text-white ring-1 ring-amber-600/60"
+                    ? "card-gold text-amber-950 border border-amber-300/40"
                     : selectedColleague.status === "worked"
-                      ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                      ? "bg-slate-900 text-white border border-slate-700/60"
                       : selectedColleague.status === "needs_review"
-                        ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
-                        : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+                        ? "bg-rose-600 text-white border border-rose-700/60"
+                        : "border border-border/80 bg-surface text-foreground shadow-soft"
               }`}
             >
               <div className="relative">
                 <EmployeeAvatar
                   name={selectedColleague.knownAs ?? selectedColleague.fullName}
                   src={selectedColleague.avatarUrl}
-                  className="size-14 ring-2 ring-white shadow-xs"
+                  className="size-14 ring-2 ring-white/90 shadow-xs"
                 />
                 <span
                   className={`absolute bottom-0 right-0 block size-3.5 rounded-full ring-2 ${
                     selectedColleague.status === "working"
-                      ? "bg-emerald-300 ring-emerald-600"
+                      ? "bg-emerald-300 ring-[#2E9B5F]"
                       : selectedColleague.status === "on_lunch"
-                        ? "bg-amber-200 ring-amber-500"
+                        ? "bg-amber-300 ring-amber-600"
                         : selectedColleague.status === "worked"
-                          ? "bg-emerald-400 ring-slate-800"
+                          ? "bg-emerald-400 ring-slate-900"
                           : selectedColleague.status === "needs_review"
-                            ? "bg-rose-200 ring-rose-600"
-                            : "bg-zinc-400 ring-zinc-100"
+                            ? "bg-rose-300 ring-rose-600"
+                            : "bg-zinc-400 ring-surface"
                   }`}
                 />
               </div>
@@ -721,43 +721,33 @@ export default function CompanyLiveWorkforce({
                 <h3 className="text-base font-extrabold break-words leading-snug">
                   {selectedColleague.knownAs ?? selectedColleague.fullName}
                 </h3>
-                <p className={`text-xs font-medium break-words leading-tight mt-0.5 ${selectedColleague.status === "not_started" ? "text-zinc-600" : "opacity-90"}`}>
+                <p className={`text-xs font-medium break-words leading-tight mt-0.5 ${selectedColleague.status === "not_started" ? "text-muted" : "opacity-90"}`}>
                   {selectedColleague.jobTitle ?? "Team Member"}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded px-2.5 py-0.5 text-xs font-black uppercase tracking-wider ${
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
                       selectedColleague.status === "working"
-                        ? "bg-emerald-950/40 text-white border border-emerald-400/30"
+                        ? "bg-black/20 text-white border border-white/20"
                         : selectedColleague.status === "on_lunch"
-                          ? "bg-amber-950/40 text-white border border-amber-300/30"
+                          ? "bg-black/15 text-amber-950 border border-amber-900/20"
                           : selectedColleague.status === "worked"
-                            ? "bg-slate-900/80 text-emerald-400 border border-slate-700"
+                            ? "bg-emerald-950/70 text-emerald-400 border border-emerald-600/30"
                             : selectedColleague.status === "needs_review"
                               ? "bg-rose-950/50 text-white border border-rose-400/30"
-                              : "bg-zinc-200 text-zinc-700 border border-zinc-300"
+                              : "bg-secondary text-muted-foreground border border-border/80"
                     }`}
                   >
                     {statusLabel(selectedColleague.status)}
                   </span>
-                  {selectedColleague.employeeNumber ? (
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-bold ${
-                        selectedColleague.status === "not_started"
-                          ? "bg-zinc-200 text-zinc-700"
-                          : "bg-black/20 text-white"
-                      }`}
-                    >
-                      #{selectedColleague.employeeNumber}
-                    </span>
-                  ) : null}
                 </div>
               </div>
+
             </div>
 
             {/* Department & Workstation Cards */}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-lg border border-border bg-background p-3">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
                   Department
                 </p>
@@ -766,7 +756,7 @@ export default function CompanyLiveWorkforce({
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border bg-background p-3">
+              <div className="rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
                   Workstation
                 </p>
@@ -777,9 +767,9 @@ export default function CompanyLiveWorkforce({
             </div>
 
             {/* Shift Breakdown Panel */}
-            <div className="grid gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm">
+            <div className="grid gap-3.5 rounded-2xl border border-border/80 bg-surface p-4.5 shadow-soft">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-accent">
+                <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-primary">
                   Today&apos;s shift logs
                 </p>
                 <span className="text-xs font-semibold text-muted">{overview.workDate}</span>
@@ -787,57 +777,57 @@ export default function CompanyLiveWorkforce({
 
               {/* High-Contrast White Time Strip */}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-md border border-border bg-background p-2 text-center">
+                <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">In</p>
-                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground font-mono">
                     {shortTime(selectedColleague.clockIn)}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2 text-center">
+                <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">Lunch start</p>
-                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground font-mono">
                     {shortTime(selectedColleague.lunchStart)}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2 text-center">
+                <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">Lunch end</p>
-                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground font-mono">
                     {shortTime(selectedColleague.lunchEnd)}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-border bg-background p-2 text-center">
+                <div className="rounded-xl border border-border/70 bg-background/80 p-2.5 text-center">
                   <p className="text-[10px] font-bold text-muted uppercase">Out</p>
-                  <p className="mt-0.5 text-sm font-extrabold text-foreground">
+                  <p className="mt-0.5 text-sm font-extrabold text-foreground font-mono">
                     {shortTime(selectedColleague.clockOut)}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-md border border-emerald-200 bg-emerald-50/70 p-3 text-center">
-                  <p className="text-[10px] font-bold uppercase text-emerald-800">Worked duration</p>
-                  <p className="mt-0.5 text-lg font-black text-emerald-950">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-center">
+                  <p className="text-[10px] font-bold uppercase text-primary">Worked duration</p>
+                  <p className="mt-0.5 text-lg font-black text-foreground">
                     {selectedColleague.clockOut
                       ? formatHours(selectedColleague.paidHours)
                       : activeDuration(selectedColleague, tick) ?? "--"}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-slate-100/70 p-3 text-center">
-                  <p className="text-[10px] font-bold uppercase text-slate-700">Overtime</p>
-                  <p className="mt-0.5 text-lg font-black text-slate-900">
+                <div className="rounded-xl border border-border/80 bg-background/80 p-3 text-center">
+                  <p className="text-[10px] font-bold uppercase text-muted">Overtime</p>
+                  <p className="mt-0.5 text-lg font-black text-foreground">
                     {formatHours(selectedColleague.overtimeHours)}
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-md border border-border bg-background p-3">
+              <div className="rounded-xl border border-border/70 bg-background/80 p-3">
                 <p className="text-[10px] font-bold uppercase text-muted">Geofence check</p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="inline-flex rounded border border-border bg-surface px-2.5 py-0.5 text-xs font-bold text-foreground">
+                  <span className="inline-flex rounded-full border border-border/80 bg-surface px-3 py-1 text-xs font-bold text-foreground">
                     {geofenceLabel(selectedColleague)}
                   </span>
                 </div>

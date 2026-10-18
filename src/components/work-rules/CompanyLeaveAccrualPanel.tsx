@@ -69,7 +69,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
       {/* 1-Click Automated BCEA South African Labour Law Accruals Card */}
       <form
         action={autoSyncAction}
-        className="grid gap-2.5 rounded-xl border border-border/80 bg-surface p-4 shadow-2xs"
+        className="grid gap-2.5 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -78,7 +78,9 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                 Automate All Accruals (BCEA SA Labour Law)
               </h3>
               <p className="mt-0.5 text-xs text-muted">
-                Calculates 1h annual leave per 17h worked + 1.5&times; overtime TOIL for all active employees
+                {data.toilEnabled
+                  ? "Calculates 1h annual leave per 17h worked + 1.5\u00d7 overtime TOIL for all active employees"
+                  : "Calculates statutory annual leave (1h per 17h worked) for all active employees"}
               </p>
             </div>
             <p className="mt-2 text-xs font-normal text-muted leading-relaxed">
@@ -89,7 +91,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
           <button
             type="submit"
             disabled={autoSyncPending}
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold uppercase tracking-wider text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-wider text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
           >
             {autoSyncPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
@@ -99,7 +101,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
         </div>
       </form>
 
-      <div className="grid gap-3 rounded-xl border border-border/80 bg-surface p-4 shadow-2xs">
+      <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft">
         <div>
           <h3 className="text-sm font-bold text-foreground">
             Load leave accruals
@@ -113,7 +115,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
 
         {visibleMessage ? (
           <p
-            className={`rounded-md border px-3 py-2 text-sm font-medium ${
+            className={`rounded-2xl border px-3.5 py-2.5 text-sm font-medium shadow-soft ${
               visibleOk
                 ? "border-success/30 bg-success/10 text-success"
                 : "border-danger/30 bg-danger/10 text-danger"
@@ -131,7 +133,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                 name="leave_type_id"
                 value={leaveTypeId}
                 onChange={(event) => setLeaveTypeId(event.target.value)}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               >
                 <option value="">Select leave rule</option>
                 {data.leaveTypes.map((leaveType) => {
@@ -146,7 +148,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
               </select>
             </label>
             <div className="flex items-end">
-              <p className="flex h-10 items-center rounded-lg border border-border bg-background px-3 text-sm text-muted">
+              <p className="flex h-11 w-full items-center rounded-full border border-border bg-background px-4 text-sm text-muted">
                 Yearly entitlement: <span className="ml-1 font-semibold text-foreground">{yearlyHours}h</span>
               </p>
             </div>
@@ -157,7 +159,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                 type="date"
                 value={period.start}
                 onChange={(event) => setPeriod({ ...period, start: event.target.value })}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </label>
             <label className="grid gap-1">
@@ -167,13 +169,13 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                 type="date"
                 value={period.end}
                 onChange={(event) => setPeriod({ ...period, end: event.target.value })}
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </label>
           </div>
           <button
             disabled={previewPending}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-6 text-sm font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
           >
             {previewPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             {previewPending ? "Calculating..." : "Preview accruals"}
@@ -181,19 +183,19 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
         </form>
 
         {previewRows.length > 0 ? (
-          <form action={loadAction} className="grid gap-3 rounded-lg border border-border bg-background p-3">
+          <form action={loadAction} className="grid gap-3 rounded-2xl border border-border/80 bg-background p-4 shadow-soft">
             <input type="hidden" name="leave_type_id" value={leaveTypeId} />
             <input type="hidden" name="period_start" value={period.start} />
             <input type="hidden" name="period_end" value={period.end} />
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-foreground">Preview ({previewRows.length} employees)</p>
-              <div className="flex rounded-full border border-border bg-background p-0.5 text-xs font-semibold">
+              <div className="flex rounded-full border border-border bg-surface-muted p-1 text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => setAddToBalance(true)}
-                  className={`rounded-full px-3 py-1.5 ${
-                    addToBalance ? "bg-primary text-primary-foreground shadow-2xs" : "text-foreground hover:bg-surface-muted"
+                  className={`rounded-full px-4 py-1.5 transition-all ${
+                    addToBalance ? "bg-primary text-white shadow-soft" : "text-foreground hover:bg-surface"
                   }`}
                 >
                   Add to balance
@@ -201,8 +203,8 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                 <button
                   type="button"
                   onClick={() => setAddToBalance(false)}
-                  className={`rounded-full px-3 py-1.5 ${
-                    !addToBalance ? "bg-primary text-primary-foreground shadow-2xs" : "text-foreground hover:bg-surface-muted"
+                  className={`rounded-full px-4 py-1.5 transition-all ${
+                    !addToBalance ? "bg-primary text-white shadow-soft" : "text-foreground hover:bg-surface"
                   }`}
                 >
                   Overwrite
@@ -212,36 +214,36 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
             <input type="hidden" name="add_to_balance" value={addToBalance ? "on" : "off"} />
 
             {data.carryOverHours !== null ? (
-              <p className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-foreground">
+              <p className="rounded-2xl border border-accent/30 bg-accent/10 px-3.5 py-2 text-xs font-medium text-foreground">
                 Balances are capped at {data.carryOverHours}h carry-over from company rules.
               </p>
             ) : null}
 
-            <div className="max-h-80 overflow-y-auto rounded-md border border-border">
+            <div className="max-h-80 overflow-y-auto rounded-2xl border border-border shadow-soft">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-surface text-xs uppercase tracking-[0.12em] text-muted">
                   <tr>
-                    <th className="px-3 py-2 font-semibold">Employee</th>
-                    <th className="px-3 py-2 font-semibold">Hours worked</th>
-                    <th className="px-3 py-2 font-semibold">Accrue (h)</th>
+                    <th className="px-3.5 py-2.5 font-semibold">Employee</th>
+                    <th className="px-3.5 py-2.5 font-semibold">Hours worked</th>
+                    <th className="px-3.5 py-2.5 font-semibold">Accrue (h)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {previewRows.map((row) => (
                     <tr key={row.employee_id} className="border-t border-border">
-                      <td className="px-3 py-2">
+                      <td className="px-3.5 py-2.5">
                         <span className="block break-words font-semibold leading-tight text-foreground">{row.full_name}</span>
-                        <span className="block text-xs text-muted mt-0.5">{row.employee_number}</span>
                       </td>
-                      <td className="px-3 py-2 text-muted">{Number(row.hours_worked).toFixed(2)}h</td>
-                      <td className="px-3 py-2">
+
+                      <td className="px-3.5 py-2.5 text-muted">{Number(row.hours_worked).toFixed(2)}h</td>
+                      <td className="px-3.5 py-2.5">
                         <input
                           name={`accrued_${row.employee_id}`}
                           type="number"
                           min="0"
                           step="0.25"
                           defaultValue={Number(row.accrued_hours).toFixed(2)}
-                          className="h-9 w-24 rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none"
+                          className="h-9 w-24 rounded-full border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                         />
                       </td>
                     </tr>
@@ -252,7 +254,7 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
 
             <button
               disabled={loadPending}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-6 text-sm font-bold text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
             >
               {loadPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               {loadPending ? "Loading..." : addToBalance ? "Add accruals" : "Overwrite balances"}

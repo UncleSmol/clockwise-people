@@ -223,31 +223,31 @@ export default function IntroLoader({
         <section
           aria-busy="true"
           aria-live="polite"
-          className="fixed inset-0 z-50 grid min-h-screen place-items-center px-6 text-foreground"
+          className="fixed inset-0 z-50 grid min-h-screen place-items-center bg-background px-6 text-foreground animate-in fade-in duration-300"
         >
-          <div className="w-full max-w-xl text-center">
+          <div className="w-full max-w-sm sm:max-w-md text-center">
             <BrandMark
               className="mb-8 flex justify-center"
               imageSize={128}
-              imageClassName="card size-28 rounded-2xl border border-border bg-surface p-2 sm:size-32"
-              textClassName="text-sm font-semibold uppercase tracking-[0.18em] text-accent"
+              imageClassName="size-28 sm:size-32 rounded-3xl object-contain"
+              textClassName="text-sm font-bold uppercase tracking-[0.18em] text-primary"
               priority
             />
-            <h1 className="mt-3 text-4xl font-semibold tracking-normal text-primary sm:text-6xl">
+            <h1 className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
               Getting your workspace ready
             </h1>
-            <p className="mx-auto mt-4 max-w-md text-base font-medium text-muted sm:text-lg">
+            <p className="mx-auto mt-2 max-w-xs text-xs sm:text-sm font-medium text-muted">
               {currentLabel}
             </p>
 
-            <div className="mt-8 h-2 overflow-hidden rounded-full bg-surface-muted">
+            <div className="mt-8 h-2 overflow-hidden rounded-full bg-surface-muted shadow-inner">
               <div
                 className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-sm font-medium text-muted">
+            <div className="mt-3 flex items-center justify-between text-xs font-semibold text-muted">
               <span>{progress}% prepared</span>
               <span>
                 {activeResources.length + assetStatus.pending} waiting

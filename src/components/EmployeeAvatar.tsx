@@ -28,7 +28,7 @@ export default function EmployeeAvatar({
   const label = initials(name);
   const defaultClass = className.includes("rounded-")
     ? ""
-    : " rounded-md";
+    : " rounded-full";
   const defaultBorder = className.includes("border-") ? "" : " border border-border";
 
   return (

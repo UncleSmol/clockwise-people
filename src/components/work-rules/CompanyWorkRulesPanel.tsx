@@ -12,6 +12,7 @@ import {
   provisionAllStandardLeaveTypesAction,
   updateAutoLunchClockoutPolicy,
   updateCompanyLeavePolicy,
+  updateCompanyToilPolicy,
   updateLeaveType,
   updateWorkSchedule,
 } from "@/lib/work-rules/actions";
@@ -21,6 +22,7 @@ import {
   type WorkSchedule,
 } from "@/lib/work-rules/schema";
 import CompanyPayrollRulesSection from "./CompanyPayrollRulesSection";
+import AnalogTimePicker from "@/components/AnalogTimePicker";
 
 type CompanyWorkRulesPanelProps = {
   data: CompanyWorkRulesData;
@@ -91,6 +93,17 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
     updateCompanyLeavePolicy,
     initialState,
   );
+  const [toilState, toilAction, toilPending] = useActionState(
+    updateCompanyToilPolicy,
+    initialState,
+  );
+
+  const [toilEnabled, setToilEnabled] = useState(Boolean(data.toilEnabled));
+  const [toilMultiplier, setToilMultiplier] = useState(
+    data.toilMultiplier !== undefined && data.toilMultiplier !== null
+      ? String(data.toilMultiplier)
+      : "1.5",
+  );
 
   const [useItOrLoseIt, setUseItOrLoseIt] = useState(Boolean(data.useItOrLoseItEnabled));
   const [carryCap, setCarryCap] = useState(
@@ -137,7 +150,8 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
     assignState.message ||
     holidayState.message ||
     lunchPolicyState.message ||
-    leavePolicyState.message;
+    leavePolicyState.message ||
+    toilState.message;
   const messageOk = scheduleState.message
     ? scheduleState.ok
     : updateScheduleState.message
@@ -291,22 +305,20 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 />
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <label className="grid gap-1">
+                <div className="grid gap-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start</span>
-                  <input
+                  <AnalogTimePicker
                     name="start_time"
-                    type="time"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                    placeholder="Start time"
                   />
-                </label>
-                <label className="grid gap-1">
+                </div>
+                <div className="grid gap-1">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">End</span>
-                  <input
+                  <AnalogTimePicker
                     name="end_time"
-                    type="time"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                    placeholder="End time"
                   />
-                </label>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="grid gap-1">
@@ -736,7 +748,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                   </label>
                   <span
                     className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                      preventAdditive ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-600"
+                      preventAdditive ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-slate-100 text-slate-600"
                     }`}
                   >
                     {preventAdditive ? "Overwrite" : "Additive"}
@@ -749,6 +761,135 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
 
               <div className="border-t border-border/60 pt-2.5 text-[11px] text-muted">
                 <span>Isolates balance modifications strictly to this company.</span>
+              </div>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* TOIL (Time Off In Lieu) Engine Card (Togglable setting on company setup, off by default) */}
+      {(activeSection === "all" || activeSection === "leave_rules") && (
+        <form
+          action={toilAction}
+          className="grid gap-4 rounded-xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 font-bold">
+                ⚡
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2 flex-wrap">
+                  <span>Time Off In Lieu (TOIL) Engine</span>
+                  <span
+                    className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                      toilEnabled
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : "bg-slate-100 text-slate-600 border border-slate-200"
+                    }`}
+                  >
+                    {toilEnabled ? "Engine Enabled" : "Off by Default (Disabled)"}
+                  </span>
+                </h3>
+                <p className="text-xs text-muted">
+                  BCEA Section 10(3)(b) Overtime Compensation: Allow employees to convert approved overtime hours into banked TOIL leave.
+                </p>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={toilPending}
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all cursor-pointer"
+            >
+              <span>{toilPending ? "Saving..." : "Save TOIL Engine Settings"}</span>
+            </button>
+          </div>
+
+          {toilState.message && (
+            <p
+              className={`text-xs font-bold p-2.5 rounded-lg border ${
+                toilState.ok
+                  ? "text-emerald-800 bg-emerald-500/15 border-emerald-500/30"
+                  : "text-rose-800 bg-rose-500/15 border-rose-500/30"
+              }`}
+            >
+              {toilState.ok ? "✓ " : "✕ "}
+              {toilState.message}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* Setting 1: Enable / Disable TOIL Engine Toggle */}
+            <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-foreground">
+                    <input
+                      type="checkbox"
+                      name="toil_enabled"
+                      checked={toilEnabled}
+                      onChange={(e) => setToilEnabled(e.target.checked)}
+                      className="size-4 rounded border-border text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Enable TOIL Feature &amp; Calculations</span>
+                  </label>
+                  <span
+                    className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                      toilEnabled ? "bg-amber-100 text-amber-900" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {toilEnabled ? "Active" : "Disabled"}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs text-muted leading-relaxed">
+                  When enabled, employees can convert overtime into TOIL leave, request time off against their TOIL bank, and view TOIL balances. When disabled (default), all TOIL options, cards, and conversion calculators are completely hidden across the entire application.
+                </p>
+              </div>
+
+              <div className="border-t border-border/60 pt-2 text-[11px] text-muted font-medium">
+                {toilEnabled
+                  ? "✓ TOIL conversion forms, buttons, and leave type visible to staff"
+                  : "🔒 All TOIL UI elements and database conversions locked & hidden"}
+              </div>
+            </div>
+
+            {/* Setting 2: TOIL Accrual Multiplier */}
+            <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-xs text-foreground">
+                    TOIL Accrual Multiplier
+                  </span>
+                  <span className="rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-mono font-bold text-slate-700">
+                    BCEA Standard: 1.5×
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs text-muted leading-relaxed">
+                  Number of hours granted in lieu for every 1 hour of approved overtime. Under South African BCEA Section 10(3)(b), the standard rate is 1.5&times;.
+                </p>
+              </div>
+
+              <div className="grid gap-1.5 border-t border-border/60 pt-2.5">
+                <span className="text-[11px] font-semibold text-muted">
+                  Conversion Rate Multiplier
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    name="accrual_multiplier"
+                    value={toilMultiplier}
+                    onChange={(e) => setToilMultiplier(e.target.value)}
+                    min="1"
+                    max="3"
+                    step="0.1"
+                    placeholder="1.5"
+                    disabled={!toilEnabled}
+                    className="h-8 w-28 rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-hidden font-mono disabled:opacity-50"
+                  />
+                  <span className="text-xs text-muted">
+                    {toilMultiplier ? `(${Number(toilMultiplier).toFixed(2)}h TOIL per 1h Overtime)` : "1.5×"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -933,24 +1074,24 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                         />
                       </label>
                       <div className="grid grid-cols-2 gap-1.5">
-                        <label className="grid gap-1">
+                        <div className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Start</span>
-                          <input
+                          <AnalogTimePicker
                             name="start_time"
-                            type="time"
                             defaultValue={timeValue(firstWorkingDay(schedule)?.start_time)}
-                            className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                            compact
+                            className="flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 hover:border-primary/50"
                           />
-                        </label>
-                        <label className="grid gap-1">
+                        </div>
+                        <div className="grid gap-1">
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">End</span>
-                          <input
+                          <AnalogTimePicker
                             name="end_time"
-                            type="time"
                             defaultValue={timeValue(firstWorkingDay(schedule)?.end_time)}
-                            className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                            compact
+                            className="flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 hover:border-primary/50"
                           />
-                        </label>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         <label className="grid gap-1">

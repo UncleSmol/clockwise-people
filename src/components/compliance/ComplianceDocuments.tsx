@@ -508,24 +508,24 @@ export default function ComplianceDocuments() {
   }, [activeCategory, searchQuery]);
 
   return (
-    <div className="grid min-w-0 gap-5">
+    <div className="grid min-w-0 gap-4 sm:gap-5">
       {/* Top Banner & Governance Header */}
-      <div className="rounded-xl border-2 border-slate-900 bg-slate-950 p-4 sm:p-6 text-white shadow-md">
+      <div className="card-hero-green rounded-2xl p-4 sm:p-7 text-white shadow-soft overflow-hidden">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-white/30">
                 <ShieldCheck className="size-3.5" />
                 Statutory Verified
               </span>
-              <span className="text-xs font-bold text-slate-400">
+              <span className="text-xs font-bold text-white/80">
                 POPIA · BCEA · LRA · RICA · OHSA · GDPR Aligned
               </span>
             </div>
-            <h1 className="mt-2 text-xl font-black sm:text-2xl lg:text-3xl text-white">
+            <h1 className="mt-2 text-lg sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
               Legal Compliance, Privacy &amp; Governance Center
             </h1>
-            <p className="mt-1 max-w-3xl text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p className="mt-1 max-w-3xl text-xs sm:text-sm text-white/90 leading-relaxed font-normal">
               Authoritative documentation of statutory labor frameworks, data privacy safeguards,
               work-hours geolocation boundaries, and institutional compliance standards adhered to by ClockWise People.
             </p>
@@ -536,7 +536,7 @@ export default function ComplianceDocuments() {
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-emerald-700 transition-all"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white text-emerald-900 px-3.5 py-1.5 text-xs font-bold shadow-soft hover:bg-emerald-50 transition-all cursor-pointer"
               title="Print policy handbook"
             >
               <Printer className="size-3.5" />
@@ -545,7 +545,7 @@ export default function ComplianceDocuments() {
             <button
               type="button"
               onClick={expandedPolicies.size === comprehensivePolicies.length ? collapseAll : expandAll}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-extrabold text-slate-200 hover:bg-slate-800 transition-all"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition-all shadow-soft cursor-pointer"
             >
               <Layers className="size-3.5" />
               <span>{expandedPolicies.size === comprehensivePolicies.length ? "Collapse All" : "Expand All"}</span>
@@ -554,34 +554,34 @@ export default function ComplianceDocuments() {
         </div>
 
         {/* Regulatory Authorities Quick Chips */}
-        <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-slate-800 pt-3 text-[11px]">
-          <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] mr-1">
+        <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-white/20 pt-3 text-[11px]">
+          <span className="font-bold text-white/80 uppercase tracking-wider text-[10px] mr-1">
             Governing Authorities:
           </span>
-          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            <Building2 className="size-3 text-slate-400" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-0.5 font-semibold text-white border border-white/20">
+            <Building2 className="size-3 text-white/80" />
             Information Regulator (POPIA)
           </span>
-          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            <Scale className="size-3 text-slate-400" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-0.5 font-semibold text-white border border-white/20">
+            <Scale className="size-3 text-white/80" />
             Department of Employment &amp; Labour (BCEA/OHSA)
           </span>
-          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            <FileText className="size-3 text-slate-400" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-0.5 font-semibold text-white border border-white/20">
+            <FileText className="size-3 text-white/80" />
             CCMA (LRA Schedule 8)
           </span>
-          <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 font-semibold text-slate-200 border border-slate-800">
-            <ShieldCheck className="size-3 text-slate-400" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-black/20 px-2.5 py-0.5 font-semibold text-white border border-white/20">
+            <ShieldCheck className="size-3 text-white/80" />
             SARS Tax Admin Act (Sec 29)
           </span>
         </div>
       </div>
 
       {/* Interactive Category & Search Bar */}
-      <div className="grid gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4 shadow-2xs">
+      <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-3 sm:p-4 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Category Pill Navigation */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0">
             {(
               [
                 ["all", "All Policies", ShieldCheck],
@@ -598,10 +598,10 @@ export default function ComplianceDocuments() {
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-extrabold transition-all whitespace-nowrap ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     isActive
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-background border border-border text-muted hover:bg-surface-muted hover:text-foreground"
+                      ? "bg-primary text-white shadow-soft"
+                      : "bg-surface-muted text-muted hover:bg-surface hover:text-foreground"
                   }`}
                 >
                   <Icon className="size-3.5" />
@@ -612,14 +612,14 @@ export default function ComplianceDocuments() {
           </div>
 
           {/* Search Query Input */}
-          <div className="flex h-10 min-h-[40px] min-w-[220px] items-center gap-2.5 rounded-lg border border-border bg-background px-3.5 text-xs font-bold text-foreground focus-within:border-slate-900 focus-within:ring-1 focus-within:ring-slate-900 transition-colors">
-            <Search className="size-4 shrink-0 text-muted" />
+          <div className="flex h-9 sm:h-10 min-w-0 sm:min-w-[220px] items-center gap-2 rounded-full border border-border bg-background px-3 sm:px-4 text-xs font-bold text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary shadow-soft transition-colors">
+            <Search className="size-3.5 sm:size-4 shrink-0 text-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search compliance clauses..."
-              className="min-w-0 flex-1 bg-transparent py-2 text-xs font-bold text-foreground placeholder:text-muted outline-none border-0"
+              className="min-w-0 flex-1 bg-transparent py-1.5 text-xs font-bold text-foreground placeholder:text-muted outline-none border-0"
             />
             {searchQuery ? (
               <button
@@ -636,9 +636,9 @@ export default function ComplianceDocuments() {
       </div>
 
       {/* Policies Roster */}
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:gap-4">
         {filteredPolicies.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-border bg-surface p-8 text-center text-xs font-semibold text-muted">
+          <div className="rounded-2xl border-2 border-dashed border-border bg-surface p-8 text-center text-xs font-semibold text-muted shadow-soft">
             No compliance policy clauses matched your search query &ldquo;{searchQuery}&rdquo;.
           </div>
         ) : (
@@ -648,117 +648,137 @@ export default function ComplianceDocuments() {
             return (
               <article
                 key={policy.id}
-                className="overflow-hidden rounded-xl border-2 border-border bg-surface shadow-2xs transition-all hover:border-slate-400"
+                className="overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-xs transition-all hover:border-border hover:shadow-sm"
               >
                 {/* Policy Accordion Header */}
                 <div
                   onClick={() => togglePolicy(policy.id)}
-                  className="flex cursor-pointer flex-col gap-3 p-4 sm:p-5 hover:bg-surface-muted/40 transition-colors"
+                  className="flex cursor-pointer flex-col gap-2.5 p-3.5 sm:p-5 hover:bg-surface-muted/40 transition-colors select-none"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="rounded bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span className="inline-flex items-center rounded-full bg-surface-muted px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-muted border border-border/60">
                           {policy.categoryLabel}
                         </span>
-                        <span className="rounded bg-emerald-100 px-2 py-0.5 text-[9px] font-extrabold text-emerald-950 border border-emerald-300">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 text-[9px] font-extrabold text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <ShieldCheck className="size-3 shrink-0" />
                           {policy.badge}
                         </span>
                       </div>
-                      <h2 className="text-base sm:text-lg font-black text-foreground">
+                      <h2 className="text-sm sm:text-lg font-black text-foreground tracking-tight leading-snug">
                         {policy.title}
                       </h2>
-                      <p className="mt-0.5 text-xs sm:text-sm text-muted">
+                      <p className="mt-1 text-xs sm:text-sm text-muted leading-relaxed font-normal">
                         {policy.subtitle}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        aria-label="Toggle policy details"
-                        className="flex size-8 items-center justify-center rounded-lg border border-border bg-background text-muted hover:text-foreground"
+                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                      <div
+                        className={`grid size-7 sm:size-8 place-items-center rounded-full border border-border bg-surface text-foreground shadow-2xs transition-transform duration-200 ${
+                          isExpanded ? "rotate-180 bg-surface-muted" : ""
+                        }`}
                       >
-                        <ChevronDown
-                          className={`size-4 transition-transform duration-200 ${
-                            isExpanded ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
+                        <ChevronDown className="size-3.5 sm:size-4" />
+                      </div>
                     </div>
                   </div>
 
                   {/* Statutory Authority Line */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5 text-[11px] text-muted">
-                    <div className="flex items-center gap-1.5 font-bold">
-                      <Scale className="size-3.5 text-accent shrink-0" />
-                      <span>Statutory Reference:</span>
-                      <span className="font-extrabold text-foreground">{policy.statutoryBasis}</span>
+                  <div className="mt-0.5 flex flex-col gap-2 rounded-xl bg-surface-muted/50 border border-border/50 p-2.5 sm:flex-row sm:items-center sm:justify-between text-[11px]">
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      <div className="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 mt-0.5">
+                        <Scale className="size-3" />
+                      </div>
+                      <div className="min-w-0 leading-relaxed">
+                        <span className="font-bold text-muted uppercase text-[9px] tracking-wider block sm:inline sm:mr-1">
+                          Statutory Reference:
+                        </span>
+                        <span className="font-extrabold text-foreground text-xs sm:text-[11px]">
+                          {policy.statutoryBasis}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
-                      <span>Audited: {policy.lastAudited}</span>
+                    <div className="inline-flex items-center gap-1.5 self-start sm:self-center shrink-0 rounded-md bg-surface px-2 py-0.5 text-[10px] font-medium text-muted border border-border/60 shadow-2xs">
+                      <Clock className="size-3 text-muted" />
+                      <span>Audited: <strong className="text-foreground font-bold">{policy.lastAudited}</strong></span>
                     </div>
                   </div>
                 </div>
 
                 {/* Expanded Policy Body */}
                 {isExpanded && (
-                  <div className="border-t-2 border-border/80 bg-background/50 p-4 sm:p-5 grid gap-4 text-xs sm:text-sm leading-relaxed">
+                  <div className="border-t border-border bg-slate-50/70 dark:bg-slate-900/30 p-3 sm:p-5 grid gap-4 text-xs sm:text-sm leading-relaxed">
                     {/* Key Statutory Clauses List */}
                     <div className="grid gap-2.5">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                        <BookOpen className="size-3.5 text-accent" />
-                        Key Compliance Provisions &amp; Clauses
-                      </h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                          <BookOpen className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Key Compliance Provisions &amp; Clauses</span>
+                        </h3>
+                        <span className="text-[10px] font-bold text-muted">
+                          {policy.keyPoints.length} core clauses
+                        </span>
+                      </div>
+
                       <div className="grid gap-2">
                         {policy.keyPoints.map((point, idx) => (
                           <div
                             key={idx}
-                            className="rounded-lg border border-border bg-surface p-3 shadow-2xs"
+                            className="rounded-xl border border-border/80 bg-surface p-3 sm:p-4 shadow-2xs hover:border-border transition-colors"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1">
-                              <h4 className="font-extrabold text-foreground flex items-center gap-2">
-                                <span className="flex size-4.5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-black text-white shrink-0">
-                                  {idx + 1}
-                                </span>
-                                {point.heading}
-                              </h4>
-                              {point.statutoryRef && (
-                                <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200">
-                                  {point.statutoryRef}
-                                </span>
-                              )}
+                            <div className="flex items-start gap-2.5 sm:gap-3">
+                              {/* Number Badge */}
+                              <span className="flex size-5 sm:size-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] sm:text-[11px] font-black text-white shadow-2xs mt-0.5">
+                                {idx + 1}
+                              </span>
+
+                              {/* Clause Details */}
+                              <div className="min-w-0 flex-1 space-y-1.5">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                  <h4 className="font-extrabold text-xs sm:text-sm text-foreground leading-snug">
+                                    {point.heading}
+                                  </h4>
+                                  {point.statutoryRef && (
+                                    <span className="inline-flex items-center self-start sm:self-center shrink-0 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                      {point.statutoryRef}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="text-xs text-foreground/80 dark:text-slate-300 leading-relaxed font-normal">
+                                  {point.description}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-xs text-muted pl-6 leading-relaxed">
-                              {point.description}
-                            </p>
                           </div>
                         ))}
                       </div>
                     </div>
 
                     {/* Legal Implications & Technical Enforcement Boxes */}
-                    <div className="grid gap-3 sm:grid-cols-2 pt-2">
+                    <div className="grid gap-3 sm:grid-cols-2 pt-1">
                       {policy.legalImplications && (
-                        <div className="rounded-lg border border-amber-300 bg-amber-50/80 p-3 text-xs text-amber-950">
-                          <p className="font-black uppercase tracking-wider text-[10px] text-amber-900 flex items-center gap-1.5 mb-1">
-                            <Scale className="size-3.5 text-amber-800 shrink-0" />
+                        <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 dark:bg-amber-950/30 dark:border-amber-800/60 p-3 sm:p-3.5 text-xs shadow-2xs">
+                          <p className="font-black uppercase tracking-wider text-[10px] text-amber-900 dark:text-amber-300 flex items-center gap-1.5 mb-1.5">
+                            <Scale className="size-3.5 text-amber-800 dark:text-amber-400 shrink-0" />
                             Legal Implications &amp; Employer Protection
                           </p>
-                          <p className="text-amber-900/90 leading-relaxed font-medium">
+                          <p className="text-amber-950 dark:text-amber-200/90 leading-relaxed font-medium">
                             {policy.legalImplications}
                           </p>
                         </div>
                       )}
 
                       {policy.technicalEnforcement && (
-                        <div className="rounded-lg border border-indigo-300 bg-indigo-50/80 p-3 text-xs text-indigo-950">
-                          <p className="font-black uppercase tracking-wider text-[10px] text-indigo-900 flex items-center gap-1.5 mb-1">
-                            <Lock className="size-3.5 text-indigo-800 shrink-0" />
+                        <div className="rounded-xl border border-slate-300/80 bg-slate-100/90 dark:bg-slate-800/40 dark:border-slate-700 p-3 sm:p-3.5 text-xs shadow-2xs">
+                          <p className="font-black uppercase tracking-wider text-[10px] text-slate-900 dark:text-slate-200 flex items-center gap-1.5 mb-1.5">
+                            <Lock className="size-3.5 text-slate-800 dark:text-slate-400 shrink-0" />
                             Technical &amp; Architectural Enforcement
                           </p>
-                          <p className="text-indigo-900/90 leading-relaxed font-medium">
+                          <p className="text-slate-800 dark:text-slate-300 leading-relaxed font-medium">
                             {policy.technicalEnforcement}
                           </p>
                         </div>
@@ -766,16 +786,16 @@ export default function ComplianceDocuments() {
                     </div>
 
                     {/* Oversight Authority Citation */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3 text-[11px] text-muted">
-                      <span className="font-bold">
-                        Regulatory Oversight: <strong className="text-foreground">{policy.authority}</strong>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-3 text-[11px] text-muted">
+                      <span className="font-medium">
+                        Regulatory Oversight: <strong className="text-foreground font-bold">{policy.authority}</strong>
                       </span>
                       {policy.authorityUrl && (
                         <a
                           href={policy.authorityUrl}
                           target="_blank"
                           rel="noreferrer noopener"
-                          className="inline-flex items-center gap-1 font-extrabold text-emerald-700 hover:text-emerald-800 transition-colors"
+                          className="inline-flex items-center gap-1 font-bold text-primary hover:text-primary-hover transition-colors"
                         >
                           Official Regulatory Portal
                           <ExternalLink className="size-3" />
@@ -791,55 +811,55 @@ export default function ComplianceDocuments() {
       </div>
 
       {/* Trusted Regulatory Citations & Statutory References Footnote */}
-      <footer className="rounded-xl border-2 border-slate-300 bg-slate-100 p-4 sm:p-5 text-xs text-slate-800 shadow-2xs">
-        <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 flex items-center gap-2 mb-2">
-          <Building2 className="size-4 text-slate-900" />
+      <footer className="rounded-2xl border border-border/80 bg-surface-muted/50 p-4 sm:p-6 text-xs text-foreground shadow-2xs">
+        <h3 className="font-black text-sm uppercase tracking-wider text-foreground flex items-center gap-2 mb-2">
+          <Building2 className="size-4 text-emerald-600 dark:text-emerald-400" />
           Authoritative Legal Gazette &amp; Statutory Repository References
         </h3>
-        <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+        <p className="text-xs text-muted mb-3.5 leading-relaxed">
           The compliance rules, leave accrual formulas, overtime rate calculations, and data privacy controls
           implemented within ClockWise People adhere strictly to the following gazetted statutes:
         </p>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-[11px]">
-          <div className="rounded-lg bg-white p-2.5 border border-slate-300">
-            <p className="font-extrabold text-slate-900">POPIA (Act No. 4 of 2013)</p>
-            <p className="text-slate-600 mt-0.5">Government Gazette No. 37067</p>
-            <p className="text-[10px] text-emerald-700 font-bold mt-1">Information Regulator of South Africa</p>
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 text-[11px]">
+          <div className="rounded-xl bg-surface p-3 border border-border/80 shadow-2xs">
+            <p className="font-extrabold text-foreground">POPIA (Act No. 4 of 2013)</p>
+            <p className="text-muted mt-0.5">Government Gazette No. 37067</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1.5">Information Regulator of South Africa</p>
           </div>
 
-          <div className="rounded-lg bg-white p-2.5 border border-slate-300">
-            <p className="font-extrabold text-slate-900">BCEA (Act No. 75 of 1997)</p>
-            <p className="text-slate-600 mt-0.5">As amended by Acts 11 of 2002 &amp; 20 of 2013</p>
-            <p className="text-[10px] text-emerald-700 font-bold mt-1">Department of Employment and Labour</p>
+          <div className="rounded-xl bg-surface p-3 border border-border/80 shadow-2xs">
+            <p className="font-extrabold text-foreground">BCEA (Act No. 75 of 1997)</p>
+            <p className="text-muted mt-0.5">As amended by Acts 11 of 2002 &amp; 20 of 2013</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1.5">Department of Employment and Labour</p>
           </div>
 
-          <div className="rounded-lg bg-white p-2.5 border border-slate-300">
-            <p className="font-extrabold text-slate-900">LRA (Act No. 66 of 1995)</p>
-            <p className="text-slate-600 mt-0.5">Schedule 8 Code of Good Practice: Dismissal</p>
-            <p className="text-[10px] text-emerald-700 font-bold mt-1">CCMA National Rules</p>
+          <div className="rounded-xl bg-surface p-3 border border-border/80 shadow-2xs">
+            <p className="font-extrabold text-foreground">LRA (Act No. 66 of 1995)</p>
+            <p className="text-muted mt-0.5">Schedule 8 Code of Good Practice: Dismissal</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1.5">CCMA National Rules</p>
           </div>
 
-          <div className="rounded-lg bg-white p-2.5 border border-slate-300">
-            <p className="font-extrabold text-slate-900">RICA (Act No. 70 of 2002)</p>
-            <p className="text-slate-600 mt-0.5">Sections 4, 5, and 6 (Workplace Notice)</p>
-            <p className="text-[10px] text-emerald-700 font-bold mt-1">Department of Justice</p>
+          <div className="rounded-xl bg-surface p-3 border border-border/80 shadow-2xs">
+            <p className="font-extrabold text-foreground">RICA (Act No. 70 of 2002)</p>
+            <p className="text-muted mt-0.5">Sections 4, 5, and 6 (Workplace Notice)</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1.5">Department of Justice</p>
           </div>
 
-          <div className="rounded-lg bg-white p-2.5 border border-slate-300">
-            <p className="font-extrabold text-slate-900">OHSA (Act No. 85 of 1993)</p>
-            <p className="text-slate-600 mt-0.5">General Safety Regulations &amp; Section 8 Duty</p>
-            <p className="text-[10px] text-emerald-700 font-bold mt-1">DoEL Chief Inspectorate</p>
+          <div className="rounded-xl bg-surface p-3 border border-border/80 shadow-2xs">
+            <p className="font-extrabold text-foreground">OHSA (Act No. 85 of 1993)</p>
+            <p className="text-muted mt-0.5">General Safety Regulations &amp; Section 8 Duty</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1.5">DoEL Chief Inspectorate</p>
           </div>
 
-          <div className="rounded-lg bg-white p-2.5 border border-slate-300">
-            <p className="font-extrabold text-slate-900">Tax Administration Act (Act 28 of 2011)</p>
-            <p className="text-slate-600 mt-0.5">Section 29 (5-Year Statutory Archival Rule)</p>
-            <p className="text-[10px] text-emerald-700 font-bold mt-1">South African Revenue Service (SARS)</p>
+          <div className="rounded-xl bg-surface p-3 border border-border/80 shadow-2xs">
+            <p className="font-extrabold text-foreground">Tax Administration Act (Act 28 of 2011)</p>
+            <p className="text-muted mt-0.5">Section 29 (5-Year Statutory Archival Rule)</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1.5">South African Revenue Service (SARS)</p>
           </div>
         </div>
 
-        <p className="mt-3 text-[10px] text-slate-500 italic">
+        <p className="mt-3 text-[10px] text-muted italic">
           Disclaimer: This policy center provides a structural summary of statutory compliance frameworks implemented by the software.
           Individual employment agreements and sector-specific bargaining council collective agreements may specify additional terms.
         </p>

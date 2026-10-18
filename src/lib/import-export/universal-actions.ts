@@ -12,6 +12,13 @@ import {
   type SpreadsheetInspectionResult,
 } from "./universal-parser";
 import { getOrGenerateNextPayrollId } from "@/lib/employees/payroll-id";
+import {
+  validateMediaFile,
+  sanitizeSpreadsheetFormula,
+  sanitizeString,
+  sanitizeMultilineText,
+} from "@/lib/security/sanitizer";
+
 
 export type MappedRowStatus = "valid" | "warning" | "error";
 
@@ -86,6 +93,20 @@ export async function inspectSpreadsheetAction(
       };
     }
 
+    // Binary Magic-Bytes & Extension Validation
+    const validation = await validateMediaFile(file, "spreadsheet");
+    if (!validation.ok) {
+      return {
+        ok: false,
+        message: validation.error || "Invalid spreadsheet file format. Allowed formats: .xlsx, .xls, .csv.",
+        sheetNames: [],
+        selectedSheet: "",
+        headers: [],
+        sampleRows: [],
+        suggestedMappings: {},
+      };
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -133,11 +154,30 @@ export async function previewMappedImportAction(
       };
     }
 
+    // Binary Magic-Bytes & Extension Validation
+    const validation = await validateMediaFile(file, "spreadsheet");
+    if (!validation.ok) {
+      return {
+        ok: false,
+        message: validation.error || "Invalid spreadsheet file format. Allowed formats: .xlsx, .xls, .csv.",
+        targetEntity,
+        totalRows: 0,
+        validCount: 0,
+        warningCount: 0,
+        errorCount: 0,
+        unmatchedEmployees: [],
+        unmatchedWorkstations: [],
+        unmatchedLeaveTypes: [],
+        rows: [],
+      };
+    }
+
     const [{ company }, access, supabase] = await Promise.all([
       getActiveCompany(),
       getCurrentUserAccess(),
       createSupabaseServerClient(),
     ]);
+
 
     if (!access.canManageCompany && !access.canReviewBranchTime) {
       return {
@@ -650,29 +690,30 @@ export async function executeMappedImportAction(
 
       for (const row of validRows) {
         try {
-          const fullName = row.mappedData["full_name"]?.trim();
+          const fullName = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["full_name"]), 120);
           if (!fullName) {
             errorCount++;
             continue;
           }
 
-          const email = row.mappedData["email"]?.trim() || null;
-          const empNum = row.mappedData["employee_number"]?.trim() || null;
-          const knownAs = row.mappedData["known_as"]?.trim() || null;
-          const phone = row.mappedData["phone_number"]?.trim() || null;
-          const jobTitle = row.mappedData["job_title"]?.trim() || null;
-          const empType = row.mappedData["employment_type"]?.trim() || "full_time";
-          const empStatus = row.mappedData["employment_status"]?.trim() || "active";
+          const email = sanitizeString(row.mappedData["email"], 120) || null;
+          const empNum = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["employee_number"]), 64) || null;
+          const knownAs = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["known_as"]), 80) || null;
+          const phone = sanitizeString(row.mappedData["phone_number"], 40) || null;
+          const jobTitle = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["job_title"]), 100) || null;
+          const empType = sanitizeString(row.mappedData["employment_type"], 40) || "full_time";
+          const empStatus = sanitizeString(row.mappedData["employment_status"], 40) || "active";
           const startDate = (row.resolvedData["start_date"] as string) || new Date().toISOString().split("T")[0];
           const hourlyRate = (row.resolvedData["hourly_rate"] as number) || null;
           const monthlySalary = (row.resolvedData["monthly_salary"] as number) || null;
-          const payrollId = row.mappedData["payroll_identifier"]?.trim() || (await getOrGenerateNextPayrollId(company.id, supabase));
+          const payrollId = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["payroll_identifier"]), 64) || (await getOrGenerateNextPayrollId(company.id, supabase));
 
-          const wsName = row.mappedData["workstation_name"]?.trim() || "";
+          const wsName = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["workstation_name"]), 100) || "";
           const wsId =
             row.matchedWorkstationId ||
             (wsName ? createdWsMap.get(wsName.toLowerCase()) : null) ||
             fallbackWsId;
+
 
           if (!wsId) {
             errorCount++;
@@ -826,8 +867,11 @@ export async function executeMappedImportAction(
           const clockOut = (row.resolvedData["clock_out"] as string) || null;
           const lunchStart = (row.resolvedData["lunch_start"] as string) || null;
           const lunchEnd = (row.resolvedData["lunch_end"] as string) || null;
-          const notes = row.mappedData["notes"]?.trim() || null;
+          const notes = row.mappedData["notes"]
+            ? sanitizeMultilineText(sanitizeSpreadsheetFormula(row.mappedData["notes"]), 1000)
+            : null;
           const entryType = row.mappedData["entry_type"]?.trim() === "leave" ? "leave" : "work";
+
 
           await supabase.from("time_entries").insert({
             company_id: company.id,

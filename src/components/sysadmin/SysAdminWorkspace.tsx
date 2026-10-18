@@ -94,10 +94,10 @@ export default function SysAdminWorkspace({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-surface p-4 shadow-2xs sm:p-6">
+      <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-soft sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-sm">
+            <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-soft">
               <ShieldCheck className="size-6" />
             </div>
             <div className="min-w-0">
@@ -119,7 +119,7 @@ export default function SysAdminWorkspace({
               <button
                 type="button"
                 onClick={() => setIsManageSuperAdminOpen(true)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary shadow-xs transition-colors hover:bg-primary/20 sm:flex-none cursor-pointer"
+                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs font-bold text-primary shadow-soft transition-colors hover:bg-primary/20 sm:flex-none cursor-pointer"
               >
                 <ShieldCheck className="size-4" />
                 Grant Super Admin
@@ -128,7 +128,7 @@ export default function SysAdminWorkspace({
             <button
               type="button"
               onClick={() => setIsCreateCompanyOpen(true)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-primary/90 sm:flex-none cursor-pointer"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 text-xs font-bold text-white shadow-soft transition-colors hover:bg-primary-hover sm:flex-none cursor-pointer"
             >
               <Plus className="size-4" />
               New Company
@@ -136,7 +136,7 @@ export default function SysAdminWorkspace({
             <button
               type="button"
               onClick={() => openAddEmployeeForCompany(activeCompanyId)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted sm:flex-none cursor-pointer"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 py-2.5 text-xs font-bold text-foreground shadow-soft transition-colors hover:bg-surface-muted sm:flex-none cursor-pointer"
             >
               <UserPlus className="size-4 text-primary" />
               Add Employee
@@ -145,7 +145,7 @@ export default function SysAdminWorkspace({
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border/60 bg-surface-muted/50 p-4">
+          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
             <div className="flex items-center justify-between text-xs text-muted">
               <span className="truncate">Total Companies</span>
               <Building2 className="size-4 shrink-0 text-primary" />
@@ -154,7 +154,7 @@ export default function SysAdminWorkspace({
             <div className="mt-0.5 truncate text-[11px] text-muted">Active workspace tenants</div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-surface-muted/50 p-4">
+          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
             <div className="flex items-center justify-between text-xs text-muted">
               <span className="truncate">Total Employees</span>
               <Users className="size-4 shrink-0 text-primary" />
@@ -163,7 +163,7 @@ export default function SysAdminWorkspace({
             <div className="mt-0.5 truncate text-[11px] text-muted">Across all tenants</div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-surface-muted/50 p-4">
+          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
             <div className="flex items-center justify-between text-xs text-muted">
               <span className="truncate">Active Workstations</span>
               <MapPin className="size-4 shrink-0 text-primary" />
@@ -172,7 +172,7 @@ export default function SysAdminWorkspace({
             <div className="mt-0.5 truncate text-[11px] text-muted">Geofenced clock locations</div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-surface-muted/50 p-4">
+          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
             <div className="flex items-center justify-between text-xs text-muted">
               <span className="truncate">RLS Security Policy</span>
               <Lock className="size-4 shrink-0 text-emerald-500" />
@@ -187,7 +187,7 @@ export default function SysAdminWorkspace({
 
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex w-full sm:max-w-md items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-xs text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-colors">
+          <div className="flex w-full sm:max-w-md items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2.5 text-xs text-foreground shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <Search className="size-4 shrink-0 text-muted" />
             <input
               type="text"
@@ -220,17 +220,17 @@ export default function SysAdminWorkspace({
             return (
               <div
                 key={comp.id}
-                className={`relative flex flex-col justify-between rounded-2xl border p-5 transition-all ${isActiveCompany
-                    ? "border-primary/40 bg-primary/[0.03] shadow-sm ring-1 ring-primary/20"
-                    : "border-border bg-surface shadow-2xs hover:border-border/80"
+                className={`relative flex flex-col justify-between rounded-2xl border p-5 transition-all shadow-soft ${isActiveCompany
+                    ? "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/20"
+                    : "border-border/80 bg-surface hover:border-border"
                   }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className={`grid size-11 shrink-0 place-items-center rounded-xl text-sm font-bold ${isActiveCompany
-                            ? "bg-primary text-white"
+                        className={`grid size-11 shrink-0 place-items-center rounded-2xl text-sm font-bold ${isActiveCompany
+                            ? "bg-primary text-white shadow-soft"
                             : "border border-border bg-surface-muted text-foreground"
                           }`}
                       >
@@ -240,7 +240,7 @@ export default function SysAdminWorkspace({
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="break-words leading-tight text-base font-bold text-foreground">{comp.name}</h2>
                           {isActiveCompany ? (
-                            <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                               Active Context
                             </span>
                           ) : null}
@@ -293,7 +293,7 @@ export default function SysAdminWorkspace({
                   <button
                     type="button"
                     onClick={() => openAddEmployeeForCompany(comp.id)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/10 cursor-pointer"
                   >
                     <UserPlus className="size-3.5" />
                     Add Employee
@@ -304,7 +304,7 @@ export default function SysAdminWorkspace({
                       type="button"
                       disabled={isPending}
                       onClick={() => handleSwitchCompany(comp.id)}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-surface-muted disabled:opacity-50"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground shadow-soft transition-colors hover:bg-surface-muted disabled:opacity-50 cursor-pointer"
                     >
                       <span>Switch Context</span>
                       <ArrowRight className="size-3.5 text-muted" />
@@ -321,7 +321,7 @@ export default function SysAdminWorkspace({
         </div>
 
         {filteredCompanies.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted sm:p-12">
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted sm:p-12 shadow-soft">
             <Building2 className="mx-auto mb-3 size-10 text-muted/60" />
             <p className="text-sm font-medium">No companies match your search.</p>
           </div>
@@ -329,7 +329,7 @@ export default function SysAdminWorkspace({
       </div>
 
       {/* Super Administrator Directory Section */}
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-2xs space-y-4">
+      <div className="rounded-2xl border border-border/80 bg-surface p-5 shadow-soft space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -348,7 +348,7 @@ export default function SysAdminWorkspace({
             <button
               type="button"
               onClick={() => setIsManageSuperAdminOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-soft hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <UserPlus className="size-3.5" />
               <span>Grant Super Admin</span>
@@ -364,7 +364,7 @@ export default function SysAdminWorkspace({
             return (
               <div
                 key={admin.email}
-                className="flex flex-col justify-between rounded-xl border border-border bg-surface-muted/30 p-4 space-y-3"
+                className="flex flex-col justify-between rounded-2xl border border-border/80 bg-surface-muted/30 p-4 space-y-3 shadow-soft"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
@@ -378,11 +378,11 @@ export default function SysAdminWorkspace({
                     </div>
 
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                      className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                         isDoctor
                           ? "bg-amber-500/15 text-amber-800 border border-amber-500/30"
                           : isSizwe
-                            ? "bg-blue-500/15 text-blue-800 border border-blue-500/30"
+                            ? "bg-slate-800 text-white border border-slate-700"
                             : "bg-emerald-500/15 text-emerald-800 border border-emerald-500/30"
                       }`}
                     >
@@ -430,6 +430,7 @@ export default function SysAdminWorkspace({
           })}
         </div>
       </div>
+
 
       <div className="rounded-2xl border border-border bg-surface-muted/30 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">

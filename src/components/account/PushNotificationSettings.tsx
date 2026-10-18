@@ -151,9 +151,9 @@ export default function PushNotificationSettings() {
 
         {/* Status Badge */}
         <span
-          className={`inline-flex w-max items-center gap-1.5 rounded px-2.5 py-1 text-xs font-black uppercase tracking-wider shadow-2xs ${
+          className={`inline-flex w-max items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider shadow-2xs ${
             isGranted
-              ? "bg-emerald-600 text-white"
+              ? "bg-[#2E9B5F] text-white"
               : isDenied
                 ? "bg-rose-600 text-white"
                 : "bg-amber-500 text-white"
@@ -180,7 +180,7 @@ export default function PushNotificationSettings() {
 
       {statusMessage && (
         <div
-          className={`rounded-md border p-3 text-xs font-bold ${
+          className={`rounded-2xl border p-3 text-xs font-bold ${
             isGranted
               ? "border-emerald-300 bg-emerald-50 text-emerald-950"
               : "border-rose-300 bg-rose-50 text-rose-950"
@@ -192,7 +192,7 @@ export default function PushNotificationSettings() {
 
       {/* Permission Block Banner / Action */}
       {!isGranted && !isDenied && (
-        <div className="rounded-lg border-2 border-amber-300 bg-amber-50/60 p-3.5 shadow-2xs">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/60 p-4 shadow-soft">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-black text-amber-950">
@@ -206,7 +206,7 @@ export default function PushNotificationSettings() {
               type="button"
               disabled={loading}
               onClick={requestNotificationPermission}
-              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-slate-900 px-4 py-2 text-xs font-extrabold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50"
+              className="btn btn-primary rounded-full px-5 py-2 text-xs font-bold shadow-primary disabled:opacity-50"
             >
               <Bell className="size-3.5" />
               {loading ? "Enabling..." : "Enable Push Notifications"}
@@ -232,19 +232,19 @@ export default function PushNotificationSettings() {
           Notification Preferences
         </p>
 
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           {/* Clock In / Out Reminders */}
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-white p-2.5 shadow-2xs transition-all hover:bg-slate-50">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition-all hover:bg-surface-muted">
             <input
               type="checkbox"
               checked={preferences.clockReminders}
               onChange={(e) =>
                 savePreferences({ ...preferences, clockReminders: e.target.checked })
               }
-              className="mt-0.5 size-4 accent-slate-900"
+              className="mt-0.5 size-4 accent-[#2E9B5F]"
             />
             <div className="min-w-0">
-              <p className="flex items-center gap-1 text-xs font-extrabold text-foreground">
+              <p className="flex items-center gap-1 text-xs font-bold text-foreground">
                 <Clock className="size-3 text-accent" />
                 Shift Reminders
               </p>
@@ -255,17 +255,17 @@ export default function PushNotificationSettings() {
           </label>
 
           {/* Timesheet Alerts */}
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-white p-2.5 shadow-2xs transition-all hover:bg-slate-50">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition-all hover:bg-surface-muted">
             <input
               type="checkbox"
               checked={preferences.timesheetAlerts}
               onChange={(e) =>
                 savePreferences({ ...preferences, timesheetAlerts: e.target.checked })
               }
-              className="mt-0.5 size-4 accent-slate-900"
+              className="mt-0.5 size-4 accent-[#2E9B5F]"
             />
             <div className="min-w-0">
-              <p className="flex items-center gap-1 text-xs font-extrabold text-foreground">
+              <p className="flex items-center gap-1 text-xs font-bold text-foreground">
                 <FileCheck className="size-3 text-accent" />
                 Timesheet Alerts
               </p>
@@ -276,17 +276,17 @@ export default function PushNotificationSettings() {
           </label>
 
           {/* Approvals & Leave */}
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-white p-2.5 shadow-2xs transition-all hover:bg-slate-50">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl border border-border bg-surface p-3.5 shadow-soft transition-all hover:bg-surface-muted">
             <input
               type="checkbox"
               checked={preferences.approvals}
               onChange={(e) =>
                 savePreferences({ ...preferences, approvals: e.target.checked })
               }
-              className="mt-0.5 size-4 accent-slate-900"
+              className="mt-0.5 size-4 accent-[#2E9B5F]"
             />
             <div className="min-w-0">
-              <p className="flex items-center gap-1 text-xs font-extrabold text-foreground">
+              <p className="flex items-center gap-1 text-xs font-bold text-foreground">
                 <CheckCircle2 className="size-3 text-accent" />
                 Approvals &amp; Leave
               </p>
@@ -307,7 +307,7 @@ export default function PushNotificationSettings() {
           <button
             type="button"
             onClick={sendTestNotification}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white px-3 py-1.5 text-xs font-extrabold text-foreground hover:bg-slate-50 shadow-2xs"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted hover:border-primary shadow-2xs transition-colors"
           >
             <Send className="size-3 text-accent" />
             Send Test Notification

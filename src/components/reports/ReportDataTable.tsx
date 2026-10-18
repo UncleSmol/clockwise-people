@@ -75,10 +75,10 @@ export default function ReportDataTable<TData>({
   return (
     <div className="space-y-4">
       {/* Table Header Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface p-3.5 sm:p-4 rounded-xl border border-border">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface p-4 sm:p-5 rounded-2xl border border-border/80 shadow-soft">
         <div>
           {title && (
-            <h3 className="text-sm sm:text-base font-bold text-foreground">
+            <h3 className="text-sm sm:text-base font-extrabold text-foreground">
               {title}
             </h3>
           )}
@@ -91,7 +91,7 @@ export default function ReportDataTable<TData>({
           {filterComponent}
 
           {/* Search Box */}
-          <div className="flex w-full sm:w-64 items-center gap-2 rounded-xl border border-border bg-surface-muted/50 px-3 py-1.5 text-xs text-foreground focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-colors">
+          <div className="flex w-full sm:w-64 items-center gap-2 rounded-full border border-border/80 bg-background/80 px-3.5 py-2 text-xs text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary shadow-xs transition-colors">
             <Search className="size-3.5 shrink-0 text-muted" />
             <input
               type="text"
@@ -115,7 +115,7 @@ export default function ReportDataTable<TData>({
       </div>
 
       {/* Table Container */}
-      <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-2xs">
+      <div className="rounded-2xl border border-border/80 bg-surface overflow-hidden shadow-soft">
         {/* Mobile Compact View: Zero horizontal scrolling on all phone screens */}
         <div className="md:hidden divide-y divide-border/60">
           {table.getRowModel().rows.length === 0 ? (
@@ -270,11 +270,11 @@ export default function ReportDataTable<TData>({
         </div>
 
         {/* Pagination & Row Count Footer */}
-        <div className="p-3 sm:p-4 border-t border-border bg-slate-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted">
+        <div className="p-3.5 sm:p-4 border-t border-border/70 bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted">
           <div className="flex items-center gap-2">
             <span>
               Showing{" "}
-              <span className="font-semibold text-foreground">
+              <span className="font-bold text-foreground">
                 {table.getRowModel().rows.length > 0
                   ? table.getState().pagination.pageIndex *
                       table.getState().pagination.pageSize +
@@ -282,7 +282,7 @@ export default function ReportDataTable<TData>({
                   : 0}
               </span>{" "}
               to{" "}
-              <span className="font-semibold text-foreground">
+              <span className="font-bold text-foreground">
                 {Math.min(
                   (table.getState().pagination.pageIndex + 1) *
                     table.getState().pagination.pageSize,
@@ -290,18 +290,18 @@ export default function ReportDataTable<TData>({
                 )}
               </span>{" "}
               of{" "}
-              <span className="font-semibold text-foreground">
+              <span className="font-bold text-foreground">
                 {table.getFilteredRowModel().rows.length}
               </span>{" "}
               entries
             </span>
 
             <div className="flex items-center gap-1.5 ml-4">
-              <span className="text-[11px]">Rows:</span>
+              <span className="text-[11px] font-semibold">Rows:</span>
               <select
                 value={table.getState().pagination.pageSize}
                 onChange={(e) => table.setPageSize(Number(e.target.value))}
-                className="px-2 py-1 text-xs rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:border-emerald-500"
+                className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-xs font-semibold"
               >
                 {pageSizeOptions.map((sz) => (
                   <option key={sz} value={sz}>
@@ -317,7 +317,7 @@ export default function ReportDataTable<TData>({
               type="button"
               onClick={() => table.setPageIndex(0)}
               disabled={!table.getCanPreviousPage()}
-              className="p-1.5 rounded-lg border border-border hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-full border border-border/80 hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-xs"
               title="First page"
             >
               <ChevronsLeft className="size-3.5" />
@@ -326,12 +326,12 @@ export default function ReportDataTable<TData>({
               type="button"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="p-1.5 rounded-lg border border-border hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-full border border-border/80 hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-xs"
               title="Previous page"
             >
               <ChevronLeft className="size-3.5" />
             </button>
-            <span className="px-2 text-[11px] font-medium text-foreground">
+            <span className="px-2.5 text-[11px] font-bold text-foreground">
               Page {table.getState().pagination.pageIndex + 1} of{" "}
               {Math.max(1, table.getPageCount())}
             </span>
@@ -339,7 +339,7 @@ export default function ReportDataTable<TData>({
               type="button"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="p-1.5 rounded-lg border border-border hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-full border border-border/80 hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-xs"
               title="Next page"
             >
               <ChevronRight className="size-3.5" />
@@ -348,7 +348,7 @@ export default function ReportDataTable<TData>({
               type="button"
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
               disabled={!table.getCanNextPage()}
-              className="p-1.5 rounded-lg border border-border hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-full border border-border/80 hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-xs"
               title="Last page"
             >
               <ChevronsRight className="size-3.5" />

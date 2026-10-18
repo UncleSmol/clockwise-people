@@ -94,7 +94,7 @@ export default function PayslipAdjustmentModal({
               Adjust Payslip: {payslip.fullName}
             </h2>
             <p className="text-xs text-muted mt-0.5">
-              {payslip.payPeriodLabel} · Employee #{payslip.employeeNumber}
+              {payslip.payPeriodLabel}
             </p>
           </div>
           <button

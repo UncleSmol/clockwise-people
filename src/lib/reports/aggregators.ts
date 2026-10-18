@@ -426,8 +426,8 @@ export function buildComplianceDistributionStats(
   const result: ComplianceDistributionStat[] = [
     { name: "On-Time Shifts", value: onTime, color: "#10b981" }, // emerald
     { name: "Late Arrivals", value: late, color: "#f59e0b" }, // amber
-    { name: "Early Departures", value: early, color: "#6366f1" }, // indigo
-    { name: "Missing Clockings", value: missing, color: "#ef4444" }, // red
+    { name: "Early Departures", value: early, color: "#d97706" }, // warm amber
+    { name: "Missing Clockings", value: missing, color: "#e11d48" }, // rose
   ];
 
   return result.filter((r) => r.value > 0);
@@ -437,12 +437,12 @@ export function buildLeaveCategoryStats(
   absences: AbsenceReportRow[],
 ): LeaveCategoryStat[] {
   const categoryColors: Record<string, string> = {
-    annual: "#0ea5e9", // sky
-    sick: "#f43f5e", // rose
-    family_responsibility: "#8b5cf6", // purple
-    maternity: "#ec4899", // pink
+    annual: "#10b981", // emerald (statutory annual)
+    sick: "#e11d48", // rose (sick leave)
+    family_responsibility: "#f59e0b", // amber (family emergency)
+    maternity: "#be123c", // deep rose
     unpaid: "#64748b", // slate
-    other: "#14b8a6", // teal
+    other: "#475569", // slate-600
   };
 
   const map = new Map<

@@ -168,17 +168,17 @@ export default function CompanyTimesheetCorrectionQueue({
                       toggleSelect(request.id);
                     }
                   }}
-                  className={`grid cursor-pointer gap-3 rounded-lg border-2 p-3.5 shadow-2xs transition-all min-w-0 ${
+                  className={`flex flex-col justify-between gap-2.5 rounded-xl p-3.5 shadow-sm transition-all min-w-0 ${
                     isSelected
-                      ? "border-slate-900 bg-slate-900/5 ring-2 ring-slate-900"
-                      : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
+                      ? "bg-amber-600 text-white ring-2 ring-white"
+                      : "bg-amber-600 text-white ring-1 ring-amber-700/80"
                   }`}
                 >
                   {/* Top Bar: Checkbox, Avatar, Name & Status Badge */}
                   <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <label
-                        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded border border-border bg-white shadow-xs hover:border-slate-400"
+                        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg border border-amber-400/50 bg-amber-700/80 shadow-xs hover:border-amber-300"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
@@ -186,27 +186,31 @@ export default function CompanyTimesheetCorrectionQueue({
                           checked={isSelected}
                           onChange={() => toggleSelect(request.id)}
                           aria-label={`Select correction request for ${request.knownAs ?? request.fullName} on ${formatDate(request.work_date)}`}
-                          className="size-4 accent-slate-900"
+                          className="size-4 accent-amber-950 cursor-pointer"
                         />
                       </label>
 
-                      <EmployeeAvatar
-                        name={request.knownAs ?? request.fullName}
-                        src={request.avatarUrl}
-                        className="size-9 shrink-0 ring-1 ring-border shadow-2xs"
-                      />
+                      <div className="relative shrink-0">
+                        <EmployeeAvatar
+                          name={request.knownAs ?? request.fullName}
+                          src={request.avatarUrl}
+                          className="size-8.5 rounded-lg border border-amber-400/50 bg-amber-700/80 shadow-xs ring-1 ring-amber-400/50"
+                        />
+                        <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-amber-200 ring-2 ring-amber-600" />
+                      </div>
+
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-xs font-extrabold text-foreground break-words leading-tight">
+                        <h3 className="text-xs font-extrabold text-white break-words leading-tight">
                           {request.knownAs ?? request.fullName}
                         </h3>
-                        <p className="text-[11px] font-medium text-muted break-words leading-tight mt-0.5">
+                        <p className="text-[11px] font-medium text-amber-100 break-words leading-tight mt-0.5">
                           {request.workstationName ?? "Assigned workstation"} ·{" "}
-                          <span className="font-semibold text-foreground">{formatDate(request.work_date)}</span>
+                          <span className="font-semibold text-white">{formatDate(request.work_date)}</span>
                         </p>
                       </div>
                     </div>
 
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-2xs">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-100 border border-amber-300/30 whitespace-nowrap">
                       Correction Needed
                     </span>
                   </div>
@@ -214,49 +218,49 @@ export default function CompanyTimesheetCorrectionQueue({
                   {/* Side-by-Side Original vs Proposed High-Contrast Grid */}
                   <div className="grid gap-2 min-[500px]:grid-cols-2 min-w-0">
                     {/* Original Times Box */}
-                    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-2 shadow-2xs">
+                    <div className="min-w-0 rounded-md bg-white p-2 text-slate-900 shadow-xs">
                       <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 break-words leading-tight">
                         Original Recorded Log
                       </p>
                       <div className="mt-1.5 grid grid-cols-2 min-[340px]:grid-cols-4 gap-1 text-center">
-                        <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">In</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_clock_in)}</p>
+                        <div className="rounded border border-slate-200 bg-slate-50 p-1 min-w-0">
+                          <p className="text-[9px] font-bold text-slate-500 uppercase break-words leading-tight">In</p>
+                          <p className="mt-0.5 text-xs font-bold text-slate-900 break-words font-mono leading-tight">{formatTime(request.original_clock_in)}</p>
                         </div>
-                        <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">L.In</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_lunch_start)}</p>
+                        <div className="rounded border border-slate-200 bg-slate-50 p-1 min-w-0">
+                          <p className="text-[9px] font-bold text-slate-500 uppercase break-words leading-tight">L.In</p>
+                          <p className="mt-0.5 text-xs font-bold text-slate-900 break-words font-mono leading-tight">{formatTime(request.original_lunch_start)}</p>
                         </div>
-                        <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">L.Out</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_lunch_end)}</p>
+                        <div className="rounded border border-slate-200 bg-slate-50 p-1 min-w-0">
+                          <p className="text-[9px] font-bold text-slate-500 uppercase break-words leading-tight">L.Out</p>
+                          <p className="mt-0.5 text-xs font-bold text-slate-900 break-words font-mono leading-tight">{formatTime(request.original_lunch_end)}</p>
                         </div>
-                        <div className="rounded border border-border bg-background p-1 min-w-0">
-                          <p className="text-[9px] font-bold text-muted uppercase break-words leading-tight">Out</p>
-                          <p className="mt-0.5 text-xs font-semibold text-foreground break-words font-mono leading-tight">{formatTime(request.original_clock_out)}</p>
+                        <div className="rounded border border-slate-200 bg-slate-50 p-1 min-w-0">
+                          <p className="text-[9px] font-bold text-slate-500 uppercase break-words leading-tight">Out</p>
+                          <p className="mt-0.5 text-xs font-bold text-slate-900 break-words font-mono leading-tight">{formatTime(request.original_clock_out)}</p>
                         </div>
                       </div>
                     </div>
 
                     {/* Proposed Times Box (High-Contrast Emerald Highlight) */}
-                    <div className="min-w-0 rounded-md border border-emerald-300 bg-emerald-50/90 p-2 shadow-2xs">
+                    <div className="min-w-0 rounded-md bg-white p-2 text-slate-900 shadow-xs">
                       <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-emerald-800 break-words leading-tight">
                         Proposed Correction
                       </p>
                       <div className="mt-1.5 grid grid-cols-2 min-[340px]:grid-cols-4 gap-1 text-center">
-                        <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
+                        <div className="rounded border border-emerald-200 bg-emerald-50/50 p-1 min-w-0">
                           <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">In</p>
                           <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_clock_in)}</p>
                         </div>
-                        <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
+                        <div className="rounded border border-emerald-200 bg-emerald-50/50 p-1 min-w-0">
                           <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">L.In</p>
                           <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_lunch_start)}</p>
                         </div>
-                        <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
+                        <div className="rounded border border-emerald-200 bg-emerald-50/50 p-1 min-w-0">
                           <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">L.Out</p>
                           <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_lunch_end)}</p>
                         </div>
-                        <div className="rounded border border-emerald-200 bg-white p-1 min-w-0">
+                        <div className="rounded border border-emerald-200 bg-emerald-50/50 p-1 min-w-0">
                           <p className="text-[9px] font-bold text-emerald-700 uppercase break-words leading-tight">Out</p>
                           <p className="mt-0.5 text-xs font-black text-emerald-950 break-words font-mono leading-tight">{formatTime(request.proposed_clock_out)}</p>
                         </div>
@@ -265,9 +269,24 @@ export default function CompanyTimesheetCorrectionQueue({
                   </div>
 
                   {/* Reason Box */}
-                  <div className="rounded-md border border-border bg-white p-2.5 text-xs shadow-2xs break-words" title={request.reason}>
-                    <span className="font-extrabold uppercase tracking-wider text-muted">Reason: </span>
-                    <span className="font-semibold text-foreground">{request.reason}</span>
+                  <div className="rounded-md bg-white p-2 text-xs text-slate-900 shadow-xs break-words" title={request.reason}>
+                    <span className="font-extrabold uppercase tracking-wider text-slate-500">Reason: </span>
+                    <span className="font-semibold text-slate-900">{request.reason}</span>
+                  </div>
+
+                  {/* Complementary Footer Pills */}
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0 pt-0.5">
+                    <span
+                      className="inline-flex items-center rounded bg-amber-700/80 px-2 py-0.5 font-semibold text-amber-100 text-[10px] break-words"
+                      title={request.workstationName ?? "Assigned workstation"}
+                    >
+                      <Clock className="mr-1 inline size-2.5 shrink-0 opacity-80" />
+                      <span className="break-words leading-tight">{request.workstationName ?? "Workstation logged"}</span>
+                    </span>
+
+                    <span className="shrink-0 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-amber-300/20 whitespace-nowrap">
+                      Pending Manager Review
+                    </span>
                   </div>
                 </article>
               );

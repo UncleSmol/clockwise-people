@@ -115,12 +115,12 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
       </button>
 
       {open ? (
-        <div className="card fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden p-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[360px]">
-          <div className="border-b border-border px-3 py-3">
-            <div className="flex items-start justify-between gap-2">
+        <div className="card fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-2xl border border-border bg-surface p-0 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[380px]">
+          <div className="border-b border-border bg-surface/95 px-4 py-3.5 backdrop-blur-xs">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="font-semibold text-foreground">Notifications</p>
-                <p className="mt-1 text-xs text-muted">
+                <p className="text-base font-extrabold text-foreground">Notification</p>
+                <p className="text-xs text-muted">
                   {liveNotifications.length === 0
                     ? "No unread notifications"
                     : `${liveNotifications.length} unread`}
@@ -130,7 +130,7 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
                 <form action={clearAction}>
                   <button
                     disabled={clearPending}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold text-foreground hover:bg-surface-muted disabled:opacity-50 transition-colors"
                     type="submit"
                   >
                     <Trash2 className="size-3.5" />
@@ -141,36 +141,38 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
             </div>
           </div>
 
-          <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto sm:max-h-96">
+          <div className="max-h-[calc(100dvh-9rem)] divide-y divide-border overflow-y-auto sm:max-h-96">
             {liveNotifications.length === 0 ? (
-              <p className="px-3 py-4 text-sm text-muted">You are all caught up.</p>
+              <p className="px-4 py-6 text-center text-sm text-muted">You are all caught up.</p>
             ) : (
               liveNotifications.map((notification) => (
-                <form key={notification.id} action={action} className="grid gap-2 border-b border-border px-3 py-3 last:border-b-0">
+                <form key={notification.id} action={action} className="grid gap-2.5 p-4 transition-colors hover:bg-surface-muted/40">
                   <input type="hidden" name="notification_id" value={notification.id} />
                   <input type="hidden" name="target_href" value={notification.targetHref ?? ""} />
                   <div className="flex items-start gap-3">
-                    <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-md border ${notificationTone(notification.category)}`}>
-                      <CheckCircle2 className="size-4" />
+                    <span className={`mt-0.5 grid size-10 shrink-0 place-items-center rounded-2xl border ${notificationTone(notification.category)} shadow-2xs`}>
+                      <CheckCircle2 className="size-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground">{notification.title}</p>
-                      <p className="mt-1 text-xs text-muted">{notification.body}</p>
+                      <p className="text-sm font-bold text-foreground leading-snug">{notification.title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted">{notification.body}</p>
                     </div>
                   </div>
-                  <button
-                    disabled={pending}
-                    className="btn btn-primary justify-self-start px-3 py-1.5 text-xs"
-                  >
-                    {notification.targetHref ? "Open and clear" : "Clear"}
-                  </button>
+                  <div className="flex items-center justify-end">
+                    <button
+                      disabled={pending}
+                      className="btn btn-primary rounded-full px-3.5 py-1 text-xs font-bold shadow-2xs"
+                    >
+                      {notification.targetHref ? "Open and clear" : "Clear"}
+                    </button>
+                  </div>
                 </form>
               ))
             )}
           </div>
 
           {(state.message || clearState.message) && !pending && !clearPending ? (
-            <p className={`border-t border-border px-3 py-2 text-xs ${(state.message ? state.ok : clearState.ok) ? "text-success" : "text-danger"}`}>
+            <p className={`border-t border-border px-4 py-2.5 text-xs font-medium ${(state.message ? state.ok : clearState.ok) ? "text-success" : "text-danger"}`}>
               {state.message || clearState.message}
             </p>
           ) : null}

@@ -25,9 +25,12 @@ export default function LeaveAccrualReportTable({
             <div className="font-semibold text-foreground">
               {row.original.employeeName}
             </div>
-            <div className="text-[10px] text-muted font-mono">
-              {row.original.employeeNumber} · {row.original.department}
-            </div>
+            {row.original.department ? (
+              <div className="text-[10px] text-muted">
+                {row.original.department}
+              </div>
+            ) : null}
+
           </div>
         ),
       },
@@ -44,12 +47,12 @@ export default function LeaveAccrualReportTable({
               <span
                 className={`size-2 rounded-full ${
                   isAnnual
-                    ? "bg-sky-400"
+                    ? "bg-emerald-500"
                     : isSick
-                    ? "bg-rose-400"
+                    ? "bg-rose-500"
                     : isFRL
-                    ? "bg-purple-400"
-                    : "bg-emerald-400"
+                    ? "bg-amber-500"
+                    : "bg-slate-500"
                 }`}
               />
               <span className="font-medium text-foreground">
@@ -111,8 +114,8 @@ export default function LeaveAccrualReportTable({
         accessorKey: "projectedYearEndHours",
         header: "Projected Year-End",
         cell: ({ row }) => (
-          <div className="flex items-center gap-1 font-mono text-xs font-semibold text-sky-400">
-            <TrendingUp className="size-3 text-sky-400" />
+          <div className="flex items-center gap-1 font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            <TrendingUp className="size-3 text-emerald-600 dark:text-emerald-400" />
             <span>{row.original.projectedYearEndHours.toFixed(2)}h</span>
           </div>
         ),

@@ -26,6 +26,7 @@ import { useActionState, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
+import RecordStatusBadge from "./RecordStatusBadge";
 import {
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
@@ -41,6 +42,7 @@ import type {
   CompanyPublicHoliday,
   CompanyTimesheetCalendarEntry,
 } from "@/lib/time-tracking/schema";
+import AnalogTimePicker from "@/components/time-tracking/AnalogTimePicker";
 
 type CompanyTimesheetCalendarProps = {
   employees: CompanyCalendarEmployeeOption[];
@@ -60,8 +62,8 @@ type CalendarWindow = "day" | "week" | "payroll" | "month";
 
 function viewButtonClass(active: boolean) {
   return active
-    ? "bg-primary text-primary-foreground shadow-2xs font-semibold"
-    : "border border-border bg-surface text-foreground hover:bg-surface-muted font-semibold";
+    ? "bg-primary text-white shadow-soft font-semibold"
+    : "border border-border/80 bg-surface text-foreground hover:bg-surface-muted font-semibold";
 }
 
 function displayName(entry: CompanyTimesheetCalendarEntry) {
@@ -152,11 +154,68 @@ function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
 }
 
 function statusBadgeClass(status: CompanyTimesheetCalendarEntry["status"]) {
-  if (status === "draft") return "bg-amber-500 text-white shadow-2xs";
-  if (status === "approved") return "bg-emerald-600 text-white shadow-2xs";
-  if (status === "rejected") return "bg-rose-600 text-white shadow-2xs";
-  if (status === "locked") return "bg-slate-500 text-white shadow-2xs";
-  return "bg-slate-900 text-white shadow-2xs";
+  if (status === "draft") return "bg-amber-500 text-white shadow-soft";
+  if (status === "approved") return "bg-emerald-600 text-white shadow-soft";
+  if (status === "rejected") return "bg-rose-600 text-white shadow-soft";
+  if (status === "locked") return "bg-slate-500 text-white shadow-soft";
+  return "bg-primary text-white shadow-soft";
+}
+
+function getCalendarEntryCardTheme(entry: CompanyTimesheetCalendarEntry) {
+  const isException = Boolean(
+    entry.missing_clocking ||
+    entry.late_arrival ||
+    entry.early_departure ||
+    entry.status === "rejected" ||
+    (entry.scheduleValidation && !entry.scheduleValidation.isCompliant)
+  );
+
+  if (isException) {
+    return {
+      cardBg: "bg-rose-600 text-white shadow-soft",
+      avatarBg: "bg-rose-800/90 text-rose-100",
+      subText: "text-rose-100",
+      dotBg: "bg-rose-300",
+      badgeClass: "bg-rose-900/60 text-white border border-rose-400/40",
+      statusLabel: entry.status === "rejected" ? "Rejected" : "Exception",
+      footerPillBg: "bg-rose-900/50 text-rose-100 border-rose-400/30",
+    };
+  }
+
+  if (entry.status === "draft") {
+    return {
+      cardBg: "card-gold text-white shadow-soft",
+      avatarBg: "bg-black/20 text-white",
+      subText: "text-white/85",
+      dotBg: "bg-amber-300",
+      badgeClass: "bg-black/25 text-white border border-white/20",
+      statusLabel: "Draft",
+      footerPillBg: "bg-black/20 text-white border border-white/20",
+    };
+  }
+
+  if (entry.status === "approved") {
+    return {
+      cardBg: "card-hero-green text-white shadow-soft",
+      avatarBg: "bg-white/20 text-white",
+      subText: "text-white/85",
+      dotBg: "bg-emerald-300",
+      badgeClass: "bg-white/20 text-white border border-white/30",
+      statusLabel: "Approved",
+      footerPillBg: "bg-white/15 text-white border-white/25",
+    };
+  }
+
+  // submitted / locked / compliant default -> emerald hero
+  return {
+    cardBg: "card-hero-green text-white shadow-soft",
+    avatarBg: "bg-white/20 text-white",
+    subText: "text-white/85",
+    dotBg: "bg-emerald-300",
+    badgeClass: "bg-white/20 text-white border border-white/30",
+    statusLabel: entry.status === "locked" ? "Locked" : "Submitted",
+    footerPillBg: "bg-white/15 text-white border-white/25",
+  };
 }
 
 function canEdit(status: CompanyTimesheetCalendarEntry["status"]) {
@@ -484,43 +543,43 @@ export default function CompanyTimesheetCalendar({
 
   return (
     <section className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
-      <div className="rounded-xl bg-primary p-4 text-primary-foreground shadow-sm sm:p-5">
+      <div className="card-hero-green rounded-2xl p-5 text-white shadow-soft sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">
               Company Calendar
             </p>
-            <h2 className="mt-0.5 text-xl font-black text-primary-foreground sm:text-2xl">
+            <h2 className="mt-0.5 text-xl font-black text-white sm:text-2xl">
               Team Timesheets
             </h2>
-            <p className="mt-0.5 hidden text-xs text-primary-foreground/85 sm:block">
+            <p className="mt-0.5 hidden text-xs text-white/85 sm:block">
               Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[32rem]">
-            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-sm backdrop-blur-sm">
+            <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Shifts
               </div>
-              <p className="mt-1 text-lg font-bold text-white">{totals.total}</p>
+              <p className="mt-1 text-lg font-black text-white">{totals.total}</p>
             </div>
-            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 text-white shadow-sm backdrop-blur-sm">
+            <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-white shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Submitted
               </div>
-              <p className="mt-1 text-lg font-bold text-white">{totals.submitted}</p>
+              <p className="mt-1 text-lg font-black text-white">{totals.submitted}</p>
             </div>
-            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-sm backdrop-blur-sm">
+            <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Approved
               </div>
-              <p className="mt-1 text-lg font-bold text-white">{totals.approved}</p>
+              <p className="mt-1 text-lg font-black text-white">{totals.approved}</p>
             </div>
-            <div className="rounded-lg border border-white/20 bg-white/10 p-2.5 shadow-sm backdrop-blur-sm">
+            <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Exceptions
               </div>
-              <p className="mt-1 text-lg font-bold text-white">{totals.issues}</p>
+              <p className="mt-1 text-lg font-black text-white">{totals.issues}</p>
             </div>
           </div>
         </div>
@@ -528,7 +587,7 @@ export default function CompanyTimesheetCalendar({
 
       <div className="flex min-w-0 max-w-full flex-col gap-4">
         {activeColleagues.length > 0 && (
-          <div className="rounded-xl border border-border/80 bg-surface p-3 shadow-2xs">
+          <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-soft">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="relative flex size-2">
@@ -544,7 +603,7 @@ export default function CompanyTimesheetCalendar({
                 <button
                   type="button"
                   onClick={() => setShowAllColleagues((prev) => !prev)}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface px-3 py-1 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
                   aria-label={showAllColleagues ? "Collapse colleagues list" : `Show ${hiddenColleaguesCount} more colleagues`}
                 >
                   <span>{showAllColleagues ? "Show less" : `+${hiddenColleaguesCount} more`}</span>
@@ -563,9 +622,9 @@ export default function CompanyTimesheetCalendar({
                 return (
                   <div
                     key={colleague.employeeId}
-                    className={`flex items-center gap-2 rounded-md border p-1.5 pr-3 shadow-sm transition-all ${isOnLunch
-                      ? "border-amber-300 bg-white hover:bg-amber-50"
-                      : "border-emerald-300 bg-white hover:bg-emerald-50"
+                    className={`flex items-center gap-2 rounded-full border p-1.5 pr-3 shadow-soft transition-all ${isOnLunch
+                      ? "border-amber-200 bg-surface hover:bg-amber-50"
+                      : "border-emerald-200 bg-surface hover:bg-emerald-50"
                       }`}
                   >
                     <div className="relative shrink-0">
@@ -595,21 +654,21 @@ export default function CompanyTimesheetCalendar({
                 <button
                   type="button"
                   onClick={() => setShowAllColleagues(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-dashed border-emerald-500/50 bg-white/80 px-3 py-2 text-xs font-extrabold text-emerald-900 hover:bg-emerald-100 hover:border-emerald-600 transition-all cursor-pointer shadow-2xs"
+                  className="flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-surface px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/5 hover:border-primary transition-all cursor-pointer shadow-soft"
                   aria-label={`Show ${hiddenColleaguesCount} more colleagues`}
                 >
                   <span>+{hiddenColleaguesCount} more</span>
-                  <ChevronDown className="size-3.5 text-emerald-700" />
+                  <ChevronDown className="size-3.5 text-primary" />
                 </button>
               ) : showAllColleagues && hiddenColleaguesCount > 0 ? (
                 <button
                   type="button"
                   onClick={() => setShowAllColleagues(false)}
-                  className="flex items-center gap-1.5 rounded-md border border-dashed border-emerald-500/50 bg-white/80 px-3 py-2 text-xs font-extrabold text-emerald-900 hover:bg-emerald-100 hover:border-emerald-600 transition-all cursor-pointer shadow-2xs"
+                  className="flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 bg-surface px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/5 hover:border-primary transition-all cursor-pointer shadow-soft"
                   aria-label="Show fewer colleagues"
                 >
                   <span>Show less</span>
-                  <ChevronUp className="size-3.5 text-emerald-700" />
+                  <ChevronUp className="size-3.5 text-primary" />
                 </button>
               ) : null}
             </div>
@@ -618,7 +677,7 @@ export default function CompanyTimesheetCalendar({
 
         {globalMessage ? (
           <div
-            className={`rounded-md border px-3 py-2 text-sm font-semibold ${globalOk
+            className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-soft ${globalOk
               ? "border-emerald-300 bg-emerald-50 text-emerald-950"
               : "border-rose-300 bg-rose-50 text-rose-950"
               }`}
@@ -638,7 +697,7 @@ export default function CompanyTimesheetCalendar({
               key={value}
               type="button"
               onClick={() => setCalendarWindow(value)}
-              className={`rounded-md px-3 py-1.5 text-xs ${viewButtonClass(calendarWindow === value)}`}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${viewButtonClass(calendarWindow === value)}`}
             >
               {label}
             </button>
@@ -663,24 +722,24 @@ export default function CompanyTimesheetCalendar({
         <div
           className={`flex flex-wrap gap-2 text-xs font-bold ${showLegend ? "" : "hidden sm:flex"}`}
         >
-          <span className="inline-flex items-center gap-1 rounded border border-purple-300 bg-purple-100/70 px-2 py-0.5 text-[11px] text-purple-900">
-            <span className="size-1.5 rounded-full bg-purple-600" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-3 py-1 text-[11px] font-medium text-foreground shadow-soft">
+            <span className="size-1.5 rounded-full bg-slate-400" />
             Public Holiday
           </span>
-          <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] text-amber-900">
-            <span className="size-1.5 rounded-full bg-amber-600" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-900 shadow-soft">
+            <span className="size-1.5 rounded-full bg-amber-500" />
             Draft
           </span>
-          <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white">
-            <span className="size-1.5 rounded-full bg-emerald-400" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary shadow-soft">
+            <span className="size-1.5 rounded-full bg-primary" />
             Submitted
           </span>
-          <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] text-emerald-900">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 shadow-soft">
             <span className="size-1.5 rounded-full bg-emerald-600" />
             Approved
           </span>
-          <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
-            <span className="size-1.5 rounded-full bg-rose-600" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-medium text-rose-900 shadow-soft">
+            <span className="size-1.5 rounded-full bg-rose-500" />
             Rejected
           </span>
         </div>
@@ -805,12 +864,12 @@ export default function CompanyTimesheetCalendar({
             </div>
 
             <div className="hidden min-w-0 max-w-full flex-col gap-4 max-sm:flex">
-              <div className="flex min-w-0 items-center gap-3">
+              <div className="flex min-w-0 items-center gap-2">
                 <input
                   type="date"
                   value={calendarFocusDate}
                   onChange={(e) => setCalendarFocusDate(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none"
+                  className="min-w-0 flex-1 rounded-full border border-border/80 bg-surface px-4 py-2 text-sm font-semibold text-foreground outline-none shadow-soft focus:border-primary"
                 />
                 <button
                   type="button"
@@ -824,85 +883,129 @@ export default function CompanyTimesheetCalendar({
                       ].join("-"),
                     );
                   }}
-                  className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent"
+                  className="shrink-0 rounded-full border border-primary bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary hover:text-white transition-all shadow-soft"
                 >
                   Today
                 </button>
               </div>
 
-              <div className="flex min-w-0 max-w-full flex-col gap-2">
+              <div className="flex min-w-0 max-w-full flex-col gap-3">
                 {publicHolidays
                   .filter((h) => h.holiday_date === calendarFocusDate)
                   .map((holiday) => (
                     <div
                       key={`holiday-${holiday.id}`}
-                      className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5"
+                      className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-holiday/30 bg-holiday/10 p-3.5 shadow-soft"
                     >
                       <span className="min-w-0 text-sm font-semibold text-holiday break-words leading-tight">{holiday.name}</span>
-                      <span className="shrink-0 whitespace-nowrap rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday">
+                      <span className="shrink-0 whitespace-nowrap rounded-full border border-holiday/20 bg-holiday/5 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday">
                         Holiday
                       </span>
                     </div>
                   ))}
-                {visibleMobileEntries.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => {
-                      setCalendarFocusDate(entry.work_date);
-                      setSelectedEntry(entry);
-                      setEditing(false);
-                      setEditedTimes({});
-                      setSelectedApprovalIds(
-                        new Set(
-                          entries
-                            .filter(
-                              (e) =>
-                                e.employee_id === entry.employee_id &&
-                                (e.status === "submitted" || (isSysAdmin && e.status === "draft")),
-                            )
-                            .map((e) => e.id),
-                        ),
-                      );
-                    }}
-                    className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2 text-left transition-colors ${getEntryBorderClass(entry)}`}
-                    aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
-                  >
-                    <div className="flex w-full min-w-0 items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-foreground break-words leading-tight">
-                          {displayName(entry)}
-                        </p>
-                        <p className="text-xs text-muted break-words leading-tight">
-                          {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
-                        </p>
+                {visibleMobileEntries.map((entry) => {
+                  const theme = getCalendarEntryCardTheme(entry);
+                  const initials = displayName(entry).split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "EM";
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => {
+                        setCalendarFocusDate(entry.work_date);
+                        setSelectedEntry(entry);
+                        setEditing(false);
+                        setEditedTimes({});
+                        setSelectedApprovalIds(
+                          new Set(
+                            entries
+                              .filter(
+                                (e) =>
+                                  e.employee_id === entry.employee_id &&
+                                  (e.status === "submitted" || (isSysAdmin && e.status === "draft")),
+                              )
+                              .map((e) => e.id),
+                          ),
+                        );
+                      }}
+                      className={`block w-full min-w-0 max-w-full overflow-hidden rounded-2xl p-4 text-left transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ${theme.cardBg}`}
+                      aria-label={`${displayName(entry)} timesheet entry for ${formatDate(entry.work_date)}`}
+                    >
+                      {/* Top: Monogram Avatar with Status Dot + Name/Date & Top-Right Status Badge */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="relative shrink-0">
+                            <div className={`flex size-8 items-center justify-center rounded-full text-xs font-black uppercase ${theme.avatarBg}`}>
+                              {initials}
+                            </div>
+                            <span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-slate-900 ${theme.dotBg}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate leading-tight">
+                              {displayName(entry)}
+                            </p>
+                            <p className={`text-[11px] font-medium truncate mt-0.5 ${theme.subText}`}>
+                              {formatDate(entry.work_date)} · Shift Log
+                            </p>
+
+                          </div>
+                        </div>
+                        <RecordStatusBadge
+                          status={entry.status}
+                          size={38}
+                        />
                       </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className={`whitespace-nowrap text-sm font-semibold ${getPaidHoursTextClass(entry.scheduleValidation)}`}>
-                          {formatHours(entry.paid_hours)}
-                          {Number(entry.overtime_hours ?? 0) > 0
-                            ? ` +${formatHours(entry.overtime_hours)}`
-                            : ""}
-                        </span>
-                        <span
-                          className={`shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusBadgeClass(entry.status)}`}
-                        >
-                          {entry.status}
-                        </span>
+
+                      {/* Inset Crisp White Metrics Island */}
+                      <div className="my-2.5 grid grid-cols-3 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs">
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">In</p>
+                          <p className="font-mono text-xs font-extrabold text-slate-900">
+                            {formatTime(entry.clock_in)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                            {entry.lunch_start ? "Lunch" : "Out"}
+                          </p>
+                          <p className="font-mono text-xs font-extrabold text-slate-900">
+                            {entry.lunch_start && entry.lunch_end
+                              ? `${formatTime(entry.lunch_start)}-${formatTime(entry.lunch_end)}`
+                              : formatTime(entry.clock_out)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Total Paid</p>
+                          <p className="font-mono text-xs font-extrabold text-emerald-700">
+                            {formatHours(entry.paid_hours)}
+                            {Number(entry.overtime_hours ?? 0) > 0 ? ` +${formatHours(entry.overtime_hours)}` : ""}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    {entry.warning_notes || entry.notes ? (
-                      <p className="line-clamp-2 mt-1 break-words text-xs text-muted">
-                        {entry.warning_notes || entry.notes}
-                      </p>
-                    ) : null}
-                  </button>
-                ))}
+
+                      {/* Complementary Footer Pills */}
+                      <div className="flex items-center justify-between gap-1 text-[10px]">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-bold border truncate ${theme.footerPillBg}`}>
+                          <MapPin className="size-2.5 shrink-0 opacity-70" />
+                          <span className="truncate">{entry.workstationName || "Standard Office"}</span>
+                        </span>
+                        {entry.warning_notes || entry.notes ? (
+                          <span className={`rounded-full px-2.5 py-0.5 font-medium border truncate max-w-[55%] ${theme.footerPillBg}`} title={entry.warning_notes || entry.notes || ""}>
+                            {entry.warning_notes || entry.notes}
+                          </span>
+                        ) : (
+                          <span className={`rounded-full px-2.5 py-0.5 font-medium border ${theme.footerPillBg}`}>
+                            {entry.status === "approved" ? "Verified" : "Click to review"}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
                 {hiddenMobileEntriesCount > 0 ? (
                   <button
                     type="button"
                     onClick={() => setShowAllMobileEntries((prev) => !prev)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface py-2.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-2xs"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-full border border-border/80 bg-surface py-2.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
                     aria-label={showAllMobileEntries ? "Collapse users list" : `Show ${hiddenMobileEntriesCount} more users`}
                   >
                     {showAllMobileEntries ? (
@@ -920,7 +1023,7 @@ export default function CompanyTimesheetCalendar({
                 ) : null}
                 {mobileEntriesForFocusDate.length === 0 &&
                   publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
+                  <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted shadow-soft">
                     No entries for this day
                   </div>
                 ) : null}
@@ -932,7 +1035,7 @@ export default function CompanyTimesheetCalendar({
                   setSelectedDate(calendarFocusDate);
                   setShowDateActions(true);
                 }}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-3 text-sm font-semibold text-muted"
+                className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-dashed border-primary/40 bg-surface py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-all shadow-soft"
               >
                 <Plus className="size-4" />
                 Add entries for this day
@@ -1163,18 +1266,10 @@ export default function CompanyTimesheetCalendar({
                   Timesheet Status
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-wider ${selectedEntry.status === "approved"
-                      ? "border border-emerald-400/30 bg-emerald-950/40 text-white"
-                      : selectedEntry.status === "submitted"
-                        ? "border border-slate-700 bg-slate-900/80 text-emerald-400"
-                        : selectedEntry.status === "rejected"
-                          ? "border border-rose-400/30 bg-rose-950/50 text-white"
-                          : "border border-zinc-300 bg-zinc-200 text-zinc-800"
-                      }`}
-                  >
-                    {selectedEntry.status}
-                  </span>
+                  <RecordStatusBadge
+                    status={selectedEntry.status}
+                    size={32}
+                  />
                   <span className={`text-xs font-bold ${selectedEntry.status === "draft" ? "text-zinc-600" : "text-white/90"}`}>
                     {selectedEntry.work_date}
                   </span>
@@ -1200,12 +1295,12 @@ export default function CompanyTimesheetCalendar({
                 {(["clock_in", "lunch_start", "lunch_end", "clock_out"] as const).map((field) => (
                   <div key={field} className="min-w-0 rounded-lg border border-border bg-background p-2">
                     <p className="leading-none text-[10px] font-bold uppercase text-muted">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_", " ")}</p>
-                    <input
-                      type="time"
+                    <AnalogTimePicker
                       name={field}
                       defaultValue={selectedEntry[field] ?? ""}
                       onChange={(e) => handleTimeChange(field, e.target.value)}
-                      className="mt-1 h-7 w-full rounded border border-border bg-surface px-1 text-xs font-bold text-foreground outline-none"
+                      compact
+                      className="mt-1 flex h-7 w-full items-center justify-center gap-1 rounded border border-border bg-surface px-1 text-xs font-bold text-foreground outline-none hover:border-primary/50"
                     />
                   </div>
                 ))}
@@ -1262,8 +1357,10 @@ export default function CompanyTimesheetCalendar({
 
             {selectedEntry.warning_notes ? (
               <div className="border-t border-border pt-3">
-                <p className="leading-none text-[9px] text-warning">Note</p>
-                <p className="mt-1 text-xs text-warning">{selectedEntry.warning_notes}</p>
+                <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs text-warning shadow-2xs">
+                  <p className="font-bold uppercase tracking-wider text-[10px]">Note</p>
+                  <p className="mt-0.5 font-medium">{selectedEntry.warning_notes}</p>
+                </div>
               </div>
             ) : null}
 
@@ -1326,9 +1423,9 @@ export default function CompanyTimesheetCalendar({
                 <button
                   type="button"
                   onClick={() => setIsReviewModalOpen(true)}
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-primary-hover transition-all cursor-pointer"
                 >
-                  <ClipboardCheck className="size-3.5 text-emerald-400" />
+                  <ClipboardCheck className="size-3.5 text-white" />
                   <span>Review &amp; Approve ({employeeSubmitted.length})</span>
                 </button>
               </div>
@@ -1345,7 +1442,7 @@ export default function CompanyTimesheetCalendar({
                   <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
                   <button
                     disabled={forceDeletePending}
-                    className="inline-flex min-h-10 items-center gap-1 rounded border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-2 sm:py-1 sm:text-[11px]"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
                   >
                     <Trash2 className="size-3 shrink-0" />
                     {forceDeletePending ? "..." : "Delete entry"}
@@ -1360,7 +1457,7 @@ export default function CompanyTimesheetCalendar({
             ) : null}
 
             {editing && canEdit(selectedEntry.status) ? (
-              <div className="flex items-center justify-between gap-2 rounded border border-border bg-background px-2.5 py-1.5">
+              <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background p-2.5 shadow-soft">
                 <form
                   action={deleteAction}
                   onSubmit={() => { setTimeout(closeEntryModal, 100); }}
@@ -1369,7 +1466,7 @@ export default function CompanyTimesheetCalendar({
                   <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
                   <button
                     disabled={deletePending}
-                    className="inline-flex min-h-10 items-center gap-1 rounded border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-2 sm:py-1 sm:text-[11px]"
+                    className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
                   >
                     <Trash2 className="size-3 shrink-0" />
                     {deletePending ? "..." : "Delete"}
@@ -1378,7 +1475,7 @@ export default function CompanyTimesheetCalendar({
                 <form
                   action={updateAction}
                   onSubmit={() => { setTimeout(closeEntryModal, 100); }}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-2"
                 >
                   <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
                   <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
@@ -1390,13 +1487,13 @@ export default function CompanyTimesheetCalendar({
                   <button
                     type="button"
                     onClick={() => { setEditing(false); setEditedTimes({}); }}
-                    className="inline-flex min-h-10 items-center justify-center rounded border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground sm:min-h-0 sm:px-2 sm:py-1 sm:text-[11px]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
                   >
                     Cancel
                   </button>
                   <button
                     disabled={updatePending}
-                    className="inline-flex min-h-10 items-center justify-center rounded bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50 sm:min-h-0 sm:px-2 sm:py-1 sm:text-[11px]"
+                    className="inline-flex min-h-10 items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft hover:bg-primary-hover"
                   >
                     {updatePending ? "..." : "Save"}
                   </button>
@@ -1415,18 +1512,18 @@ export default function CompanyTimesheetCalendar({
           }}
         >
           <div
-            className="relative flex flex-col w-full max-w-lg max-h-[85vh] rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden"
+            className="relative flex flex-col w-full max-w-lg max-h-[85vh] rounded-3xl border border-border/80 bg-surface shadow-2xl overflow-hidden"
             role="dialog"
             aria-modal="true"
           >
             {/* Modal Header */}
             <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-4 py-3.5 sm:px-6 sm:py-4">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 text-white">
+                <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
                   {isSysAdmin && employeeSubmitted.some((e) => e.status === "draft") ? (
-                    <ShieldCheck className="size-5 text-amber-400" />
+                    <ShieldCheck className="size-5 text-amber-500" />
                   ) : (
-                    <ClipboardCheck className="size-5 text-emerald-400" />
+                    <ClipboardCheck className="size-5 text-primary" />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -1441,7 +1538,7 @@ export default function CompanyTimesheetCalendar({
               <button
                 type="button"
                 onClick={() => setIsReviewModalOpen(false)}
-                className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface-muted text-muted hover:text-foreground hover:bg-surface-muted/80 transition-colors cursor-pointer"
+                className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-surface-muted text-muted hover:text-foreground hover:bg-surface-muted/80 transition-colors cursor-pointer shadow-soft"
                 aria-label="Close review modal"
               >
                 <X className="size-4" />
@@ -1473,11 +1570,11 @@ export default function CompanyTimesheetCalendar({
                   ) : null}
                 </div>
 
-                <div className="divide-y divide-border rounded-xl border border-border bg-background overflow-hidden">
+                <div className="divide-y divide-border rounded-2xl border border-border bg-background overflow-hidden shadow-soft">
                   {employeeSubmitted.map((entry) => (
                     <label
                       key={entry.id}
-                      className="flex cursor-pointer items-start gap-3 p-3 text-xs transition-colors hover:bg-surface-muted/60"
+                      className="flex cursor-pointer items-start gap-3 p-3.5 text-xs transition-colors hover:bg-surface-muted/60"
                     >
                       <input
                         type="checkbox"
@@ -1485,7 +1582,7 @@ export default function CompanyTimesheetCalendar({
                         value={entry.id}
                         checked={selectedApprovalIds.has(entry.id)}
                         onChange={() => toggleApprovalId(entry.id)}
-                        className="mt-0.5 size-4 shrink-0 accent-slate-900"
+                        className="mt-0.5 size-4 shrink-0 accent-primary"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
@@ -1494,11 +1591,11 @@ export default function CompanyTimesheetCalendar({
                               {formatDate(entry.work_date)}
                             </span>
                             {entry.status === "draft" ? (
-                              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 uppercase">
+                              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold text-amber-600 uppercase">
                                 Draft
                               </span>
                             ) : (
-                              <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase">
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold text-primary uppercase">
                                 Submitted
                               </span>
                             )}
@@ -1527,13 +1624,13 @@ export default function CompanyTimesheetCalendar({
                     name="approval_notes"
                     rows={2}
                     placeholder="Add a review note or rejection reason..."
-                    className="w-full resize-none rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted"
+                    className="w-full resize-none rounded-2xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted shadow-soft"
                   />
                 </div>
 
                 {approvalState.message ? (
                   <div
-                    className={`rounded-lg border px-3 py-2 text-xs font-semibold ${
+                    className={`rounded-2xl border px-4 py-3 text-xs font-semibold shadow-soft ${
                       approvalState.ok
                         ? "border-emerald-300 bg-emerald-50 text-emerald-950"
                         : "border-rose-300 bg-rose-50 text-rose-950"
@@ -1549,7 +1646,7 @@ export default function CompanyTimesheetCalendar({
                 <button
                   type="button"
                   onClick={() => setIsReviewModalOpen(false)}
-                  className="rounded-xl border border-border bg-surface px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
+                  className="rounded-full border border-border bg-surface px-5 py-2.5 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-soft"
                 >
                   Cancel
                 </button>
@@ -1558,7 +1655,7 @@ export default function CompanyTimesheetCalendar({
                   name="decision"
                   value="reject"
                   disabled={approvalPending || selectedApprovalIds.size === 0}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-400/60 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-5 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer shadow-soft"
                 >
                   <XCircle className="size-4 shrink-0" />
                   {approvalPending ? "Working..." : "Reject Selected"}
@@ -1568,9 +1665,9 @@ export default function CompanyTimesheetCalendar({
                   name="decision"
                   value="approve"
                   disabled={approvalPending || selectedApprovalIds.size === 0}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-xs font-bold text-white hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer shadow-soft"
                 >
-                  <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+                  <CheckCircle2 className="size-4 shrink-0 text-white" />
                   {approvalPending ? "Working..." : "Approve Selected"}
                 </button>
               </div>

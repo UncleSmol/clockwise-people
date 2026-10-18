@@ -286,8 +286,9 @@ export async function createSysAdminEmployeeAction(
 
 export async function switchActiveCompanyAction(companyId: string) {
   const access = await getCurrentUserAccess();
-  if (!access.isSuperAdmin) {
-    throw new Error("Unauthorized: Only Super Administrators can switch active company.");
+  const allowed = Boolean(access.isSuperAdmin || access.isSuperUser);
+  if (!allowed) {
+    throw new Error("Unauthorized: Only Super Administrators and Super Users can switch active company.");
   }
 
   const cookieStore = await cookies();

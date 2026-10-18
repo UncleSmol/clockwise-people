@@ -39,11 +39,12 @@ type WorkspacePanel = {
   key: string;
   label: string;
   tone?: "primary" | "subtle";
+  desktopOnly?: boolean;
 };
 
 function LoadingPanel({ label }: { label: string }) {
   return (
-    <section className="card p-4 sm:p-6">
+    <section className="rounded-2xl border border-border/80 bg-surface p-6 sm:p-8 shadow-soft">
       <p className="text-sm font-medium text-muted">Loading {label.toLowerCase()}...</p>
     </section>
   );
@@ -291,25 +292,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     leaveState?.requests.filter((request) => request.status === "submitted").length ?? 0;
 
   const clockBadge = !todayEntry?.clock_in ? (
-    <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+    <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-black text-amber-950 shadow-2xs border border-white/40">
       Not clocked in
     </span>
   ) : todayEntry.clock_out ? (
-    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted">
+    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-slate-700 shadow-2xs">
       Complete
     </span>
   ) : (
-    <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
+    <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-black text-emerald-800 shadow-2xs border border-white/40">
       Clocked in
     </span>
   );
 
   const timesheetBadge = draftCount === 0 && submittedCount === 0 ? (
-    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted">
+    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-slate-700 shadow-2xs">
       Up to date
     </span>
   ) : (
-    <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+    <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-black text-amber-950 shadow-2xs border border-white/40">
       {draftCount > 0
         ? `${draftCount} draft${draftCount === 1 ? "" : "s"}`
         : `${submittedCount} pending`}
@@ -318,11 +319,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
 
   const leaveBadge = pendingLeaveCount > 0 ? (
-    <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+    <span className="rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-black text-amber-950 shadow-2xs border border-white/40">
       {pendingLeaveCount} pending
     </span>
   ) : (
-    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-muted">
+    <span className="rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-slate-700 shadow-2xs">
       No pending
     </span>
   );
@@ -369,6 +370,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           publicHolidays={employeeTimeState.publicHolidays}
           payrollConfig={payrollConfig}
           companyName={company.name}
+          toilEnabled={Boolean(leaveState?.toilEnabled)}
         />
       ),
     });
@@ -518,6 +520,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     panels.push({
           key: "company",
           label: "Company setup",
+          desktopOnly: true,
           description: "Manage company profile, workstations, rules, departments, and employees from one modal.",
           content: (
             <div className="grid gap-6">
@@ -679,6 +682,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     panels.push({
       key: "reports",
       label: "Reports and analytics",
+      desktopOnly: true,
       description: "Audit timesheets by payroll period, analyze attendance punctuality, track leave accruals, and pull compliance exports.",
       content: (
         <CompanyReportsWorkspace
@@ -704,6 +708,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     panels.push({
       key: "payslips",
       label: "Payslip Generator",
+      desktopOnly: true,
       description:
         "Super Admin authority: Simulate, adjust, and print official employee payslips once timesheets in a pay period are approved.",
       content: (
@@ -720,6 +725,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     panels.push({
       key: "sysadmin",
       label: "System admin",
+      desktopOnly: true,
       description:
         "Cross-tenant company provisioning, employee assignments, RBAC role management, and isolation security.",
       content: (
@@ -802,7 +808,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             liveOverview={liveTimeOverview}
           />
         ) : (
-          <section className="card p-6 text-sm text-muted">
+          <section className="rounded-2xl border border-border/80 bg-surface p-6 text-sm text-muted shadow-soft">
             No employee time profile is linked to this account.
           </section>
         )
@@ -845,7 +851,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   payrollConfig={payrollConfig}
                 />
               ) : (
-                <section className="card p-6 text-sm text-muted">
+                <section className="rounded-2xl border border-border/80 bg-surface p-6 text-sm text-muted shadow-soft">
                   No employee leave profile is linked to this account.
                 </section>
               )
@@ -864,16 +870,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 publicHolidays={employeeTimeState.publicHolidays}
                 payrollConfig={payrollConfig}
                 companyName={company.name}
+                toilEnabled={Boolean(leaveState?.toilEnabled)}
               />
             }
             reportBadge={
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-black text-[#111827] shadow-sm">
                 Hours &amp; PDF
               </span>
             }
           />
         ) : (
-          <section className="card p-6 text-sm text-muted">
+          <section className="rounded-2xl border border-border/80 bg-surface p-6 text-sm text-muted shadow-soft">
             No employee time profile is linked to this account.
           </section>
         )

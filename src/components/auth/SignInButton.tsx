@@ -10,7 +10,7 @@ export default function SignInButton() {
     <button
       type="submit"
       disabled={pending}
-      className="btn btn-accent w-full flex items-center justify-center gap-2 text-center disabled:opacity-75 disabled:cursor-not-allowed"
+      className="btn btn-primary w-full rounded-full py-3.5 text-sm sm:text-base font-bold flex items-center justify-center gap-2 text-center disabled:opacity-75 disabled:cursor-not-allowed shadow-primary"
     >
       {pending ? (
         <>

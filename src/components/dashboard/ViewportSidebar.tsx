@@ -96,7 +96,7 @@ export default function ViewportSidebar({
       }}
     >
       <div
-        className={`flex h-full min-w-0 w-full flex-col overflow-hidden border-l border-border bg-white shadow-2xl animate-slide-in-right ${maxWidth}`}
+        className={`flex h-full min-w-0 w-full flex-col overflow-hidden border-l border-border/80 bg-white shadow-2xl animate-slide-in-right max-sm:rounded-t-3xl max-sm:h-[94vh] max-sm:mt-auto max-sm:border-t max-sm:border-l-0 ${maxWidth}`}
         style={panelStyle}
         role="dialog"
         aria-modal="true"
@@ -121,7 +121,7 @@ export default function ViewportSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="grid size-8 place-items-center rounded border border-border bg-surface-muted hover:bg-slate-200 text-foreground transition-colors"
+                className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface-muted hover:bg-slate-200 text-foreground transition-colors shadow-2xs"
                 aria-label="Close"
               >
                 <X className="size-4" />

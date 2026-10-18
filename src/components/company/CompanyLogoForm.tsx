@@ -28,19 +28,19 @@ export default function CompanyLogoForm({
 
   return (
     <form action={formAction} className="grid gap-4">
-      <div className="flex items-center gap-3">
-        <span className="grid size-14 place-items-center rounded-lg border border-border bg-background">
+      <div className="flex items-center gap-3.5">
+        <span className="grid size-16 place-items-center rounded-2xl border border-border/80 bg-background shadow-soft p-1">
           <BrandMark
             logoUrl={previewUrl}
             brandName={companyName}
-            imageSize={44}
-            imageClassName="h-11 w-auto rounded-md"
-            textClassName="px-2 text-center text-xs font-semibold text-primary"
+            imageSize={48}
+            imageClassName="h-12 w-auto rounded-xl"
+            textClassName="px-2 text-center text-xs font-bold text-primary"
             alwaysShowLogo
           />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-foreground">
+          <p className="truncate text-base font-extrabold text-foreground">
             {companyName}
           </p>
           <p className="text-xs text-muted">
@@ -51,39 +51,40 @@ export default function CompanyLogoForm({
 
       {state.message ? (
         <p
-          className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+          className={`rounded-full border px-4 py-2 text-sm font-semibold shadow-xs ${
             state.ok
-              ? "border-success/20 bg-success/10 text-success"
-              : "border-danger/20 bg-danger/10 text-danger"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+              : "border-danger/30 bg-danger/10 text-danger"
           }`}
         >
           {state.message}
         </p>
       ) : null}
 
-      <label className="grid gap-1.5 text-sm font-semibold text-foreground">
+      <label className="grid gap-1.5 text-sm font-bold text-foreground">
         <span>Company logo link</span>
         <input
           name="logo_url"
           value={currentLogoUrl}
           onChange={(event) => setCurrentLogoUrl(event.target.value)}
           placeholder="https://..."
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+          className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
         />
       </label>
 
       <StorageUploadButton
-        accept="image/*"
+        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
         folder="logo"
-        hint="Or upload a logo under 5 MB."
+        hint="Allowed: JPG, PNG, WebP (Max 5 MB). SVG & script files are blocked for security."
         onUploaded={(publicUrl) => setCurrentLogoUrl(publicUrl)}
       />
 
-      <div className="flex justify-end">
+
+      <div className="flex justify-end pt-1">
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all"
+          className="inline-flex min-h-[44px] h-11 items-center justify-center rounded-full bg-primary px-6 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-60 transition-all cursor-pointer"
         >
           {pending ? "Saving..." : "Save logo"}
         </button>

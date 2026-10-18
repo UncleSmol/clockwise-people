@@ -261,7 +261,7 @@ export default function TimesheetMigrationPanel() {
             </div>
             <div className="rounded-xl border border-border bg-surface p-3.5">
               <span className="text-[11px] font-medium text-muted uppercase tracking-wider">Leave Days</span>
-              <p className="text-xl font-bold text-sky-500 mt-0.5">{diagnostics.leaveDaysCount}</p>
+              <p className="text-xl font-bold text-emerald-600 mt-0.5">{diagnostics.leaveDaysCount}</p>
               <p className="text-[11px] text-muted mt-0.5">Annual, sick &amp; holidays</p>
             </div>
             <div className="rounded-xl border border-border bg-surface p-3.5">
@@ -475,7 +475,7 @@ export default function TimesheetMigrationPanel() {
                               Shift
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-700">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-800">
                               Leave
                             </span>
                           )}
@@ -495,7 +495,7 @@ export default function TimesheetMigrationPanel() {
                             </div>
                           ) : (
                             <div className="space-y-0.5">
-                              <div className="font-semibold text-sky-700">{entry.leaveTypeName}</div>
+                              <div className="font-semibold text-emerald-800">{entry.leaveTypeName}</div>
                               <div className="text-[10px] text-muted">{entry.leaveHours} hrs (Paid)</div>
                             </div>
                           )}

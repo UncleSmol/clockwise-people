@@ -11,6 +11,7 @@ import {
 export type PanelNavItem = {
   key: string;
   label: string;
+  desktopOnly?: boolean;
 };
 
 type PanelBridgeValue = {
@@ -48,7 +49,12 @@ export function PanelBridgeProvider({ children }: { children: ReactNode }) {
   const registerNavItems = useCallback((items: PanelNavItem[]) => {
     setNavItems((current) =>
       current.length === items.length &&
-      current.every((item, index) => item.key === items[index]?.key && item.label === items[index]?.label)
+      current.every(
+        (item, index) =>
+          item.key === items[index]?.key &&
+          item.label === items[index]?.label &&
+          item.desktopOnly === items[index]?.desktopOnly,
+      )
         ? current
         : items,
     );

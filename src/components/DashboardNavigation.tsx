@@ -5,9 +5,13 @@ import {
   CalendarRange,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   ClipboardCheck,
+  Clock,
   Download,
   FileSpreadsheet,
+  FileText,
+  Home,
   Laptop,
   LogOut,
   Menu,
@@ -18,11 +22,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { signOut } from "@/lib/auth/actions";
 import NotificationMenu from "@/components/NotificationMenu";
-import { useRealtime } from "@/components/realtime/RealtimeSyncProvider";
+import CompanySwitcherMenu, { type CompanySwitcherItem } from "@/components/CompanySwitcherMenu";
 import { usePanelBridge } from "@/components/dashboard/panel-bridge";
 import type { DashboardNotification } from "@/lib/dashboard/schema";
 
@@ -33,6 +37,9 @@ type BeforeInstallPromptEvent = Event & {
 
 type DashboardNavigationProps = {
   companyId: string;
+  currentCompanyName?: string;
+  companies?: CompanySwitcherItem[];
+  isSuperAdmin?: boolean;
   notifications: DashboardNotification[];
   profileAvatarUrl?: string | null;
   profileName?: string | null;
@@ -50,25 +57,60 @@ function isRunningStandalone() {
 function navItemIcon(label: string) {
   const key = label.toLowerCase();
   if (key.includes("sysadmin") || key.includes("system")) return ShieldCheck;
+  if (key.includes("payslip")) return FileSpreadsheet;
   if (key.includes("report") || key.includes("analytic") || key.includes("payroll")) return FileSpreadsheet;
   if (key.includes("attendance") || key.includes("workforce")) return Users;
   if (key.includes("people") || key.includes("employee")) return Users;
   if (key.includes("approve") || key.includes("review")) return ClipboardCheck;
   if (key.includes("leave")) return CalendarRange;
+  if (key.includes("hour") || key.includes("time")) return Clock;
   if (key.includes("company")) return Building2;
+  if (key.includes("polic") || key.includes("document") || key.includes("compliance")) return FileText;
   if (key.includes("account") || key.includes("settings")) return Settings2;
   return ShieldCheck;
 }
 
+function navItemDescription(key: string) {
+  switch (key) {
+    case "attendance":
+      return "Live workforce status & who is clocked in";
+    case "people":
+      return "Employee directory & staff profiles";
+    case "leave":
+      return "Book leave, view balances & requests";
+    case "manager-review":
+      return "Approve submitted timesheets & corrections";
+    case "my-reports":
+      return "View shift hours worked & mini reports";
+    case "account":
+      return "Profile details, notifications & security";
+    case "policies":
+      return "Work rules, compliance & policy documents";
+    case "company":
+      return "Workstations, departments, company settings";
+    case "reports":
+      return "Advanced payroll audit & compliance export";
+    case "payslips":
+      return "Generate & print official employee payslips";
+    case "sysadmin":
+      return "Multi-tenant company provisioning & RBAC";
+    default:
+      return "";
+  }
+}
+
 export default function DashboardNavigation({
   companyId,
+  currentCompanyName,
+  companies,
+  isSuperAdmin,
   notifications,
   profileAvatarUrl,
   profileName,
 }: DashboardNavigationProps) {
   const { navItems, openPanel } = usePanelBridge();
-  const { isConnected, connectionState } = useRealtime();
   const [open, setOpen] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(() => isRunningStandalone());
@@ -80,13 +122,13 @@ export default function DashboardNavigation({
   }, []);
 
   useEffect(() => {
-    if (!showInstallGuide) return;
+    if (!showInstallGuide && !mobileDrawerOpen) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [showInstallGuide]);
+  }, [showInstallGuide, mobileDrawerOpen]);
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -131,37 +173,41 @@ export default function DashboardNavigation({
         setInstallEvent(null);
       }
       setOpen(false);
+      setMobileDrawerOpen(false);
     } else {
       setShowInstallGuide(true);
       setOpen(false);
+      setMobileDrawerOpen(false);
     }
   }, [installEvent]);
+
+  const mobileItems = useMemo(
+    () => navItems.filter((item) => !item.desktopOnly),
+    [navItems],
+  );
 
   return (
     <>
       <div className="flex items-center gap-2 sm:gap-3">
+        {isSuperAdmin && companies && companies.length > 0 ? (
+          <CompanySwitcherMenu
+            companyId={companyId}
+            currentCompanyName={currentCompanyName ?? "Company"}
+            companies={companies}
+          />
+        ) : null}
+
         <NotificationMenu companyId={companyId} notifications={notifications} />
 
-        {/* Standalone User Profile Avatar with Realtime Status Badge */}
-        <div
-          className="relative flex items-center"
-          title={
-            isConnected
-              ? `${profileName ?? "User"} · Live WebSockets active`
-              : connectionState === "CONNECTING"
-                ? `${profileName ?? "User"} · Connecting to live WebSockets...`
-                : `${profileName ?? "User"} · Realtime offline`
-          }
+        {/* Standalone User Profile Avatar (Opens Mobile Drawer on phone screens) */}
+        <button
+          type="button"
+          onClick={() => setMobileDrawerOpen(true)}
+          className="relative flex items-center cursor-pointer transition-transform active:scale-95"
+          title={profileName ? `${profileName} profile` : "User profile"}
+          aria-label="Open user settings drawer"
         >
-          <div
-            className={`relative grid size-8 place-items-center rounded-full bg-background transition-all sm:size-9 ${
-              isConnected
-                ? "ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-background"
-                : connectionState === "CONNECTING"
-                  ? "ring-2 ring-amber-500/70 ring-offset-2 ring-offset-background animate-pulse"
-                  : "border border-border"
-            }`}
-          >
+          <div className="relative grid size-8 place-items-center rounded-full border border-border bg-background transition-all sm:size-9 hover:border-primary/50">
             <div className="size-full overflow-hidden rounded-full">
               {profileAvatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -176,34 +222,20 @@ export default function DashboardNavigation({
                 </span>
               )}
             </div>
-
-            <span
-              className={`absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full ring-2 ring-background ${
-                isConnected
-                  ? "bg-emerald-500"
-                  : connectionState === "CONNECTING"
-                    ? "bg-amber-500"
-                    : "bg-muted"
-              }`}
-            >
-              {isConnected ? (
-                <span className="absolute inset-0 block size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              ) : null}
-            </span>
           </div>
-        </div>
+        </button>
 
-        {/* Dedicated Menu Button */}
-        <div ref={containerRef} className="relative">
+        {/* Dedicated Menu Button (Desktop Only: hidden on mobile) */}
+        <div ref={containerRef} className="relative hidden sm:block">
           <button
             aria-expanded={open}
             aria-label="Open main navigation menu"
             onClick={() => setOpen((current) => !current)}
             type="button"
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-extrabold transition-all shadow-2xs ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all shadow-2xs ${
               open
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-border bg-background text-foreground hover:bg-surface-muted hover:border-slate-400"
+                ? "border-primary bg-primary text-white"
+                : "border-border bg-surface text-foreground hover:bg-surface-muted hover:border-primary/50"
             }`}
           >
             <Menu className="size-4" />
@@ -212,7 +244,7 @@ export default function DashboardNavigation({
           </button>
 
           {open ? (
-            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-xl border border-border shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-surface p-0">
+            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-2xl border border-border shadow-soft sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-surface p-0">
               {profileName ? (
                 <div className="border-b border-border/80 bg-surface/90 backdrop-blur-xs px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted">
@@ -379,7 +411,7 @@ export default function DashboardNavigation({
                   {/* Desktop Instructions */}
                   <div className="rounded-xl border border-border bg-surface-muted/60 p-3.5">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <Laptop className="size-4 text-indigo-500" />
+                      <Laptop className="size-4 text-slate-700" />
                       <h4 className="font-black text-foreground">Desktop (Chrome / Edge / Mac)</h4>
                     </div>
                     <p className="text-xs">
@@ -407,6 +439,276 @@ export default function DashboardNavigation({
                   >
                     Got it
                   </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {/* Mobile-First Floating Bottom Navigation Bar (Anchored to bottom of viewport) */}
+      {mounted
+        ? createPortal(
+            <nav
+              aria-label="Mobile Bottom Navigation"
+              className="fixed bottom-0 inset-x-0 z-50 flex sm:hidden items-center justify-around border-t border-border bg-surface/95 backdrop-blur-md px-2 pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+              style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            >
+              {/* 1. Home */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileDrawerOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-primary transition-all active:scale-95"
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Home className="size-4" />
+                </span>
+                <span className="text-[10px] font-bold tracking-tight text-primary">Home</span>
+              </button>
+
+              {/* 2. My Hours */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileDrawerOpen(false);
+                  openPanel("my-reports");
+                }}
+                className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
+                  <Clock className="size-4" />
+                </span>
+                <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">My Hours</span>
+              </button>
+
+              {/* 3. Leave */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileDrawerOpen(false);
+                  openPanel("leave");
+                }}
+                className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
+                  <CalendarRange className="size-4" />
+                </span>
+                <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">Leave</span>
+              </button>
+
+              {/* 4. Approvals (for Managers/Admins) or Attendance (for Employees) */}
+              {navItems.some((n) => n.key === "manager-review") ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileDrawerOpen(false);
+                    openPanel("manager-review");
+                  }}
+                  className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
+                    <ClipboardCheck className="size-4" />
+                  </span>
+                  <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">Approvals</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileDrawerOpen(false);
+                    openPanel("attendance");
+                  }}
+                  className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
+                    <Users className="size-4" />
+                  </span>
+                  <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">Attendance</span>
+                </button>
+              )}
+
+              {/* 5. Mobile Drawer Trigger */}
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen((prev) => !prev)}
+                className={`group flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-all active:scale-95 ${
+                  mobileDrawerOpen ? "text-primary" : "text-muted hover:text-foreground"
+                }`}
+              >
+                <span
+                  className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+                    mobileDrawerOpen
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted"
+                  }`}
+                >
+                  <Menu className="size-4" />
+                </span>
+                <span
+                  className={`text-[10px] tracking-tight ${
+                    mobileDrawerOpen ? "text-primary font-bold" : "font-semibold text-muted group-hover:text-foreground"
+                  }`}
+                >
+                  Menu
+                </span>
+              </button>
+            </nav>,
+            document.body
+          )
+        : null}
+
+      {/* Mobile Drawer (Slide-up Bottom Sheet) */}
+      {mounted && mobileDrawerOpen
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[70] flex sm:hidden items-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+              onClick={() => setMobileDrawerOpen(false)}
+            >
+              <div
+                className="relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl border-t border-border bg-surface shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Drag Handle */}
+                <div className="flex w-full items-center justify-center pt-3 pb-1">
+                  <div className="h-1.5 w-12 rounded-full bg-border" />
+                </div>
+
+                {/* Profile Header */}
+                <div className="flex items-center justify-between border-b border-border/80 px-5 py-3 bg-surface/90">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-10 shrink-0 overflow-hidden rounded-full border border-border bg-background shadow-2xs">
+                      {profileAvatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profileAvatarUrl}
+                          alt={profileName ? `${profileName} avatar` : "Avatar"}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <span className="grid size-full place-items-center text-xs font-bold text-foreground">
+                          {profileName ? profileName.slice(0, 2).toUpperCase() : "CW"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-extrabold text-foreground">
+                        {profileName || "ClockWise User"}
+                      </p>
+                      <p className="truncate text-xs font-medium text-muted">
+                        {currentCompanyName || "ClockWise Workspace"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-surface text-muted hover:text-foreground transition-colors"
+                    aria-label="Close menu drawer"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+
+                {/* Drawer Scrollable Content */}
+                <div className="overflow-y-auto px-4 py-3 space-y-4">
+                  {/* Company Switcher for Mobile Superadmins */}
+                  {isSuperAdmin && companies && companies.length > 0 ? (
+                    <div className="rounded-2xl border border-border bg-surface-muted/40 p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted mb-2 px-1">
+                        Active Workspace
+                      </p>
+                      <CompanySwitcherMenu
+                        companyId={companyId}
+                        currentCompanyName={currentCompanyName ?? "Company"}
+                        companies={companies}
+                      />
+                    </div>
+                  ) : null}
+
+                  {/* Simplified Mobile Navigation */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 pb-1">
+                      Mobile Workspace
+                    </p>
+                    {mobileItems.map((item) => {
+                      const Icon = navItemIcon(item.label);
+                      const desc = navItemDescription(item.key);
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => {
+                            setMobileDrawerOpen(false);
+                            openPanel(item.key);
+                          }}
+                          className="flex w-full items-center justify-between rounded-xl p-2.5 text-left transition-colors hover:bg-surface-muted active:bg-surface-muted/80"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-foreground border border-border">
+                              <Icon className="size-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-bold text-foreground">
+                                {item.label}
+                              </p>
+                              {desc ? (
+                                <p className="truncate text-[10px] text-muted font-normal">
+                                  {desc}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <ChevronRight className="size-4 shrink-0 text-muted" />
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* App Download / Install Action */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileDrawerOpen(false);
+                        handleDownloadClick();
+                      }}
+                      className="flex w-full items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-left transition-all hover:bg-emerald-500/20 active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-2xs">
+                          <Download className="size-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <span className="block truncate text-xs font-bold text-foreground">
+                            {isInstalled ? "App Installed" : "Download Mobile App"}
+                          </span>
+                          <span className="block truncate text-[10px] text-muted">
+                            {isInstalled ? "Running native web app" : "Add to home screen for 1-tap clock in"}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="rounded bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0">
+                        {isInstalled ? "Ready" : "Install"}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Sign Out Action */}
+                  <div className="pt-1 pb-4">
+                    <form action={signOut}>
+                      <button
+                        type="submit"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 py-2.5 text-xs font-bold text-danger transition-colors hover:bg-danger/20 active:scale-98"
+                      >
+                        <LogOut className="size-4 shrink-0" />
+                        Sign out
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </div>
             </div>,

@@ -1,15 +1,8 @@
 "use client";
 
 import LiveClock from "@/components/LiveClock";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import {
-  ChevronUp,
-  GripVertical,
-  Loader2,
-  X,
-} from "lucide-react";
-import { switchActiveCompanyAction } from "@/lib/sysadmin/actions";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { GripVertical, Laptop, X } from "lucide-react";
 import {
   PanelContext,
   WorkspaceSectionContext,
@@ -23,6 +16,7 @@ type WorkspacePanel = {
   key: string;
   label: string;
   tone?: "primary" | "subtle";
+  desktopOnly?: boolean;
 };
 
 type CalendarWorkspaceProps = {
@@ -52,7 +46,6 @@ export default function CalendarWorkspace({
   managerCalendar,
   panels,
 }: CalendarWorkspaceProps) {
-  const router = useRouter();
   const { registerNavItems, registerPanelOpener } = usePanelBridge();
   const [activePanelKey, setActivePanelKey] = useState<string | null>(initialActivePanelKey);
   const [isMobile, setIsMobile] = useState(false);
@@ -75,120 +68,6 @@ export default function CalendarWorkspace({
   );
   const [panelWidthPercent, setPanelWidthPercent] = useState(80);
   const resizingRef = useRef(false);
-  const [switcherPos, setSwitcherPos] = useState({ x: 16, y: 80 });
-  const [switcherExpanded, setSwitcherExpanded] = useState(false);
-  const switcherDragRef = useRef({
-    dragging: false,
-    moved: false,
-    startX: 0,
-    startY: 0,
-    origX: 0,
-    origY: 0,
-    pointerId: -1,
-  });
-  const switcherElRef = useRef<HTMLDivElement>(null);
-
-  const activeCompany = useMemo(
-    () => companies.find((c) => c.name === companyName) ?? companies[0],
-    [companies, companyName],
-  );
-
-  const [isSwitchingCompany, startSwitchTransition] = useTransition();
-
-  const handleCompanySwitch = useCallback((targetCompanyId: string) => {
-    if (!targetCompanyId || targetCompanyId === activeCompany?.id || isSwitchingCompany) return;
-    startSwitchTransition(async () => {
-      try {
-        await switchActiveCompanyAction(targetCompanyId);
-        router.refresh();
-      } catch (err) {
-        console.error("Failed to switch company:", err);
-      }
-    });
-  }, [activeCompany?.id, isSwitchingCompany, router]);
-
-  const handleSwitcherPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("select")) return;
-    switcherDragRef.current = {
-      dragging: true,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: switcherPos.x,
-      origY: switcherPos.y,
-      pointerId: e.pointerId,
-    };
-  }, [switcherPos]);
-
-  useEffect(() => {
-    let rAFId: number | null = null;
-    let latestX = switcherPos.x;
-    let latestY = switcherPos.y;
-
-    const handleMove = (e: globalThis.PointerEvent) => {
-      const drag = switcherDragRef.current;
-      if (!drag.dragging) return;
-      const dx = e.clientX - drag.startX;
-      const dy = e.clientY - drag.startY;
-      if (!drag.moved && Math.hypot(dx, dy) > 6) {
-        drag.moved = true;
-        try {
-          switcherElRef.current?.setPointerCapture(drag.pointerId);
-        } catch {
-          // ignore
-        }
-      }
-      if (!drag.moved) return;
-
-      const newX = drag.origX + dx;
-      const newY = drag.origY + dy;
-      const maxX = Math.max(0, window.innerWidth - (switcherElRef.current?.offsetWidth ?? 160));
-      const maxY = Math.max(0, window.innerHeight - (switcherElRef.current?.offsetHeight ?? 48));
-      const clampedX = Math.max(8, Math.min(maxX, newX));
-      const clampedY = Math.max(8, Math.min(maxY, newY));
-
-      latestX = clampedX;
-      latestY = clampedY;
-
-      if (rAFId !== null) cancelAnimationFrame(rAFId);
-      rAFId = requestAnimationFrame(() => {
-        if (switcherElRef.current) {
-          switcherElRef.current.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0)`;
-        }
-      });
-    };
-
-    const handleUp = (e: globalThis.PointerEvent) => {
-      const drag = switcherDragRef.current;
-      if (!drag.dragging) return;
-      drag.dragging = false;
-      if (drag.moved) {
-        setSwitcherPos({ x: latestX, y: latestY });
-        try {
-          switcherElRef.current?.releasePointerCapture(e.pointerId);
-        } catch {
-          // ignore
-        }
-        setTimeout(() => {
-          drag.moved = false;
-        }, 80);
-      }
-    };
-
-    window.addEventListener("pointermove", handleMove, { passive: true });
-    window.addEventListener("pointerup", handleUp);
-    return () => {
-      if (rAFId !== null) cancelAnimationFrame(rAFId);
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-    };
-  }, [switcherPos.x, switcherPos.y]);
-
-  const handleSwitcherClick = useCallback((e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (switcherDragRef.current.moved) return;
-    setSwitcherExpanded((value) => !value);
-  }, []);
 
   const handleOpenPanel = useCallback((key: string) => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -203,7 +82,11 @@ export default function CalendarWorkspace({
 
   useEffect(() => {
     registerNavItems(
-      panels.map((panel) => ({ key: panel.key, label: panel.label })),
+      panels.map((panel) => ({
+        key: panel.key,
+        label: panel.label,
+        desktopOnly: panel.desktopOnly,
+      })),
     );
   }, [panels, registerNavItems]);
 
@@ -233,7 +116,7 @@ export default function CalendarWorkspace({
     document.addEventListener("pointerup", handlePointerUp);
   }, []);
 
-  const isTeamMode = workspaceMode === "team" && isManager && managerCalendar;
+  const isTeamMode = !isMobile && workspaceMode === "team" && isManager && managerCalendar;
 
   return (
     <PanelContext.Provider value={{ openPanel: handleOpenPanel }}>
@@ -251,25 +134,25 @@ export default function CalendarWorkspace({
         }
       >
     <div className="flex min-h-[calc(100dvh-3.5rem)] min-w-0 max-w-full flex-col gap-0 overflow-x-hidden">
-      <section className="card mx-4 mb-4 mt-4 overflow-hidden sm:mx-6">
-        <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-5 sm:py-3">
+      <section className="card mx-3 mb-4 mt-3 overflow-hidden rounded-2xl border border-border bg-surface shadow-soft sm:mx-6">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-sm font-bold text-foreground sm:text-lg">{companyName}</h1>
+                <h1 className="truncate text-base font-extrabold tracking-tight text-foreground sm:text-xl">{companyName}</h1>
               </div>
-              <p className="truncate text-[10px] text-muted sm:text-xs">
+              <p className="truncate text-[11px] font-medium text-muted sm:text-xs">
                 {currentDateLabel} · <LiveClock />
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="hidden sm:flex shrink-0 items-center gap-1.5">
             {isManager && managerCalendar ? (
-              <div className="flex gap-1 rounded-lg border border-border bg-background p-1 text-xs font-bold shadow-2xs">
+              <div className="flex gap-1 rounded-full border border-border bg-background/80 p-1 text-xs font-bold shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setWorkspaceMode("me")}
-                  className={`rounded-md px-3 py-1.5 transition-all ${
+                  className={`rounded-full px-3.5 py-1.5 transition-all ${
                     workspaceMode === "me"
                       ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-foreground hover:bg-surface-muted"
@@ -280,7 +163,7 @@ export default function CalendarWorkspace({
                 <button
                   type="button"
                   onClick={() => setWorkspaceMode("team")}
-                  className={`rounded-md px-3 py-1.5 transition-all ${
+                  className={`rounded-full px-3.5 py-1.5 transition-all ${
                     workspaceMode === "team"
                       ? "bg-primary text-primary-foreground shadow-2xs"
                       : "text-foreground hover:bg-surface-muted"
@@ -295,8 +178,8 @@ export default function CalendarWorkspace({
       </section>
 
       {isMobile && !isTeamMode && !employeeHub ? (
-        <div className="mx-4 mb-4 sm:mx-6">
-          <div className="grid grid-cols-3 gap-1 rounded-full border border-border bg-background p-1 text-xs font-semibold">
+        <div className="mx-3 mb-4 sm:mx-6">
+          <div className="grid grid-cols-3 gap-1 rounded-full border border-border bg-surface p-1 text-xs font-semibold shadow-2xs">
             {(
               [
                 ["clock", "Clock"],
@@ -321,7 +204,7 @@ export default function CalendarWorkspace({
         </div>
       ) : null}
 
-      <div className="mx-4 min-w-0 flex-1 sm:mx-6">
+      <div className="mx-3 min-w-0 flex-1 sm:mx-6 pb-32 sm:pb-8">
         {isTeamMode ? (
           managerCalendar
         ) : employeeHub ? (
@@ -344,27 +227,29 @@ export default function CalendarWorkspace({
         onClose={() => setActivePanelKey(null)}
         maxWidth=""
         backdropClassName="bg-slate-950/40 backdrop-blur-xs"
-        panelStyle={{ width: `${panelWidthPercent}vw` }}
+        panelStyle={isMobile ? { width: "100vw" } : { width: `${panelWidthPercent}vw` }}
         gutter={
-          <div
-            className="flex cursor-ew-resize items-center justify-center px-1 py-0.5 hover:bg-accent/10"
-            onPointerDown={handleResizeStart}
-          >
-            <GripVertical className="size-3 text-muted" />
-          </div>
+          isMobile ? null : (
+            <div
+              className="flex cursor-ew-resize items-center justify-center px-1 py-0.5 hover:bg-accent/10"
+              onPointerDown={handleResizeStart}
+            >
+              <GripVertical className="size-3 text-muted" />
+            </div>
+          )
         }
         header={
-          <div className="z-10 flex shrink-0 flex-col border-b border-border bg-surface/90 backdrop-blur-md shadow-xs">
+          <div className="z-10 flex shrink-0 flex-col border-b border-border bg-surface/95 backdrop-blur-md shadow-2xs">
             {/* Top Row: Title, Eyebrow & Close button */}
-            <div className="flex items-start justify-between gap-3 px-4 pt-3.5 pb-2.5 sm:px-6">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:pt-4 sm:pb-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-accent">
+                <p className="hidden sm:block text-[10px] font-black uppercase tracking-[0.16em] text-accent">
                   Workspace Panel
                 </p>
-                <h3 className="mt-0.5 text-lg font-extrabold text-foreground sm:text-xl">
+                <h3 className="truncate text-base font-extrabold tracking-tight text-foreground sm:text-xl">
                   {activePanel?.label ?? ""}
                 </h3>
-                <p className="mt-0.5 truncate text-xs text-muted">
+                <p className="hidden sm:block mt-0.5 truncate text-xs text-muted">
                   {activePanel?.description ?? ""}
                 </p>
               </div>
@@ -372,116 +257,85 @@ export default function CalendarWorkspace({
               <button
                 type="button"
                 onClick={() => setActivePanelKey(null)}
-                className="grid size-8 shrink-0 place-items-center rounded border border-border bg-background text-foreground hover:bg-surface-muted hover:border-slate-400 transition-colors shadow-2xs"
+                className="grid size-8 sm:size-9 shrink-0 place-items-center rounded-full border border-border bg-surface text-foreground hover:bg-surface-muted transition-colors shadow-2xs"
                 aria-label="Close panel"
               >
                 <X className="size-4" />
               </button>
             </div>
 
-            {/* Quick Workspace Switcher Tab Bar */}
+            {/* Quick Workspace Switcher Tab Bar (Desktop Only) */}
             {panels.length > 1 ? (
-              <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border bg-surface-muted/60 backdrop-blur-xs px-4 py-2 sm:px-6 scrollbar-none">
-                {panels.map((panel) => {
-                  const isActive = panel.key === activePanelKey;
-                  const shortLabel =
-                    panel.key === "reports"
-                      ? "Reports"
-                      : panel.key === "manager-review"
-                        ? "Approvals"
-                        : panel.key === "people"
-                          ? "People"
-                          : panel.key === "leave"
-                            ? "Leave"
-                            : panel.key === "company"
-                              ? "Company"
-                              : panel.key === "account"
-                                ? "Account"
-                                : panel.key === "policies"
-                                  ? "Policies"
-                                  : panel.key === "attendance"
-                                    ? "Today's Attendance"
-                                    : panel.key === "sysadmin"
-                                      ? "SysAdmin"
-                                      : panel.label.split(" ")[0];
+              <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto border-t border-border bg-surface-muted/50 backdrop-blur-xs px-4 py-2 sm:px-6 scrollbar-none">
+                {panels
+                  .filter((panel) => !panel.desktopOnly)
+                  .map((panel) => {
+                    const isActive = panel.key === activePanelKey;
+                    const shortLabel =
+                      panel.key === "reports"
+                        ? "Reports"
+                        : panel.key === "manager-review"
+                          ? "Approvals"
+                          : panel.key === "people"
+                            ? "People"
+                            : panel.key === "leave"
+                              ? "Leave"
+                              : panel.key === "company"
+                                ? "Company"
+                                : panel.key === "account"
+                                  ? "Account"
+                                  : panel.key === "policies"
+                                    ? "Policies"
+                                    : panel.key === "attendance"
+                                      ? "Today's Attendance"
+                                      : panel.key === "payslips"
+                                        ? "Payslips"
+                                        : panel.key === "sysadmin"
+                                          ? "SysAdmin"
+                                          : panel.label.split(" ")[0];
 
-                  return (
-                    <button
-                      key={panel.key}
-                      type="button"
-                      onClick={() => setActivePanelKey(panel.key)}
-                      className={`inline-flex shrink-0 items-center rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-2xs"
-                          : "border border-border bg-surface text-foreground hover:bg-surface-muted"
-                      }`}
-                    >
-                      {shortLabel}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={panel.key}
+                        type="button"
+                        onClick={() => setActivePanelKey(panel.key)}
+                        className={`inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-2xs"
+                            : "border border-border bg-surface text-foreground hover:bg-surface-muted"
+                        }`}
+                      >
+                        {shortLabel}
+                      </button>
+                    );
+                  })}
               </div>
             ) : null}
           </div>
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 bg-surface"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6 pb-16 sm:pb-8 bg-surface"
       >
-        {activePanel?.content}
-      </ViewportSidebar>
-
-      {isSuperAdmin ? (
-        <div
-          ref={switcherElRef}
-          style={{
-            transform: `translate3d(${switcherPos.x}px, ${switcherPos.y}px, 0)`,
-            left: 0,
-            top: 0,
-            willChange: "transform",
-          }}
-          className="fixed z-50 touch-none select-none cursor-grab active:cursor-grabbing"
-          onPointerDown={handleSwitcherPointerDown}
-        >
-          {switcherExpanded ? (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg">
-              <button
-                type="button"
-                onClick={handleSwitcherClick}
-                aria-label="Collapse company switcher"
-                className="grid size-6 shrink-0 place-items-center rounded-md text-muted hover:bg-surface-muted hover:text-foreground cursor-pointer"
-              >
-                <ChevronUp className="size-4" />
-              </button>
-              <select
-                aria-label="Switch active company"
-                value={activeCompany?.id ?? ""}
-                disabled={isSwitchingCompany}
-                onChange={(e) => handleCompanySwitch(e.target.value)}
-                className="max-w-[140px] truncate bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer disabled:opacity-60"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id} className="bg-surface text-foreground">
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {isSwitchingCompany ? (
-                <Loader2 className="size-3 animate-spin text-primary shrink-0" />
-              ) : null}
+        {isMobile && activePanel?.desktopOnly ? (
+          <div className="mx-auto my-auto flex max-w-sm flex-col items-center justify-center rounded-2xl border border-border bg-surface-muted/60 p-6 text-center shadow-xs">
+            <div className="mb-3 grid size-12 place-items-center rounded-full bg-accent/15 text-accent">
+              <Laptop className="size-6" />
             </div>
-          ) : (
+            <h4 className="text-base font-bold text-foreground">Desktop Feature</h4>
+            <p className="mt-1.5 text-xs text-muted leading-relaxed">
+              <strong>{activePanel.label}</strong> is an advanced administrative feature optimized for larger desktop displays. Please sign in on a computer or laptop to access these management tools.
+            </p>
             <button
               type="button"
-              onClick={handleSwitcherClick}
-              aria-label="Expand company switcher"
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-lg hover:border-slate-400 hover:bg-surface-muted transition-colors cursor-pointer"
+              onClick={() => setActivePanelKey(null)}
+              className="mt-5 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary-hover transition-colors"
             >
-              <span className="pointer-events-none max-w-[140px] truncate text-xs font-semibold text-foreground">
-                {companyName}
-              </span>
+              Return to Workspace
             </button>
-          )}
-        </div>
-      ) : null}
+          </div>
+        ) : (
+          activePanel?.content
+        )}
+      </ViewportSidebar>
     </div>
       </WorkspaceSectionContext.Provider>
     </PanelContext.Provider>

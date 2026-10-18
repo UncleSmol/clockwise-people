@@ -105,9 +105,9 @@ export default function EmployeeAccountPanel({
       case "owner":
         return "border-amber-500/40 bg-amber-500/10 text-amber-900";
       case "hr_admin":
-        return "border-blue-500/40 bg-blue-500/10 text-blue-900";
+        return "border-slate-700 bg-slate-900 text-white";
       case "branch_manager":
-        return "border-purple-500/40 bg-purple-500/10 text-purple-900";
+        return "border-emerald-500/40 bg-emerald-500/10 text-emerald-900";
       case "payroll_viewer":
         return "border-slate-500/40 bg-slate-500/10 text-slate-900";
       default:
@@ -168,12 +168,12 @@ export default function EmployeeAccountPanel({
   }
 
   return (
-    <section className="grid min-w-0 gap-5 rounded-xl border border-border bg-surface p-5 shadow-2xs">
+    <section className="grid min-w-0 gap-5 rounded-2xl border border-border/80 bg-surface p-5 sm:p-6 shadow-soft">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <div className="flex items-center gap-2">
-            <Shield className="size-5 text-accent" />
-            <h2 className="text-xl font-bold text-foreground">Account Access &amp; Role</h2>
+            <Shield className="size-5 text-primary" />
+            <h2 className="text-xl font-extrabold text-foreground">Account Access &amp; Role</h2>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             {hasAccount
@@ -181,14 +181,14 @@ export default function EmployeeAccountPanel({
               : "Create a login credentials package or send an onboarding invitation with their initial system role."}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-            <span className="badge badge-muted">
+            <span className="badge badge-muted rounded-full px-3 py-1 text-xs">
               {email ?? "No email saved"}
             </span>
-            <span className={`badge ${hasAccount ? "badge-accent" : "badge-muted"}`}>
+            <span className={`badge rounded-full px-3 py-1 text-xs ${hasAccount ? "badge-accent" : "badge-muted"}`}>
               {hasAccount ? "Access active" : "No account"}
             </span>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-bold capitalize ${getBadgeTone(
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold capitalize ${getBadgeTone(
                 currentRoleKey ?? (hasAccount ? "employee" : null),
               )}`}
             >
@@ -196,7 +196,7 @@ export default function EmployeeAccountPanel({
               {activeRoleLabel}
             </span>
             {isSuperAdminUser ? (
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
                 <Shield className="size-3" />
                 Super Admin (Universal)
               </span>
@@ -208,13 +208,13 @@ export default function EmployeeAccountPanel({
         {!hasAccount && email && canAssignRoles && (
           <div className="flex flex-wrap items-center gap-2">
             <label className="grid gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Initial Role</span>
-              <span className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Initial Role</span>
+              <span className="flex items-center gap-2 rounded-full border border-border/80 bg-background px-4">
                 <Shield className="size-4 shrink-0 text-muted" />
                 <select
                   value={provisionRoleKey}
                   onChange={(e) => setProvisionRoleKey(e.target.value as EmployeeAccountRoleKey)}
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                  className="h-11 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none cursor-pointer"
                   aria-label="Account initial role"
                 >
                   {roleOptions.map((option) => (
@@ -228,7 +228,7 @@ export default function EmployeeAccountPanel({
             <form action={createEmployeeInviteLink.bind(null, employeeId, provisionRoleKey)}>
               <button
                 type="submit"
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground hover:bg-surface-muted cursor-pointer"
+                className="inline-flex min-h-[44px] h-11 items-center justify-center rounded-full border border-border/80 bg-background px-4 text-xs font-bold text-foreground hover:bg-surface-muted shadow-xs transition-colors cursor-pointer"
               >
                 Copy invite link
               </button>
@@ -236,7 +236,7 @@ export default function EmployeeAccountPanel({
             <form action={sendEmployeeInvite.bind(null, employeeId, provisionRoleKey)}>
               <button
                 type="submit"
-                className="btn btn-primary cursor-pointer"
+                className="inline-flex min-h-[44px] h-11 items-center justify-center rounded-full bg-primary px-5 text-xs font-bold text-white shadow-soft hover:brightness-105 transition-all cursor-pointer"
               >
                 Send invite email
               </button>
@@ -245,7 +245,7 @@ export default function EmployeeAccountPanel({
               <button
                 type="submit"
                 disabled={pending}
-                className="btn btn-accent cursor-pointer"
+                className="inline-flex min-h-[44px] h-11 items-center justify-center rounded-full bg-primary px-5 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-60 transition-all cursor-pointer"
               >
                 {pending ? "Creating..." : "Create account"}
               </button>
@@ -256,11 +256,11 @@ export default function EmployeeAccountPanel({
 
       {/* Role Assignment Section for employees WITH an active account */}
       {hasAccount && canAssignRoles && (
-        <div className="rounded-lg border border-border/80 bg-background/60 p-4">
+        <div className="rounded-2xl border border-border/80 bg-background/60 p-5 shadow-soft">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                <UserCheck className="size-4 text-accent" />
+              <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
+                <UserCheck className="size-4 text-primary" />
                 Assign Role to Employee
               </h3>
               <p className="mt-0.5 text-xs text-muted">
@@ -269,12 +269,12 @@ export default function EmployeeAccountPanel({
             </div>
 
             <form onSubmit={handleAssignRoleSubmit} className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3">
+              <div className="flex items-center gap-2 rounded-full border border-border/80 bg-background px-4">
                 <Shield className="size-4 shrink-0 text-muted" />
                 <select
                   value={assignRoleKey}
                   onChange={(e) => setAssignRoleKey(e.target.value as EmployeeAccountRoleKey)}
-                  className="h-9 min-w-[170px] bg-transparent text-sm text-foreground outline-none cursor-pointer"
+                  className="h-11 min-w-[170px] bg-transparent text-sm text-foreground outline-none cursor-pointer"
                   aria-label="Target employee role"
                 >
                   {roleOptions.map((option) => (
@@ -288,7 +288,7 @@ export default function EmployeeAccountPanel({
               <button
                 type="submit"
                 disabled={isAssignPending || assignRoleKey === currentRoleKey}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-4 text-xs font-bold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                className="inline-flex min-h-[44px] h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-6 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 {isAssignPending ? (
                   <>
@@ -308,7 +308,7 @@ export default function EmployeeAccountPanel({
           {/* Feedback messages */}
           {assignFeedback && (
             <div
-              className={`mt-3 rounded-lg border px-3 py-2 text-xs font-medium flex items-center gap-2 ${
+              className={`mt-3.5 rounded-full border px-4 py-2 text-xs font-semibold flex items-center gap-2 ${
                 assignFeedback.ok
                   ? "border-emerald-500/30 bg-emerald-50 text-emerald-950"
                   : "border-rose-500/30 bg-rose-50 text-rose-950"
@@ -323,14 +323,14 @@ export default function EmployeeAccountPanel({
 
       {/* Super Admin Universal Privilege Management */}
       {hasAccount && canAssignSuperAdmin && (
-        <div className="rounded-lg border border-primary/30 bg-primary/[0.04] p-4">
+        <div className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 shadow-soft">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Shield className="size-4 text-primary" />
-                <h3 className="text-sm font-bold text-foreground">Super Administrator Privileges</h3>
+                <h3 className="text-sm font-extrabold text-foreground">Super Administrator Privileges</h3>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                     isSuperAdminUser
                       ? "bg-primary/20 text-primary"
                       : "bg-surface-muted text-muted"
@@ -348,10 +348,10 @@ export default function EmployeeAccountPanel({
               type="button"
               disabled={isSuperAdminPending}
               onClick={handleToggleSuperAdmin}
-              className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex min-h-[44px] h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-5 text-xs font-bold transition-all cursor-pointer ${
                 isSuperAdminUser
                   ? "border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
-                  : "bg-primary text-white shadow-xs hover:bg-primary/90"
+                  : "bg-primary text-white shadow-soft hover:brightness-105"
               }`}
             >
               {isSuperAdminPending ? (
@@ -372,7 +372,7 @@ export default function EmployeeAccountPanel({
 
           {superAdminFeedback && (
             <div
-              className={`mt-3 rounded-lg border px-3 py-2 text-xs font-medium flex items-center gap-2 ${
+              className={`mt-3.5 rounded-full border px-4 py-2 text-xs font-semibold flex items-center gap-2 ${
                 superAdminFeedback.ok
                   ? "border-emerald-500/30 bg-emerald-50 text-emerald-950"
                   : "border-rose-500/30 bg-rose-50 text-rose-950"
@@ -386,46 +386,46 @@ export default function EmployeeAccountPanel({
       )}
 
       {!email && (
-        <div className="rounded-lg border border-warning/20 bg-warning/10 px-4 py-3 text-sm font-medium text-warning">
+        <div className="rounded-2xl border border-warning/20 bg-warning/10 px-5 py-3 text-sm font-semibold text-warning">
           Add an email address before creating an account or sending an invite.
         </div>
       )}
 
       {state.error && (
-        <div className="rounded-lg border border-danger/20 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
+        <div className="rounded-2xl border border-danger/20 bg-danger/10 px-5 py-3 text-sm font-semibold text-danger">
           {state.error}
         </div>
       )}
 
       {state.credentials && (
-        <div className="rounded-lg border border-accent/20 bg-accent/10 p-4">
-          <p className="text-sm font-semibold text-foreground">
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-soft">
+          <p className="text-sm font-bold text-foreground">
             {state.message ?? "Employee account created."}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1.5 text-sm font-medium text-foreground">
+            <label className="grid gap-1.5 text-sm font-bold text-foreground">
               Email
               <input
                 readOnly
                 value={state.credentials.email}
                 onFocus={(event) => event.currentTarget.select()}
-                className="input"
+                className="h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none shadow-xs"
               />
             </label>
-            <label className="grid gap-1.5 text-sm font-medium text-foreground">
+            <label className="grid gap-1.5 text-sm font-bold text-foreground">
               Temporary password
               <input
                 readOnly
                 value={state.credentials.password}
                 onFocus={(event) => event.currentTarget.select()}
-                className="input font-mono"
+                className="h-11 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none font-mono shadow-xs"
               />
             </label>
           </div>
           <button
             type="button"
             onClick={copyCredentials}
-            className="btn btn-primary mt-3 cursor-pointer"
+            className="inline-flex min-h-[44px] h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-xs font-bold text-white shadow-soft hover:brightness-105 mt-4 cursor-pointer transition-all"
           >
             {copied ? (
               <>

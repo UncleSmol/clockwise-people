@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeString, sanitizeUrl } from "@/lib/security/sanitizer";
 
 export const appRoles = [
   "owner",
@@ -11,11 +12,27 @@ export const appRoles = [
 export type AppRole = (typeof appRoles)[number];
 
 export const companySchema = z.object({
-  name: z.string().trim().min(2, "Company name is required"),
-  registration_number: z.string().trim().optional().or(z.literal("")),
-  country: z.string().trim().min(2, "Country is required"),
-  timezone: z.string().trim().min(2, "Timezone is required"),
-  payroll_cycle: z.string().trim().min(2, "Payroll cycle is required"),
+  name: z
+    .string()
+    .transform((v) => sanitizeString(v, 120))
+    .refine((v) => v.length >= 2, "Company name is required"),
+  registration_number: z
+    .string()
+    .transform((v) => sanitizeString(v, 80))
+    .optional()
+    .or(z.literal("")),
+  country: z
+    .string()
+    .transform((v) => sanitizeString(v, 80))
+    .refine((v) => v.length >= 2, "Country is required"),
+  timezone: z
+    .string()
+    .transform((v) => sanitizeString(v, 60))
+    .refine((v) => v.length >= 2, "Timezone is required"),
+  payroll_cycle: z
+    .string()
+    .transform((v) => sanitizeString(v, 40))
+    .refine((v) => v.length >= 2, "Payroll cycle is required"),
 });
 
 export const companyLogoSchema = z.object({
@@ -26,21 +43,23 @@ export const companyLogoSchema = z.object({
     .or(z.literal(""))
     .refine((value) => {
       if (!value) return true;
-
-      try {
-        const url = new URL(value);
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
+      return Boolean(sanitizeUrl(value));
     }, "Use a valid logo link that starts with http:// or https://"),
 });
 
 export const departmentSchema = z.object({
   workstation_id: z.string().trim().optional().or(z.literal("")),
-  name: z.string().trim().min(2, "Department name is required"),
-  code: z.string().trim().optional().or(z.literal("")),
+  name: z
+    .string()
+    .transform((v) => sanitizeString(v, 80))
+    .refine((v) => v.length >= 2, "Department name is required"),
+  code: z
+    .string()
+    .transform((v) => sanitizeString(v, 20))
+    .optional()
+    .or(z.literal("")),
 });
+
 
 export type Company = {
   id: string;
