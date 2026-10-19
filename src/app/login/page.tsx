@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   return (
-    <main className="grid min-h-dvh place-items-center px-4 py-8 sm:px-6">
+    <main className="hide-in-zen grid min-h-dvh place-items-center px-4 py-8 sm:px-6 transition-all duration-300">
       <section className="w-full max-w-sm">
         <div className="mb-4">
           <Link
@@ -30,6 +30,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             imageSize={44}
             imageClassName="size-11 rounded-2xl p-1 bg-surface border border-border object-contain shadow-2xs"
             textClassName="text-base font-bold text-foreground"
+            alwaysShowLogo
             priority
           />
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">

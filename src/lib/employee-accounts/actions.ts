@@ -358,3 +358,171 @@ export async function toggleEmployeeSuperAdminAction(
       : `Super Administrator privileges revoked for ${employee.full_name}.`,
   };
 }
+
+export type SetEmployeePasswordResult = {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  credentials?: {
+    email: string;
+    password: string;
+  };
+};
+
+export async function setEmployeePasswordBySuperAdminAction(
+  employeeId: string,
+  newPassword: string,
+  initialRoleKey?: EmployeeAccountRoleKey,
+): Promise<SetEmployeePasswordResult> {
+  const { user } = await requireUser();
+  const access = await getCurrentUserAccess();
+
+  // Strict server authorization: Only Super Admin can change or set user passwords
+  if (!access.isSuperAdmin) {
+    return {
+      ok: false,
+      error: "Unauthorized: Only Super Administrators are permitted to set or change user passwords.",
+    };
+  }
+
+  const password = newPassword.trim();
+  if (!password || password.length < 8) {
+    return {
+      ok: false,
+      error: "Password must be at least 8 characters long.",
+    };
+  }
+
+  const { company } = await getActiveCompany();
+  const admin = createSupabaseAdminClient();
+
+  const { data: employee, error: empError } = await admin
+    .from("employees")
+    .select("id, company_id, full_name, email, user_id")
+    .eq("company_id", company.id)
+    .eq("id", employeeId)
+    .is("deleted_at", null)
+    .single();
+
+  if (empError || !employee) {
+    return { ok: false, error: "Employee record could not be found." };
+  }
+
+  if (!employee.email) {
+    return { ok: false, error: "Employee must have an email address to set a password." };
+  }
+
+  // 1. Locate auth user id
+  let authUserId: string | null = null;
+
+  if (employee.user_id) {
+    const { data: userRow } = await admin
+      .from("users")
+      .select("id, auth_user_id, email")
+      .eq("id", employee.user_id)
+      .maybeSingle();
+
+    if (userRow?.auth_user_id) {
+      authUserId = userRow.auth_user_id;
+    }
+  }
+
+  if (!authUserId && employee.email) {
+    try {
+      authUserId = await findAuthUserIdByEmail(admin, employee.email);
+    } catch {
+      authUserId = null;
+    }
+  }
+
+  // Case 1: Auth user already exists -> update password directly in Supabase Auth
+  if (authUserId) {
+    const { error: updateError } = await admin.auth.admin.updateUserById(authUserId, {
+      password: password,
+      email_confirm: true,
+    });
+
+    if (updateError) {
+      return { ok: false, error: `Failed to update password: ${updateError.message}` };
+    }
+
+    // Ensure users table and employee.user_id are linked if not yet linked
+    if (!employee.user_id) {
+      const { data: existingUser } = await admin
+        .from("users")
+        .select("id")
+        .eq("company_id", company.id)
+        .or(`auth_user_id.eq.${authUserId},email.eq.${employee.email}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingUser) {
+        await admin
+          .from("employees")
+          .update({ user_id: existingUser.id, updated_at: new Date().toISOString() })
+          .eq("id", employee.id);
+      }
+    }
+
+    revalidatePath(`/dashboard/employees/${employee.id}`);
+    revalidatePath("/dashboard/employees");
+    revalidatePath("/dashboard");
+
+    return {
+      ok: true,
+      message: `Password successfully updated for ${employee.full_name} (${employee.email}).`,
+      credentials: {
+        email: employee.email,
+        password: password,
+      },
+    };
+  }
+
+  // Case 2: Auth user does not exist yet -> create auth user and provision account
+  try {
+    await removeStaleUnlinkedAuthUser(admin, employee.email);
+  } catch {
+    // Proceed if not stale
+  }
+
+  const roleKeyToUse = initialRoleKey || "employee";
+  const { data: authResult, error: authError } = await admin.auth.admin.createUser({
+    email: employee.email,
+    password: password,
+    email_confirm: true,
+    user_metadata: {
+      company_id: company.id,
+      employee_id: employee.id,
+      provisioned_by: user.id,
+    },
+  });
+
+  if (authError || !authResult?.user) {
+    return { ok: false, error: authError?.message ?? "Unable to create Auth user." };
+  }
+
+  const { error: provisionError } = await admin.rpc("provision_employee_account", {
+    target_employee_id: employee.id,
+    target_auth_user_id: authResult.user.id,
+    provisioned_by_auth_user_id: user.id,
+    target_role_key: roleKeyToUse,
+  });
+
+  if (provisionError) {
+    await admin.auth.admin.deleteUser(authResult.user.id);
+    return { ok: false, error: provisionError.message };
+  }
+
+  revalidatePath(`/dashboard/employees/${employee.id}`);
+  revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message: `Account created and password successfully set for ${employee.full_name} (${employee.email}).`,
+    credentials: {
+      email: employee.email,
+      password: password,
+    },
+  };
+}

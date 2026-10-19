@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   CheckSquare,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Clock,
   Clock3,
   ClipboardCheck,
@@ -19,11 +23,13 @@ import {
   FileQuestion,
   FileText,
   Footprints,
+  Layers,
   LocateFixed,
   MapPin,
   Plus,
   Save,
   Send,
+  Sparkles,
   Square,
   Trash2,
   UtensilsCrossed,
@@ -45,6 +51,7 @@ const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
   ),
 });
 import {
+  createBulkDraftTimeEntriesAction,
   createPastDraftTimeEntry,
   deleteDraftTimeEntry,
   saveDraftTimeEntry,
@@ -54,6 +61,7 @@ import {
 import type {
   CompanyLiveTimeOverview,
   CompanyPublicHoliday,
+  EmployeeScheduleInfo,
   TimeEntryRecord,
   TimesheetCorrectionRequest,
 } from "@/lib/time-tracking/schema";
@@ -67,6 +75,14 @@ type EmployeeTimesheetCorrectionsProps = {
   entries: TimeEntryRecord[];
   publicHolidays: CompanyPublicHoliday[];
   liveOverview?: CompanyLiveTimeOverview | null;
+  workSchedule?: EmployeeScheduleInfo | null;
+  todaySchedule?: {
+    start_time: string | null;
+    end_time: string | null;
+    lunch_minutes: number;
+    is_working_day: boolean;
+  } | null;
+  defaultLunchMinutes?: number;
 };
 
 type CorrectionActionState = {
@@ -280,8 +296,125 @@ function dateKey(date: Date) {
   ].join("-");
 }
 
+function getScheduleTemplate(
+  schedule: EmployeeScheduleInfo | null | undefined,
+  todaySchedule: {
+    start_time: string | null;
+    end_time: string | null;
+    lunch_minutes: number;
+    is_working_day: boolean;
+  } | null | undefined,
+  defaultLunchMinutes: number = 60,
+  targetDate?: string,
+) {
+  let startTime = "08:00";
+  let endTime = "17:00";
+  let lunchMinutes = defaultLunchMinutes > 0 ? defaultLunchMinutes : 60;
+  let scheduleName = schedule?.name ?? "Standard Work Schedule";
 
+  if (schedule?.days && schedule.days.length > 0) {
+    let day: (typeof schedule.days)[0] | undefined;
+    if (targetDate) {
+      const [y, m, d] = targetDate.split("-").map(Number);
+      const dayOfWeek = new Date(y, m - 1, d).getDay();
+      day = schedule.days.find((item) => item.day_of_week === dayOfWeek && item.is_working_day);
+    }
+    if (!day) {
+      day =
+        schedule.days.find((item) => item.is_working_day && item.start_time && item.end_time) ??
+        schedule.days[0];
+    }
+    if (day) {
+      if (day.start_time) startTime = day.start_time.slice(0, 5);
+      if (day.end_time) endTime = day.end_time.slice(0, 5);
+      if (day.lunch_minutes > 0) lunchMinutes = day.lunch_minutes;
+    }
+  } else if (todaySchedule) {
+    if (todaySchedule.start_time) startTime = todaySchedule.start_time.slice(0, 5);
+    if (todaySchedule.end_time) endTime = todaySchedule.end_time.slice(0, 5);
+    if (todaySchedule.lunch_minutes > 0) lunchMinutes = todaySchedule.lunch_minutes;
+  }
 
+  // Derive lunch break interval (mandatory lunch insertion)
+  const [sh = 8, sm = 0] = startTime.split(":").map(Number);
+  const [eh = 17, em = 0] = endTime.split(":").map(Number);
+  const startMins = sh * 60 + sm;
+  const endMins = eh * 60 + em;
+  const duration = lunchMinutes > 0 ? lunchMinutes : 60;
+
+  let lunchStartMins = 13 * 60; // 13:00 default
+  if (lunchStartMins <= startMins || lunchStartMins + duration >= endMins) {
+    lunchStartMins = startMins + Math.floor((endMins - startMins - duration) / 2);
+    lunchStartMins = Math.round(lunchStartMins / 15) * 15;
+  }
+  const lunchEndMins = lunchStartMins + duration;
+
+  const toTime = (mins: number) => {
+    const h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  return {
+    scheduleName,
+    clock_in: startTime,
+    lunch_start: toTime(lunchStartMins),
+    lunch_end: toTime(lunchEndMins),
+    clock_out: endTime,
+    lunch_minutes: duration,
+  };
+}
+
+function getPresetDates(preset: "this_week" | "last_week" | "last_14_days" | "this_month", currentWorkDate: string) {
+  const [y = 2026, m = 1, d = 1] = currentWorkDate.split("-").map(Number);
+  const cur = new Date(y, m - 1, d);
+  const dayOfWeek = cur.getDay(); // 0 is Sun, 1 is Mon...
+
+  const yesterday = new Date(cur);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const formatDateStr = (date: Date) => {
+    const yr = date.getFullYear();
+    const mo = String(date.getMonth() + 1).padStart(2, "0");
+    const da = String(date.getDate()).padStart(2, "0");
+    return `${yr}-${mo}-${da}`;
+  };
+
+  if (preset === "this_week") {
+    const diffToMon = (dayOfWeek + 6) % 7;
+    const mon = new Date(cur);
+    mon.setDate(cur.getDate() - diffToMon);
+    const fri = new Date(mon);
+    fri.setDate(mon.getDate() + 4);
+    const end = fri < yesterday ? fri : yesterday;
+    return {
+      start: formatDateStr(mon),
+      end: formatDateStr(end < mon ? mon : end),
+    };
+  } else if (preset === "last_week") {
+    const diffToMon = (dayOfWeek + 6) % 7;
+    const lastMon = new Date(cur);
+    lastMon.setDate(cur.getDate() - diffToMon - 7);
+    const lastFri = new Date(lastMon);
+    lastFri.setDate(lastMon.getDate() + 4);
+    return {
+      start: formatDateStr(lastMon),
+      end: formatDateStr(lastFri),
+    };
+  } else if (preset === "last_14_days") {
+    const start = new Date(yesterday);
+    start.setDate(yesterday.getDate() - 13);
+    return {
+      start: formatDateStr(start),
+      end: formatDateStr(yesterday),
+    };
+  } else {
+    const start = new Date(y, m - 1, 1);
+    return {
+      start: formatDateStr(start),
+      end: formatDateStr(yesterday < start ? start : yesterday),
+    };
+  }
+}
 
 export default function EmployeeTimesheetCorrections({
   collapsedCalendar = false,
@@ -290,6 +423,9 @@ export default function EmployeeTimesheetCorrections({
   entries,
   publicHolidays,
   liveOverview = null,
+  workSchedule = null,
+  todaySchedule = null,
+  defaultLunchMinutes = 60,
 }: EmployeeTimesheetCorrectionsProps) {
 
   const [attendanceFilter, setAttendanceFilter] = useState<"working" | "on_lunch" | "worked" | "not_started" | "all">("working");
@@ -424,6 +560,66 @@ export default function EmployeeTimesheetCorrections({
     createPastDraftTimeEntry,
     initialState,
   );
+  const [bulkState, bulkAction, bulkPending] = useActionState(
+    createBulkDraftTimeEntriesAction,
+    initialState,
+  );
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
+  const scheduleTemplate = useMemo(
+    () => getScheduleTemplate(workSchedule, todaySchedule, defaultLunchMinutes),
+    [workSchedule, todaySchedule, defaultLunchMinutes],
+  );
+
+  const initialPreset = useMemo(
+    () => getPresetDates("last_week", currentWorkDate),
+    [currentWorkDate],
+  );
+
+  const [bulkStartDate, setBulkStartDate] = useState(initialPreset.start);
+  const [bulkEndDate, setBulkEndDate] = useState(initialPreset.end);
+  const [bulkExcludeWeekends, setBulkExcludeWeekends] = useState(true);
+  const [bulkClockIn, setBulkClockIn] = useState(scheduleTemplate.clock_in);
+  const [bulkLunchStart, setBulkLunchStart] = useState(scheduleTemplate.lunch_start);
+  const [bulkLunchEnd, setBulkLunchEnd] = useState(scheduleTemplate.lunch_end);
+  const [bulkClockOut, setBulkClockOut] = useState(scheduleTemplate.clock_out);
+  const [bulkNotes, setBulkNotes] = useState("Bulk draft generated from work schedule template");
+
+  useEffect(() => {
+    setBulkClockIn(scheduleTemplate.clock_in);
+    setBulkLunchStart(scheduleTemplate.lunch_start);
+    setBulkLunchEnd(scheduleTemplate.lunch_end);
+    setBulkClockOut(scheduleTemplate.clock_out);
+  }, [scheduleTemplate]);
+
+  useEffect(() => {
+    if (bulkState.ok && bulkState.message) {
+      setIsBulkModalOpen(false);
+    }
+  }, [bulkState]);
+
+  const [draftOverrides, setDraftOverrides] = useState<
+    Map<string, { clock_in?: string; lunch_start?: string; lunch_end?: string; clock_out?: string }>
+  >(() => new Map());
+
+  const applyTemplateToDraft = useCallback(
+    (entry: TimeEntryRecord) => {
+      const tpl = getScheduleTemplate(workSchedule, todaySchedule, defaultLunchMinutes, entry.work_date);
+      setDraftOverrides((prev) => {
+        const next = new Map(prev);
+        next.set(entry.id, {
+          clock_in: tpl.clock_in,
+          lunch_start: tpl.lunch_start,
+          lunch_end: tpl.lunch_end,
+          clock_out: tpl.clock_out,
+        });
+        return next;
+      });
+      handleEntryModified(entry.id);
+    },
+    [workSchedule, todaySchedule, defaultLunchMinutes, handleEntryModified],
+  );
+
   const [deleteState, deleteAction, deletePending] = useActionState(
     deleteDraftTimeEntry,
     initialState,
@@ -575,9 +771,6 @@ export default function EmployeeTimesheetCorrections({
     [entries, holidayDates],
   );
 
-  const paginatedEntries = filteredEntries;
-  const paginatedSubmittedEntries = submittedEntries;
-
   const timesheetSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToTimesheetSection = useCallback(() => {
@@ -586,6 +779,58 @@ export default function EmployeeTimesheetCorrections({
       timesheetSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, []);
+
+  // Timesheets Tab Pagination
+  const [timesheetsPage, setTimesheetsPage] = useState(1);
+  const [timesheetsPageSize, setTimesheetsPageSize] = useState(12);
+
+  const totalTimesheets = filteredEntries.length;
+  const totalTimesheetsPages = Math.max(1, Math.ceil(totalTimesheets / timesheetsPageSize));
+
+  useEffect(() => {
+    if (timesheetsPage > totalTimesheetsPages) {
+      setTimesheetsPage(1);
+    }
+  }, [timesheetsPage, totalTimesheetsPages]);
+
+  const paginatedEntries = useMemo(() => {
+    const startIndex = (timesheetsPage - 1) * timesheetsPageSize;
+    return filteredEntries.slice(startIndex, startIndex + timesheetsPageSize);
+  }, [filteredEntries, timesheetsPage, timesheetsPageSize]);
+
+  const timesheetStartIndex = totalTimesheets > 0 ? (timesheetsPage - 1) * timesheetsPageSize + 1 : 0;
+  const timesheetEndIndex = Math.min(timesheetsPage * timesheetsPageSize, totalTimesheets);
+
+  const handleTimesheetsPageChange = useCallback((page: number) => {
+    setTimesheetsPage(page);
+    scrollToTimesheetSection();
+  }, [scrollToTimesheetSection]);
+
+  // Requests Tab Pagination
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [requestsPageSize, setRequestsPageSize] = useState(12);
+
+  const totalRequests = submittedEntries.length;
+  const totalRequestsPages = Math.max(1, Math.ceil(totalRequests / requestsPageSize));
+
+  useEffect(() => {
+    if (requestsPage > totalRequestsPages) {
+      setRequestsPage(1);
+    }
+  }, [requestsPage, totalRequestsPages]);
+
+  const paginatedSubmittedEntries = useMemo(() => {
+    const startIndex = (requestsPage - 1) * requestsPageSize;
+    return submittedEntries.slice(startIndex, startIndex + requestsPageSize);
+  }, [submittedEntries, requestsPage, requestsPageSize]);
+
+  const requestStartIndex = totalRequests > 0 ? (requestsPage - 1) * requestsPageSize + 1 : 0;
+  const requestEndIndex = Math.min(requestsPage * requestsPageSize, totalRequests);
+
+  const handleRequestsPageChange = useCallback((page: number) => {
+    setRequestsPage(page);
+    scrollToTimesheetSection();
+  }, [scrollToTimesheetSection]);
 
   const handleTabChange = useCallback((tab: "timesheets" | "requests") => {
     setActiveTab(tab);
@@ -702,20 +947,23 @@ export default function EmployeeTimesheetCorrections({
   const submitBlocked =
     selectedEntryIds.size === 0 || (hasFlaggedSelected && !acknowledgedFlags);
   const message =
+    bulkState.message ||
     createState.message ||
     deleteState.message ||
     correctionState.message ||
     saveState.message ||
     submitState.message;
-  const messageOk = createState.message
-    ? createState.ok
-    : deleteState.message
-      ? deleteState.ok
-      : correctionState.message
-        ? correctionState.ok
-        : saveState.message
-          ? saveState.ok
-          : submitState.ok;
+  const messageOk = bulkState.message
+    ? bulkState.ok
+    : createState.message
+      ? createState.ok
+      : deleteState.message
+        ? deleteState.ok
+        : correctionState.message
+          ? correctionState.ok
+          : saveState.message
+            ? saveState.ok
+            : submitState.ok;
   const selectedEntry = selectedDate ? entriesByDate.get(selectedDate) : null;
   const selectedIsHoliday = selectedDate ? holidayDates.has(selectedDate) : false;
   const selectedCanAdd =
@@ -882,33 +1130,66 @@ export default function EmployeeTimesheetCorrections({
         {editable && isExpanded ? (
           <form action={saveAction} className="grid gap-2 min-w-0 w-full rounded-md bg-white p-2.5 text-slate-900 shadow-xs">
             <input type="hidden" name="time_entry_id" value={entry.id} />
+            
+            {/* Quick schedule template loader bar */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-0.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                <Clock className="size-3 text-slate-400" />
+                Draft Times
+              </span>
+              <button
+                type="button"
+                onClick={() => applyTemplateToDraft(entry)}
+                className="inline-flex items-center gap-1 rounded bg-amber-50 hover:bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 border border-amber-200/80 transition-colors shadow-2xs"
+                title={`Load schedule template: ${scheduleTemplate.scheduleName} (${scheduleTemplate.clock_in} - ${scheduleTemplate.clock_out})`}
+              >
+                <Sparkles className="size-2.5 text-amber-600" />
+                Load Work Schedule
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 min-w-0 w-full">
               <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
                 <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">In</span>
                 <AnalogTimePicker
                   name="clock_in"
-                  defaultValue={inputTime(entry.clock_in)}
-                  onChange={() => handleEntryModified(entry.id)}
+                  value={draftOverrides.get(entry.id)?.clock_in !== undefined ? draftOverrides.get(entry.id)!.clock_in : inputTime(entry.clock_in)}
+                  onChange={(e) => {
+                    setDraftOverrides((prev) => new Map(prev).set(entry.id, { ...(prev.get(entry.id) ?? {}), clock_in: e.target.value }));
+                    handleEntryModified(entry.id);
+                  }}
                   compact
                   className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
-                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Lunch In</span>
+              <div className="rounded-md border border-amber-200/80 bg-amber-50/50 p-1 min-w-0 text-center relative">
+                <span className="text-[8.5px] font-extrabold uppercase tracking-wider text-amber-800 truncate block">
+                  Lunch In <span className="text-rose-500 font-extrabold">*</span>
+                </span>
                 <AnalogTimePicker
                   name="lunch_start"
-                  defaultValue={inputTime(entry.lunch_start)}
-                  onChange={() => handleEntryModified(entry.id)}
+                  required
+                  value={draftOverrides.get(entry.id)?.lunch_start !== undefined ? draftOverrides.get(entry.id)!.lunch_start : inputTime(entry.lunch_start)}
+                  onChange={(e) => {
+                    setDraftOverrides((prev) => new Map(prev).set(entry.id, { ...(prev.get(entry.id) ?? {}), lunch_start: e.target.value }));
+                    handleEntryModified(entry.id);
+                  }}
                   compact
                   className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-1 min-w-0 text-center">
-                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Lunch Out</span>
+              <div className="rounded-md border border-amber-200/80 bg-amber-50/50 p-1 min-w-0 text-center relative">
+                <span className="text-[8.5px] font-extrabold uppercase tracking-wider text-amber-800 truncate block">
+                  Lunch Out <span className="text-rose-500 font-extrabold">*</span>
+                </span>
                 <AnalogTimePicker
                   name="lunch_end"
-                  defaultValue={inputTime(entry.lunch_end)}
-                  onChange={() => handleEntryModified(entry.id)}
+                  required
+                  value={draftOverrides.get(entry.id)?.lunch_end !== undefined ? draftOverrides.get(entry.id)!.lunch_end : inputTime(entry.lunch_end)}
+                  onChange={(e) => {
+                    setDraftOverrides((prev) => new Map(prev).set(entry.id, { ...(prev.get(entry.id) ?? {}), lunch_end: e.target.value }));
+                    handleEntryModified(entry.id);
+                  }}
                   compact
                   className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
@@ -917,12 +1198,20 @@ export default function EmployeeTimesheetCorrections({
                 <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Out</span>
                 <AnalogTimePicker
                   name="clock_out"
-                  defaultValue={inputTime(entry.clock_out)}
-                  onChange={() => handleEntryModified(entry.id)}
+                  value={draftOverrides.get(entry.id)?.clock_out !== undefined ? draftOverrides.get(entry.id)!.clock_out : inputTime(entry.clock_out)}
+                  onChange={(e) => {
+                    setDraftOverrides((prev) => new Map(prev).set(entry.id, { ...(prev.get(entry.id) ?? {}), clock_out: e.target.value }));
+                    handleEntryModified(entry.id);
+                  }}
                   compact
                   className="mt-0.5 flex h-6 w-full items-center justify-center gap-1 rounded bg-transparent px-1 text-[11px] sm:text-xs font-black text-slate-900 outline-none text-center hover:bg-slate-200/60 transition-colors"
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 rounded-md bg-amber-50/80 border border-amber-200/60 px-2 py-1 text-[10px] font-semibold text-amber-900">
+              <UtensilsCrossed className="size-3 text-amber-600 shrink-0" />
+              <span>Lunch break is required on draft timesheets for labor compliance.</span>
             </div>
 
             <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5 min-w-0 w-full">
@@ -2122,15 +2411,31 @@ export default function EmployeeTimesheetCorrections({
                         <div className="rounded-md bg-white p-2 text-center text-slate-900 shadow-xs">
                           <p className="text-xs font-semibold text-slate-700">Create a past draft timesheet for this day to record your work hours.</p>
                         </div>
-                        <div className="flex items-center justify-end pt-0.5">
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
+                          <form action={createAction}>
+                            <input type="hidden" name="work_date" value={focusedDate} />
+                            <input type="hidden" name="use_template" value="true" />
+                            <input type="hidden" name="clock_in" value={scheduleTemplate.clock_in} />
+                            <input type="hidden" name="lunch_start" value={scheduleTemplate.lunch_start} />
+                            <input type="hidden" name="lunch_end" value={scheduleTemplate.lunch_end} />
+                            <input type="hidden" name="clock_out" value={scheduleTemplate.clock_out} />
+                            <button
+                              disabled={createPending}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-black text-amber-950 shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+                              title={`Load schedule template: ${scheduleTemplate.scheduleName} (${scheduleTemplate.clock_in} - ${scheduleTemplate.clock_out})`}
+                            >
+                              <Sparkles className="size-3.5 text-amber-900" />
+                              {createPending ? "Loading..." : "Load Schedule Draft"}
+                            </button>
+                          </form>
                           <form action={createAction}>
                             <input type="hidden" name="work_date" value={focusedDate} />
                             <button
                               disabled={createPending}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-black text-amber-950 shadow-xs hover:bg-amber-50 disabled:opacity-50 transition-colors"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 hover:bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
                             >
                               <Plus className="size-3.5" />
-                              {createPending ? "Creating Draft..." : `Create Draft for ${formatDate(focusedDate)}`}
+                              Blank Draft
                             </button>
                           </form>
                         </div>
@@ -2142,14 +2447,24 @@ export default function EmployeeTimesheetCorrections({
 
               {section === "calendar" ? (
                 <div className="grid gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPanel("leave")}
-                    className="inline-flex items-center justify-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
-                  >
-                    <CalendarPlus className="size-4" />
-                    Request leave
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openPanel("leave")}
+                      className="inline-flex items-center justify-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
+                    >
+                      <CalendarPlus className="size-4" />
+                      Request leave
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/15"
+                    >
+                      <Layers className="size-4" />
+                      Bulk Drafts
+                    </button>
+                  </div>
                   {quickSubmitForm}
                 </div>
               ) : null}
@@ -2217,6 +2532,44 @@ export default function EmployeeTimesheetCorrections({
             </p>
           ) : activeTab === "timesheets" ? (
             <div className="grid gap-3">
+              {/* Work Schedule Rule & Quick Bulk Draft Engine Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/75 p-3.5 sm:p-4 backdrop-blur-xs shadow-soft">
+                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Sparkles className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-foreground">
+                        {workSchedule?.name ? `${workSchedule.name} Rule` : "Work Schedule Template"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
+                        <Clock className="size-3" />
+                        {scheduleTemplate.clock_in} - {scheduleTemplate.clock_out}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted bg-surface-muted px-2 py-0.5 rounded-full">
+                        <UtensilsCrossed className="size-3" />
+                        Lunch: {scheduleTemplate.lunch_start} - {scheduleTemplate.lunch_end} (req.)
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Quickly draft timesheets aligned with your company rules and mandatory lunch policy.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition-colors shadow-2xs"
+                  >
+                    <Layers className="size-3.5" />
+                    <span>Bulk Draft Uploader</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 items-start">
                 {paginatedEntries.map((entry) => (
                   <div key={entry.id} className="w-full min-w-0 max-w-full">
@@ -2224,6 +2577,121 @@ export default function EmployeeTimesheetCorrections({
                   </div>
                 ))}
               </div>
+
+              {/* Timesheets Tab Pagination Controls */}
+              {totalTimesheets > 0 ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-soft">
+                  <div className="flex flex-wrap items-center gap-2 text-muted">
+                    <span>
+                      Showing <strong className="font-bold text-foreground">{timesheetStartIndex}</strong> to{" "}
+                      <strong className="font-bold text-foreground">{timesheetEndIndex}</strong> of{" "}
+                      <strong className="font-bold text-foreground">{totalTimesheets}</strong> timesheets
+                    </span>
+
+                    <div className="flex items-center gap-1.5 ml-2">
+                      <span className="text-[11px] font-semibold text-muted">Per page:</span>
+                      <select
+                        value={timesheetsPageSize}
+                        onChange={(e) => {
+                          setTimesheetsPageSize(Number(e.target.value));
+                          setTimesheetsPage(1);
+                        }}
+                        className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
+                      >
+                        {[6, 12, 24, 48].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {totalTimesheetsPages > 1 ? (
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleTimesheetsPageChange(1)}
+                        disabled={timesheetsPage <= 1}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="First page"
+                        aria-label="First page"
+                      >
+                        <ChevronsLeft className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTimesheetsPageChange(Math.max(1, timesheetsPage - 1))}
+                        disabled={timesheetsPage <= 1}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="Previous page"
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="size-3.5" />
+                      </button>
+
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: totalTimesheetsPages }, (_, i) => i + 1)
+                          .filter((p) => {
+                            return (
+                              p === 1 ||
+                              p === totalTimesheetsPages ||
+                              Math.abs(p - timesheetsPage) <= 1
+                            );
+                          })
+                          .reduce<Array<number | string>>((acc, p, idx, arr) => {
+                            if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
+                              acc.push("...");
+                            }
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((item, idx) =>
+                            typeof item === "string" ? (
+                              <span key={`ts-page-ellipsis-${idx}`} className="px-1 text-muted">
+                                ...
+                              </span>
+                            ) : (
+                              <button
+                                key={`ts-page-${item}`}
+                                type="button"
+                                onClick={() => handleTimesheetsPageChange(item)}
+                                className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                  item === timesheetsPage
+                                    ? "bg-primary text-primary-foreground shadow-2xs scale-105"
+                                    : "hover:bg-surface-muted text-muted hover:text-foreground"
+                                }`}
+                              >
+                                {item}
+                              </button>
+                            )
+                          )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleTimesheetsPageChange(Math.min(totalTimesheetsPages, timesheetsPage + 1))}
+                        disabled={timesheetsPage >= totalTimesheetsPages}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="Next page"
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTimesheetsPageChange(totalTimesheetsPages)}
+                        disabled={timesheetsPage >= totalTimesheetsPages}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="Last page"
+                        aria-label="Last page"
+                      >
+                        <ChevronsRight className="size-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {section === "full" ? quickSubmitForm : null}
             </div>
@@ -2558,6 +3026,121 @@ export default function EmployeeTimesheetCorrections({
                   );
                 })}
               </div>
+
+              {/* Requests Tab Pagination Controls */}
+              {totalRequests > 0 ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-soft">
+                  <div className="flex flex-wrap items-center gap-2 text-muted">
+                    <span>
+                      Showing <strong className="font-bold text-foreground">{requestStartIndex}</strong> to{" "}
+                      <strong className="font-bold text-foreground">{requestEndIndex}</strong> of{" "}
+                      <strong className="font-bold text-foreground">{totalRequests}</strong> requests
+                    </span>
+
+                    <div className="flex items-center gap-1.5 ml-2">
+                      <span className="text-[11px] font-semibold text-muted">Per page:</span>
+                      <select
+                        value={requestsPageSize}
+                        onChange={(e) => {
+                          setRequestsPageSize(Number(e.target.value));
+                          setRequestsPage(1);
+                        }}
+                        className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
+                      >
+                        {[6, 12, 24, 48].map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {totalRequestsPages > 1 ? (
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleRequestsPageChange(1)}
+                        disabled={requestsPage <= 1}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="First page"
+                        aria-label="First page"
+                      >
+                        <ChevronsLeft className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRequestsPageChange(Math.max(1, requestsPage - 1))}
+                        disabled={requestsPage <= 1}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="Previous page"
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="size-3.5" />
+                      </button>
+
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: totalRequestsPages }, (_, i) => i + 1)
+                          .filter((p) => {
+                            return (
+                              p === 1 ||
+                              p === totalRequestsPages ||
+                              Math.abs(p - requestsPage) <= 1
+                            );
+                          })
+                          .reduce<Array<number | string>>((acc, p, idx, arr) => {
+                            if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
+                              acc.push("...");
+                            }
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((item, idx) =>
+                            typeof item === "string" ? (
+                              <span key={`req-page-ellipsis-${idx}`} className="px-1 text-muted">
+                                ...
+                              </span>
+                            ) : (
+                              <button
+                                key={`req-page-${item}`}
+                                type="button"
+                                onClick={() => handleRequestsPageChange(item)}
+                                className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                  item === requestsPage
+                                    ? "bg-primary text-primary-foreground shadow-2xs scale-105"
+                                    : "hover:bg-surface-muted text-muted hover:text-foreground"
+                                }`}
+                              >
+                                {item}
+                              </button>
+                            )
+                          )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRequestsPageChange(Math.min(totalRequestsPages, requestsPage + 1))}
+                        disabled={requestsPage >= totalRequestsPages}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="Next page"
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRequestsPageChange(totalRequestsPages)}
+                        disabled={requestsPage >= totalRequestsPages}
+                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        title="Last page"
+                        aria-label="Last page"
+                      >
+                        <ChevronsRight className="size-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -2805,22 +3388,304 @@ export default function EmployeeTimesheetCorrections({
           <p className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-soft">
             Employees can only add past timesheets from the calendar.
           </p>
-        ) : (
-          <form action={createAction} className="grid gap-3">
-            <input type="hidden" name="work_date" value={selectedDate} />
-            <p className="text-sm text-muted">
-              Create a draft timesheet for this work day. You can refine the times before submission.
-            </p>
-            <button
-              disabled={!selectedCanAdd || createPending}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors"
-            >
-              <Plus className="size-4" />
-              {createPending ? "Adding..." : "Add draft"}
-            </button>
-          </form>
-        )}
+        ) : (() => {
+          const daySchedule = getScheduleTemplate(workSchedule, todaySchedule, defaultLunchMinutes, selectedDate);
+          return (
+            <div className="grid gap-3">
+              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 text-xs">
+                <div className="flex items-center gap-2 font-bold text-foreground">
+                  <Sparkles className="size-3.5 text-primary" />
+                  <span>{daySchedule.scheduleName}</span>
+                </div>
+                <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-lg bg-surface/80 p-2 border border-border/60">
+                    <span className="text-[10px] text-muted uppercase font-bold block">Shift Hours</span>
+                    <strong className="text-foreground">{daySchedule.clock_in} - {daySchedule.clock_out}</strong>
+                  </div>
+                  <div className="rounded-lg bg-surface/80 p-2 border border-border/60">
+                    <span className="text-[10px] text-muted uppercase font-bold block">Required Lunch</span>
+                    <strong className="text-foreground">{daySchedule.lunch_start} - {daySchedule.lunch_end}</strong>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] text-muted leading-relaxed">
+                  Quick-load an editable draft pre-filled with your assigned shift hours and required {daySchedule.lunch_minutes}m lunch break.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <form action={createAction}>
+                  <input type="hidden" name="work_date" value={selectedDate} />
+                  <input type="hidden" name="use_template" value="true" />
+                  <input type="hidden" name="clock_in" value={daySchedule.clock_in} />
+                  <input type="hidden" name="lunch_start" value={daySchedule.lunch_start} />
+                  <input type="hidden" name="lunch_end" value={daySchedule.lunch_end} />
+                  <input type="hidden" name="clock_out" value={daySchedule.clock_out} />
+                  <button
+                    type="submit"
+                    disabled={!selectedCanAdd || createPending}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                  >
+                    <Sparkles className="size-4" />
+                    {createPending ? "Adding draft..." : "Load Schedule Draft"}
+                  </button>
+                </form>
+
+                <form action={createAction}>
+                  <input type="hidden" name="work_date" value={selectedDate} />
+                  <button
+                    type="submit"
+                    disabled={!selectedCanAdd || createPending}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:opacity-50 transition-colors"
+                  >
+                    <Plus className="size-3.5" />
+                    Add Blank Draft
+                  </button>
+                </form>
+              </div>
+            </div>
+          );
+        })()}
       </ViewportSidebar>
+
+      {/* Bulk Draft Uploader Modal */}
+      {typeof document !== "undefined" && isBulkModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/65 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !bulkPending) setIsBulkModalOpen(false);
+          }}
+        >
+          <div
+            className="relative flex flex-col w-full max-w-lg max-h-[90vh] rounded-3xl border border-border/80 bg-surface shadow-2xl overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Modal Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-4">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Layers className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-foreground truncate">
+                    Bulk Draft Uploader
+                  </h3>
+                  <p className="text-xs text-muted truncate">
+                    Create draft timesheets across date ranges using work rules.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsBulkModalOpen(false)}
+                disabled={bulkPending}
+                className="rounded-full p-1.5 text-muted hover:bg-surface-muted hover:text-foreground transition-colors disabled:opacity-50 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form action={bulkAction} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5 sm:p-6 gap-4">
+              {/* Presets */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-semibold text-muted">Quick Range Presets</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(
+                    [
+                      { id: "this_week", label: "This Week" },
+                      { id: "last_week", label: "Last Week" },
+                      { id: "last_14_days", label: "Last 14 Days" },
+                      { id: "this_month", label: "This Month" },
+                    ] as const
+                  ).map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        const dates = getPresetDates(preset.id, currentWorkDate);
+                        setBulkStartDate(dates.start);
+                        setBulkEndDate(dates.end);
+                      }}
+                      className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-muted hover:border-primary/40 transition-colors cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date Range Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="grid gap-1 text-xs font-semibold text-foreground">
+                  <span>Start Date <span className="text-danger">*</span></span>
+                  <input
+                    type="date"
+                    name="start_date"
+                    required
+                    value={bulkStartDate}
+                    onChange={(e) => setBulkStartDate(e.target.value)}
+                    max={currentWorkDate}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold text-foreground">
+                  <span>End Date <span className="text-danger">*</span></span>
+                  <input
+                    type="date"
+                    name="end_date"
+                    required
+                    value={bulkEndDate}
+                    onChange={(e) => setBulkEndDate(e.target.value)}
+                    max={currentWorkDate}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Exclude Weekends Checkbox */}
+              <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  name="exclude_weekends"
+                  value="true"
+                  checked={bulkExcludeWeekends}
+                  onChange={(e) => setBulkExcludeWeekends(e.target.checked)}
+                  className="rounded border-border text-primary focus:ring-primary size-4"
+                />
+                <span>Skip weekend days (Saturday & Sunday)</span>
+              </label>
+
+              {/* Work Schedule Rule Hours */}
+              <div className="rounded-2xl border border-border/80 bg-surface-muted/50 p-4 grid gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-primary" />
+                    <span className="text-xs font-bold text-foreground">
+                      {scheduleTemplate.scheduleName}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkClockIn(scheduleTemplate.clock_in);
+                      setBulkLunchStart(scheduleTemplate.lunch_start);
+                      setBulkLunchEnd(scheduleTemplate.lunch_end);
+                      setBulkClockOut(scheduleTemplate.clock_out);
+                    }}
+                    className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    Reset to Rule
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <label className="grid gap-1 text-[11px] font-semibold text-foreground">
+                    <span>Shift Start</span>
+                    <input
+                      type="time"
+                      name="clock_in"
+                      value={bulkClockIn}
+                      onChange={(e) => setBulkClockIn(e.target.value)}
+                      className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-[11px] font-bold text-primary">
+                    <span className="flex items-center gap-1">
+                      <UtensilsCrossed className="size-3" />
+                      Lunch Start *
+                    </span>
+                    <input
+                      type="time"
+                      name="lunch_start"
+                      required
+                      value={bulkLunchStart}
+                      onChange={(e) => setBulkLunchStart(e.target.value)}
+                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-[11px] font-bold text-primary">
+                    <span className="flex items-center gap-1">
+                      <UtensilsCrossed className="size-3" />
+                      Lunch End *
+                    </span>
+                    <input
+                      type="time"
+                      name="lunch_end"
+                      required
+                      value={bulkLunchEnd}
+                      onChange={(e) => setBulkLunchEnd(e.target.value)}
+                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-[11px] font-semibold text-foreground">
+                    <span>Shift End</span>
+                    <input
+                      type="time"
+                      name="clock_out"
+                      value={bulkClockOut}
+                      onChange={(e) => setBulkClockOut(e.target.value)}
+                      className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Mandatory Lunch notice */}
+                <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <AlertTriangle className="size-3.5 text-amber-500 shrink-0" />
+                  <span>Lunch break insertion is mandatory by rule policy and cannot be left blank.</span>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <label className="grid gap-1 text-xs font-semibold text-foreground">
+                <span>Batch Notes (Optional)</span>
+                <input
+                  type="text"
+                  name="notes"
+                  value={bulkNotes}
+                  onChange={(e) => setBulkNotes(e.target.value)}
+                  placeholder="e.g. Bulk draft generated from work schedule template"
+                  className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                />
+              </label>
+
+              {bulkState?.ok === false && bulkState.message && (
+                <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-xs font-semibold text-danger">
+                  {bulkState.message}
+                </div>
+              )}
+
+              {/* Modal Footer Actions */}
+              <div className="mt-2 flex items-center justify-end gap-2.5 border-t border-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(false)}
+                  disabled={bulkPending}
+                  className="rounded-full border border-border bg-background px-4 py-2 text-xs font-bold text-foreground hover:bg-surface disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={bulkPending}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <Layers className="size-3.5" />
+                  {bulkPending ? "Generating Drafts..." : "Generate Draft Timesheets"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }

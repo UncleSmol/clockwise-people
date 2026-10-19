@@ -10,10 +10,11 @@ export default function Home() {
           imageSize={120}
           imageClassName="size-28 rounded-3xl object-contain shadow-soft p-2 bg-surface border border-border sm:size-32"
           textClassName="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl"
+          alwaysShowLogo
           priority
         />
         <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-          Stay on top of your workforce with us.
+          ClockWise People
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-muted sm:text-base">
           Track Time. Manage People. Prepare Payroll. All in one modern mobile workspace.

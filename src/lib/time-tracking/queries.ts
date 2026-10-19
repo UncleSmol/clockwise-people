@@ -650,40 +650,59 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     }
   }
 
+  let workSchedule: EmployeeTimeState["workSchedule"] = null;
+
   if (scheduleId) {
-    const dayOfWeek = new Date(`${today}T00:00:00`).getDay();
-    const { data: scheduleDay } = await supabase
-      .from("schedule_days")
-      .select("start_time, end_time, lunch_minutes, is_working_day")
-      .eq("work_schedule_id", scheduleId)
-      .eq("day_of_week", dayOfWeek)
+    const { data: scheduleData } = await supabase
+      .from("work_schedules")
+      .select("id, name, standard_daily_hours, schedule_days(day_of_week, start_time, end_time, lunch_minutes, paid_hours, is_working_day)")
+      .eq("id", scheduleId)
       .maybeSingle();
 
-    if (scheduleDay && scheduleDay.start_time && scheduleDay.end_time) {
-      todaySchedule = {
-        start_time: scheduleDay.start_time,
-        end_time: scheduleDay.end_time,
-        lunch_minutes: Number(scheduleDay.lunch_minutes ?? 0),
-        is_working_day: Boolean(scheduleDay.is_working_day),
-      };
-    } else {
-      // Fallback: look for any schedule day with valid start/end times in this schedule
-      const { data: anyDay } = await supabase
-        .from("schedule_days")
-        .select("start_time, end_time, lunch_minutes, is_working_day")
-        .eq("work_schedule_id", scheduleId)
-        .not("start_time", "is", null)
-        .not("end_time", "is", null)
-        .limit(1)
-        .maybeSingle();
+    if (scheduleData) {
+      const sDays = (scheduleData.schedule_days ?? []) as {
+        day_of_week: number;
+        start_time: string | null;
+        end_time: string | null;
+        lunch_minutes: number | null;
+        paid_hours: number | null;
+        is_working_day: boolean | null;
+      }[];
 
-      if (anyDay && anyDay.start_time && anyDay.end_time) {
+      workSchedule = {
+        id: scheduleData.id,
+        name: scheduleData.name,
+        standard_daily_hours: scheduleData.standard_daily_hours != null ? Number(scheduleData.standard_daily_hours) : null,
+        days: sDays.map((d) => ({
+          day_of_week: Number(d.day_of_week),
+          start_time: d.start_time ? String(d.start_time).slice(0, 5) : null,
+          end_time: d.end_time ? String(d.end_time).slice(0, 5) : null,
+          lunch_minutes: Number(d.lunch_minutes ?? defaultLunchMinutes ?? 60),
+          paid_hours: Number(d.paid_hours ?? 0),
+          is_working_day: Boolean(d.is_working_day),
+        })),
+      };
+
+      const dayOfWeek = new Date(`${today}T00:00:00`).getDay();
+      const matchedDay = sDays.find((d) => d.day_of_week === dayOfWeek);
+
+      if (matchedDay && matchedDay.start_time && matchedDay.end_time) {
         todaySchedule = {
-          start_time: anyDay.start_time,
-          end_time: anyDay.end_time,
-          lunch_minutes: Number(anyDay.lunch_minutes ?? defaultLunchMinutes ?? 60),
-          is_working_day: true,
+          start_time: matchedDay.start_time,
+          end_time: matchedDay.end_time,
+          lunch_minutes: Number(matchedDay.lunch_minutes ?? 0),
+          is_working_day: Boolean(matchedDay.is_working_day),
         };
+      } else {
+        const anyWorkingDay = sDays.find((d) => d.is_working_day && d.start_time && d.end_time) ?? sDays.find((d) => d.start_time && d.end_time);
+        if (anyWorkingDay && anyWorkingDay.start_time && anyWorkingDay.end_time) {
+          todaySchedule = {
+            start_time: anyWorkingDay.start_time,
+            end_time: anyWorkingDay.end_time,
+            lunch_minutes: Number(anyWorkingDay.lunch_minutes ?? defaultLunchMinutes ?? 60),
+            is_working_day: true,
+          };
+        }
       }
     }
   }
@@ -811,6 +830,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     defaultLunchMinutes,
     autoClockoutBasedOnSchedule,
     autoClockoutGraceMinutes: autoClockoutGraceMinutes >= 0 ? autoClockoutGraceMinutes : 0,
+    workSchedule,
   };
 });
 

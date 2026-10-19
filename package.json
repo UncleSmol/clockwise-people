@@ -1,6 +1,6 @@
 {
   "name": "clockwise-people",
-  "version": "2026.9.17-accurate-geolocation-workstations",
+  "version": "2026.10.19-ui-rework-and-timesheet-engine",
   "private": true,
   "type": "module",
   "scripts": {

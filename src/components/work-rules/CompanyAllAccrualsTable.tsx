@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
+  Scale,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -1094,38 +1095,40 @@ function LeaveTypeExplanationModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface text-foreground shadow-2xl p-5 sm:p-6 space-y-5">
+      <div className="relative w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] overflow-y-auto rounded-2xl border border-border bg-surface text-foreground shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-4">
-          <div>
+        <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-3.5">
+          <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xl font-black text-foreground tracking-tight">
+              <h3 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
                 {balance.leaveTypeName}
               </h3>
-              <span className={`text-xs ${meta.pillClass}`}>
+              <span className={meta.pillClass}>
                 <span className={`size-1.5 rounded-full ${meta.dotClass}`} />
                 {meta.statutoryRef}
               </span>
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
                   balance.isPaid
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-                    : "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                 }`}
               >
                 {balance.isPaid ? "Paid Leave" : "Unpaid Leave"}
               </span>
             </div>
-            <p className="mt-1 text-xs text-muted flex items-center gap-1.5 font-medium">
+            <p className="text-xs text-muted flex items-center gap-1.5 font-medium">
               <span>Employee:</span>
-              <span className="font-bold text-foreground">{balance.employeeName}</span>
+              <span className="font-bold text-foreground">
+                {balance.employeeName.replace(/\s*\([^)]*\)/g, "").trim()}
+              </span>
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
+            className="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-muted transition-colors cursor-pointer shadow-2xs"
             aria-label="Close"
           >
             <X className="size-4" />
@@ -1133,62 +1136,57 @@ function LeaveTypeExplanationModal({
         </div>
 
         {/* 3 Live Balance Metric Cards */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 p-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/30 p-2.5 sm:p-3 shadow-2xs">
             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
               Total Accrued
             </span>
-            <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-emerald-700 dark:text-emerald-300">
+            <p className="mt-1 text-lg sm:text-2xl font-black font-mono text-emerald-950 dark:text-emerald-100">
               +{formatHours(balance.accruedHours)}
             </p>
-            <p className="text-[11px] font-semibold text-emerald-800/80 dark:text-emerald-400">
+            <p className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400">
               ≈ {hoursToDays(balance.accruedHours)}
             </p>
           </div>
 
-          <div className="rounded-xl border border-rose-500/30 bg-rose-50/60 dark:bg-rose-950/20 p-3">
+          <div className="rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50/70 dark:bg-rose-950/30 p-2.5 sm:p-3 shadow-2xs">
             <span className="text-[10px] font-black uppercase tracking-wider text-rose-800 dark:text-rose-300 block">
               Total Taken
             </span>
-            <p className="mt-1 text-xl sm:text-2xl font-black font-mono text-rose-700 dark:text-rose-300">
+            <p className="mt-1 text-lg sm:text-2xl font-black font-mono text-rose-950 dark:text-rose-100">
               {balance.takenHours > 0 ? `-${formatHours(balance.takenHours)}` : "0.00h"}
             </p>
-            <p className="text-[11px] font-semibold text-rose-800/80 dark:text-rose-400">
+            <p className="text-[11px] font-extrabold text-rose-700 dark:text-rose-400">
               ≈ {hoursToDays(balance.takenHours)}
             </p>
           </div>
 
-          <div className="rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/20 p-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-primary block">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-surface dark:bg-surface-muted/30 p-2.5 sm:p-3 shadow-2xs">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
               Net Balance
             </span>
             <p
-              className={`mt-1 text-xl sm:text-2xl font-black font-mono ${
+              className={`mt-1 text-lg sm:text-2xl font-black font-mono ${
                 isPositive ? "text-foreground" : "text-rose-600"
               }`}
             >
               {formatHours(balance.balanceHours)}
             </p>
-            <p className="text-[11px] font-semibold text-muted">
+            <p className="text-[11px] font-extrabold text-slate-600 dark:text-slate-400">
               ≈ {hoursToDays(balance.balanceHours)}
             </p>
           </div>
         </div>
 
         {/* Utilization Bar */}
-        <div className="rounded-xl border border-border/70 bg-surface-muted/50 p-3 space-y-1.5">
-          <div className="flex justify-between text-xs font-bold text-foreground">
-            <span className="text-muted">
-              Utilization Progress
-            </span>
-            <span>
+        <div className="rounded-xl border border-border/80 bg-surface-muted/40 p-3 sm:p-3.5 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-extrabold text-foreground">Utilization Progress</span>
+            <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-black font-mono text-foreground border border-border/80 shadow-2xs">
               {utilizationPercent.toFixed(1)}% consumed
-              <span className="ml-1.5 text-[10px] text-muted font-normal">
-                ({formatHours(balance.takenHours)} of {formatHours(balance.accruedHours)})
-              </span>
             </span>
           </div>
-          <div className="h-2 w-full rounded-full bg-surface overflow-hidden border border-border/60">
+          <div className="h-2.5 w-full rounded-full bg-surface overflow-hidden border border-border/70 p-0.5 shadow-inner">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 utilizationPercent > 80
@@ -1197,24 +1195,33 @@ function LeaveTypeExplanationModal({
                     ? "bg-amber-500"
                     : "bg-emerald-500"
               }`}
-              style={{ width: `${utilizationPercent}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, utilizationPercent))}%` }}
             />
+          </div>
+          <div className="flex justify-between text-[10px] sm:text-[11px] font-semibold text-muted">
+            <span>Taken: <strong className="text-foreground font-bold">{formatHours(balance.takenHours)}</strong></span>
+            <span>Accrued: <strong className="text-foreground font-bold">{formatHours(balance.accruedHours)}</strong></span>
           </div>
         </div>
 
         {/* Statutory Legal Framework Card */}
-        <div className="rounded-xl border border-border bg-gradient-to-b from-surface to-surface-muted/30 p-4 space-y-2.5">
+        <div className="rounded-xl border border-border/80 bg-surface-muted/20 p-3.5 sm:p-4 space-y-3">
           <div className="text-foreground font-black text-sm">
-            <h4>South African Statutory Framework: {meta.statutoryTitle}</h4>
+            <h4 className="flex items-center gap-2">
+              <Scale className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>South African Statutory Framework: {meta.statutoryTitle}</span>
+            </h4>
           </div>
-          <p className="text-xs text-muted leading-relaxed">
+          <p className="text-xs text-muted leading-relaxed font-normal">
             {meta.summary}
           </p>
-          <div className="rounded-lg bg-surface border border-border/80 p-2.5 font-mono text-[11px] text-foreground flex items-center justify-between gap-2 flex-wrap">
-            <span className="text-muted font-sans font-bold text-[10px] uppercase">
-              Calculation Derivation:
+          <div className="rounded-lg bg-surface border border-border/80 p-3 space-y-1 shadow-2xs">
+            <span className="text-muted font-bold text-[10px] uppercase tracking-wider block">
+              Calculation Derivation
             </span>
-            <code className="text-primary font-bold">{meta.formula}</code>
+            <code className="block text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400 break-words leading-relaxed">
+              {meta.formula}
+            </code>
           </div>
         </div>
 
@@ -1223,16 +1230,16 @@ function LeaveTypeExplanationModal({
           <h4 className="text-xs font-black uppercase tracking-wider text-muted">
             Workplace Rules &amp; Requirements
           </h4>
-          <div className="rounded-xl border border-border/80 bg-surface divide-y divide-border/60">
+          <div className="rounded-xl border border-border/80 bg-surface divide-y divide-border/60 overflow-hidden shadow-2xs">
             {meta.keyRules.map((rule, idx) => (
               <div key={idx} className="flex items-start gap-2.5 p-3 text-xs leading-relaxed text-foreground">
-                <CheckCircle2 className="size-4 shrink-0 text-emerald-600 mt-0.5" />
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                 <span>{rule}</span>
               </div>
             ))}
             {balance.requiresAttachment ? (
-              <div className="flex items-start gap-2.5 p-3 text-xs leading-relaxed text-amber-900 bg-amber-50/50 dark:bg-amber-950/20">
-                <ShieldAlert className="size-4 shrink-0 text-amber-600 mt-0.5" />
+              <div className="flex items-start gap-2.5 p-3 text-xs leading-relaxed text-amber-950 bg-amber-50/70 dark:bg-amber-950/20 dark:text-amber-200">
+                <ShieldAlert className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <span>
                   <strong>Supporting Documentation Required:</strong> Requests submitted under this leave type require documentary proof (e.g. medical certificate or death notice) before approval.
                 </span>
@@ -1242,15 +1249,15 @@ function LeaveTypeExplanationModal({
         </div>
 
         {/* Actions Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-border/80 pt-4">
-          <p className="text-[11px] text-muted flex items-center gap-1">
-            <ShieldCheck className="size-3.5 text-emerald-600" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border/80 pt-3.5">
+          <p className="text-[11px] text-muted flex items-center gap-1.5 font-medium">
+            <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>Compliant with South African BCEA (Act 75 of 1997)</span>
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
+            className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary-hover transition-colors shadow-2xs cursor-pointer self-end sm:self-auto"
           >
             Understood
           </button>

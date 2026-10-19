@@ -29,6 +29,10 @@
 
   --background: var(--color-background);
   --foreground: var(--color-foreground);
+
+  /* Luminous Fluid Blobs Palette Defaults (Sunset Aura) */
+  --c1: rgba(255, 65, 108, 0.85);
+  --c2: rgba(255, 145, 0, 0.85);
 }
 
 @theme inline {
@@ -76,13 +80,13 @@ select {
 }
 
 html {
-  background: var(--background);
+  background: #ffffff;
   overflow-x: clip;
 }
 
 body {
   overflow-x: clip;
-  background-color: var(--background);
+  background-color: transparent;
   color: var(--foreground);
   font-family: var(--font-sans);
   margin: 0;
@@ -90,26 +94,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Subtle, clean top ambient glow matching the mobile mockup feel */
+/* Previously static ambient glow — disabled in favor of dynamic Luminous Fluid Aura stage */
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-  background-color: var(--background);
-  background-image:
-    radial-gradient(ellipse 70% 35% at 50% -8%, rgba(46, 155, 95, 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 25% at 90% 12%, rgba(229, 169, 60, 0.04) 0%, transparent 60%);
-  transform: translate3d(0, 0, 0);
+  display: none;
 }
 
 /* Reusable blueprint pattern matching the global app background */
 .bg-blueprint-pattern {
-  background-color: var(--background) !important;
+  background-color: transparent !important;
 }
 
-/* ensure content sits above background glow */
+/* ensure content sits above fluid background canvas */
 @layer base {
   body > * {
     position: relative;
@@ -258,8 +253,10 @@ select {
 }
 
 .card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 1.25rem;
   box-shadow: var(--shadow-soft);
   transition: transform 140ms ease, box-shadow 140ms ease;
@@ -980,4 +977,259 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* =========================================================================
+   Luminous Aura — Organic Fluid Blobs Background System
+   ========================================================================= */
+
+.canvas-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #ffffff;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#blobCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
+  transform: translate3d(0, 0, 0);
+  pointer-events: none;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+/* Secondary CSS Morphing Blobs for vivid color accents */
+.css-blobs-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  filter: blur(50px);
+  -webkit-filter: blur(50px);
+  opacity: 0.75;
+  mix-blend-mode: normal;
+  transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+/* Desktop Subtle Refinement: soften intensity, increase blur, and diffuse colors */
+@media (min-width: 768px) {
+  #blobCanvas {
+    opacity: 0.42;
+    filter: blur(65px);
+    -webkit-filter: blur(65px);
+  }
+
+  .css-blobs-layer {
+    opacity: 0.32;
+    filter: blur(85px);
+    -webkit-filter: blur(85px);
+  }
+
+  .canvas-container::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.42);
+    pointer-events: none;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}
+
+@media (min-width: 1280px) {
+  #blobCanvas {
+    opacity: 0.36;
+    filter: blur(75px);
+    -webkit-filter: blur(75px);
+  }
+
+  .css-blobs-layer {
+    opacity: 0.28;
+    filter: blur(95px);
+    -webkit-filter: blur(95px);
+  }
+
+  .canvas-container::after {
+    background: rgba(255, 255, 255, 0.48);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+}
+
+.morph-blob {
+  position: absolute;
+  border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+  will-change: transform, border-radius;
+  animation: morphShape 14s ease-in-out infinite alternate;
+}
+
+.blob-alpha {
+  width: 50vw;
+  height: 50vw;
+  max-width: 600px;
+  max-height: 600px;
+  top: 5%;
+  left: 10%;
+  background: radial-gradient(circle, var(--c1, rgba(255, 65, 108, 0.85)) 0%, transparent 70%);
+  animation: morphShape 12s ease-in-out infinite alternate, floatA 22s ease-in-out infinite alternate;
+}
+
+.blob-beta {
+  width: 55vw;
+  height: 55vw;
+  max-width: 650px;
+  max-height: 650px;
+  bottom: 5%;
+  right: 10%;
+  background: radial-gradient(circle, var(--c2, rgba(255, 145, 0, 0.85)) 0%, transparent 70%);
+  animation: morphShape 16s ease-in-out infinite alternate-reverse, floatB 26s ease-in-out infinite alternate;
+}
+
+@keyframes morphShape {
+  0% {
+    border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+  }
+  33% {
+    border-radius: 70% 30% 50% 50% / 30% 60% 40% 70%;
+  }
+  66% {
+    border-radius: 30% 70% 70% 30% / 55% 30% 70% 45%;
+  }
+  100% {
+    border-radius: 60% 40% 30% 70% / 60% 40% 60% 40%;
+  }
+}
+
+@keyframes floatA {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(12vw, 8vh, 0) rotate(120deg);
+  }
+}
+
+@keyframes floatB {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(-10vw, -10vh, 0) rotate(-90deg);
+  }
+}
+
+/* Glass Elements */
+.glass-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 16px 36px -10px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.03);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 25px -6px rgba(15, 23, 42, 0.07);
+}
+
+/* Zen View Mode */
+body.zen-mode .hide-in-zen {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(14px) scale(0.96);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* =========================================================================
+   App Theme Time Picker
+   ========================================================================= */
+
+.harmonized-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.94) 100%);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--color-border);
+  box-shadow: 
+    0 24px 60px -12px rgba(17, 24, 39, 0.14),
+    0 12px 24px -8px rgba(46, 155, 95, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
+}
+
+.digital-well {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.03),
+    0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.digit-box-active {
+  background: rgba(46, 155, 95, 0.1);
+  border: 2px solid var(--color-primary);
+  box-shadow: 
+    0 0 16px rgba(46, 155, 95, 0.25),
+    inset 0 0 10px rgba(46, 155, 95, 0.08);
+  color: var(--color-primary) !important;
+}
+
+.period-switch {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.period-pill-active {
+  background: linear-gradient(135deg, #2E9B5F 0%, #258550 100%);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(46, 155, 95, 0.35);
+}
+
+.dial-plate {
+  background: radial-gradient(circle at 50% 50%, #ffffff 0%, #F8FAFC 100%);
+  border: 1px solid var(--color-border);
+  box-shadow: 
+    inset 0 4px 12px rgba(17, 24, 39, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.dial-ring-inner {
+  border: 1.5px dashed rgba(46, 155, 95, 0.3);
+}
+
+.dial-pivot {
+  background: linear-gradient(135deg, #2E9B5F 0%, #258550 100%);
+  box-shadow: 0 0 12px rgba(46, 155, 95, 0.5);
+}
+
+.selected-node-ring {
+  box-shadow: 0 0 16px rgba(46, 155, 95, 0.4);
+}
+
+.btn-aurora-done {
+  background: linear-gradient(135deg, #2E9B5F 0%, #258550 100%);
+  box-shadow: 0 4px 16px rgba(46, 155, 95, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-aurora-done:hover {
+  background: linear-gradient(135deg, #258550 0%, #1f6b40 100%);
+  box-shadow: 0 6px 20px rgba(46, 155, 95, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-aurora-done:active {
+  transform: translateY(1px);
 }

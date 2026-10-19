@@ -292,6 +292,16 @@ export async function reviewTimesheetCorrection(
   };
 }
 
+function currentDateInTimezone(timezone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(new Date());
+}
+
 export async function saveDraftTimeEntry(
   _previousState: TimeEntryActionState,
   formData: FormData,
@@ -302,13 +312,40 @@ export async function saveDraftTimeEntry(
     return { ok: false, message: "Choose a timesheet to save." };
   }
 
+  const clockIn = optionalTime(formData, "clock_in");
+  const clockOut = optionalTime(formData, "clock_out");
+  const lunchStart = optionalTime(formData, "lunch_start");
+  const lunchEnd = optionalTime(formData, "lunch_end");
+
+  // Require lunch break insertion
+  if ((clockIn || clockOut) && (!lunchStart || !lunchEnd)) {
+    return {
+      ok: false,
+      message: "Lunch break is required. Please specify both lunch in and lunch out times.",
+    };
+  }
+
+  if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
+    return {
+      ok: false,
+      message: "Lunch out time must be after lunch in time.",
+    };
+  }
+
+  if (clockIn && clockOut && clockOut <= clockIn) {
+    return {
+      ok: false,
+      message: "Clock out time must be after clock in time.",
+    };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("update_own_draft_time_entry", {
     entry_notes: sanitizeMultilineText(formData.get("notes"), 1000) || null,
-    proposed_clock_in: optionalTime(formData, "clock_in"),
-    proposed_clock_out: optionalTime(formData, "clock_out"),
-    proposed_lunch_end: optionalTime(formData, "lunch_end"),
-    proposed_lunch_start: optionalTime(formData, "lunch_start"),
+    proposed_clock_in: clockIn,
+    proposed_clock_out: clockOut,
+    proposed_lunch_end: lunchEnd,
+    proposed_lunch_start: lunchStart,
     target_time_entry_id: timeEntryId,
   });
 
@@ -330,8 +367,27 @@ export async function createPastDraftTimeEntry(
     return { ok: false, message: "Choose a past day to add." };
   }
 
+  const clockIn = optionalTime(formData, "clock_in");
+  const clockOut = optionalTime(formData, "clock_out");
+  const lunchStart = optionalTime(formData, "lunch_start");
+  const lunchEnd = optionalTime(formData, "lunch_end");
+  const useTemplate = formData.get("use_template") === "true";
+  const notes = sanitizeMultilineText(formData.get("notes"), 1000) || (useTemplate ? "Created via schedule template" : null);
+
+  // Require lunch break insertion if times are provided
+  if ((clockIn || clockOut || useTemplate) && (!lunchStart || !lunchEnd)) {
+    return {
+      ok: false,
+      message: "Draft creation requires lunch break insertion. Please provide lunch start and lunch end.",
+    };
+  }
+
+  if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
+    return { ok: false, message: "Lunch out time must be after lunch in time." };
+  }
+
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("create_own_draft_time_entry_for_date", {
+  const { data, error } = await supabase.rpc("create_own_draft_time_entry_for_date", {
     target_work_date: workDate,
   });
 
@@ -339,8 +395,225 @@ export async function createPastDraftTimeEntry(
     return { ok: false, message: error.message };
   }
 
+  const createdId = (data as { id?: string } | null)?.id;
+  if (createdId && (clockIn || lunchStart || lunchEnd || clockOut)) {
+    await supabase.rpc("update_own_draft_time_entry", {
+      entry_notes: notes,
+      proposed_clock_in: clockIn,
+      proposed_clock_out: clockOut,
+      proposed_lunch_end: lunchEnd,
+      proposed_lunch_start: lunchStart,
+      target_time_entry_id: createdId,
+    });
+  }
+
   revalidatePath("/dashboard");
   return { ok: true, message: "Draft timesheet added." };
+}
+
+export async function createBulkDraftTimeEntriesAction(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const startDateStr = String(formData.get("start_date") ?? "").trim();
+  const endDateStr = String(formData.get("end_date") ?? "").trim();
+  const excludeWeekends = formData.get("exclude_weekends") !== "false";
+  const clockIn = optionalTime(formData, "clock_in");
+  const lunchStart = optionalTime(formData, "lunch_start");
+  const lunchEnd = optionalTime(formData, "lunch_end");
+  const clockOut = optionalTime(formData, "clock_out");
+  const notes = sanitizeMultilineText(formData.get("notes"), 1000) || "Bulk draft generated from work schedule template";
+
+  if (!startDateStr || !endDateStr) {
+    return { ok: false, message: "Please select both a start date and an end date." };
+  }
+
+  if (startDateStr > endDateStr) {
+    return { ok: false, message: "Start date must be before or equal to end date." };
+  }
+
+  // Enforce mandatory lunch break insertion
+  if (!lunchStart || !lunchEnd) {
+    return {
+      ok: false,
+      message: "Lunch break insertion is required. Please specify both lunch in and lunch out times.",
+    };
+  }
+
+  if (lunchEnd <= lunchStart) {
+    return { ok: false, message: "Lunch out time must be after lunch in time." };
+  }
+
+  if (clockIn && clockOut && clockOut <= clockIn) {
+    return { ok: false, message: "Clock out time must be after clock in time." };
+  }
+
+  const [{ company }, supabase] = await Promise.all([
+    getActiveCompany(),
+    createSupabaseServerClient(),
+  ]);
+
+  const effectiveTimezone = company.timezone || "Africa/Johannesburg";
+  const today = currentDateInTimezone(effectiveTimezone);
+
+  if (endDateStr >= today) {
+    return {
+      ok: false,
+      message: "Draft timesheets can only be created for past dates (prior to today).",
+    };
+  }
+
+  // Get employee ID linked to current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, message: "Authentication is required." };
+  }
+
+  const { data: actor } = await supabase
+    .from("users")
+    .select("employee_id")
+    .eq("auth_user_id", user.id)
+    .eq("company_id", company.id)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!actor?.employee_id) {
+    return { ok: false, message: "No active employee account is linked to this login." };
+  }
+
+  // Fetch public holidays in the date range
+  const { data: holidays } = await supabase
+    .from("company_public_holidays")
+    .select("holiday_date")
+    .eq("company_id", company.id)
+    .gte("holiday_date", startDateStr)
+    .lte("holiday_date", endDateStr)
+    .is("deleted_at", null);
+
+  const holidayDateSet = new Set((holidays ?? []).map((h) => h.holiday_date));
+
+  // Fetch existing time entries for this employee in the date range
+  const { data: existingEntries } = await supabase
+    .from("time_entries")
+    .select("id, work_date, status")
+    .eq("company_id", company.id)
+    .eq("employee_id", actor.employee_id)
+    .gte("work_date", startDateStr)
+    .lte("work_date", endDateStr)
+    .is("deleted_at", null);
+
+  const existingMap = new Map<string, { id: string; status: string }>();
+  (existingEntries ?? []).forEach((e) => {
+    existingMap.set(e.work_date, { id: e.id, status: e.status });
+  });
+
+  // Calculate day range
+  const [sy, sm, sd] = startDateStr.split("-").map(Number);
+  const [ey, em, ed] = endDateStr.split("-").map(Number);
+  const startUTC = new Date(Date.UTC(sy, sm - 1, sd));
+  const endUTC = new Date(Date.UTC(ey, em - 1, ed));
+
+  const daySpan = Math.round((endUTC.getTime() - startUTC.getTime()) / (1000 * 60 * 60 * 24));
+  if (daySpan > 62) {
+    return { ok: false, message: "Bulk draft generator cannot exceed 62 days at a time." };
+  }
+
+  let createdCount = 0;
+  let skippedCount = 0;
+  const cursor = new Date(startUTC);
+
+  while (cursor <= endUTC) {
+    const y = cursor.getUTCFullYear();
+    const m = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getUTCDate()).padStart(2, "0");
+    const curDateStr = `${y}-${m}-${d}`;
+    const dayOfWeek = cursor.getUTCDay();
+
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+
+    // Skip weekends if requested
+    if (excludeWeekends && (dayOfWeek === 0 || dayOfWeek === 6)) {
+      skippedCount++;
+      continue;
+    }
+
+    // Skip public holidays
+    if (holidayDateSet.has(curDateStr)) {
+      skippedCount++;
+      continue;
+    }
+
+    const existing = existingMap.get(curDateStr);
+    if (existing) {
+      if (existing.status !== "draft" && existing.status !== "rejected") {
+        // Skip submitted or approved records
+        skippedCount++;
+        continue;
+      }
+
+      // If existing is a draft, update it with the schedule template times
+      const { error: updErr } = await supabase.rpc("update_own_draft_time_entry", {
+        entry_notes: notes,
+        proposed_clock_in: clockIn,
+        proposed_clock_out: clockOut,
+        proposed_lunch_end: lunchEnd,
+        proposed_lunch_start: lunchStart,
+        target_time_entry_id: existing.id,
+      });
+
+      if (!updErr) {
+        createdCount++;
+      } else {
+        skippedCount++;
+      }
+      continue;
+    }
+
+    // Create a new draft entry via RPC
+    const { data: newEntry, error: createErr } = await supabase.rpc(
+      "create_own_draft_time_entry_for_date",
+      { target_work_date: curDateStr },
+    );
+
+    if (createErr || !newEntry) {
+      skippedCount++;
+      continue;
+    }
+
+    // Update with schedule template times including mandatory lunch break
+    const entryId = (newEntry as { id?: string })?.id;
+    if (entryId) {
+      const { error: updErr } = await supabase.rpc("update_own_draft_time_entry", {
+        entry_notes: notes,
+        proposed_clock_in: clockIn,
+        proposed_clock_out: clockOut,
+        proposed_lunch_end: lunchEnd,
+        proposed_lunch_start: lunchStart,
+        target_time_entry_id: entryId,
+      });
+
+      if (!updErr) {
+        createdCount++;
+      } else {
+        skippedCount++;
+      }
+    }
+  }
+
+  revalidatePath("/dashboard");
+
+  if (createdCount === 0) {
+    return {
+      ok: false,
+      message: `No drafts were created (${skippedCount} days were skipped because of weekends, holidays, or existing timesheets).`,
+    };
+  }
+
+  return {
+    ok: true,
+    message: `Successfully loaded ${createdCount} draft timesheet${createdCount === 1 ? "" : "s"} with schedule template (${skippedCount} skipped).`,
+  };
 }
 
 export async function createManagedDraftTimeEntry(

@@ -460,6 +460,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     canAssignOwnerRole={access.isSuperAdmin || access.isOwner}
                     canAssignSuperAdmin={access.canAssignSuperAdmin}
                     isSuperAdmin={Boolean(selectedEmployee.is_super_admin)}
+                    isViewerSuperAdmin={Boolean(access.isSuperAdmin)}
                   />
 
                   {manualInviteUrl ? <InviteLinkPanel inviteUrl={manualInviteUrl} /> : null}
@@ -806,6 +807,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             entries={employeeTimeState.recentEntries}
             publicHolidays={employeeTimeState.publicHolidays}
             liveOverview={liveTimeOverview}
+            workSchedule={employeeTimeState.workSchedule}
+            todaySchedule={employeeTimeState.todaySchedule}
+            defaultLunchMinutes={employeeTimeState.defaultLunchMinutes}
           />
         ) : (
           <section className="rounded-2xl border border-border/80 bg-surface p-6 text-sm text-muted shadow-soft">
@@ -840,6 +844,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 entries={employeeTimeState.recentEntries}
                 publicHolidays={employeeTimeState.publicHolidays}
                 liveOverview={liveTimeOverview}
+                workSchedule={employeeTimeState.workSchedule}
+                todaySchedule={employeeTimeState.todaySchedule}
+                defaultLunchMinutes={employeeTimeState.defaultLunchMinutes}
               />
             }
             timesheetBadge={timesheetBadge}

@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const switcherCompanies = isSuperAdminOrUser ? companies : [];
 
   return (
-    <main className="min-h-screen text-foreground transition-colors duration-200 pb-32 sm:pb-8">
+    <main className="hide-in-zen min-h-screen text-foreground transition-all duration-300 pb-32 sm:pb-8">
       <RealtimeSyncProvider companyId={company.id}>
         <PanelBridgeProvider>
           <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md shadow-2xs">

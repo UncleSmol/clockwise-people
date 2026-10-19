@@ -23,7 +23,7 @@ function getBrandVariant(now = Date.now()): BrandVariant {
 }
 
 export default function BrandMark({
-  alwaysShowLogo = false,
+  alwaysShowLogo = true,
   brandName = "ClockWise People",
   className,
   imageClassName = "h-10 w-auto rounded-2xl",

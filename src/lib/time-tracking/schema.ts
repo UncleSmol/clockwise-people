@@ -88,6 +88,20 @@ export type TimeClockLocationEvent = ClockEventRecord & {
   geofence_status: string | null;
 };
 
+export type EmployeeScheduleInfo = {
+  id: string;
+  name: string;
+  standard_daily_hours: number | null;
+  days: {
+    day_of_week: number;
+    start_time: string | null;
+    end_time: string | null;
+    lunch_minutes: number;
+    paid_hours: number;
+    is_working_day: boolean;
+  }[];
+};
+
 export type EmployeeTimeState = {
   currentWorkDate: string;
   employee: {
@@ -121,6 +135,7 @@ export type EmployeeTimeState = {
     lunch_minutes: number;
     is_working_day: boolean;
   } | null;
+  workSchedule?: EmployeeScheduleInfo | null;
 };
 
 export type CompanyLiveTimeEntry = {
