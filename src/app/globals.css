@@ -690,6 +690,13 @@ select {
   background: color-mix(in srgb, var(--color-holiday) 20%, var(--color-surface));
 }
 
+.cw-timesheet-calendar .cw-calendar-leave,
+.cw-timesheet-calendar .cw-calendar-leave-booked {
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.2);
+  color: #7c3aed;
+}
+
 .cw-timesheet-calendar .cw-company-timesheet-event-warning {
   box-shadow: inset 3px 0 0 var(--color-danger);
 }

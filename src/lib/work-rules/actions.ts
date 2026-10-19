@@ -482,8 +482,53 @@ export async function submitLeaveRequest(
   const useToilFirst = formData.get("use_toil_first");
   let requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
 
-  const { company } = await getActiveCompany();
+  const [{ company }, access] = await Promise.all([
+    getActiveCompany(),
+    getCurrentUserAccess(),
+  ]);
+  const employeeId = access.employeeId;
   const supabase = await createSupabaseServerClient();
+
+  // Guard: For past days, ensure no timesheets have been loaded and day is not a public holiday
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (parsed.data.start_date < todayIso && employeeId) {
+    const pastStart = parsed.data.start_date;
+    const pastEnd = parsed.data.end_date < todayIso ? parsed.data.end_date : todayIso;
+
+    const { data: existingEntries } = await supabase
+      .from("time_entries")
+      .select("work_date, paid_hours, notes")
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId)
+      .gte("work_date", pastStart)
+      .lte("work_date", pastEnd)
+      .is("deleted_at", null);
+
+    const loadedDates = (existingEntries ?? [])
+      .filter((e) => !e.notes?.startsWith("Public holiday:"))
+      .map((e) => e.work_date);
+
+    if (loadedDates.length > 0) {
+      return {
+        ok: false,
+        message: `Cannot request leave for past days with existing timesheets loaded (${loadedDates.slice(0, 3).join(", ")}${loadedDates.length > 3 ? "..." : ""}). Leave can only be requested on past days where no shift was logged.`,
+      };
+    }
+
+    const { data: holidays } = await supabase
+      .from("company_public_holidays")
+      .select("name, holiday_date")
+      .eq("company_id", company.id)
+      .gte("holiday_date", pastStart)
+      .lte("holiday_date", pastEnd);
+
+    if (holidays && holidays.length > 0) {
+      return {
+        ok: false,
+        message: `Cannot request leave on public holidays (${holidays.map((h) => `${h.holiday_date} - ${h.name}`).join(", ")}).`,
+      };
+    }
+  }
 
   // Guard: If TOIL engine is disabled for this company, reject TOIL requests and disable use_toil_first
   const { data: companySettings } = await supabase

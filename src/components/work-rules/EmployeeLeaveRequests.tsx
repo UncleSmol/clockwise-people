@@ -1,16 +1,24 @@
 "use client";
 
 import {
+  AlertCircle,
+  AlertTriangle,
   ArrowRight,
   Calendar,
   CalendarPlus,
+  Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
   FileText,
   Info,
   Link,
   List,
   Loader2,
   Send,
+  Sparkles,
+  X,
 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import StorageUploadButton from "@/components/StorageUploadButton";
@@ -25,7 +33,11 @@ import type {
   LeaveAdvisor,
   LeaveBalance,
 } from "@/lib/work-rules/schema";
-import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
+import type {
+  CompanyPublicHoliday,
+  EmployeeScheduleInfo,
+  TimeEntryRecord,
+} from "@/lib/time-tracking/schema";
 import {
   defaultPayrollConfig,
   generatePayrollPeriods,
@@ -36,6 +48,8 @@ type EmployeeLeaveRequestsProps = {
   state: EmployeeLeaveState;
   entries?: TimeEntryRecord[];
   payrollConfig?: PayrollPeriodConfig;
+  publicHolidays?: CompanyPublicHoliday[];
+  workSchedule?: EmployeeScheduleInfo | null;
 };
 
 type LeaveRequestActionState = {
@@ -48,6 +62,18 @@ const initialState: LeaveRequestActionState = {
   ok: true,
   message: "",
 };
+
+function checkIsWorkingDay(dateStr: string, workSchedule?: EmployeeScheduleInfo | null): boolean {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dayOfWeek = new Date(y, m - 1, d).getDay(); // 0 = Sun, 1 = Mon ...
+  if (workSchedule?.days && workSchedule.days.length > 0) {
+    const dayRule = workSchedule.days.find((r) => r.day_of_week === dayOfWeek);
+    if (dayRule !== undefined) {
+      return Boolean(dayRule.is_working_day);
+    }
+  }
+  return dayOfWeek >= 1 && dayOfWeek <= 5;
+}
 
 function leaveTypeName(balance: LeaveBalance) {
   const relation = Array.isArray(balance.leave_types)
@@ -78,6 +104,8 @@ export default function EmployeeLeaveRequests({
   state,
   entries = [],
   payrollConfig,
+  publicHolidays = [],
+  workSchedule = null,
 }: EmployeeLeaveRequestsProps) {
   const [leaveTypeId, setLeaveTypeId] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -234,6 +262,239 @@ export default function EmployeeLeaveRequests({
   const calculation = calculationState.advisor;
   const holidayDays =
     calculation?.days.filter((day) => day.reason === "public_holiday") ?? [];
+  const timesheetDateSet = useMemo(
+    () =>
+      new Set(
+        entries
+          .filter((e) => !e.notes?.startsWith("Public holiday:"))
+          .map((e) => e.work_date),
+      ),
+    [entries],
+  );
+
+  const holidayMap = useMemo(
+    () => new Map(publicHolidays.map((h) => [h.holiday_date, h.name])),
+    [publicHolidays],
+  );
+
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [calendarViewMonth, setCalendarViewMonth] = useState(() => new Date());
+
+  const eligiblePastDays = useMemo(() => {
+    const list: { dateStr: string; dayName: string; formatted: string }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 1; i <= 60; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${day}`;
+
+      const hasTimesheet = timesheetDateSet.has(dateStr);
+      const isHoliday = holidayMap.has(dateStr);
+      const working = checkIsWorkingDay(dateStr, workSchedule);
+
+      if (!hasTimesheet && !isHoliday && working) {
+        const formatted = new Intl.DateTimeFormat("en-ZA", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        }).format(d);
+        list.push({
+          dateStr,
+          dayName: d.toLocaleDateString("en-ZA", { weekday: "short" }),
+          formatted,
+        });
+      }
+    }
+    return list;
+  }, [timesheetDateSet, holidayMap, workSchedule]);
+
+  const rangeConflicts = useMemo(() => {
+    if (!startDate) return [];
+    const sDate = startDate;
+    const eDate = endDate || startDate;
+    if (sDate > eDate) return [];
+
+    const conflicts: {
+      dateStr: string;
+      type: "timesheet" | "holiday" | "non_working";
+      label: string;
+    }[] = [];
+    const [sy, sm, sd] = sDate.split("-").map(Number);
+    const [ey, em, ed] = eDate.split("-").map(Number);
+    const curr = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
+
+    while (curr <= end) {
+      const y = curr.getFullYear();
+      const m = String(curr.getMonth() + 1).padStart(2, "0");
+      const d = String(curr.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${d}`;
+
+      if (dateStr < todayIso) {
+        if (timesheetDateSet.has(dateStr)) {
+          conflicts.push({
+            dateStr,
+            type: "timesheet",
+            label: `Timesheet loaded (${dateStr})`,
+          });
+        } else if (holidayMap.has(dateStr)) {
+          conflicts.push({
+            dateStr,
+            type: "holiday",
+            label: `Public holiday: ${holidayMap.get(dateStr)} (${dateStr})`,
+          });
+        } else if (!checkIsWorkingDay(dateStr, workSchedule)) {
+          conflicts.push({
+            dateStr,
+            type: "non_working",
+            label: `Off-day under work schedule (${dateStr})`,
+          });
+        }
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+    return conflicts;
+  }, [startDate, endDate, todayIso, timesheetDateSet, holidayMap, workSchedule]);
+
+  const hasBlockingConflict = rangeConflicts.some((c) => c.type === "timesheet");
+
+  const calendarDays = useMemo(() => {
+    const year = calendarViewMonth.getFullYear();
+    const month = calendarViewMonth.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+
+    const startDay = (firstDayOfMonth.getDay() + 6) % 7;
+    const totalDays = lastDayOfMonth.getDate();
+
+    const days: {
+      dateStr: string;
+      dayNum: number;
+      isCurrentMonth: boolean;
+      isPast: boolean;
+      isToday: boolean;
+      hasTimesheet: boolean;
+      isHoliday: boolean;
+      holidayName: string | null;
+      isWorkingDay: boolean;
+      isEligiblePast: boolean;
+      isSelected: boolean;
+      isInRange: boolean;
+    }[] = [];
+
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = startDay - 1; i >= 0; i--) {
+      const dayNum = prevMonthLastDay - i;
+      const prevDate = new Date(year, month - 1, dayNum);
+      const dateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+      const isPast = dateStr < todayIso;
+      const isToday = dateStr === todayIso;
+      const hasTimesheet = timesheetDateSet.has(dateStr);
+      const isHoliday = holidayMap.has(dateStr);
+      const holidayName = holidayMap.get(dateStr) ?? null;
+      const working = checkIsWorkingDay(dateStr, workSchedule);
+      const isEligiblePast = isPast && !hasTimesheet && !isHoliday && working;
+      const isSelected = dateStr === startDate || dateStr === endDate;
+      const isInRange = Boolean(startDate && endDate && dateStr >= startDate && dateStr <= endDate);
+
+      days.push({
+        dateStr,
+        dayNum,
+        isCurrentMonth: false,
+        isPast,
+        isToday,
+        hasTimesheet,
+        isHoliday,
+        holidayName,
+        isWorkingDay: working,
+        isEligiblePast,
+        isSelected,
+        isInRange,
+      });
+    }
+
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const isPast = dateStr < todayIso;
+      const isToday = dateStr === todayIso;
+      const hasTimesheet = timesheetDateSet.has(dateStr);
+      const isHoliday = holidayMap.has(dateStr);
+      const holidayName = holidayMap.get(dateStr) ?? null;
+      const working = checkIsWorkingDay(dateStr, workSchedule);
+      const isEligiblePast = isPast && !hasTimesheet && !isHoliday && working;
+      const isSelected = dateStr === startDate || dateStr === endDate;
+      const isInRange = Boolean(startDate && endDate && dateStr >= startDate && dateStr <= endDate);
+
+      days.push({
+        dateStr,
+        dayNum: d,
+        isCurrentMonth: true,
+        isPast,
+        isToday,
+        hasTimesheet,
+        isHoliday,
+        holidayName,
+        isWorkingDay: working,
+        isEligiblePast,
+        isSelected,
+        isInRange,
+      });
+    }
+
+    const remainingCells = (7 - (days.length % 7)) % 7;
+    for (let d = 1; d <= remainingCells; d++) {
+      const nextDate = new Date(year, month + 1, d);
+      const dateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const isPast = dateStr < todayIso;
+      const isToday = dateStr === todayIso;
+      const hasTimesheet = timesheetDateSet.has(dateStr);
+      const isHoliday = holidayMap.has(dateStr);
+      const holidayName = holidayMap.get(dateStr) ?? null;
+      const working = checkIsWorkingDay(dateStr, workSchedule);
+      const isEligiblePast = isPast && !hasTimesheet && !isHoliday && working;
+      const isSelected = dateStr === startDate || dateStr === endDate;
+      const isInRange = Boolean(startDate && endDate && dateStr >= startDate && dateStr <= endDate);
+
+      days.push({
+        dateStr,
+        dayNum: d,
+        isCurrentMonth: false,
+        isPast,
+        isToday,
+        hasTimesheet,
+        isHoliday,
+        holidayName,
+        isWorkingDay: working,
+        isEligiblePast,
+        isSelected,
+        isInRange,
+      });
+    }
+
+    return days;
+  }, [calendarViewMonth, todayIso, timesheetDateSet, holidayMap, workSchedule, startDate, endDate]);
+
+  function handleCalendarDateSelect(dateStr: string, isPast: boolean, isEligiblePast: boolean) {
+    if (isPast && !isEligiblePast) return;
+    if (!startDate || (startDate && endDate && startDate !== endDate)) {
+      setStartDate(dateStr);
+      setEndDate(dateStr);
+    } else if (startDate && (!endDate || startDate === endDate)) {
+      if (dateStr < startDate) {
+        setStartDate(dateStr);
+        setEndDate(startDate);
+      } else {
+        setEndDate(dateStr);
+      }
+    }
+  }
+
   const visibleMessage = formState.message || calculationState.message || syncState.message;
   const visibleOk = formState.message
     ? formState.ok
@@ -465,6 +726,248 @@ export default function EmployeeLeaveRequests({
             <input type="hidden" name="use_toil_first" value="true" />
           )}
 
+          {/* Quick Select Tray: Past Unlogged Work Days (No Timesheet Loaded) */}
+          {eligiblePastDays.length > 0 && (
+            <div className="w-full min-w-0 max-w-full rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                  <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                  <span>Past Unlogged Work Days ({eligiblePastDays.length} available for leave)</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/60 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Work Rule &amp; Holiday Verified
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-emerald-800 break-words">
+                Under company rules, leave for past days can only be requested for days where no timesheets were loaded. Click any day to quick-select:
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {eligiblePastDays.slice(0, 8).map((day) => {
+                  const isDaySelected = startDate === day.dateStr && endDate === day.dateStr;
+                  return (
+                    <button
+                      key={day.dateStr}
+                      type="button"
+                      onClick={() => {
+                        setStartDate(day.dateStr);
+                        setEndDate(day.dateStr);
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                        isDaySelected
+                          ? "bg-emerald-700 text-white shadow-soft scale-105"
+                          : "border border-emerald-300/80 bg-white text-emerald-950 hover:bg-emerald-100 hover:border-emerald-400"
+                      }`}
+                    >
+                      <span className="size-1.5 rounded-full bg-emerald-500" />
+                      <span>{day.formatted}</span>
+                      {isDaySelected && <Check className="size-3 text-white ml-0.5" />}
+                    </button>
+                  );
+                })}
+                {eligiblePastDays.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendarPicker(true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white/90 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 cursor-pointer"
+                  >
+                    <span>+{eligiblePastDays.length - 8} more in calendar</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Date Picker Header with Toggle Button */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+              Leave Dates
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCalendarPicker((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary hover:bg-primary/20 transition-all cursor-pointer shadow-soft"
+            >
+              <Calendar className="size-3.5" />
+              <span>{showCalendarPicker ? "Close Calendar Picker" : "Open Calendar Date Picker"}</span>
+            </button>
+          </div>
+
+          {/* Interactive Calendar Date Picker Modal/Popover */}
+          {showCalendarPicker && (
+            <div className="w-full min-w-0 max-w-full rounded-2xl border border-border bg-surface p-3.5 sm:p-4 shadow-soft">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/80">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                    className="grid size-8 place-items-center rounded-full border border-border bg-surface hover:bg-surface-muted transition text-foreground cursor-pointer shadow-xs"
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <span className="text-xs sm:text-sm font-black text-foreground min-w-[110px] text-center">
+                    {calendarViewMonth.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                    className="grid size-8 place-items-center rounded-full border border-border bg-surface hover:bg-surface-muted transition text-foreground cursor-pointer shadow-xs"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMonth(new Date())}
+                    className="rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-foreground hover:bg-surface-muted transition shadow-xs cursor-pointer"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendarPicker(false)}
+                    className="grid size-7 place-items-center rounded-full border border-border/70 hover:bg-surface-muted transition text-muted cursor-pointer"
+                    aria-label="Close calendar"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Day column headers */}
+              <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase tracking-wider text-muted">
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+                <span>Sun</span>
+              </div>
+
+              {/* Day cells grid */}
+              <div className="mt-2 grid grid-cols-7 gap-1 text-center">
+                {calendarDays.map((cell) => {
+                  const isDisabledPast = cell.isPast && !cell.isEligiblePast;
+                  let cellClass = "";
+                  let badgeText = "";
+
+                  if (isDisabledPast) {
+                    if (cell.hasTimesheet) {
+                      cellClass = "border border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed line-through";
+                      badgeText = "Worked";
+                    } else if (cell.isHoliday) {
+                      cellClass = "border border-purple-200 bg-purple-50 text-purple-400 opacity-60 cursor-not-allowed";
+                      badgeText = "Holiday";
+                    } else {
+                      cellClass = "border border-dashed border-slate-200 bg-slate-50 text-slate-300 opacity-50 cursor-not-allowed";
+                      badgeText = "Off";
+                    }
+                  } else if (cell.isEligiblePast) {
+                    if (cell.isSelected) {
+                      cellClass = "border-2 border-emerald-600 bg-emerald-600 text-white font-black shadow-md scale-105";
+                    } else if (cell.isInRange) {
+                      cellClass = "border border-emerald-400 bg-emerald-100 text-emerald-950 font-bold";
+                    } else {
+                      cellClass = "border-2 border-emerald-400 bg-emerald-50 text-emerald-900 font-bold hover:bg-emerald-100 hover:scale-105 cursor-pointer shadow-xs";
+                    }
+                    badgeText = "Eligible";
+                  } else {
+                    // Today or Future
+                    if (cell.isSelected) {
+                      cellClass = "bg-primary text-primary-foreground font-black ring-2 ring-primary ring-offset-2 scale-105 shadow-md";
+                    } else if (cell.isInRange) {
+                      cellClass = "border border-primary/40 bg-primary/15 text-primary font-bold";
+                    } else if (cell.isToday) {
+                      cellClass = "border-2 border-primary/60 bg-surface text-foreground font-extrabold hover:bg-surface-muted cursor-pointer";
+                      badgeText = "Today";
+                    } else if (cell.isHoliday) {
+                      cellClass = "border border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 cursor-pointer";
+                      badgeText = "Holiday";
+                    } else if (!cell.isWorkingDay) {
+                      cellClass = "border border-dashed border-border/80 bg-surface-muted/40 text-muted cursor-pointer hover:bg-surface-muted";
+                      badgeText = "Off";
+                    } else {
+                      cellClass = cell.isCurrentMonth
+                        ? "border border-border bg-surface text-foreground hover:bg-surface-muted hover:border-primary/50 cursor-pointer"
+                        : "border border-border/50 bg-surface/50 text-muted/60 hover:bg-surface-muted cursor-pointer";
+                    }
+                  }
+
+                  const title = cell.isPast
+                    ? cell.hasTimesheet
+                      ? `${cell.dateStr}: Timesheet loaded. Cannot request leave.`
+                      : cell.isHoliday
+                        ? `${cell.dateStr}: Public holiday (${cell.holidayName}).`
+                        : !cell.isWorkingDay
+                          ? `${cell.dateStr}: Scheduled off-day under work rule.`
+                          : `${cell.dateStr}: Unlogged work day. Eligible for leave.`
+                    : cell.dateStr;
+
+                  return (
+                    <button
+                      key={cell.dateStr}
+                      type="button"
+                      disabled={isDisabledPast}
+                      onClick={() => handleCalendarDateSelect(cell.dateStr, cell.isPast, cell.isEligiblePast)}
+                      title={title}
+                      className={`flex min-h-[46px] sm:min-h-[52px] flex-col items-center justify-between rounded-xl p-1 text-xs transition-all ${cellClass}`}
+                    >
+                      <span className="font-extrabold leading-none mt-0.5">{cell.dayNum}</span>
+                      {badgeText ? (
+                        <span className="truncate max-w-full text-[8px] sm:text-[9px] font-bold px-1 rounded leading-tight">
+                          {badgeText}
+                        </span>
+                      ) : (
+                        <span className="h-3" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Legend & Controls */}
+              <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
+                    <span className="size-2 rounded-full bg-emerald-500" />
+                    Past Unlogged (Eligible)
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-medium text-slate-500">
+                    <span className="size-2 rounded-full bg-slate-300" />
+                    Timesheet Loaded (Blocked)
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-medium text-purple-700">
+                    <span className="size-2 rounded-full bg-purple-400" />
+                    Holiday
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-medium text-muted">
+                    <span className="size-2 rounded-full bg-slate-200" />
+                    Off-day
+                  </span>
+                </div>
+
+                {startDate ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                    className="text-xs font-bold text-muted hover:text-foreground cursor-pointer underline"
+                  >
+                    Clear Selection
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* Date Input Boxes */}
           <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2">
             <label className="grid w-full min-w-0 max-w-full gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -497,6 +1000,51 @@ export default function EmployeeLeaveRequests({
               </span>
             </label>
           </div>
+
+          {/* Range Conflict Error and Informational Banners */}
+          {hasBlockingConflict && (
+            <div className="flex items-start gap-2.5 rounded-2xl border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-900 shadow-soft">
+              <AlertCircle className="size-4 shrink-0 text-rose-600 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Past Timesheet Conflict</p>
+                <p className="mt-0.5 text-rose-800 break-words">
+                  Timesheets are already recorded on:{" "}
+                  <span className="font-mono font-bold">
+                    {rangeConflicts
+                      .filter((c) => c.type === "timesheet")
+                      .map((c) => c.dateStr)
+                      .join(", ")}
+                  </span>
+                  . Under work rules, past leave can only be requested for days where no timesheet was loaded.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {rangeConflicts.some((c) => c.type === "holiday") && (
+            <div className="flex items-start gap-2.5 rounded-2xl border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900 shadow-soft">
+              <Info className="size-4 shrink-0 text-purple-600 mt-0.5" />
+              <p className="min-w-0 flex-1 break-words">
+                {rangeConflicts
+                  .filter((c) => c.type === "holiday")
+                  .map((c) => c.label)
+                  .join("; ")}
+                . Public holidays are already company-paid days off.
+              </p>
+            </div>
+          )}
+
+          {rangeConflicts.some((c) => c.type === "non_working") && (
+            <div className="flex items-start gap-2.5 rounded-2xl border border-border bg-surface-muted/50 p-3 text-xs text-muted shadow-soft">
+              <Info className="size-4 shrink-0 text-muted mt-0.5" />
+              <p className="min-w-0 flex-1 break-words">
+                {rangeConflicts
+                  .filter((c) => c.type === "non_working")
+                  .map((c) => c.label)
+                  .join("; ")}
+              </p>
+            </div>
+          )}
 
           {calculation ? (
             <div
@@ -660,7 +1208,7 @@ export default function EmployeeLeaveRequests({
               {calculationPending ? "Preparing..." : "Get advice"}
             </button>
             <button
-              disabled={pending || Boolean(calculation?.exceeds_balance)}
+              disabled={pending || hasBlockingConflict || Boolean(calculation?.exceeds_balance)}
               className="w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-colors"
             >
               <Send className="size-4" />

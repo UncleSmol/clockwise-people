@@ -404,6 +404,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               state={leaveState}
               entries={employeeTimeState?.recentEntries ?? []}
               payrollConfig={payrollConfig}
+              publicHolidays={employeeTimeState?.publicHolidays ?? []}
+              workSchedule={employeeTimeState?.workSchedule ?? null}
             />
           ) : null}
           {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
@@ -856,6 +858,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   state={leaveState}
                   entries={employeeTimeState?.recentEntries ?? []}
                   payrollConfig={payrollConfig}
+                  publicHolidays={employeeTimeState?.publicHolidays ?? []}
+                  workSchedule={employeeTimeState?.workSchedule ?? null}
                 />
               ) : (
                 <section className="rounded-2xl border border-border/80 bg-surface p-6 text-sm text-muted shadow-soft">

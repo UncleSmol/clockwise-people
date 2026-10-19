@@ -133,7 +133,20 @@ function getPaidHoursTextClass(validation: CompanyTimesheetCalendarEntry["schedu
   return validation.isCompliant ? "text-success" : "text-danger";
 }
 
+function isLeaveEntry(entry?: Partial<CompanyTimesheetCalendarEntry> | null): boolean {
+  if (!entry) return false;
+  return Boolean(
+    entry.leave_type_id != null ||
+    entry.notes?.startsWith("Leave:") ||
+    entry.notes?.startsWith("TOIL / Leave:") ||
+    entry.notes?.toLowerCase().includes("leave")
+  );
+}
+
 function getEntryBorderClass(entry: CompanyTimesheetCalendarEntry) {
+  if (isLeaveEntry(entry)) {
+    return "border-violet-300 bg-violet-50/50 hover:bg-violet-50/80";
+  }
   const validation = entry.scheduleValidation;
   if (validation) {
     return validation.isCompliant
@@ -145,7 +158,8 @@ function getEntryBorderClass(entry: CompanyTimesheetCalendarEntry) {
     : "border-border bg-white hover:bg-slate-50";
 }
 
-function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
+function statusClass(status: CompanyTimesheetCalendarEntry["status"], isLeave?: boolean) {
+  if (isLeave) return ["cw-company-timesheet-event", "cw-calendar-leave"];
   if (status === "draft") return ["cw-company-timesheet-event", "cw-calendar-draft"];
   if (status === "approved") return ["cw-company-timesheet-event", "cw-calendar-approved"];
   if (status === "rejected") return ["cw-company-timesheet-event", "cw-calendar-rejected"];
@@ -153,7 +167,8 @@ function statusClass(status: CompanyTimesheetCalendarEntry["status"]) {
   return ["cw-company-timesheet-event", "cw-calendar-submitted"];
 }
 
-function statusBadgeClass(status: CompanyTimesheetCalendarEntry["status"]) {
+function statusBadgeClass(status: CompanyTimesheetCalendarEntry["status"], isLeave?: boolean) {
+  if (isLeave) return "bg-violet-600 text-white shadow-soft";
   if (status === "draft") return "bg-amber-500 text-white shadow-soft";
   if (status === "approved") return "bg-emerald-600 text-white shadow-soft";
   if (status === "rejected") return "bg-rose-600 text-white shadow-soft";
@@ -162,6 +177,18 @@ function statusBadgeClass(status: CompanyTimesheetCalendarEntry["status"]) {
 }
 
 function getCalendarEntryCardTheme(entry: CompanyTimesheetCalendarEntry) {
+  if (isLeaveEntry(entry)) {
+    return {
+      cardBg: "bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-soft",
+      avatarBg: "bg-white/20 text-white",
+      subText: "text-white/85",
+      dotBg: "bg-violet-300",
+      badgeClass: "bg-white/20 text-white border border-white/30",
+      statusLabel: "On Leave",
+      footerPillBg: "bg-white/15 text-white border-white/25",
+    };
+  }
+
   const isException = Boolean(
     entry.missing_clocking ||
     entry.late_arrival ||
@@ -226,8 +253,12 @@ function renderEventContent(eventInfo: EventContentArg) {
   const entry = eventInfo.event.extendedProps.entry as
     | CompanyTimesheetCalendarEntry
     | undefined;
+  const isLeave = Boolean(
+    eventInfo.event.extendedProps.isLeave ||
+    (entry && isLeaveEntry(entry))
+  );
 
-  if (!entry) {
+  if (!entry && !isLeave) {
     return (
       <div className="truncate text-[11px] font-semibold leading-4">
         {eventInfo.event.title}
@@ -235,9 +266,48 @@ function renderEventContent(eventInfo: EventContentArg) {
     );
   }
 
+  const name = entry
+    ? displayName(entry)
+    : (eventInfo.event.extendedProps.employeeName as string) || eventInfo.event.title;
+  const avatarUrl = entry
+    ? entry.avatarUrl
+    : (eventInfo.event.extendedProps.avatarUrl as string | null);
+  const leaveName =
+    (eventInfo.event.extendedProps.leaveTypeName as string) ||
+    entry?.notes ||
+    "Leave";
+  const hours = entry
+    ? formatHours(entry.paid_hours)
+    : eventInfo.event.extendedProps.totalHours
+      ? formatHours(eventInfo.event.extendedProps.totalHours as number)
+      : "";
+
+  if (isLeave) {
+    return (
+      <span
+        className="cw-calendar-avatar-event relative inline-grid shrink-0 place-items-center overflow-visible rounded-full ring-2 ring-violet-500 ring-offset-1 bg-violet-500/20 shadow-[0_0_8px_rgba(139,92,246,0.6)]"
+        title={`${name} · On Leave (${leaveName})${hours ? ` · ${hours}` : ""}`}
+      >
+        <EmployeeAvatar
+          name={name}
+          src={avatarUrl}
+          className="size-6 rounded-full border-0"
+        />
+        <span
+          className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-1 ring-white bg-violet-600 shadow-xs z-10"
+          title="On Leave"
+        />
+      </span>
+    );
+  }
+
+  if (!entry) {
+    return null;
+  }
+
   return (
     <span
-      className={`cw-calendar-avatar-event inline-grid shrink-0 place-items-center overflow-hidden rounded-full ring-2 ${avatarRingClass(entry.status)}`}
+      className={`cw-calendar-avatar-event inline-grid shrink-0 place-items-center overflow-hidden rounded-full ring-2 ${avatarRingClass(entry.status, false)}`}
       title={`${displayName(entry)} · ${formatHours(entry.paid_hours)}`}
     >
       <EmployeeAvatar
@@ -249,7 +319,8 @@ function renderEventContent(eventInfo: EventContentArg) {
   );
 }
 
-function avatarRingClass(status: CompanyTimesheetCalendarEntry["status"]) {
+function avatarRingClass(status: CompanyTimesheetCalendarEntry["status"], isLeave: boolean = false) {
+  if (isLeave) return "ring-violet-500 bg-violet-500/20 shadow-[0_0_8px_rgba(139,92,246,0.6)] ring-offset-1";
   if (status === "draft") return "ring-warning/70";
   if (status === "approved") return "ring-success/70";
   if (status === "rejected") return "ring-danger/70";
@@ -323,13 +394,57 @@ export default function CompanyTimesheetCalendar({
   );
 
   const mobileEntriesForFocusDate = useMemo(() => {
-    return entries.filter(
+    const dayEntries = entries.filter(
       (e) =>
         e.work_date === calendarFocusDate &&
         !holidayDates.has(e.work_date) &&
         !e.notes?.startsWith("Public holiday:"),
     );
-  }, [entries, calendarFocusDate, holidayDates]);
+
+    const existingEmployeesOnDate = new Set(dayEntries.map((e) => e.employee_id));
+    const extraLeave: CompanyTimesheetCalendarEntry[] = [];
+
+    for (const lr of leaveRequests ?? []) {
+      if (lr.status !== "approved") continue;
+      if (calendarFocusDate >= lr.start_date && calendarFocusDate <= lr.end_date) {
+        if (!existingEmployeesOnDate.has(lr.employee_id) && !holidayDates.has(calendarFocusDate)) {
+          extraLeave.push({
+            id: `leave-req-${lr.id}-${calendarFocusDate}`,
+            company_id: "",
+            employee_id: lr.employee_id,
+            work_date: calendarFocusDate,
+            clock_in: null,
+            lunch_start: null,
+            lunch_end: null,
+            clock_out: null,
+            normal_hours: Number(lr.total_hours ?? 8),
+            overtime_hours: 0,
+            paid_hours: Number(lr.total_hours ?? 8),
+            missing_clocking: false,
+            late_arrival: false,
+            early_departure: false,
+            status: "approved",
+            notes: `Leave: ${lr.leaveTypeName}`,
+            warning_notes: null,
+            workstation_id: null,
+            gross_hours: Number(lr.total_hours ?? 8),
+            lunch_hours: 0,
+            leave_type_id: "leave",
+            employeeNumber: lr.employeeNumber,
+            fullName: lr.employeeName,
+            knownAs: null,
+            avatarUrl: lr.avatarUrl ?? null,
+            workstationName: "On Leave",
+            paidTimeOffHours: Number(lr.total_hours ?? 8),
+            locationEvents: [],
+            scheduleValidation: { isCompliant: true, issues: [] },
+          });
+        }
+      }
+    }
+
+    return [...dayEntries, ...extraLeave];
+  }, [entries, leaveRequests, calendarFocusDate, holidayDates]);
 
   const visibleMobileEntries = useMemo(() => {
     if (showAllMobileEntries || mobileEntriesForFocusDate.length <= 6) {
@@ -405,29 +520,76 @@ export default function CompanyTimesheetCalendar({
         allDay: true,
         classNames: ["cw-calendar-holiday"],
       }));
+
+      const existingKeySet = new Set(
+        entries.map((entry) => `${entry.employee_id}_${entry.work_date}`),
+      );
+
+      const leaveRequestEvents: EventInput[] = [];
+      for (const lr of leaveRequests ?? []) {
+        if (lr.status !== "approved") continue;
+        const [sy, sm, sd] = lr.start_date.split("-").map(Number);
+        const [ey, em, ed] = lr.end_date.split("-").map(Number);
+        const curr = new Date(sy, sm - 1, sd);
+        const end = new Date(ey, em - 1, ed);
+
+        while (curr <= end) {
+          const y = curr.getFullYear();
+          const m = String(curr.getMonth() + 1).padStart(2, "0");
+          const d = String(curr.getDate()).padStart(2, "0");
+          const dateStr = `${y}-${m}-${d}`;
+
+          if (!existingKeySet.has(`${lr.employee_id}_${dateStr}`) && !holidayDates.has(dateStr)) {
+            leaveRequestEvents.push({
+              id: `leave-req-${lr.id}-${dateStr}`,
+              title: `${lr.employeeName} · On Leave`,
+              start: dateStr,
+              allDay: true,
+              classNames: ["cw-company-timesheet-event", "cw-calendar-leave"],
+              extendedProps: {
+                isLeave: true,
+                employeeId: lr.employee_id,
+                employeeName: lr.employeeName,
+                employeeNumber: lr.employeeNumber,
+                leaveTypeName: lr.leaveTypeName,
+                avatarUrl: lr.avatarUrl ?? null,
+                totalHours: lr.total_hours,
+                workDate: dateStr,
+              },
+            });
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+      }
+
       const timesheetEvents = entries
         .filter(
           (entry) =>
             !holidayDates.has(entry.work_date) &&
             !entry.notes?.startsWith("Public holiday:"),
         )
-        .map((entry) => ({
-          id: entry.id,
-          title: displayName(entry),
-          start: entry.work_date,
-          allDay: true,
-          classNames: [
-            "cw-company-timesheet-event",
-            entry.missing_clocking || entry.late_arrival || entry.early_departure
-              ? "cw-company-timesheet-event-warning"
-              : "",
-          ],
-          extendedProps: { entry },
-        }));
+        .map((entry) => {
+          const isLeave = isLeaveEntry(entry);
+          return {
+            id: entry.id,
+            title: isLeave ? `${displayName(entry)} · On Leave` : displayName(entry),
+            start: entry.work_date,
+            allDay: true,
+            classNames: [
+              "cw-company-timesheet-event",
+              isLeave
+                ? "cw-calendar-leave"
+                : entry.missing_clocking || entry.late_arrival || entry.early_departure
+                  ? "cw-company-timesheet-event-warning"
+                  : "",
+            ],
+            extendedProps: { entry, isLeave },
+          };
+        });
 
-      return [...holidayEvents, ...timesheetEvents];
+      return [...holidayEvents, ...timesheetEvents, ...leaveRequestEvents];
     },
-    [entries, publicHolidays, holidayDates],
+    [entries, leaveRequests, publicHolidays, holidayDates],
   );
 
   const totals = useMemo(() => {
@@ -436,15 +598,39 @@ export default function CompanyTimesheetCalendar({
         !holidayDates.has(entry.work_date) &&
         !entry.notes?.startsWith("Public holiday:"),
     );
+    const leaveEntriesCount = validEntries.filter(isLeaveEntry).length;
+
+    const existingKeySet = new Set(validEntries.map((e) => `${e.employee_id}_${e.work_date}`));
+    let extraLeaveCount = 0;
+    for (const lr of leaveRequests ?? []) {
+      if (lr.status !== "approved") continue;
+      const [sy, sm, sd] = lr.start_date.split("-").map(Number);
+      const [ey, em, ed] = lr.end_date.split("-").map(Number);
+      const curr = new Date(sy, sm - 1, sd);
+      const end = new Date(ey, em - 1, ed);
+
+      while (curr <= end) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, "0");
+        const d = String(curr.getDate()).padStart(2, "0");
+        const dateStr = `${y}-${m}-${d}`;
+        if (!existingKeySet.has(`${lr.employee_id}_${dateStr}`) && !holidayDates.has(dateStr)) {
+          extraLeaveCount++;
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+
     return {
-      approved: validEntries.filter((entry) => entry.status === "approved").length,
+      approved: validEntries.filter((entry) => entry.status === "approved" && !isLeaveEntry(entry)).length,
+      onLeave: leaveEntriesCount + extraLeaveCount,
       issues: validEntries.filter(
-        (entry) => entry.missing_clocking || entry.late_arrival || entry.early_departure,
+        (entry) => (entry.missing_clocking || entry.late_arrival || entry.early_departure) && !isLeaveEntry(entry),
       ).length,
       submitted: validEntries.filter((entry) => entry.status === "submitted").length,
-      total: validEntries.length,
+      total: validEntries.length + extraLeaveCount,
     };
-  }, [entries, holidayDates]);
+  }, [entries, leaveRequests, holidayDates]);
 
   const existingEntriesForDate = useMemo(() => {
     if (!selectedDate || holidayDates.has(selectedDate)) return [];
@@ -481,6 +667,45 @@ export default function CompanyTimesheetCalendar({
             .map((e) => e.id),
         ),
       );
+    } else if (arg.event.extendedProps.isLeave) {
+      const ep = arg.event.extendedProps;
+      const workDate = (ep.workDate as string) || (arg.event.startStr ? arg.event.startStr.slice(0, 10) : "");
+      const syntheticEntry: CompanyTimesheetCalendarEntry = {
+        id: arg.event.id,
+        company_id: "",
+        employee_id: (ep.employeeId as string) || "",
+        work_date: workDate,
+        clock_in: null,
+        lunch_start: null,
+        lunch_end: null,
+        clock_out: null,
+        normal_hours: Number(ep.totalHours ?? 8),
+        overtime_hours: 0,
+        paid_hours: Number(ep.totalHours ?? 8),
+        missing_clocking: false,
+        late_arrival: false,
+        early_departure: false,
+        status: "approved",
+        notes: `Leave: ${ep.leaveTypeName || "Approved Leave"}`,
+        warning_notes: null,
+        workstation_id: null,
+        gross_hours: Number(ep.totalHours ?? 8),
+        lunch_hours: 0,
+        leave_type_id: "leave",
+        employeeNumber: (ep.employeeNumber as string) || "",
+        fullName: (ep.employeeName as string) || "",
+        knownAs: null,
+        avatarUrl: (ep.avatarUrl as string) || null,
+        workstationName: "On Leave",
+        paidTimeOffHours: Number(ep.totalHours ?? 8),
+        locationEvents: [],
+        scheduleValidation: { isCompliant: true, issues: [] },
+      };
+      setCalendarFocusDate(workDate);
+      setSelectedEntry(syntheticEntry);
+      setEditing(false);
+      setEditedTimes({});
+      setSelectedApprovalIds(new Set());
     }
   };
 
@@ -556,7 +781,7 @@ export default function CompanyTimesheetCalendar({
               Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[32rem]">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[38rem]">
             <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Shifts
@@ -574,6 +799,12 @@ export default function CompanyTimesheetCalendar({
                 Approved
               </div>
               <p className="mt-1 text-lg font-black text-white">{totals.approved}</p>
+            </div>
+            <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
+                On Leave
+              </div>
+              <p className="mt-1 text-lg font-black text-white">{totals.onLeave}</p>
             </div>
             <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
@@ -738,6 +969,10 @@ export default function CompanyTimesheetCalendar({
             <span className="size-1.5 rounded-full bg-emerald-600" />
             Approved
           </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[11px] font-medium text-violet-900 shadow-soft">
+            <span className="size-1.5 rounded-full bg-violet-600" />
+            On Leave
+          </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-medium text-rose-900 shadow-soft">
             <span className="size-1.5 rounded-full bg-rose-500" />
             Rejected
@@ -752,6 +987,10 @@ export default function CompanyTimesheetCalendar({
                 dayMaxEventRows={6}
                 dayMaxEvents={6}
                 eventClassNames={(arg) => {
+                  const isLeave = Boolean(arg.event.extendedProps.isLeave);
+                  if (isLeave) {
+                    return ["cw-company-timesheet-event", "cw-calendar-leave", "cw-calendar-avatar-event"];
+                  }
                   const entry = arg.event.extendedProps.entry as
                     | CompanyTimesheetCalendarEntry
                     | undefined;
@@ -767,8 +1006,31 @@ export default function CompanyTimesheetCalendar({
                   setDayTooltip(null);
                   const rect = info.el.getBoundingClientRect();
                   const calRect = calendarRef.current?.getBoundingClientRect();
+                  const isLeave = Boolean(info.event.extendedProps.isLeave);
                   const entry = info.event.extendedProps.entry as CompanyTimesheetCalendarEntry | undefined;
-                  if (entry) {
+
+                  if (isLeave) {
+                    const employeeName =
+                      (info.event.extendedProps.employeeName as string) ||
+                      (entry ? displayName(entry) : "Employee");
+                    const leaveTypeName =
+                      (info.event.extendedProps.leaveTypeName as string) ||
+                      entry?.notes?.replace("Leave: ", "") ||
+                      "Approved Leave";
+                    const lines = `${employeeName} · On Leave (${leaveTypeName})`;
+
+                    let x = rect.left + rect.width / 2;
+                    let y = rect.bottom + 8;
+
+                    if (calRect && y + 120 > calRect.bottom) {
+                      y = rect.top - 8;
+                    }
+                    if (calRect) {
+                      x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
+                      y = Math.max(calRect.top + 4, y);
+                    }
+                    setTooltip({ content: lines, x, y });
+                  } else if (entry) {
                     const lines = [
                       displayName(entry),
                       entry.clock_in || entry.clock_out
@@ -1252,32 +1514,40 @@ export default function CompanyTimesheetCalendar({
         {selectedEntry ? (
           <>
             <div
-              className={`flex items-center justify-between gap-3 rounded-lg p-3.5 shadow-sm ${selectedEntry.status === "approved"
-                ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
-                : selectedEntry.status === "submitted"
-                  ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
-                  : selectedEntry.status === "rejected"
-                    ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
-                    : "border border-zinc-300 bg-zinc-100 text-zinc-900"
+              className={`flex items-center justify-between gap-3 rounded-lg p-3.5 shadow-sm ${isLeaveEntry(selectedEntry)
+                ? "bg-violet-600 text-white ring-1 ring-violet-700/60"
+                : selectedEntry.status === "approved"
+                  ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
+                  : selectedEntry.status === "submitted"
+                    ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
+                    : selectedEntry.status === "rejected"
+                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
+                      : "border border-zinc-300 bg-zinc-100 text-zinc-900"
                 }`}
             >
               <div>
-                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${selectedEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
-                  Timesheet Status
+                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${selectedEntry.status === "draft" && !isLeaveEntry(selectedEntry) ? "text-zinc-500" : "opacity-80"}`}>
+                  {isLeaveEntry(selectedEntry) ? "Leave Record" : "Timesheet Status"}
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  <RecordStatusBadge
-                    status={selectedEntry.status}
-                    size={32}
-                  />
-                  <span className={`text-xs font-bold ${selectedEntry.status === "draft" ? "text-zinc-600" : "text-white/90"}`}>
+                  {isLeaveEntry(selectedEntry) ? (
+                    <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold text-white">
+                      On Leave
+                    </span>
+                  ) : (
+                    <RecordStatusBadge
+                      status={selectedEntry.status}
+                      size={32}
+                    />
+                  )}
+                  <span className={`text-xs font-bold ${selectedEntry.status === "draft" && !isLeaveEntry(selectedEntry) ? "text-zinc-600" : "text-white/90"}`}>
                     {selectedEntry.work_date}
                   </span>
                 </div>
               </div>
 
               <div className="text-right">
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${selectedEntry.status === "draft" ? "text-zinc-500" : "opacity-80"}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${selectedEntry.status === "draft" && !isLeaveEntry(selectedEntry) ? "text-zinc-500" : "opacity-80"}`}>
                   Paid Total
                 </p>
                 <p className="mt-0.5 text-xl font-black">{formatHours(selectedEntry.paid_hours)}</p>

@@ -91,10 +91,12 @@ type CalendarLeaveRequestRow = {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    avatar_url: string | null;
   } | null;
   leave_types?: { name: string }[] | { name: string } | null;
 };
@@ -1381,7 +1383,7 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
 
   const { data, error } = await supabase
     .from("leave_requests")
-    .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as), leave_types(name)")
+    .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
     .eq("company_id", company.id)
     .eq("status", "approved")
     .is("deleted_at", null)
@@ -1404,6 +1406,7 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
       employee_id: request.employee_id,
       employeeName: employee?.known_as ?? employee?.full_name ?? "Unknown employee",
       employeeNumber: employee?.employee_number ?? "",
+      avatarUrl: employee?.avatar_url ?? null,
       end_date: request.end_date,
       id: request.id,
       leaveTypeName: leaveType?.name ?? "Leave",

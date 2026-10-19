@@ -222,6 +222,7 @@ export type CompanyCalendarLeaveRequest = {
   employee_id: string;
   employeeName: string;
   employeeNumber: string;
+  avatarUrl?: string | null;
   leaveTypeName: string;
   start_date: string;
   end_date: string;
