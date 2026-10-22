@@ -215,8 +215,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const canManageCompany = access.canManageCompany;
   const canManageEmployees = access.canManageEmployees;
+  const canViewPayslips = access.canViewPayslips;
   const canReviewTime = access.canReviewBranchTime || access.canManageDirectReports;
   const activePanel = params?.panel ?? null;
+
+  if (activePanel === "people" && !canManageEmployees) {
+    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: You do not have permission to view employee records."));
+  }
+  if (activePanel === "payslips" && !canViewPayslips) {
+    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: You do not have permission to view the payslip generator."));
+  }
+  if (activePanel === "sysadmin" && !access.isFullSuperAdmin) {
+    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: System admin workspace is restricted to full super administrators."));
+  }
+
   const selectedEmployeeId = params?.employeeId ?? null;
   const message = params?.message ? decodeURIComponent(params.message) : "";
   const manualInviteUrl = params?.manualInviteUrl
@@ -266,13 +278,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       ? getEmployeeDetail(selectedEmployeeId)
       : Promise.resolve(null),
     getCompanySettings().catch(() => null),
-    access.isSuperAdmin
+    access.isFullSuperAdmin
       ? getSysAdminCompaniesOverview()
       : Promise.resolve([]),
-    access.isSuperAdmin
+    access.isFullSuperAdmin
       ? getSysAdminCompanyMetadata()
       : Promise.resolve({ workstations: [], schedules: [] }),
-    access.isSuperAdmin
+    access.isFullSuperAdmin
       ? getSysAdminSuperAdmins()
       : Promise.resolve([]),
   ]);
@@ -692,7 +704,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           companyName={company.name}
           company={company}
           fullEmployees={activeEmployees}
-          isSuperAdmin={access.isSuperAdmin}
+          isSuperAdmin={access.isFullSuperAdmin}
+          canViewPayslips={canViewPayslips}
           employees={finalReportEmployees}
           departments={employeesData?.departments ?? []}
           workstations={geolocationData?.workstations ?? []}
@@ -707,24 +720,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     });
   }
 
-  if (access.isSuperAdmin) {
+  if (canViewPayslips) {
     panels.push({
       key: "payslips",
       label: "Payslip Generator",
       desktopOnly: true,
       description:
-        "Super Admin authority: Simulate, adjust, and print official employee payslips once timesheets in a pay period are approved.",
+        "Simulate, adjust, and print official employee payslips once timesheets in a pay period are approved.",
       content: (
         <CompanyPayslipsWorkspace
           company={company}
           employees={(employeesData?.employees ?? []).filter((e) => e.employment_status === "active")}
           timesheetEntries={calendarEntries}
           payrollConfig={payrollConfig}
-          isSuperAdmin={access.isSuperAdmin}
+          isSuperAdmin={access.isFullSuperAdmin}
         />
       ),
     });
+  }
 
+  if (access.isFullSuperAdmin) {
     panels.push({
       key: "sysadmin",
       label: "System admin",

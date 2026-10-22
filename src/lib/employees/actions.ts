@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getActiveCompany } from "@/lib/foundation/queries";
+import { getActiveCompany, requireEmployeeAdmin } from "@/lib/foundation/queries";
 import { employeeFormSchema, type EmployeeFormInput } from "./schema";
 import {
   autoAssignCompanyPayrollIdentifiers,
@@ -63,6 +63,7 @@ export async function createEmployee(
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid employee data." };
   }
 
+  await requireEmployeeAdmin();
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
   const values = parsed.data;
@@ -171,6 +172,7 @@ export async function updateEmployee(
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid employee data." };
   }
 
+  await requireEmployeeAdmin();
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
   const values = parsed.data;
@@ -260,6 +262,7 @@ export async function updateEmployee(
 }
 
 export async function deactivateEmployee(employeeId: string) {
+  await requireEmployeeAdmin();
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
 
@@ -282,6 +285,7 @@ export async function deactivateEmployee(employeeId: string) {
 }
 
 export async function autoAssignMissingPayrollIdsAction(): Promise<ActionState> {
+  await requireEmployeeAdmin();
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
   const result = await autoAssignCompanyPayrollIdentifiers(company.id, supabase);

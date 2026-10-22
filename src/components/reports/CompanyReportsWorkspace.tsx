@@ -60,6 +60,7 @@ type CompanyReportsWorkspaceProps = {
   company?: CompanyPayslipContext;
   fullEmployees?: EmployeeRecord[];
   isSuperAdmin?: boolean;
+  canViewPayslips?: boolean;
   employees: Array<{
     id: string;
     full_name: string;
@@ -106,6 +107,7 @@ export default function CompanyReportsWorkspace({
   company,
   fullEmployees,
   isSuperAdmin = false,
+  canViewPayslips = false,
   employees,
   departments,
   workstations,
@@ -1113,7 +1115,7 @@ export default function CompanyReportsWorkspace({
           Absence Log ({filteredAbsences.length})
         </button>
 
-        {isSuperAdmin && (
+        {(canViewPayslips || isSuperAdmin) && (
           <button
             type="button"
             onClick={() => setActiveTab("payslips")}
@@ -1123,7 +1125,7 @@ export default function CompanyReportsWorkspace({
                 : "text-primary hover:text-foreground hover:bg-surface-muted border border-border/80"
             }`}
           >
-            Official Payslips (Super Admin)
+            Official Payslips
           </button>
         )}
 
@@ -1141,7 +1143,7 @@ export default function CompanyReportsWorkspace({
       </div>
 
       {/* Tab Panels */}
-      {activeTab === "payslips" && isSuperAdmin && (
+      {activeTab === "payslips" && (canViewPayslips || isSuperAdmin) && (
         <CompanyPayslipsWorkspace
           company={company || { id: "current-company", name: companyName }}
           employees={fullEmployees || []}

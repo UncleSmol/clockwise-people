@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getActiveCompany, requireUser } from "@/lib/foundation/queries";
+import { getActiveCompany, requireUser, getCurrentUserAccess } from "@/lib/foundation/queries";
 import type { AppRole } from "@/lib/foundation/schema";
 import type { EmployeeRecord, SelectOption } from "./schema";
 import { autoAssignCompanyPayrollIdentifiers } from "./payroll-id";
@@ -103,7 +103,23 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
   }
 
   const { company } = await getActiveCompany();
-  const { supabase } = await requireUser();
+  const [{ supabase }, access] = await Promise.all([
+    requireUser(),
+    getCurrentUserAccess(),
+  ]);
+
+  if (!access.canManageEmployees) {
+    return {
+      isConfigured: false,
+      companyName: company.name,
+      workstations: [],
+      departments: [],
+      managers: [],
+      schedules: [],
+      standardMonthlyHours: 0,
+      employees: [],
+    };
+  }
 
   const [workstationsResult, departmentsResult, schedulesResult, settingsResult, employeesResult, assignmentsResult] = await Promise.all([
     supabase
@@ -321,7 +337,14 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
   }
 
   const { company } = await getActiveCompany();
-  const { supabase } = await requireUser();
+  const [{ supabase }, access] = await Promise.all([
+    requireUser(),
+    getCurrentUserAccess(),
+  ]);
+
+  if (!access.canManageEmployees) {
+    return null;
+  }
 
   const [{ data, error }, assignmentsResult] = await Promise.all([
     supabase

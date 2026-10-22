@@ -5,9 +5,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUserAccess } from "@/lib/foundation/queries";
 import type { PayslipRecordData } from "./payslip-types";
 
-function requireSuperAdmin(access: { isSuperAdmin: boolean }) {
-  if (!access.isSuperAdmin) {
-    throw new Error("Access denied: Payslip simulation, adjustment, and printing are restricted to Super Admins only.");
+function requirePayslipAccess(access: {
+  isSuperAdmin: boolean;
+  canViewPayslips?: boolean;
+  isRestrictedSuperAdmin?: boolean;
+}) {
+  if (access.isRestrictedSuperAdmin || !access.canViewPayslips) {
+    throw new Error("Access denied: You do not have permission to view, simulate, or adjust employee payslips.");
   }
 }
 
@@ -17,7 +21,7 @@ export async function getSavedCompanyPayslipsAction(
   endDate: string,
 ) {
   const access = await getCurrentUserAccess();
-  requireSuperAdmin(access);
+  requirePayslipAccess(access);
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -166,7 +170,7 @@ export async function savePayslipRecordAction(
   payslip: PayslipRecordData,
 ): Promise<{ ok: boolean; message: string; id?: string }> {
   const access = await getCurrentUserAccess();
-  requireSuperAdmin(access);
+  requirePayslipAccess(access);
 
   const supabase = await createSupabaseServerClient();
 
@@ -247,7 +251,7 @@ export async function resetPayslipAdjustmentAction(
   endDate: string,
 ): Promise<{ ok: boolean; message: string }> {
   const access = await getCurrentUserAccess();
-  requireSuperAdmin(access);
+  requirePayslipAccess(access);
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase

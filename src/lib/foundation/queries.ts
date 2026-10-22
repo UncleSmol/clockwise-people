@@ -104,8 +104,21 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     "doctor@formalize.co.za",
     "admin@formalize.co.za",
   ]);
-  const userEmail = user.email?.toLowerCase();
+  const userEmail = user.email?.toLowerCase().trim();
   const canAssignSuperAdmin = Boolean(userEmail && SUPER_ADMIN_GRANTORS.has(userEmail));
+
+  // Restricted Super Admins are Super Admins who can switch between companies to monitor
+  // and assist with time management across all branches, but are strictly prohibited
+  // from viewing employee records, sensitive personal data, or the payslip generator.
+  const RESTRICTED_SUPER_ADMIN_EMAILS = new Set([
+    "whitneyn.nkosi@gmail.com",
+  ]);
+  const isRestrictedSuperAdmin = Boolean(
+    userEmail && (
+      RESTRICTED_SUPER_ADMIN_EMAILS.has(userEmail) ||
+      userEmail.startsWith("whitney")
+    )
+  );
 
   const isSuperAdmin =
     (appUsers ?? []).some((u) => u.is_super_admin) ||
@@ -113,6 +126,8 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     Boolean(appMeta?.is_super_admin) ||
     Boolean(appMeta?.claims_admin) ||
     Boolean(userMeta?.is_super_admin);
+
+  const isFullSuperAdmin = isSuperAdmin && !isRestrictedSuperAdmin;
 
   const targetAppUser =
     appUsers?.find((u) => u.company_id === activeCompany.id) ??
@@ -180,42 +195,86 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
 
   const canManageDirectReports = Number(directReportsResult?.count ?? 0) > 0;
 
+  // Tenant-level roles
+  const isOwner = isFullSuperAdmin || roleKeys.has("owner");
+  const isHrAdmin = isFullSuperAdmin || roleKeys.has("hr_admin");
+  const isBranchManager = isFullSuperAdmin || roleKeys.has("branch_manager");
+  const isPayrollViewer = isFullSuperAdmin || roleKeys.has("payroll_viewer");
+
+  // Employee Information & Records:
+  // Strictly limited to: Payroll Viewer, HR Admin, Manager, Company Owner,
+  // and Super Users EXCEPT Whitney.
+  const canManageEmployees =
+    !isRestrictedSuperAdmin &&
+    (isFullSuperAdmin ||
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("branch_manager") ||
+      roleKeys.has("payroll_viewer"));
+
+  // Sensitive Personal Data (salaries, hourly rates, bank details, ID & tax numbers):
+  // Strictly prohibited for Whitney.
+  const canAccessSensitiveData =
+    !isRestrictedSuperAdmin &&
+    (isFullSuperAdmin ||
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("payroll_viewer"));
+
+  // Payslip Generator:
+  // Strictly limited to Payroll Viewer, HR Admin, Company Owner, and Super Users EXCEPT Whitney.
+  const canViewPayslips =
+    !isRestrictedSuperAdmin &&
+    (isFullSuperAdmin ||
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("payroll_viewer"));
+
+  const canManageCompany = isFullSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin");
+
+  const canAssignRoles =
+    !isRestrictedSuperAdmin &&
+    (isFullSuperAdmin ||
+      roleKeys.has("owner") ||
+      roleKeys.has("hr_admin") ||
+      roleKeys.has("branch_manager"));
+
+  const canAssignOwnerRole = isFullSuperAdmin || roleKeys.has("owner");
+
+  // Whitney can monitor and assist with time management across all branches
+  const canReviewBranchTime =
+    isSuperAdmin ||
+    roleKeys.has("owner") ||
+    roleKeys.has("hr_admin") ||
+    roleKeys.has("branch_manager");
+
+  const canViewPayroll = canViewPayslips;
+
   return {
     appUserId: targetAppUser?.id ?? null,
     employeeId: activeEmployeeId,
     companyIds,
     roles: Array.from(roleKeys),
     isSuperAdmin,
+    isRestrictedSuperAdmin,
+    isFullSuperAdmin,
     isSuperUser,
     canAssignSuperAdmin,
-    isOwner: isSuperAdmin || roleKeys.has("owner"),
-    isHrAdmin: isSuperAdmin || roleKeys.has("hr_admin"),
-    isBranchManager: isSuperAdmin || roleKeys.has("branch_manager"),
-    isPayrollViewer: isSuperAdmin || roleKeys.has("payroll_viewer"),
+    isOwner,
+    isHrAdmin,
+    isBranchManager,
+    isPayrollViewer,
     isEmployee: roleKeys.has("employee"),
-    canManageCompany: isSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin"),
-    canManageEmployees:
-      isSuperAdmin ||
-      roleKeys.has("owner") ||
-      roleKeys.has("hr_admin") ||
-      roleKeys.has("branch_manager"),
-    canAssignRoles:
-      isSuperAdmin ||
-      roleKeys.has("owner") ||
-      roleKeys.has("hr_admin") ||
-      roleKeys.has("branch_manager"),
-    canAssignOwnerRole: isSuperAdmin || roleKeys.has("owner"),
-    canReviewBranchTime:
-      isSuperAdmin ||
-      roleKeys.has("owner") ||
-      roleKeys.has("hr_admin") ||
-      roleKeys.has("branch_manager"),
+    canManageCompany,
+    canManageEmployees,
+    canViewEmployeeRecords: canManageEmployees,
+    canViewPayslips,
+    canAccessSensitiveData,
+    canAssignRoles,
+    canAssignOwnerRole,
+    canReviewBranchTime,
     canManageDirectReports: isSuperAdmin || canManageDirectReports,
-    canViewPayroll:
-      isSuperAdmin ||
-      roleKeys.has("owner") ||
-      roleKeys.has("hr_admin") ||
-      roleKeys.has("payroll_viewer"),
+    canViewPayroll,
   };
 });
 

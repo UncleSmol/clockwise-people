@@ -106,7 +106,14 @@ export async function createEmployeeAccount(
   void previousState;
 
   const { company } = await getActiveCompany();
-  const { supabase, user } = await requireUser();
+  const [{ supabase, user }, access] = await Promise.all([
+    requireUser(),
+    getCurrentUserAccess(),
+  ]);
+
+  if (!access.canAssignRoles || access.isRestrictedSuperAdmin) {
+    return { error: "Unauthorized: You do not have permission to create employee accounts." };
+  }
 
   const { data: employee, error: employeeError } = await supabase
     .from("employees")
@@ -196,14 +203,14 @@ export async function assignEmployeeRole(
   const { user } = await requireUser();
   const access = await getCurrentUserAccess();
 
-  if (!access.canAssignRoles) {
+  if (!access.canAssignRoles || access.isRestrictedSuperAdmin) {
     return {
       ok: false,
-      error: "Unauthorized: Only superadmins, managers, and HR can assign employee roles.",
+      error: "Unauthorized: Only authorized administrators can assign employee roles.",
     };
   }
 
-  if (roleKey === "owner" && !access.isSuperAdmin && !access.isOwner) {
+  if (roleKey === "owner" && !access.isFullSuperAdmin && !access.isOwner) {
     return {
       ok: false,
       error: "Only system superadmins or company owners can assign the Company Admin role.",
