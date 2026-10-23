@@ -781,13 +781,7 @@ export default function CompanyTimesheetCalendar({
               Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[38rem]">
-            <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
-                Shifts
-              </div>
-              <p className="mt-1 text-lg font-black text-white">{totals.total}</p>
-            </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:w-[23rem]">
             <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-white shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 Submitted
@@ -799,12 +793,6 @@ export default function CompanyTimesheetCalendar({
                 Approved
               </div>
               <p className="mt-1 text-lg font-black text-white">{totals.approved}</p>
-            </div>
-            <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
-                On Leave
-              </div>
-              <p className="mt-1 text-lg font-black text-white">{totals.onLeave}</p>
             </div>
             <div className="rounded-xl border border-white/20 bg-white/10 p-3 shadow-sm backdrop-blur-sm">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
