@@ -84,11 +84,20 @@ export default function TimesheetRouteMap({
   const [mapType, setMapType] = useState<MapType>("street");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  // Filter valid coordinate events
+  // Filter valid coordinate events that are strictly WITHIN geofence (protect privacy outside boundary)
   const validEvents = useMemo(() => {
     return locationEvents.filter(
-      (e) => e.latitude != null && e.longitude != null && !isNaN(e.latitude) && !isNaN(e.longitude),
+      (e) =>
+        e.latitude != null &&
+        e.longitude != null &&
+        !isNaN(e.latitude) &&
+        !isNaN(e.longitude) &&
+        e.geofence_status !== "out_of_range",
     );
+  }, [locationEvents]);
+
+  const outOfRangeEvents = useMemo(() => {
+    return locationEvents.filter((e) => e.geofence_status === "out_of_range");
   }, [locationEvents]);
 
   // Determine initial center
@@ -133,7 +142,7 @@ export default function TimesheetRouteMap({
       <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface-muted/50 p-6 text-center text-xs text-muted">
         <MapPin className="mb-2 size-6 text-muted" />
         <p className="font-extrabold text-foreground">No GPS coordinates recorded for this timesheet</p>
-        <p className="mt-0.5">Location is only tracked during active work hours when clocked in.</p>
+        <p className="mt-0.5">Location is only tracked within workstation radius during active work hours.</p>
       </div>
     );
   }
@@ -146,36 +155,38 @@ export default function TimesheetRouteMap({
           : "h-[420px] w-full"
       }`}
     >
-      {/* Header Bar */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-3.5 py-2.5 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <Footprints className="size-4 text-emerald-400" />
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-white">
+      {/* Header Bar - Fully responsive, prevents button squashing on mobile */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-800 bg-slate-900/90 px-3 py-2 sm:px-3.5 sm:py-2.5 backdrop-blur-md">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Footprints className="size-4 shrink-0 text-emerald-400" />
+          <div className="min-w-0 flex-1">
+            <h4 className="text-xs font-black uppercase tracking-wider text-white truncate">
               Location &amp; Shift Movement History · <span className="text-emerald-400">{employeeName}</span>
             </h4>
-            <p className="text-[10px] text-slate-400">
-              Work Date: {workDate} · {validEvents.length} location waypoints captured (&gt;25m movement filter)
+            <p className="text-[10px] text-slate-400 truncate">
+              Work Date: {workDate} · {validEvents.length} in geofence
+              {outOfRangeEvents.length > 0 ? ` (${outOfRangeEvents.length} outside radius)` : ""}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Layer switcher */}
           <button
             type="button"
             onClick={() => setMapType((m) => (m === "street" ? "satellite" : "street"))}
-            className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 sm:px-2.5 text-[10px] sm:text-[11px] font-bold text-slate-200 hover:bg-slate-700 active:scale-95 transition-all cursor-pointer"
+            title={mapType === "street" ? "Switch to Satellite map" : "Switch to Street map"}
           >
-            <Layers className="size-3" />
-            {mapType === "street" ? "Satellite" : "Street"}
+            <Layers className="size-3.5 shrink-0" />
+            <span className="hidden sm:inline">{mapType === "street" ? "Satellite" : "Street"}</span>
           </button>
 
           {/* Fullscreen toggle */}
           <button
             type="button"
             onClick={() => setIsFullscreen((f) => !f)}
-            className="rounded border border-slate-700 bg-slate-800 p-1 text-slate-200 hover:bg-slate-700"
+            className="size-7 shrink-0 flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 transition-all cursor-pointer"
             title={isFullscreen ? "Minimize map" : "Expand map"}
           >
             {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
@@ -185,13 +196,24 @@ export default function TimesheetRouteMap({
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-slate-700 bg-slate-800 p-1 text-slate-200 hover:bg-slate-700 hover:text-white"
+              className="size-7 shrink-0 flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white active:scale-95 transition-all cursor-pointer"
+              title="Close map"
             >
               <X className="size-3.5" />
             </button>
           )}
         </div>
       </div>
+
+      {/* Geofence privacy notice if any out-of-range events occurred */}
+      {outOfRangeEvents.length > 0 && (
+        <div className="flex items-center gap-1.5 border-b border-rose-900/60 bg-rose-950/70 px-3.5 py-1 text-[10px] font-semibold text-rose-300">
+          <ShieldCheck className="size-3 text-rose-400 shrink-0" />
+          <span className="truncate">
+            {outOfRangeEvents.length} event{outOfRangeEvents.length > 1 ? "s were" : " was"} outside geofence (hidden from map for privacy).
+          </span>
+        </div>
+      )}
 
       {/* Route & Shift Metrics Ribbon */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-3.5 py-1.5 text-[11px]">

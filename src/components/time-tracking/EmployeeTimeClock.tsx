@@ -188,7 +188,7 @@ function formatRemainingTime(seconds: number): string {
 
 function geofenceLabel(status: string | null | undefined) {
   if (status === "in_range") return "In range";
-  if (status === "out_of_range") return "Out of range";
+  if (status === "out_of_range") return "Deviance · Out of range";
   if (status === "no_location") return "No location";
   if (status === "no_workstation") return "No workstation";
   return "Unknown";
@@ -196,7 +196,7 @@ function geofenceLabel(status: string | null | undefined) {
 
 function geofenceClass(status: string | null | undefined) {
   if (status === "in_range") return "border-success/30 bg-success/10 text-success";
-  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "out_of_range") return "border-rose-400 bg-rose-100/90 text-rose-800 font-bold";
   if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
   return "border-border bg-surface-muted text-muted";
 }
@@ -331,6 +331,7 @@ export default function EmployeeTimeClock({
   const longitudeRef = useRef<HTMLInputElement>(null);
   const accuracyRef = useRef<HTMLInputElement>(null);
   const capturedAtRef = useRef<HTMLInputElement>(null);
+  const actionNameRef = useRef<HTMLInputElement>(null);
   const locationReadyRef = useRef(false);
   const hasLoadedInitialLocationRef = useRef(false);
   const switchPendingRef = useRef(false);
@@ -482,11 +483,16 @@ export default function EmployeeTimeClock({
       if (overrideLabel) {
         currentAction = { label: overrideLabel, action: switchWorkstation, tone: "secondary" };
       } else {
-        const pendingLabel = pendingActionRef.current;
+        const actionFromForm = String(
+          formData.get("clock_action") ?? formData.get("clock_action_name") ?? "",
+        ).trim();
+        const pendingLabel = actionFromForm || pendingActionRef.current;
         pendingActionRef.current = null;
         const available = nextActions(currentEntry, noLunchToday);
         currentAction =
-          available.find((item) => item.label === pendingLabel) ?? available[0] ?? null;
+          available.find(
+            (item) => item.label.toLowerCase() === pendingLabel?.toLowerCase(),
+          ) ?? available[0] ?? null;
       }
 
       if (!currentAction) {
@@ -578,6 +584,15 @@ export default function EmployeeTimeClock({
     if (locationReadyRef.current) {
       locationReadyRef.current = false;
       return;
+    }
+
+    const submitter = (event.nativeEvent as SubmitEvent)?.submitter as HTMLButtonElement | null;
+    const actionVal = submitter?.value || pendingActionRef.current;
+    if (actionVal) {
+      pendingActionRef.current = actionVal;
+      if (actionNameRef.current) {
+        actionNameRef.current.value = actionVal;
+      }
     }
 
     event.preventDefault();
@@ -847,6 +862,7 @@ export default function EmployeeTimeClock({
           <input name="longitude" ref={longitudeRef} type="hidden" />
           <input name="accuracy" ref={accuracyRef} type="hidden" />
           <input name="captured_at" ref={capturedAtRef} type="hidden" />
+          <input name="clock_action_name" ref={actionNameRef} type="hidden" />
           <input name="workstation_id" type="hidden" value={effectiveWorkstationId} />
 
           {canClockIn || workstations.length > 0 ? (
@@ -1204,33 +1220,53 @@ export default function EmployeeTimeClock({
               Recorded locations
             </p>
             <div className="mt-2 grid gap-2">
-              {displayEntry.locationEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="grid gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs sm:grid-cols-[120px_1fr_auto] sm:items-center"
-                >
-                  <p className="font-semibold capitalize text-foreground">
-                    {event.event_type.replaceAll("_", " ")}
-                  </p>
-                  <p className="text-muted">
-                    {event.latitude !== null && event.longitude !== null
-                      ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
-                      : "No coordinates"}
-                    {event.accuracy_meters !== null
-                      ? ` · ±${Math.round(event.accuracy_meters)}m`
-                      : ""}
-                    {event.distance_meters !== null
-                      ? ` · ${Math.round(event.distance_meters)}m from workstation`
-                      : ""}
-                  </p>
-                  <span
-                    className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
+              {displayEntry.locationEvents.map((event) => {
+                const isOutOfRange = event.geofence_status === "out_of_range";
+                const eventLabel =
+                  event.event_type === "clock_in"
+                    ? "Clock In"
+                    : event.event_type === "lunch_start"
+                    ? "Take Lunch"
+                    : event.event_type === "lunch_end"
+                    ? "Return from Lunch"
+                    : event.event_type === "clock_out"
+                    ? "Clock Out"
+                    : event.event_type === "app_interaction"
+                    ? "App Interaction"
+                    : event.event_type.replaceAll("_", " ");
+
+                return (
+                  <div
+                    key={event.id}
+                    className={`grid gap-1 rounded-md border p-2.5 text-xs sm:grid-cols-[120px_1fr_auto] sm:items-center ${
+                      isOutOfRange ? "bg-rose-50/70 border-rose-300" : "bg-surface border-border"
+                    }`}
                   >
-                    <LocateFixed className="size-3" />
-                    {geofenceLabel(event.geofence_status)}
-                  </span>
-                </div>
-              ))}
+                    <p className="font-semibold capitalize text-foreground">
+                      {eventLabel}
+                    </p>
+                    <p className="text-muted">
+                      {event.latitude !== null && event.longitude !== null
+                        ? `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`
+                        : isOutOfRange
+                        ? "Outside radius (Location hidden for privacy)"
+                        : "No coordinates"}
+                      {event.accuracy_meters !== null && !isOutOfRange
+                        ? ` · ±${Math.round(event.accuracy_meters)}m`
+                        : ""}
+                      {event.distance_meters !== null
+                        ? ` · ${Math.round(event.distance_meters)}m from workstation`
+                        : ""}
+                    </p>
+                    <span
+                      className={`inline-flex w-max items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${geofenceClass(event.geofence_status)}`}
+                    >
+                      <LocateFixed className="size-3" />
+                      {geofenceLabel(event.geofence_status)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ) : null}

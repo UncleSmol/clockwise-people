@@ -375,10 +375,20 @@ async function getLocationEventsByTimeEntry(
       event_type: event.event_type,
       geofence_status: event.geofence_status,
       id: event.id,
-      latitude: event.latitude === null ? null : Number(event.latitude),
+      latitude:
+        event.geofence_status === "out_of_range"
+          ? null
+          : event.latitude === null
+            ? null
+            : Number(event.latitude),
       local_event_time: event.local_event_time,
       local_work_date: event.local_work_date,
-      longitude: event.longitude === null ? null : Number(event.longitude),
+      longitude:
+        event.geofence_status === "out_of_range"
+          ? null
+          : event.longitude === null
+            ? null
+            : Number(event.longitude),
       workstationName: relationName(event.company_workstations),
     });
     eventsByEntry.set(event.time_entry_id, current);

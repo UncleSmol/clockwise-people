@@ -87,10 +87,66 @@ export default function LiveLocationTracker({
       }
     }
 
+    // Also capture location whenever the user actively interacts with the app while clocked in
+    const lastInteractionCaptureRef = { current: 0 };
+    const handleUserInteraction = () => {
+      const now = Date.now();
+      // Throttle to at most once every 30 seconds to prevent unnecessary battery/network drain
+      if (now - lastInteractionCaptureRef.current < 30000) return;
+      lastInteractionCaptureRef.current = now;
+
+      if (typeof navigator !== "undefined" && "geolocation" in navigator && timeEntryId) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            if (!isMounted) return;
+            const pos = position.coords;
+            const nowIso = new Date().toISOString();
+
+            setLastRecordedMove({
+              distance: 0,
+              time: new Intl.DateTimeFormat("en-ZA", { timeStyle: "medium" }).format(new Date()),
+              coords: `${pos.latitude.toFixed(4)}, ${pos.longitude.toFixed(4)}`,
+            });
+
+            const formData = new FormData();
+            formData.append("time_entry_id", timeEntryId);
+            formData.append("latitude", String(pos.latitude));
+            formData.append("longitude", String(pos.longitude));
+            if (pos.accuracy != null) formData.append("accuracy", String(pos.accuracy));
+            formData.append("captured_at", nowIso);
+
+            try {
+              await recordLiveLocationBreadcrumb(formData);
+            } catch (e) {
+              console.warn("Interaction location post failed:", e);
+            }
+          },
+          (err) => {
+            console.warn("Interaction location error:", err.message);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
+        );
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("pointerdown", handleUserInteraction, { passive: true });
+      window.addEventListener("keydown", handleUserInteraction, { passive: true });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          handleUserInteraction();
+        }
+      });
+    }
+
     initTracker();
 
     return () => {
       isMounted = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("pointerdown", handleUserInteraction);
+        window.removeEventListener("keydown", handleUserInteraction);
+      }
       if (clearWatcherRef.current) {
         clearWatcherRef.current();
         clearWatcherRef.current = null;

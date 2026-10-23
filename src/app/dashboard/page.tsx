@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { redirect } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import ComplianceDocuments from "@/components/compliance/ComplianceDocuments";
 import CalendarWorkspace from "@/components/dashboard/CalendarWorkspace";

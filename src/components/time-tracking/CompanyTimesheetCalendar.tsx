@@ -108,7 +108,7 @@ function formatDate(value: string) {
 
 function geofenceLabel(status: string | null) {
   if (status === "in_range") return "In range";
-  if (status === "out_of_range") return "Out of range";
+  if (status === "out_of_range") return "Deviance · Out of range";
   if (status === "no_location") return "No location";
   if (status === "no_workstation") return "No workstation";
   return "Unknown";
@@ -116,7 +116,7 @@ function geofenceLabel(status: string | null) {
 
 function geofenceClass(status: string | null) {
   if (status === "in_range") return "border-success/30 bg-success/10 text-success";
-  if (status === "out_of_range") return "border-danger/30 bg-danger/10 text-danger";
+  if (status === "out_of_range") return "border-rose-400 bg-rose-100/90 text-rose-800 font-bold";
   if (status === "no_location") return "border-warning/30 bg-warning/10 text-warning";
   return "border-border bg-surface-muted text-muted";
 }
@@ -1645,23 +1645,42 @@ export default function CompanyTimesheetCalendar({
                 </p>
               ) : (
                 <div className="mt-2 divide-y divide-border">
-                  {selectedEntry.locationEvents.map((event) => (
-                    <div key={event.id} className="flex items-center gap-2 py-1 text-xs">
-                      <span className="shrink-0 capitalize font-semibold text-foreground">
-                        {event.event_type.replaceAll("_", " ")}
-                      </span>
-                      <span className="shrink-0 text-muted">{formatTime(event.local_event_time)}</span>
-                      <span className="min-w-0 break-words leading-tight text-muted">
-                        {event.workstationName ?? "No workstation"}
-                        {event.distance_meters !== null ? ` ${Math.round(event.distance_meters)}m` : ""}
-                      </span>
-                      <span
-                        className={`ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${geofenceClass(event.geofence_status)}`}
+                  {selectedEntry.locationEvents.map((event) => {
+                    const isOutOfRange = event.geofence_status === "out_of_range";
+                    return (
+                      <div
+                        key={event.id}
+                        className={`flex items-center gap-2 py-1.5 px-2 rounded-md text-xs transition-colors ${
+                          isOutOfRange ? "bg-rose-50/70" : ""
+                        }`}
                       >
-                        {geofenceLabel(event.geofence_status)}
-                      </span>
-                    </div>
-                  ))}
+                        <span className="shrink-0 capitalize font-bold text-foreground">
+                          {event.event_type === "clock_in"
+                            ? "Clock In"
+                            : event.event_type === "lunch_start"
+                            ? "Take Lunch"
+                            : event.event_type === "lunch_end"
+                            ? "Return from Lunch"
+                            : event.event_type === "clock_out"
+                            ? "Clock Out"
+                            : event.event_type === "app_interaction"
+                            ? "App Interaction"
+                            : event.event_type.replaceAll("_", " ")}
+                        </span>
+                        <span className="shrink-0 text-muted font-mono">{formatTime(event.local_event_time)}</span>
+                        <span className="min-w-0 break-words leading-tight text-muted">
+                          {event.workstationName ?? "No workstation"}
+                          {event.distance_meters !== null ? ` · ${Math.round(event.distance_meters)}m` : ""}
+                          {isOutOfRange ? " (Location hidden)" : ""}
+                        </span>
+                        <span
+                          className={`ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${geofenceClass(event.geofence_status)}`}
+                        >
+                          {geofenceLabel(event.geofence_status)}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

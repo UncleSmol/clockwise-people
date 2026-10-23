@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertCircle,
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
@@ -82,7 +83,7 @@ function shortLunch(start: string | null, end: string | null) {
 
 function geofenceLabel(status: string | null) {
   if (status === "in_range") return "In range";
-  if (status === "out_of_range") return "Out of range";
+  if (status === "out_of_range") return "Deviance · Out of range";
   if (status === "no_location") return "No location";
   if (status === "no_workstation") return "No workstation";
   return "Unknown";
@@ -90,9 +91,119 @@ function geofenceLabel(status: string | null) {
 
 function geofenceClass(status: string | null) {
   if (status === "in_range") return "border-emerald-300 bg-emerald-100/70 text-emerald-800";
-  if (status === "out_of_range") return "border-rose-300 bg-rose-100/70 text-rose-800";
+  if (status === "out_of_range") return "border-rose-300 bg-rose-100/80 text-rose-800 font-extrabold";
   if (status === "no_location") return "border-amber-300 bg-amber-100/70 text-amber-800";
   return "border-border bg-surface-muted text-muted";
+}
+
+type ResolvedShiftMilestone = {
+  id: string;
+  eventType: string;
+  title: string;
+  time: string;
+  workstationName: string | null;
+  distanceMeters: number | null;
+  geofenceStatus: string | null;
+  isDeviance: boolean;
+};
+
+function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShiftMilestone[] {
+  const events = timesheet.locationEvents ?? [];
+  const milestones: ResolvedShiftMilestone[] = [];
+
+  const clockInEvt = events.find((e) => e.event_type === "clock_in");
+  const lunchStartEvt = events.find((e) => e.event_type === "lunch_start");
+  const lunchEndEvt = events.find((e) => e.event_type === "lunch_end");
+  const clockOutEvt = events.find((e) => e.event_type === "clock_out");
+
+  // 1. Clock In milestone
+  if (clockInEvt || timesheet.clock_in) {
+    const status = clockInEvt?.geofence_status ?? "in_range";
+    milestones.push({
+      id: clockInEvt?.id ?? `${timesheet.id}-clock_in`,
+      eventType: "clock_in",
+      title: "Clock In",
+      time: clockInEvt?.local_event_time || timesheet.clock_in || "",
+      workstationName: clockInEvt?.workstationName || timesheet.workstationName || "Workstation",
+      distanceMeters: clockInEvt?.distance_meters ?? null,
+      geofenceStatus: status,
+      isDeviance: status === "out_of_range",
+    });
+  }
+
+  // 2. Lunch Start (Take Lunch) milestone
+  if (lunchStartEvt || timesheet.lunch_start) {
+    const status = lunchStartEvt?.geofence_status ?? "in_range";
+    milestones.push({
+      id: lunchStartEvt?.id ?? `${timesheet.id}-lunch_start`,
+      eventType: "lunch_start",
+      title: "Take Lunch (Start)",
+      time: lunchStartEvt?.local_event_time || timesheet.lunch_start || "",
+      workstationName: lunchStartEvt?.workstationName || timesheet.workstationName || "Workstation",
+      distanceMeters: lunchStartEvt?.distance_meters ?? null,
+      geofenceStatus: status,
+      isDeviance: status === "out_of_range",
+    });
+  }
+
+  // 3. Lunch End (Return from Lunch) milestone
+  if (lunchEndEvt || timesheet.lunch_end) {
+    const status = lunchEndEvt?.geofence_status ?? "in_range";
+    milestones.push({
+      id: lunchEndEvt?.id ?? `${timesheet.id}-lunch_end`,
+      eventType: "lunch_end",
+      title: "Return from Lunch (End)",
+      time: lunchEndEvt?.local_event_time || timesheet.lunch_end || "",
+      workstationName: lunchEndEvt?.workstationName || timesheet.workstationName || "Workstation",
+      distanceMeters: lunchEndEvt?.distance_meters ?? null,
+      geofenceStatus: status,
+      isDeviance: status === "out_of_range",
+    });
+  }
+
+  // 4. Clock Out milestone
+  if (clockOutEvt || timesheet.clock_out) {
+    const status = clockOutEvt?.geofence_status ?? "in_range";
+    milestones.push({
+      id: clockOutEvt?.id ?? `${timesheet.id}-clock_out`,
+      eventType: "clock_out",
+      title: "Clock Out",
+      time: clockOutEvt?.local_event_time || timesheet.clock_out || "",
+      workstationName: clockOutEvt?.workstationName || timesheet.workstationName || "Workstation",
+      distanceMeters: clockOutEvt?.distance_meters ?? null,
+      geofenceStatus: status,
+      isDeviance: status === "out_of_range",
+    });
+  }
+
+  // 5. Additional interactions / movement breadcrumbs
+  events
+    .filter(
+      (e) =>
+        e.event_type !== "clock_in" &&
+        e.event_type !== "lunch_start" &&
+        e.event_type !== "lunch_end" &&
+        e.event_type !== "clock_out",
+    )
+    .forEach((e) => {
+      milestones.push({
+        id: e.id,
+        eventType: e.event_type,
+        title:
+          e.event_type === "app_interaction"
+            ? "App Interaction"
+            : e.event_type === "switch_workstation"
+              ? "Switch Workstation"
+              : e.event_type.replaceAll("_", " "),
+        time: e.local_event_time,
+        workstationName: e.workstationName || timesheet.workstationName,
+        distanceMeters: e.distance_meters,
+        geofenceStatus: e.geofence_status,
+        isDeviance: e.geofence_status === "out_of_range",
+      });
+    });
+
+  return milestones.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 }
 
 export default function CompanyTimesheetApprovalQueue({
@@ -152,7 +263,14 @@ export default function CompanyTimesheetApprovalQueue({
                 timesheet.late_arrival ||
                 timesheet.early_departure;
               const validation = timesheet.scheduleValidation;
-              const isCompliant = validation?.isCompliant ?? !hasWarning;
+              const milestones = getShiftMilestones(timesheet);
+              const deviances = milestones.filter((m) => m.isDeviance);
+              const clockInDeviance = milestones.find((m) => m.eventType === "clock_in")?.isDeviance;
+              const lunchDeviance = milestones.some(
+                (m) => (m.eventType === "lunch_start" || m.eventType === "lunch_end") && m.isDeviance,
+              );
+              const clockOutDeviance = milestones.find((m) => m.eventType === "clock_out")?.isDeviance;
+              const isCompliant = (validation?.isCompliant ?? !hasWarning) && deviances.length === 0;
 
               return (
                 <article
@@ -218,7 +336,7 @@ export default function CompanyTimesheetApprovalQueue({
                       ) : (
                         <AlertTriangle className="size-2.5 text-rose-200" />
                       )}
-                      {isCompliant ? "Ready" : "Exception"}
+                      {isCompliant ? "Ready" : deviances.length > 0 ? `${deviances.length} Deviance${deviances.length > 1 ? "s" : ""}` : "Exception"}
                     </span>
                   </div>
 
@@ -226,17 +344,32 @@ export default function CompanyTimesheetApprovalQueue({
                   <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0 w-full">
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock In</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(timesheet.clock_in)}</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
+                        {shortTime(timesheet.clock_in)}
+                        {clockInDeviance && (
+                          <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Clock-in deviance (outside radius)" />
+                        )}
+                      </p>
                     </div>
 
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortLunch(timesheet.lunch_start, timesheet.lunch_end)}</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
+                        {shortLunch(timesheet.lunch_start, timesheet.lunch_end)}
+                        {lunchDeviance && (
+                          <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Lunch deviance (outside radius)" />
+                        )}
+                      </p>
                     </div>
 
                     <div className="min-w-0">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock Out</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(timesheet.clock_out)}</p>
+                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
+                        {shortTime(timesheet.clock_out)}
+                        {clockOutDeviance && (
+                          <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Clock-out deviance (outside radius)" />
+                        )}
+                      </p>
                     </div>
 
                     <div className="min-w-0">
@@ -282,17 +415,27 @@ export default function CompanyTimesheetApprovalQueue({
                           : "bg-rose-950/50 text-rose-200 border border-rose-400/30"
                       }`}
                     >
-                      {isCompliant ? "Fully Compliant" : "Review Required"}
+                      {isCompliant
+                        ? "Fully Compliant"
+                        : deviances.length > 0
+                        ? `${deviances.length} Out-of-Range Deviance${deviances.length > 1 ? "s" : ""}`
+                        : "Review Required"}
                     </span>
                   </div>
 
                   {/* Location History Dropdown & Visual Route Map */}
                   <details className="rounded-2xl border border-border/80 bg-surface overflow-hidden shadow-soft text-foreground" open={activeMapEntryId === timesheet.id}>
                     <summary className="flex cursor-pointer items-center justify-between gap-1.5 px-3 py-2.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors">
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="size-3.5 text-primary" />
-                        Location history ({timesheet.locationEvents.length})
-                      </span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <MapPin className="size-3.5 text-primary shrink-0" />
+                        <span className="truncate">Shift Milestones ({milestones.length})</span>
+                        {deviances.length > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-extrabold text-rose-800 border border-rose-300 shrink-0">
+                            <AlertTriangle className="size-2.5 text-rose-600" />
+                            {deviances.length} {deviances.length === 1 ? "deviance" : "deviances"}
+                          </span>
+                        )}
+                      </div>
                       {timesheet.locationEvents.length > 0 && (
                         <button
                           type="button"
@@ -300,7 +443,7 @@ export default function CompanyTimesheetApprovalQueue({
                             e.preventDefault();
                             setActiveMapEntryId((prev) => (prev === timesheet.id ? null : timesheet.id));
                           }}
-                          className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-primary-hover shadow-soft transition-all"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-primary-hover shadow-soft transition-all"
                         >
                           <Footprints className="size-3 text-white" />
                           {activeMapEntryId === timesheet.id ? "Hide Map" : "View Route Map"}
@@ -321,37 +464,75 @@ export default function CompanyTimesheetApprovalQueue({
                     )}
 
                     <div className="divide-y divide-border border-t border-border bg-surface p-1">
-                      {timesheet.locationEvents.length === 0 ? (
+                      {milestones.length === 0 ? (
                         <p className="p-2.5 text-center text-xs text-muted">
-                          No location events were captured for this shift.
+                          No shift milestones or location events recorded for this shift.
                         </p>
                       ) : (
-                        timesheet.locationEvents.map((event) => (
-                          <div key={event.id} className="grid gap-1.5 p-2 sm:grid-cols-[120px_1fr_auto] sm:items-center text-xs">
-                            <div>
-                              <p className="font-bold capitalize text-foreground break-words leading-tight">
-                                {event.event_type.replaceAll("_", " ")}
-                              </p>
-                              <p className="text-[11px] text-muted">
-                                {formatTime(event.local_event_time)}
-                              </p>
-                            </div>
-                            <div className="min-w-0 text-muted">
-                              <p className="font-medium break-words leading-tight">
-                                {event.workstationName ?? "No workstation"}
-                                {event.distance_meters !== null
-                                  ? ` · ${Math.round(event.distance_meters)}m away`
-                                  : ""}
-                              </p>
-                            </div>
-                            <span
-                              className={`inline-flex w-max items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${geofenceClass(event.geofence_status)} shadow-soft`}
+                        milestones.map((milestone) => {
+                          const isDeviance = milestone.isDeviance;
+                          return (
+                            <div
+                              key={milestone.id}
+                              className={`grid gap-1.5 p-2 sm:grid-cols-[130px_1fr_auto] sm:items-center text-xs transition-colors ${
+                                isDeviance ? "bg-rose-50/70" : ""
+                              }`}
                             >
-                              <LocateFixed className="size-3" />
-                              {geofenceLabel(event.geofence_status)}
-                            </span>
-                          </div>
-                        ))
+                              <div className="flex items-start gap-1.5 min-w-0">
+                                <span
+                                  className={`mt-0.5 shrink-0 rounded p-1 ${
+                                    milestone.eventType === "clock_in"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : milestone.eventType === "clock_out"
+                                      ? "bg-slate-100 text-slate-800"
+                                      : milestone.eventType.startsWith("lunch")
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-blue-100 text-blue-800"
+                                  }`}
+                                >
+                                  {milestone.eventType === "clock_in" ? (
+                                    <Clock className="size-3" />
+                                  ) : milestone.eventType === "clock_out" ? (
+                                    <LogOut className="size-3" />
+                                  ) : milestone.eventType.startsWith("lunch") ? (
+                                    <UtensilsCrossed className="size-3" />
+                                  ) : (
+                                    <Footprints className="size-3" />
+                                  )}
+                                </span>
+                                <div>
+                                  <p className="font-bold capitalize text-foreground break-words leading-tight">
+                                    {milestone.title}
+                                  </p>
+                                  <p className="text-[11px] font-mono text-muted">
+                                    {formatTime(milestone.time)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="min-w-0 text-muted">
+                                <p className="font-medium break-words leading-tight text-foreground/90">
+                                  {milestone.workstationName ?? "Assigned workstation"}
+                                  {milestone.distanceMeters !== null
+                                    ? ` · ${Math.round(milestone.distanceMeters)}m from workstation`
+                                    : ""}
+                                </p>
+                                {isDeviance && (
+                                  <p className="text-[10px] font-semibold text-rose-600 mt-0.5">
+                                    Outside geofence radius (Coordinates hidden for POPIA privacy)
+                                  </p>
+                                )}
+                              </div>
+
+                              <span
+                                className={`inline-flex w-max items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${geofenceClass(milestone.geofenceStatus)} shadow-soft`}
+                              >
+                                <LocateFixed className="size-3" />
+                                {geofenceLabel(milestone.geofenceStatus)}
+                              </span>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </details>

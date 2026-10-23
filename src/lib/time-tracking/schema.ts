@@ -4,6 +4,7 @@ export const clockEventTypes = [
   "lunch_end",
   "clock_out",
   "switch_workstation",
+  "app_interaction",
 ] as const;
 
 export type ClockEventType = (typeof clockEventTypes)[number];

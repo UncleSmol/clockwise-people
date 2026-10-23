@@ -682,10 +682,9 @@ export default function EmployeeMiniReportingPanel({
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wide">
-
-                  = Leave Balances &amp; Entitlements
+                  Leave Balances &amp; Entitlements
                 </h4>
-                <span className="rounded-full bg-slate-100 px-2 py-0.2 text-[10px] font-extrabold text-slate-800 border border-slate-200">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-800 border border-slate-200">
                   {formattedBalances.length} active
                 </span>
               </div>

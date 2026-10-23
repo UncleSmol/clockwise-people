@@ -114,8 +114,18 @@ export async function recordClockEvent(
       event_at: metadataLocation.captured_at ?? new Date().toISOString(),
       local_work_date: entry?.work_date ?? "",
       local_event_time: eventTime ?? "",
-      latitude: metadataLocation.latitude != null ? Number(metadataLocation.latitude) : null,
-      longitude: metadataLocation.longitude != null ? Number(metadataLocation.longitude) : null,
+      latitude:
+        metadataGeofence.status === "out_of_range"
+          ? null
+          : metadataLocation.latitude != null
+            ? Number(metadataLocation.latitude)
+            : null,
+      longitude:
+        metadataGeofence.status === "out_of_range"
+          ? null
+          : metadataLocation.longitude != null
+            ? Number(metadataLocation.longitude)
+            : null,
       accuracy_meters:
         metadataLocation.accuracy != null ? Number(metadataLocation.accuracy) : null,
       workstationName: metadataGeofence.workstation_name ?? null,
@@ -926,10 +936,7 @@ export async function recordLiveLocationBreadcrumb(
   const latitude = Number(formData.get("latitude"));
   const longitude = Number(formData.get("longitude"));
   const accuracy = formData.get("accuracy") ? Number(formData.get("accuracy")) : null;
-  const speed = formData.get("speed") ? Number(formData.get("speed")) : null;
-  const heading = formData.get("heading") ? Number(formData.get("heading")) : null;
   const capturedAt = String(formData.get("captured_at") ?? new Date().toISOString()).trim();
-  const distanceMoved = Number(formData.get("distance_moved") ?? 0);
 
   if (!timeEntryId || isNaN(latitude) || isNaN(longitude)) {
     return { ok: false, message: "Invalid location breadcrumb data." };
@@ -942,26 +949,22 @@ export async function recordLiveLocationBreadcrumb(
   }
 
   try {
-    await supabase.from("clock_events").insert({
-      time_entry_id: timeEntryId,
-      event_type: "movement_breadcrumb",
-      event_at: capturedAt,
-      local_work_date: capturedAt.slice(0, 10),
-      local_event_time: capturedAt.slice(11, 19),
-      latitude,
-      longitude,
+    const { error } = await supabase.rpc("record_employee_interaction_location", {
+      target_time_entry_id: timeEntryId,
+      current_latitude: latitude,
+      current_longitude: longitude,
       accuracy_meters: accuracy,
-      distance_meters: distanceMoved,
-      device_metadata: {
-        source: "capacitor_live_tracker",
-        distance_moved: distanceMoved,
-        speed,
-        heading,
-      },
+      captured_at: capturedAt,
     });
+
+    if (error) {
+      console.warn("record_employee_interaction_location RPC error:", error.message);
+      return { ok: false, message: error.message };
+    }
+
+    return { ok: true };
   } catch (e) {
     console.warn("Breadcrumb insert caught:", e);
+    return { ok: false, message: "Failed to record location." };
   }
-
-  return { ok: true };
 }
