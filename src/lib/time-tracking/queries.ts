@@ -1395,7 +1395,7 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
     .from("leave_requests")
     .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
     .eq("company_id", company.id)
-    .eq("status", "approved")
+    .in("status", ["approved", "submitted"])
     .is("deleted_at", null)
     .order("start_date", { ascending: true })
     .limit(200);

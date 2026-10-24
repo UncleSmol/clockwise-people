@@ -27,10 +27,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const switcherCompanies = isSuperAdminOrUser ? companies : [];
 
   return (
-    <main className="hide-in-zen min-h-screen text-foreground transition-all duration-300 pb-32 sm:pb-8">
+    <main className="min-h-screen text-foreground transition-all duration-300 pb-32 sm:pb-8">
       <RealtimeSyncProvider companyId={company.id}>
         <PanelBridgeProvider>
-          <div className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md shadow-2xs">
+          <div className="hide-when-zen sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md shadow-2xs">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
               <Link
                 href="/dashboard"
@@ -60,8 +60,10 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           {children}
         </PanelBridgeProvider>
       </RealtimeSyncProvider>
-      <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
-      <PwaInstallPrompt />
+      <div className="hide-when-zen">
+        <AppUpdateChangelog key={updateNoticeKey} updates={unseenUpdates} />
+        <PwaInstallPrompt />
+      </div>
     </main>
   );
 }

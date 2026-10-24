@@ -213,12 +213,14 @@ export function exportReportToPdf(
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>${filename}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap">
         <style>
           @page {
             size: A4 ${isLandscape ? "landscape" : "portrait"};
             margin: 10mm;
           }
-          * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+          * { box-sizing: border-box; font-family: 'Poppins', sans-serif; }
           body { margin: 0; padding: 0; color: #0f172a; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .header { background: #0f172a; color: #fff; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
           .title { font-size: 15px; font-weight: 800; margin: 0; }
@@ -310,7 +312,7 @@ export function exportEmployeeConjoinedPdf(options: ConjoinedPdfOptions) {
           (k) => `
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 9px;">
           <div style="font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
-          <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px; font-family: monospace;">${k.value}</div>
+          <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px; font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums;">${k.value}</div>
           ${k.sub ? `<div style="font-size: 8px; color: #64748b; margin-top: 1px;">${k.sub}</div>` : ""}
         </div>
       `,
@@ -342,9 +344,9 @@ export function exportEmployeeConjoinedPdf(options: ConjoinedPdfOptions) {
           <tr style="background: ${idx % 2 === 0 ? "#ffffff" : "#f0fdf4"};">
             <td style="font-size: 8.5px; font-weight: 700; color: #0f172a; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.name}</td>
             <td style="font-size: 8px; color: #475569; padding: 4.5px 8px; border: 1px solid #cbd5e1; text-transform: capitalize;">${b.category ?? "Standard"}</td>
-            <td style="font-size: 8.5px; font-family: monospace; text-align: right; color: #475569; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.accrued}</td>
-            <td style="font-size: 8.5px; font-family: monospace; text-align: right; color: #b91c1c; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.taken}</td>
-            <td style="font-size: 9px; font-family: monospace; font-weight: 800; text-align: right; color: #065f46; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.balance}</td>
+            <td style="font-size: 8.5px; font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums; text-align: right; color: #475569; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.accrued}</td>
+            <td style="font-size: 8.5px; font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums; text-align: right; color: #b91c1c; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.taken}</td>
+            <td style="font-size: 9px; font-family: 'Poppins', sans-serif; font-variant-numeric: tabular-nums; font-weight: 800; text-align: right; color: #065f46; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${b.balance}</td>
             <td style="font-size: 8px; text-align: center; color: ${b.isPaid !== false ? "#065f46" : "#64748b"}; font-weight: 700; padding: 4.5px 8px; border: 1px solid #cbd5e1;">${
               b.isPaid !== false ? "Paid Benefit" : "Unpaid"
             }</td>
@@ -429,12 +431,14 @@ export function exportEmployeeConjoinedPdf(options: ConjoinedPdfOptions) {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>${filename}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap">
         <style>
           @page {
             size: A4 portrait;
             margin: 8mm 8mm 10mm 8mm;
           }
-          * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+          * { box-sizing: border-box; font-family: 'Poppins', sans-serif; }
           body { margin: 0; padding: 0; color: #0f172a; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .header-box { background: #0f172a; color: #fff; padding: 10px 14px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
           .company-name { font-size: 14px; font-weight: 900; letter-spacing: 0.5px; margin: 0; }

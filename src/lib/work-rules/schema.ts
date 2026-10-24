@@ -65,13 +65,16 @@ export const leaveRequestFormSchema = z.object({
       return Boolean(sanitizeUrl(value));
     }, "Use a valid attachment link that starts with http:// or https://"),
   end_date: z.iso.date("End date is required"),
+  is_time_off: z.string().optional(),
   leave_type_id: z.uuid("Choose a leave type"),
   reason: z
     .string()
     .optional()
     .or(z.literal(""))
     .transform((v) => sanitizeMultilineText(v, 1000)),
+  request_total_hours: z.string().optional(),
   start_date: z.iso.date("Start date is required"),
+  time_off_hours: z.string().optional(),
   use_toil_first: z.string().optional(),
 });
 

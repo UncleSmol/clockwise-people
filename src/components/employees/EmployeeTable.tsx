@@ -6,13 +6,14 @@ import {
   Search,
 } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import type { EmployeeRecord } from "@/lib/employees/schema";
 import { autoAssignMissingPayrollIdsAction } from "@/lib/employees/actions";
 
 type EmployeeTableProps = {
   employees: EmployeeRecord[];
+  selectedEmployeeId?: string | null;
 };
 
 function labelize(value: string) {
@@ -21,13 +22,22 @@ function labelize(value: string) {
 
 type StatusFilter = "all" | "active" | "probation" | "on_leave" | "inactive";
 
-export default function EmployeeTable({ employees }: EmployeeTableProps) {
+export default function EmployeeTable({ employees, selectedEmployeeId }: EmployeeTableProps) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [assignState, assignAction, assignPending] = useActionState(
     autoAssignMissingPayrollIdsAction,
     { ok: true, message: "" },
   );
+
+  useEffect(() => {
+    if (selectedEmployeeId) {
+      const pane = document.getElementById("selected-employee-manage-pane");
+      if (pane) {
+        pane.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }, [selectedEmployeeId]);
 
   const unassignedPayrollCount = useMemo(() => {
     return employees.filter(
@@ -228,9 +238,18 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
           filteredEmployees.map((employee) => {
             const status = employee.employment_status;
             const isInactive = status === "terminated" || status === "suspended";
+            const isSelected = selectedEmployeeId === employee.id;
 
             return (
-              <details key={employee.id} className="group bg-surface transition-colors">
+              <details
+                key={employee.id}
+                open={isSelected ? true : undefined}
+                className={`group transition-all duration-200 ${
+                  isSelected
+                    ? "bg-primary/5 ring-2 ring-primary/40 border-primary"
+                    : "bg-surface hover:bg-surface-muted/20"
+                }`}
+              >
                 <summary className="grid cursor-pointer list-none gap-3 px-4 py-3.5 text-sm hover:bg-surface-muted/40 sm:grid-cols-[1.2fr_1fr_auto_28px] sm:items-center">
                   {/* Name & Avatar */}
                   <div className="flex min-w-0 items-start sm:items-center gap-3">
@@ -242,6 +261,11 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-foreground break-words leading-tight">
                         {employee.known_as ?? employee.full_name}
+                        {isSelected ? (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white shadow-2xs">
+                            Editing
+                          </span>
+                        ) : null}
                         {employee.employee_number ? (
                           <span className="ml-1.5 text-xs font-normal text-muted">
                             #{employee.employee_number}
@@ -335,12 +359,30 @@ export default function EmployeeTable({ employees }: EmployeeTableProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-end gap-2">
+                    {isSelected ? (
+                      <span className="text-xs font-bold text-primary hidden sm:inline">
+                        Currently Managing
+                      </span>
+                    ) : null}
                     <Link
                       href={`/dashboard?panel=people&employeeId=${employee.id}`}
-                      className="inline-flex min-h-[44px] sm:min-h-0 sm:h-9 items-center justify-center rounded-full bg-primary px-5 text-xs font-bold text-white shadow-soft hover:bg-primary-hover cursor-pointer transition-all"
+                      onClick={() => {
+                        const pane = document.getElementById("selected-employee-manage-pane");
+                        if (pane) {
+                          pane.scrollIntoView({ behavior: "smooth", block: "start" });
+                        } else {
+                          const scrollParent = document.querySelector(".overflow-y-auto");
+                          scrollParent?.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }}
+                      className={`inline-flex min-h-[44px] sm:min-h-0 sm:h-9 items-center justify-center rounded-full px-5 text-xs font-bold shadow-soft cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-slate-900 text-white hover:bg-slate-800 ring-2 ring-slate-900/20"
+                          : "bg-primary text-white hover:bg-primary-hover"
+                      }`}
                     >
-                      Manage Record
+                      {isSelected ? "Editing Record" : "Manage Record"}
                     </Link>
                   </div>
                 </div>

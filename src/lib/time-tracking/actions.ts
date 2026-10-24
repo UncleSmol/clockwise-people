@@ -327,18 +327,17 @@ export async function saveDraftTimeEntry(
   const lunchStart = optionalTime(formData, "lunch_start");
   const lunchEnd = optionalTime(formData, "lunch_end");
 
-  // Require lunch break insertion
-  if ((clockIn || clockOut) && (!lunchStart || !lunchEnd)) {
-    return {
-      ok: false,
-      message: "Lunch break is required. Please specify both lunch in and lunch out times.",
-    };
-  }
-
   if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
     return {
       ok: false,
       message: "Lunch out time must be after lunch in time.",
+    };
+  }
+
+  if (!lunchStart && lunchEnd) {
+    return {
+      ok: false,
+      message: "Lunch in time is required if lunch out is provided.",
     };
   }
 
@@ -384,16 +383,12 @@ export async function createPastDraftTimeEntry(
   const useTemplate = formData.get("use_template") === "true";
   const notes = sanitizeMultilineText(formData.get("notes"), 1000) || (useTemplate ? "Created via schedule template" : null);
 
-  // Require lunch break insertion if times are provided
-  if ((clockIn || clockOut || useTemplate) && (!lunchStart || !lunchEnd)) {
-    return {
-      ok: false,
-      message: "Draft creation requires lunch break insertion. Please provide lunch start and lunch end.",
-    };
-  }
-
   if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
     return { ok: false, message: "Lunch out time must be after lunch in time." };
+  }
+
+  if (!lunchStart && lunchEnd) {
+    return { ok: false, message: "Lunch in time is required if lunch out is provided." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -442,16 +437,12 @@ export async function createBulkDraftTimeEntriesAction(
     return { ok: false, message: "Start date must be before or equal to end date." };
   }
 
-  // Enforce mandatory lunch break insertion
-  if (!lunchStart || !lunchEnd) {
-    return {
-      ok: false,
-      message: "Lunch break insertion is required. Please specify both lunch in and lunch out times.",
-    };
+  if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
+    return { ok: false, message: "Lunch out time must be after lunch in time." };
   }
 
-  if (lunchEnd <= lunchStart) {
-    return { ok: false, message: "Lunch out time must be after lunch in time." };
+  if (!lunchStart && lunchEnd) {
+    return { ok: false, message: "Lunch in time is required if lunch out is provided." };
   }
 
   if (clockIn && clockOut && clockOut <= clockIn) {

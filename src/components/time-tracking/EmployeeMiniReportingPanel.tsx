@@ -204,10 +204,10 @@ export default function EmployeeMiniReportingPanel({
     );
   }, [entries, effectiveStartDate, effectiveEndDate]);
 
-  // Filtered Leave requests in period
+  // Filtered Leave requests in period (keep submitted, approved, and rejected visible to employee)
   const periodLeaves = useMemo(() => {
     return leaveRequests.filter((l) => {
-      if (l.status === "cancelled" || l.status === "rejected") return false;
+      if (l.status === "cancelled") return false;
       return l.end_date >= effectiveStartDate && l.start_date <= effectiveEndDate;
     });
   }, [leaveRequests, effectiveStartDate, effectiveEndDate]);
@@ -254,6 +254,7 @@ export default function EmployeeMiniReportingPanel({
     let leaveHours = 0;
     let leaveDays = 0;
     for (const l of periodLeaves) {
+      if (l.status !== "approved") continue; // only approved leave counts towards paid metrics
       const overlapStart =
         l.start_date < effectiveStartDate ? effectiveStartDate : l.start_date;
       const overlapEnd =

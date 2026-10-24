@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
 
   return (
-    <main className="hide-in-zen grid min-h-dvh place-items-center px-4 py-8 sm:px-6 transition-all duration-300">
+    <main className="grid min-h-dvh place-items-center px-4 py-8 sm:px-6 transition-all duration-300">
       <section className="w-full max-w-sm">
         <div className="mb-4">
           <Link

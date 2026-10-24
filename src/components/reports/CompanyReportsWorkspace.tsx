@@ -1115,7 +1115,7 @@ export default function CompanyReportsWorkspace({
           Absence Log ({filteredAbsences.length})
         </button>
 
-        {(canViewPayslips || isSuperAdmin) && (
+        {canViewPayslips && (
           <button
             type="button"
             onClick={() => setActiveTab("payslips")}
@@ -1143,7 +1143,7 @@ export default function CompanyReportsWorkspace({
       </div>
 
       {/* Tab Panels */}
-      {activeTab === "payslips" && (canViewPayslips || isSuperAdmin) && (
+      {activeTab === "payslips" && canViewPayslips && (
         <CompanyPayslipsWorkspace
           company={company || { id: "current-company", name: companyName }}
           employees={fullEmployees || []}

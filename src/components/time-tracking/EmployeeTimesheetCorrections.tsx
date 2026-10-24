@@ -6,6 +6,7 @@ import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction"
 import type { EventClickArg, EventInput, DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
+  Calendar,
   CalendarDays,
   CalendarPlus,
   Check,
@@ -65,6 +66,7 @@ import type {
   TimeEntryRecord,
   TimesheetCorrectionRequest,
 } from "@/lib/time-tracking/schema";
+import type { LeaveRequest } from "@/lib/work-rules/schema";
 import { usePanel, useWorkspaceSection } from "@/components/dashboard/workspace-context";
 import AnalogTimePicker from "@/components/time-tracking/AnalogTimePicker";
 
@@ -73,6 +75,7 @@ type EmployeeTimesheetCorrectionsProps = {
   correctionRequests: TimesheetCorrectionRequest[];
   currentWorkDate: string;
   entries: TimeEntryRecord[];
+  leaveRequests?: LeaveRequest[];
   publicHolidays: CompanyPublicHoliday[];
   liveOverview?: CompanyLiveTimeOverview | null;
   workSchedule?: EmployeeScheduleInfo | null;
@@ -339,7 +342,7 @@ function getScheduleTemplate(
   let startTime = "08:00";
   let endTime = "17:00";
   let lunchMinutes = defaultLunchMinutes > 0 ? defaultLunchMinutes : 60;
-  let scheduleName = schedule?.name ?? "Standard Work Schedule";
+  const scheduleName = schedule?.name ?? "Standard Work Schedule";
 
   if (schedule?.days && schedule.days.length > 0) {
     let day: (typeof schedule.days)[0] | undefined;
@@ -450,6 +453,7 @@ export default function EmployeeTimesheetCorrections({
   correctionRequests,
   currentWorkDate,
   entries,
+  leaveRequests = [],
   publicHolidays,
   liveOverview = null,
   workSchedule = null,
@@ -477,12 +481,12 @@ export default function EmployeeTimesheetCorrections({
   }, [liveOverview, attendanceFilter]);
 
   const [activeTab, setActiveTab] = useState<"timesheets" | "requests">("timesheets");
-  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
-    if (typeof window === "undefined") return "month";
-    if (window.innerWidth < 640) return "day";
-    if (window.innerWidth < 768) return "week";
-    return "month";
-  });
+  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+
+  useEffect(() => {
+    if (window.innerWidth < 640) setCalendarWindow("day");
+    else if (window.innerWidth < 768) setCalendarWindow("week");
+  }, []);
   const section = useWorkspaceSection();
   const { openPanel } = usePanel();
 
@@ -497,6 +501,7 @@ export default function EmployeeTimesheetCorrections({
   const lastClickedEntryIdRef = useRef<string | null>(null);
   const [acknowledgedFlags, setAcknowledgedFlags] = useState(false);
   const [expandedDraftIds, setExpandedDraftIds] = useState<Set<string>>(() => new Set());
+  const [pulsatingEntryId, setPulsatingEntryId] = useState<string | null>(null);
   const toggleDraftExpand = (id: string) => {
     setExpandedDraftIds((prev) => {
       const next = new Set(prev);
@@ -516,16 +521,19 @@ export default function EmployeeTimesheetCorrections({
     y: number;
   } | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
-  const [fixedEntryIds, setFixedEntryIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
+  const [fixedEntryIds, setFixedEntryIds] = useState<Set<string>>(() => new Set());
+  const [modifiedEntryIds, setModifiedEntryIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
     try {
       const stored = sessionStorage.getItem("cw_fixed_timesheet_ids");
-      return stored ? new Set(JSON.parse(stored)) : new Set();
+      if (stored) {
+        setFixedEntryIds(new Set(JSON.parse(stored)));
+      }
     } catch {
-      return new Set();
+      // Ignore storage errors
     }
-  });
-  const [modifiedEntryIds, setModifiedEntryIds] = useState<Set<string>>(() => new Set());
+  }, []);
 
   useEffect(() => {
     try {
@@ -744,6 +752,24 @@ export default function EmployeeTimesheetCorrections({
     () => new Map(entries.map((entry) => [entry.work_date, entry])),
     [entries],
   );
+  const leaveByDate = useMemo(() => {
+    const map = new Map<string, LeaveRequest>();
+    for (const lr of leaveRequests ?? []) {
+      const [sy, sm, sd] = lr.start_date.split("-").map(Number);
+      const [ey, em, ed] = lr.end_date.split("-").map(Number);
+      const curr = new Date(sy, sm - 1, sd);
+      const end = new Date(ey, em - 1, ed);
+      while (curr <= end) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, "0");
+        const d = String(curr.getDate()).padStart(2, "0");
+        map.set(`${y}-${m}-${d}`, lr);
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+    return map;
+  }, [leaveRequests]);
+
   const calendarEvents = useMemo<EventInput[]>(() => {
     const timesheetEvents = entries
       .filter(
@@ -775,8 +801,42 @@ export default function EmployeeTimesheetCorrections({
       classNames: ["cw-calendar-holiday"],
     }));
 
-    return [...holidayEvents, ...timesheetEvents];
-  }, [entries, publicHolidays, holidayDates, isEntryFixed]);
+    const existingDateSet = new Set(entries.map((e) => e.work_date));
+    const leaveRequestEvents: EventInput[] = [];
+
+    for (const lr of leaveRequests ?? []) {
+      const [sy, sm, sd] = lr.start_date.split("-").map(Number);
+      const [ey, em, ed] = lr.end_date.split("-").map(Number);
+      const curr = new Date(sy, sm - 1, sd);
+      const end = new Date(ey, em - 1, ed);
+
+      while (curr <= end) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, "0");
+        const d = String(curr.getDate()).padStart(2, "0");
+        const dateStr = `${y}-${m}-${d}`;
+
+        if (!existingDateSet.has(dateStr) && !holidayDates.has(dateStr)) {
+          const isApproved = lr.status === "approved";
+          const isPending = lr.status === "submitted" || lr.status === "draft";
+          leaveRequestEvents.push({
+            id: `leave-${lr.id}-${dateStr}`,
+            title: `${lr.leaveTypeName || "Leave"} (${isApproved ? "Approved" : isPending ? "Pending" : lr.status})`,
+            start: dateStr,
+            allDay: true,
+            classNames: [
+              "cw-calendar-leave",
+              isApproved ? "cw-calendar-leave-approved" : isPending ? "cw-calendar-leave-pending" : "cw-calendar-leave-rejected",
+            ],
+            extendedProps: { leaveRequest: lr, isLeave: true },
+          });
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+
+    return [...holidayEvents, ...timesheetEvents, ...leaveRequestEvents];
+  }, [entries, leaveRequests, publicHolidays, holidayDates, isEntryFixed]);
   const editableEntries = entries.filter(
     (entry) =>
       (entry.status === "draft" || entry.status === "rejected") &&
@@ -865,6 +925,67 @@ export default function EmployeeTimesheetCorrections({
     setActiveTab(tab);
     scrollToTimesheetSection();
   }, [scrollToTimesheetSection]);
+
+  useEffect(() => {
+    const handleHighlight = (detail?: { highlightEntryId?: string | null; mode?: string | null }) => {
+      let targetId = detail?.highlightEntryId || null;
+      let targetMode = detail?.mode || null;
+
+      if (!targetId && typeof window !== "undefined") {
+        const search = new URLSearchParams(window.location.search);
+        targetId = search.get("highlightEntryId");
+        targetMode = search.get("mode");
+      }
+
+      if (!targetId) return;
+
+      const foundEntry = entries.find((e) => e.id === targetId);
+      if (!foundEntry) return;
+
+      // Ensure Timesheets tab is active and calendar focus date jumps to this date
+      setActiveTab("timesheets");
+      setCalendarFocusDate(foundEntry.work_date);
+
+      // Check if entry needs edit (rejected or draft)
+      const isReject = foundEntry.status === "rejected" || targetMode === "edit";
+      if (isReject) {
+        setExpandedDraftIds((prev) => new Set(prev).add(targetId!));
+        setSelectorFilter("all");
+      } else {
+        setPulsatingEntryId(targetId);
+      }
+
+      // Calculate which page of pagination this entry is on
+      const entryIdx = filteredEntries.findIndex((e) => e.id === targetId);
+      if (entryIdx !== -1) {
+        const targetPage = Math.floor(entryIdx / timesheetsPageSize) + 1;
+        setTimesheetsPage(targetPage);
+      }
+
+      // Smooth scroll into view
+      setTimeout(() => {
+        const el = document.getElementById(`timesheet-entry-${targetId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+    };
+
+    handleHighlight();
+
+    const handleNavEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      handleHighlight(detail);
+    };
+
+    window.addEventListener("clockwise:notification-nav", handleNavEvent);
+    window.addEventListener("popstate", () => handleHighlight());
+
+    return () => {
+      window.removeEventListener("clockwise:notification-nav", handleNavEvent);
+      window.removeEventListener("popstate", () => handleHighlight());
+    };
+  }, [entries, filteredEntries, timesheetsPageSize]);
 
   const readyEntries = useMemo(
     () =>
@@ -1097,10 +1218,15 @@ export default function EmployeeTimesheetCorrections({
       footerRightBg = "bg-black/25 text-white border border-white/20";
     }
 
+    const isPulsating = pulsatingEntryId === entry.id;
+
     return (
       <article
         key={entry.id}
-        className={`group flex flex-col justify-between gap-2.5 rounded-xl p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md min-w-0 w-full max-w-full scroll-mt-20 sm:scroll-mt-24 ${cardBg}`}
+        id={`timesheet-entry-${entry.id}`}
+        className={`group flex flex-col justify-between gap-2.5 rounded-xl p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md min-w-0 w-full max-w-full scroll-mt-20 sm:scroll-mt-24 ${cardBg} ${
+          isPulsating ? "cw-timesheet-pulsating ring-4 ring-emerald-400" : ""
+        }`}
       >
         {/* Top: Date Monogram Box, Date & Status Badge */}
         <div className="flex items-start justify-between gap-2 min-w-0">
@@ -1136,6 +1262,14 @@ export default function EmployeeTimesheetCorrections({
           />
         </div>
 
+        {/* Pulsating Indicator for Approved Timesheet clicked from notification */}
+        {isPulsating ? (
+          <div className="flex items-center gap-1.5 rounded-lg bg-emerald-950/80 p-2 text-xs font-black text-emerald-200 border border-emerald-400 shadow-md">
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-300 animate-pulse" />
+            <span>Approved Timesheet Verified &amp; Highlighted</span>
+          </div>
+        ) : null}
+
         {/* Manager note / alerts */}
         {isFixed ? (
           <div className="flex items-center gap-2 rounded-md bg-emerald-950/40 p-2 text-[11px] font-semibold text-emerald-100 border border-emerald-400/30">
@@ -1154,6 +1288,39 @@ export default function EmployeeTimesheetCorrections({
               : "This timesheet was rejected. Correct recorded times below and resubmit."}
           </div>
         ) : null}
+
+        {/* Leave application status banner if leave or time off was requested for this day */}
+        {leaveByDate.has(entry.work_date) ? (() => {
+          const lr = leaveByDate.get(entry.work_date)!;
+          const isApproved = lr.status === "approved";
+          const isPending = lr.status === "submitted" || lr.status === "draft";
+          const isRejected = lr.status === "rejected";
+          return (
+            <div className={`flex items-center justify-between gap-2 rounded-md p-2 text-[11px] font-semibold border ${
+              isApproved
+                ? "bg-emerald-950/40 text-emerald-100 border-emerald-400/30"
+                : isRejected
+                  ? "bg-rose-950/40 text-rose-100 border-rose-400/30"
+                  : "bg-amber-950/40 text-amber-100 border-amber-400/30"
+            }`}>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Calendar className="size-3.5 shrink-0 text-amber-200" />
+                <span className="truncate">
+                  {lr.leaveTypeName || "Leave"} · {lr.total_hours}h {lr.reason?.includes("Time Off") ? "(Time Off)" : ""}
+                </span>
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                isApproved
+                  ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+                  : isRejected
+                    ? "bg-rose-500/20 text-rose-200 border border-rose-400/30"
+                    : "bg-amber-500/20 text-amber-200 border border-amber-400/30"
+              }`}>
+                {isPending ? "Pending Approval" : lr.status}
+              </span>
+            </div>
+          );
+        })() : null}
 
         {/* Middle: High-Contrast Inset White Metrics Box OR Expanded Editor */}
         {editable && isExpanded ? (
@@ -1193,11 +1360,10 @@ export default function EmployeeTimesheetCorrections({
               </div>
               <div className="rounded-md border border-amber-200/80 bg-amber-50/50 p-1 min-w-0 text-center relative">
                 <span className="text-[8.5px] font-extrabold uppercase tracking-wider text-amber-800 truncate block">
-                  Lunch In <span className="text-rose-500 font-extrabold">*</span>
+                  Lunch In
                 </span>
                 <AnalogTimePicker
                   name="lunch_start"
-                  required
                   value={draftOverrides.get(entry.id)?.lunch_start !== undefined ? draftOverrides.get(entry.id)!.lunch_start : inputTime(entry.lunch_start)}
                   onChange={(e) => {
                     setDraftOverrides((prev) => new Map(prev).set(entry.id, { ...(prev.get(entry.id) ?? {}), lunch_start: e.target.value }));
@@ -1209,11 +1375,10 @@ export default function EmployeeTimesheetCorrections({
               </div>
               <div className="rounded-md border border-amber-200/80 bg-amber-50/50 p-1 min-w-0 text-center relative">
                 <span className="text-[8.5px] font-extrabold uppercase tracking-wider text-amber-800 truncate block">
-                  Lunch Out <span className="text-rose-500 font-extrabold">*</span>
+                  Lunch Out
                 </span>
                 <AnalogTimePicker
                   name="lunch_end"
-                  required
                   value={draftOverrides.get(entry.id)?.lunch_end !== undefined ? draftOverrides.get(entry.id)!.lunch_end : inputTime(entry.lunch_end)}
                   onChange={(e) => {
                     setDraftOverrides((prev) => new Map(prev).set(entry.id, { ...(prev.get(entry.id) ?? {}), lunch_end: e.target.value }));
@@ -3634,53 +3799,51 @@ export default function EmployeeTimesheetCorrections({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <label className="grid gap-1 text-[11px] font-semibold text-foreground">
                     <span>Shift Start</span>
-                    <input
-                      type="time"
+                    <AnalogTimePicker
                       name="clock_in"
                       value={bulkClockIn}
-                      onChange={(e) => setBulkClockIn(e.target.value)}
-                      className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                      onValueChange={(val) => setBulkClockIn(val)}
+                      compact
+                      className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
                     />
                   </label>
 
                   <label className="grid gap-1 text-[11px] font-bold text-primary">
                     <span className="flex items-center gap-1">
                       <UtensilsCrossed className="size-3" />
-                      Lunch Start *
+                      Lunch Start
                     </span>
-                    <input
-                      type="time"
+                    <AnalogTimePicker
                       name="lunch_start"
-                      required
                       value={bulkLunchStart}
-                      onChange={(e) => setBulkLunchStart(e.target.value)}
-                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                      onValueChange={(val) => setBulkLunchStart(val)}
+                      compact
+                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
                     />
                   </label>
 
                   <label className="grid gap-1 text-[11px] font-bold text-primary">
                     <span className="flex items-center gap-1">
                       <UtensilsCrossed className="size-3" />
-                      Lunch End *
+                      Lunch End
                     </span>
-                    <input
-                      type="time"
+                    <AnalogTimePicker
                       name="lunch_end"
-                      required
                       value={bulkLunchEnd}
-                      onChange={(e) => setBulkLunchEnd(e.target.value)}
-                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                      onValueChange={(val) => setBulkLunchEnd(val)}
+                      compact
+                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
                     />
                   </label>
 
                   <label className="grid gap-1 text-[11px] font-semibold text-foreground">
                     <span>Shift End</span>
-                    <input
-                      type="time"
+                    <AnalogTimePicker
                       name="clock_out"
                       value={bulkClockOut}
-                      onChange={(e) => setBulkClockOut(e.target.value)}
-                      className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                      onValueChange={(val) => setBulkClockOut(val)}
+                      compact
+                      className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
                     />
                   </label>
                 </div>

@@ -22,7 +22,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
@@ -359,11 +359,12 @@ export default function CompanyTimesheetCalendar({
   const [selectedDate, setSelectedDate] = useState("");
   const [showDateActions, setShowDateActions] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 640) return "day";
-    if (typeof window !== "undefined" && window.innerWidth < 768) return "week";
-    return "month";
-  });
+  const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
+
+  useEffect(() => {
+    if (window.innerWidth < 640) setCalendarWindow("day");
+    else if (window.innerWidth < 768) setCalendarWindow("week");
+  }, []);
 
   const [showLegend, setShowLegend] = useState(false);
 
@@ -405,7 +406,8 @@ export default function CompanyTimesheetCalendar({
     const extraLeave: CompanyTimesheetCalendarEntry[] = [];
 
     for (const lr of leaveRequests ?? []) {
-      if (lr.status !== "approved") continue;
+      if (lr.status !== "approved" && lr.status !== "submitted") continue;
+      const isPending = lr.status === "submitted";
       if (calendarFocusDate >= lr.start_date && calendarFocusDate <= lr.end_date) {
         if (!existingEmployeesOnDate.has(lr.employee_id) && !holidayDates.has(calendarFocusDate)) {
           extraLeave.push({
@@ -423,8 +425,8 @@ export default function CompanyTimesheetCalendar({
             missing_clocking: false,
             late_arrival: false,
             early_departure: false,
-            status: "approved",
-            notes: `Leave: ${lr.leaveTypeName}`,
+            status: isPending ? "submitted" : "approved",
+            notes: isPending ? `Leave (Pending): ${lr.leaveTypeName}` : `Leave: ${lr.leaveTypeName}`,
             warning_notes: null,
             workstation_id: null,
             gross_hours: Number(lr.total_hours ?? 8),
@@ -527,7 +529,8 @@ export default function CompanyTimesheetCalendar({
 
       const leaveRequestEvents: EventInput[] = [];
       for (const lr of leaveRequests ?? []) {
-        if (lr.status !== "approved") continue;
+        if (lr.status !== "approved" && lr.status !== "submitted") continue;
+        const isPending = lr.status === "submitted";
         const [sy, sm, sd] = lr.start_date.split("-").map(Number);
         const [ey, em, ed] = lr.end_date.split("-").map(Number);
         const curr = new Date(sy, sm - 1, sd);
@@ -542,12 +545,18 @@ export default function CompanyTimesheetCalendar({
           if (!existingKeySet.has(`${lr.employee_id}_${dateStr}`) && !holidayDates.has(dateStr)) {
             leaveRequestEvents.push({
               id: `leave-req-${lr.id}-${dateStr}`,
-              title: `${lr.employeeName} · On Leave`,
+              title: isPending
+                ? `${lr.employeeName} · ${lr.leaveTypeName || "Leave"} (Pending)`
+                : `${lr.employeeName} · On Leave`,
               start: dateStr,
               allDay: true,
-              classNames: ["cw-company-timesheet-event", "cw-calendar-leave"],
+              classNames: [
+                "cw-company-timesheet-event",
+                isPending ? "cw-calendar-leave-pending" : "cw-calendar-leave",
+              ],
               extendedProps: {
                 isLeave: true,
+                isPending,
                 employeeId: lr.employee_id,
                 employeeName: lr.employeeName,
                 employeeNumber: lr.employeeNumber,

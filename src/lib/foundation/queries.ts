@@ -212,23 +212,25 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
       roleKeys.has("branch_manager") ||
       roleKeys.has("payroll_viewer"));
 
+  // Authorized Tenant Roles for Payslips & Sensitive Payroll Data:
+  // Strictly accessible to: Company Owner, Branch Manager, Payroll Viewer, HR Admin.
+  // Regular employees and super users without these company roles must NOT see them.
+  const hasAuthorizedPayslipRole =
+    roleKeys.has("owner") ||
+    roleKeys.has("branch_manager") ||
+    roleKeys.has("payroll_viewer") ||
+    roleKeys.has("hr_admin");
+
   // Sensitive Personal Data (salaries, hourly rates, bank details, ID & tax numbers):
-  // Strictly prohibited for Whitney.
+  // Strictly prohibited for Whitney / restricted super users, and users without authorized payroll role.
   const canAccessSensitiveData =
-    !isRestrictedSuperAdmin &&
-    (isFullSuperAdmin ||
-      roleKeys.has("owner") ||
-      roleKeys.has("hr_admin") ||
-      roleKeys.has("payroll_viewer"));
+    !isRestrictedSuperAdmin && hasAuthorizedPayslipRole;
 
   // Payslip Generator:
-  // Strictly limited to Payroll Viewer, HR Admin, Company Owner, and Super Users EXCEPT Whitney.
+  // Accessible to Company Owner, Branch Manager, Payroll Viewer, and HR Admin.
+  // Prohibited for pure employees, employees assigned as super admin, and restricted super users.
   const canViewPayslips =
-    !isRestrictedSuperAdmin &&
-    (isFullSuperAdmin ||
-      roleKeys.has("owner") ||
-      roleKeys.has("hr_admin") ||
-      roleKeys.has("payroll_viewer"));
+    !isRestrictedSuperAdmin && hasAuthorizedPayslipRole;
 
   const canManageCompany = isFullSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin");
 

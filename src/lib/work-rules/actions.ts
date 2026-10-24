@@ -482,6 +482,15 @@ export async function submitLeaveRequest(
   const useToilFirst = formData.get("use_toil_first");
   let requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
 
+  const isTimeOff = formData.get("is_time_off") === "true";
+  const rawHours = formData.get("time_off_hours") || formData.get("request_total_hours");
+  const parsedTimeOffHours = rawHours ? parseFloat(String(rawHours)) : null;
+  const timeOffHours = parsedTimeOffHours && !isNaN(parsedTimeOffHours) && parsedTimeOffHours > 0 ? parsedTimeOffHours : null;
+
+  if (isTimeOff && (!timeOffHours || timeOffHours <= 0)) {
+    return { ok: false, message: "Please specify the time off hours requested (e.g. 2.5h)." };
+  }
+
   const [{ company }, access] = await Promise.all([
     getActiveCompany(),
     getCurrentUserAccess(),
@@ -490,6 +499,7 @@ export async function submitLeaveRequest(
   const supabase = await createSupabaseServerClient();
 
   // Guard: For past days, ensure no timesheets have been loaded and day is not a public holiday
+  // NOTE: For Time Off (leaving early while clocked in), existing timesheets on that day are permitted!
   const todayIso = new Date().toISOString().slice(0, 10);
   if (parsed.data.start_date < todayIso && employeeId) {
     const pastStart = parsed.data.start_date;
@@ -508,10 +518,10 @@ export async function submitLeaveRequest(
       .filter((e) => !e.notes?.startsWith("Public holiday:"))
       .map((e) => e.work_date);
 
-    if (loadedDates.length > 0) {
+    if (!isTimeOff && loadedDates.length > 0) {
       return {
         ok: false,
-        message: `Cannot request leave for past days with existing timesheets loaded (${loadedDates.slice(0, 3).join(", ")}${loadedDates.length > 3 ? "..." : ""}). Leave can only be requested on past days where no shift was logged.`,
+        message: `Cannot request full day leave for past days with existing timesheets loaded (${loadedDates.slice(0, 3).join(", ")}${loadedDates.length > 3 ? "..." : ""}). For partial days where you clocked in but had to leave work early, select 'Time Off (Partial Day)'.`,
       };
     }
 
@@ -558,12 +568,16 @@ export async function submitLeaveRequest(
     }
   }
 
+  const finalReason = isTimeOff
+    ? `[Time Off: ${timeOffHours}h] ${parsed.data.reason || "Left work early"}`
+    : (parsed.data.reason || null);
+
   const { error } = await supabase.rpc("submit_own_leave_request", {
     request_attachment_url: parsed.data.attachment_url || null,
     request_end_date: parsed.data.end_date,
-    request_reason: parsed.data.reason || null,
+    request_reason: finalReason,
     request_start_date: parsed.data.start_date,
-    request_total_hours: null,
+    request_total_hours: timeOffHours,
     request_use_toil_first: requestUseToilFirst,
     target_leave_type_id: parsed.data.leave_type_id,
   });
@@ -573,7 +587,12 @@ export async function submitLeaveRequest(
   }
 
   revalidatePath("/dashboard");
-  return { ok: true, message: "Leave request sent." };
+  return {
+    ok: true,
+    message: isTimeOff
+      ? `Time off request for ${timeOffHours}h under annual leave sent.`
+      : "Leave request sent.",
+  };
 }
 
 export async function ensureCompanyToilLeaveType(companyId: string) {

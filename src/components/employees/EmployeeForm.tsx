@@ -36,6 +36,37 @@ function fieldValue(value: string | number | null | undefined) {
   return value == null ? "" : String(value);
 }
 
+function getEmployeeFormDefaultValues(employee?: EmployeeRecord): EmployeeFormInput {
+  return {
+    full_name: employee?.full_name ?? "",
+    known_as: employee?.known_as ?? "",
+    email: employee?.email ?? "",
+    phone_number: employee?.phone_number ?? "",
+    workstation_id: employee?.workstation_id ?? "",
+    department_id: employee?.department_id ?? "",
+    job_title: employee?.job_title ?? "",
+    employment_type: (employee?.employment_type ?? "full_time") as EmployeeFormValues["employment_type"],
+    employment_status: (employee?.employment_status ?? "active") as EmployeeFormValues["employment_status"],
+    start_date: employee?.start_date ?? "",
+    work_schedule_id: employee?.work_schedule_id ?? "",
+    work_schedule_ids: employee?.work_schedule_ids ?? (
+      employee?.work_schedule_id ? [employee.work_schedule_id] : []
+    ),
+    manager_employee_id: employee?.manager_employee_id ?? "",
+    payroll_identifier: employee?.payroll_identifier ?? "",
+    monthly_salary: fieldValue(employee?.monthly_salary),
+    hourly_rate: fieldValue(employee?.hourly_rate),
+    id_number: employee?.id_number ?? "",
+    tax_number: employee?.tax_number ?? "",
+    address: employee?.address ?? "",
+    payment_frequency: (employee?.payment_frequency ?? "monthly") as EmployeeFormValues["payment_frequency"],
+    bank_name: employee?.bank_name ?? "",
+    bank_account_number: employee?.bank_account_number ?? "",
+    bank_account_type: (employee?.bank_account_type ?? "Cheque / Current") as EmployeeFormValues["bank_account_type"],
+    payment_mode: (employee?.payment_mode ?? "EFT") as EmployeeFormValues["payment_mode"],
+  };
+}
+
 export default function EmployeeForm({
   workstations,
   departments,
@@ -51,39 +82,17 @@ export default function EmployeeForm({
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
     setError,
   } = useForm<EmployeeFormInput>({
     resolver: zodResolver(employeeFormSchema),
-    defaultValues: {
-      full_name: employee?.full_name ?? "",
-      known_as: employee?.known_as ?? "",
-      email: employee?.email ?? "",
-      phone_number: employee?.phone_number ?? "",
-      workstation_id: employee?.workstation_id ?? "",
-      department_id: employee?.department_id ?? "",
-      job_title: employee?.job_title ?? "",
-      employment_type: (employee?.employment_type ?? "full_time") as EmployeeFormValues["employment_type"],
-      employment_status: (employee?.employment_status ?? "active") as EmployeeFormValues["employment_status"],
-      start_date: employee?.start_date ?? "",
-      work_schedule_id: employee?.work_schedule_id ?? "",
-      work_schedule_ids: employee?.work_schedule_ids ?? (
-        employee?.work_schedule_id ? [employee.work_schedule_id] : []
-      ),
-      manager_employee_id: employee?.manager_employee_id ?? "",
-      payroll_identifier: employee?.payroll_identifier ?? "",
-      monthly_salary: fieldValue(employee?.monthly_salary),
-      hourly_rate: fieldValue(employee?.hourly_rate),
-      id_number: employee?.id_number ?? "",
-      tax_number: employee?.tax_number ?? "",
-      address: employee?.address ?? "",
-      payment_frequency: (employee?.payment_frequency ?? "monthly") as EmployeeFormValues["payment_frequency"],
-      bank_name: employee?.bank_name ?? "",
-      bank_account_number: employee?.bank_account_number ?? "",
-      bank_account_type: (employee?.bank_account_type ?? "Cheque / Current") as EmployeeFormValues["bank_account_type"],
-      payment_mode: (employee?.payment_mode ?? "EFT") as EmployeeFormValues["payment_mode"],
-    },
+    defaultValues: getEmployeeFormDefaultValues(employee),
   });
+
+  useEffect(() => {
+    reset(getEmployeeFormDefaultValues(employee));
+  }, [employee, reset]);
 
   const monthlySalary = watch("monthly_salary");
 

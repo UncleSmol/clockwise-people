@@ -9,6 +9,8 @@ import {
 } from "./workspace-context";
 import { usePanelBridge } from "./panel-bridge";
 import ViewportSidebar from "./ViewportSidebar";
+import { useZenMode } from "@/components/zen/ZenModeContext";
+import ZenModeTrigger from "@/components/zen/ZenModeTrigger";
 
 type WorkspacePanel = {
   content: ReactNode;
@@ -31,6 +33,7 @@ type CalendarWorkspaceProps = {
   isManager: boolean;
   managerCalendar?: ReactNode;
   panels: WorkspacePanel[];
+  zenView?: ReactNode;
 };
 
 export default function CalendarWorkspace({
@@ -45,9 +48,16 @@ export default function CalendarWorkspace({
   isManager,
   managerCalendar,
   panels,
+  zenView,
 }: CalendarWorkspaceProps) {
   const { registerNavItems, registerPanelOpener } = usePanelBridge();
   const [activePanelKey, setActivePanelKey] = useState<string | null>(initialActivePanelKey);
+
+  useEffect(() => {
+    if (initialActivePanelKey) {
+      setActivePanelKey(initialActivePanelKey);
+    }
+  }, [initialActivePanelKey]);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState<"clock" | "calendar" | "records">("clock");
   const [workspaceMode, setWorkspaceMode] = useState<"me" | "team">(
@@ -79,6 +89,44 @@ export default function CalendarWorkspace({
   useEffect(() => {
     registerPanelOpener(handleOpenPanel);
   }, [handleOpenPanel, registerPanelOpener]);
+
+  useEffect(() => {
+    const handleNav = (detail?: { tab?: string; highlightEntryId?: string | null; highlightLeaveId?: string | null }) => {
+      let isReview = detail?.tab === "review" || Boolean(detail?.highlightEntryId);
+      let isLeave = detail?.tab === "leave" || Boolean(detail?.highlightLeaveId);
+
+      if (typeof window !== "undefined") {
+        const search = new URLSearchParams(window.location.search);
+        if (search.get("highlightEntryId") || search.get("tab") === "review") {
+          isReview = true;
+        } else if (search.get("highlightLeaveId") || search.get("panel") === "leave") {
+          isLeave = true;
+        }
+      }
+
+      if (isReview) {
+        setMobileTab("records");
+        setWorkspaceMode("me");
+        setActivePanelKey(null);
+      } else if (isLeave) {
+        setWorkspaceMode("me");
+        setActivePanelKey("leave");
+      }
+    };
+
+    handleNav();
+
+    const onNavEvent = (e: Event) => {
+      handleNav((e as CustomEvent).detail);
+    };
+
+    window.addEventListener("clockwise:notification-nav", onNavEvent);
+    window.addEventListener("popstate", () => handleNav());
+    return () => {
+      window.removeEventListener("clockwise:notification-nav", onNavEvent);
+      window.removeEventListener("popstate", () => handleNav());
+    };
+  }, []);
 
   useEffect(() => {
     registerNavItems(
@@ -117,6 +165,19 @@ export default function CalendarWorkspace({
   }, []);
 
   const isTeamMode = !isMobile && workspaceMode === "team" && isManager && managerCalendar;
+  const { isZenMode } = useZenMode();
+
+  if (isZenMode && zenView) {
+    return (
+      <PanelContext.Provider value={{ openPanel: handleOpenPanel }}>
+        <WorkspaceSectionContext.Provider value="full">
+          <div className="h-dvh max-h-dvh w-full flex flex-col p-0 m-0 overflow-hidden bg-transparent">
+            {zenView}
+          </div>
+        </WorkspaceSectionContext.Provider>
+      </PanelContext.Provider>
+    );
+  }
 
   return (
     <PanelContext.Provider value={{ openPanel: handleOpenPanel }}>
@@ -336,6 +397,8 @@ export default function CalendarWorkspace({
           activePanel?.content
         )}
       </ViewportSidebar>
+
+      <ZenModeTrigger />
     </div>
       </WorkspaceSectionContext.Provider>
     </PanelContext.Provider>

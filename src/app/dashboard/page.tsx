@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, X } from "lucide-react";
 import ComplianceDocuments from "@/components/compliance/ComplianceDocuments";
 import CalendarWorkspace from "@/components/dashboard/CalendarWorkspace";
 import { getAccountProfile, getCompanySettings } from "@/lib/account/queries";
@@ -122,6 +123,9 @@ const CompanyTimesheetCorrectionQueue = dynamic(
 );
 const EmployeeTimeClock = dynamic(() => import("@/components/time-tracking/EmployeeTimeClock"), {
   loading: () => <LoadingPanel label="time clock" />,
+});
+const ZenModeView = dynamic(() => import("@/components/zen/ZenModeView"), {
+  loading: () => <LoadingPanel label="zen view" />,
 });
 const EmployeeTimesheetCorrections = dynamic(
   () => import("@/components/time-tracking/EmployeeTimesheetCorrections"),
@@ -464,8 +468,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               ) : null}
 
               {selectedEmployee ? (
-                <>
+                <div
+                  key={selectedEmployee.id}
+                  id="selected-employee-manage-pane"
+                  className="grid gap-6 rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 sm:p-6 shadow-soft"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white shadow-2xs">
+                          Managing Record
+                        </span>
+                        <h2 className="text-lg sm:text-xl font-bold text-foreground">
+                          {selectedEmployee.full_name || selectedEmployee.known_as}
+                        </h2>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {selectedEmployee.job_title ?? "Team Member"} · {selectedEmployee.email ?? "No email"}
+                      </p>
+                    </div>
+
+                    <Link
+                      href="/dashboard?panel=people"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground shadow-2xs hover:bg-surface-muted transition-colors cursor-pointer"
+                    >
+                      <X className="size-3.5" />
+                      Close Record
+                    </Link>
+                  </div>
+
                   <EmployeeAccountPanel
+                    key={`account-${selectedEmployee.id}`}
                     employeeId={selectedEmployee.id}
                     email={selectedEmployee.email}
                     hasAccount={Boolean(selectedEmployee.user_id)}
@@ -488,6 +521,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       </p>
                     </div>
                     <EmployeeForm
+                      key={`form-${selectedEmployee.id}`}
                       workstations={employeesData.workstations}
                       departments={employeesData.departments}
                       managers={employeesData.managers}
@@ -511,7 +545,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       </form>
                     </section>
                   ) : null}
-                </>
+                </div>
               ) : null}
 
               <section className="grid gap-3">
@@ -522,7 +556,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </p>
                 </div>
                 {employeesData.employees.length > 0 ? (
-                  <EmployeeTable employees={employeesData.employees} />
+                  <EmployeeTable
+                    employees={employeesData.employees}
+                    selectedEmployeeId={selectedEmployee?.id}
+                  />
                 ) : (
                   <div className="rounded-lg border border-border bg-background p-4 text-sm text-muted">No employees yet.</div>
                 )}
@@ -801,7 +838,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       companies={companies}
       isSuperAdmin={access.isSuperAdmin}
       currentDateLabel={currentDateLabel}
-        employeeClock={
+      zenView={
+        <ZenModeView
+          companyName={company.name}
+          logoUrl={company.logo_url}
+          employeeName={accountProfile.employee?.knownAs ?? accountProfile.employee?.fullName ?? null}
+          employeeAvatarUrl={accountProfile.employee?.avatarUrl ?? null}
+          todayEntry={employeeTimeState?.todayEntry ?? null}
+          recentEntries={employeeTimeState?.recentEntries ?? []}
+          workSchedule={employeeTimeState?.workSchedule ?? null}
+          publicHolidays={employeeTimeState?.publicHolidays ?? []}
+          currentWorkDate={employeeTimeState?.currentWorkDate}
+          assignedWorkstationId={employeeTimeState?.assignedWorkstationId ?? null}
+          workstations={employeeTimeState?.workstations ?? []}
+          leaveState={leaveState ?? null}
+          currentDateLabel={currentDateLabel}
+        />
+      }
+      employeeClock={
           <EmployeeTimeClock
             key={company.id}
             todayEntry={employeeTimeState?.todayEntry ?? null}
@@ -823,6 +877,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             correctionRequests={employeeTimeState.correctionRequests}
             currentWorkDate={employeeTimeState.currentWorkDate}
             entries={employeeTimeState.recentEntries}
+            leaveRequests={leaveState?.requests ?? []}
             publicHolidays={employeeTimeState.publicHolidays}
             liveOverview={liveTimeOverview}
             workSchedule={employeeTimeState.workSchedule}
@@ -860,6 +915,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 correctionRequests={employeeTimeState.correctionRequests}
                 currentWorkDate={employeeTimeState.currentWorkDate}
                 entries={employeeTimeState.recentEntries}
+                leaveRequests={leaveState?.requests ?? []}
                 publicHolidays={employeeTimeState.publicHolidays}
                 liveOverview={liveTimeOverview}
                 workSchedule={employeeTimeState.workSchedule}

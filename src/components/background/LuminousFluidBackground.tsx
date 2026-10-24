@@ -186,15 +186,15 @@ class FollowerBlob extends FluidBlob {
   }
 }
 
+import { useZenMode } from "../zen/ZenModeContext";
+
 export default function LuminousFluidBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const blobsRef = useRef<FluidBlob[]>([]);
   const animIdRef = useRef<number | null>(null);
 
-  const [paletteIndex, setPaletteIndex] = useState(0);
+  const { paletteIndex, setPaletteIndex } = useZenMode();
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isControlsOpen, setIsControlsOpen] = useState(false);
-  const [isZenMode, setIsZenMode] = useState(false);
 
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
@@ -209,13 +209,6 @@ export default function LuminousFluidBackground() {
   // Load saved preference from localStorage
   useEffect(() => {
     try {
-      const savedPalette = localStorage.getItem("clockwise_aura_palette");
-      if (savedPalette !== null) {
-        const idx = parseInt(savedPalette, 10);
-        if (!isNaN(idx) && idx >= 0 && idx < PALETTES.length) {
-          setPaletteIndex(idx);
-        }
-      }
       const savedMotion = localStorage.getItem("clockwise_aura_motion");
       if (savedMotion !== null) {
         setIsPlaying(savedMotion === "true");
@@ -225,16 +218,9 @@ export default function LuminousFluidBackground() {
     }
   }, []);
 
-  // Update CSS Variables and Blobs whenever Palette changes
-  const applyPalette = useCallback((idx: number) => {
-    setPaletteIndex(idx);
-    try {
-      localStorage.setItem("clockwise_aura_palette", idx.toString());
-    } catch {
-      // ignore
-    }
-
-    const palette = PALETTES[idx];
+  // Sync blobs and CSS Variables whenever Palette changes
+  useEffect(() => {
+    const palette = PALETTES[paletteIndex] || PALETTES[0];
     document.documentElement.style.setProperty("--c1", palette.c1);
     document.documentElement.style.setProperty("--c2", palette.c2);
 
@@ -247,7 +233,7 @@ export default function LuminousFluidBackground() {
       newBlobs.push(follower);
       blobsRef.current = newBlobs;
     }
-  }, []);
+  }, [paletteIndex]);
 
   const toggleMotion = useCallback(() => {
     setIsPlaying((prev) => {
@@ -261,28 +247,6 @@ export default function LuminousFluidBackground() {
     });
   }, []);
 
-  const enterZen = useCallback(() => {
-    setIsZenMode(true);
-    setIsControlsOpen(false);
-    document.body.classList.add("zen-mode");
-  }, []);
-
-  const exitZen = useCallback(() => {
-    setIsZenMode(false);
-    document.body.classList.remove("zen-mode");
-  }, []);
-
-  // Keyboard shortcut: Esc to exit Zen Mode
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && document.body.classList.contains("zen-mode")) {
-        exitZen();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [exitZen]);
-
   // Canvas Lifecycle & Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -295,7 +259,7 @@ export default function LuminousFluidBackground() {
     let height = (canvas.height = window.innerHeight);
 
     // Initial palette initialization
-    const palette = PALETTES[paletteIndex];
+    const palette = PALETTES[paletteIndex] || PALETTES[0];
     document.documentElement.style.setProperty("--c1", palette.c1);
     document.documentElement.style.setProperty("--c2", palette.c2);
 
@@ -374,125 +338,6 @@ export default function LuminousFluidBackground() {
           <div className="morph-blob blob-alpha" />
           <div className="morph-blob blob-beta" />
         </div>
-      </div>
-
-      {/* Floating Zen Mode Close Trigger */}
-      {isZenMode ? (
-        <button
-          type="button"
-          onClick={exitZen}
-          className="fixed bottom-6 right-6 z-50 glass-pill px-5 py-2.5 rounded-full text-xs font-black text-slate-900 shadow-2xl hover:bg-white transition-all cursor-pointer flex items-center gap-2 animate-in fade-in zoom-in duration-200"
-        >
-          <X className="size-4 text-slate-700" />
-          <span>Exit Zen View (Esc)</span>
-        </button>
-      ) : null}
-
-      {/* Floating Aura Customizer Trigger & Popover */}
-      <div className="hide-in-zen fixed bottom-4 left-4 z-40 flex flex-col items-start gap-2">
-        {/* Expanded Popover */}
-        {isControlsOpen ? (
-          <div className="glass-card rounded-2xl p-4 shadow-2xl border border-white/80 w-72 sm:w-80 space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-black uppercase tracking-wider text-slate-900">
-                  Luminous Aura
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsControlsOpen(false)}
-                className="grid size-6 place-items-center rounded-full text-slate-500 hover:text-slate-900 hover:bg-white/60 transition-colors cursor-pointer"
-                aria-label="Close aura controls"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-
-            {/* Palette Pills */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Aura Color Palette
-              </label>
-              <div className="grid grid-cols-5 gap-2 pt-1">
-                {PALETTES.map((p, idx) => {
-                  const isSelected = idx === paletteIndex;
-                  return (
-                    <button
-                      key={p.name}
-                      type="button"
-                      onClick={() => applyPalette(idx)}
-                      title={p.name}
-                      className={`group relative h-9 w-full rounded-xl transition-all cursor-pointer shadow-xs ${
-                        isSelected
-                          ? "ring-2 ring-slate-900 ring-offset-2 scale-105 shadow-md"
-                          : "opacity-75 hover:opacity-100 hover:scale-102"
-                      }`}
-                      style={{
-                        background: `linear-gradient(135deg, ${p.c1}, ${p.c2})`,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-              <p className="text-[11px] font-extrabold text-slate-800 pt-0.5">
-                {currentPalette.name}
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
-              <button
-                type="button"
-                onClick={toggleMotion}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 py-2 text-xs font-bold text-slate-800 hover:bg-white transition shadow-2xs cursor-pointer"
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="size-3.5 text-slate-600" />
-                    <span>Pause</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="size-3.5 text-emerald-600" />
-                    <span>Resume</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={enterZen}
-                title="Zen View: Hide UI to enjoy fluid background"
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 transition shadow-xs cursor-pointer"
-              >
-                <Maximize2 className="size-3.5" />
-                <span>Zen View</span>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Minimal Pill Button */}
-        <button
-          type="button"
-          onClick={() => setIsControlsOpen((prev) => !prev)}
-          className="glass-pill flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-800 shadow-md hover:bg-white hover:shadow-lg transition-all cursor-pointer group"
-          title="Customize Organic Fluid Background"
-        >
-          <span
-            className="size-2.5 rounded-full animate-pulse shrink-0 ring-1 ring-slate-400/40"
-            style={{
-              background: `linear-gradient(135deg, ${currentPalette.c1}, ${currentPalette.c2})`,
-            }}
-          />
-          <span className="hidden sm:inline text-[11px] font-bold text-slate-500">Aura:</span>
-          <span className="text-[11px] font-extrabold text-slate-800 group-hover:text-slate-950">
-            {currentPalette.name}
-          </span>
-          <Sparkles className="size-3 text-slate-500 group-hover:text-slate-900 transition-colors" />
-        </button>
       </div>
     </>
   );

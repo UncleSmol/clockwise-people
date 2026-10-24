@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
+import { Poppins } from "next/font/google";
 import { ThemeCleanup } from "@/components/ThemeCleanup";
 import LuminousFluidBackground from "@/components/background/LuminousFluidBackground";
+import { ZenModeProvider } from "@/components/zen/ZenModeContext";
 import "./globals.css";
 
-const inter = Inter({
+const poppins = Poppins({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-poppins",
   display: "swap",
 });
 
@@ -29,21 +32,33 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const isZenModeInitial = cookieStore.get("clockwise_zen_mode")?.value === "true";
+  const initialZenTab =
+    (cookieStore.get("clockwise_zen_tab")?.value as "timesheets" | "leave") || "timesheets";
+  const initialPaletteIndex = Number(cookieStore.get("clockwise_fluid_palette")?.value || 0);
+
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-full antialiased`}
+      className={`${poppins.variable} font-sans h-full antialiased ${isZenModeInitial ? "zen-mode" : ""}`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <LuminousFluidBackground />
-        <ThemeCleanup />
-        {children}
+      <body className={`min-h-full flex flex-col ${isZenModeInitial ? "zen-mode" : ""}`}>
+        <ZenModeProvider
+          initialIsZenMode={isZenModeInitial}
+          initialZenTab={initialZenTab}
+          initialPaletteIndex={initialPaletteIndex}
+        >
+          <LuminousFluidBackground />
+          <ThemeCleanup />
+          {children}
+        </ZenModeProvider>
       </body>
     </html>
   );

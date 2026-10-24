@@ -244,7 +244,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       .eq("employee_id", access.employeeId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(100),
     supabase
       .from("company_settings")
       .select("standard_daily_hours, standard_monthly_hours, leave_rules, toil_rules")

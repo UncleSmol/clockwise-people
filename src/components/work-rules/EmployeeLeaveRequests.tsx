@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Clock,
   FileText,
+  History,
   Info,
   Link,
   List,
@@ -113,6 +114,22 @@ export default function EmployeeLeaveRequests({
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [reason, setReason] = useState("");
   const [useToilFirst, setUseToilFirst] = useState(true);
+  const [applicationMode, setApplicationMode] = useState<"leave" | "time_off">("leave");
+  const [timeOffHours, setTimeOffHours] = useState<string>("4");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "submitted" | "approved" | "rejected">("all");
+
+  const annualLeaveType = useMemo(
+    () =>
+      state.leaveTypes.find(
+        (lt) => lt.category === "annual" || lt.name.toLowerCase().includes("annual"),
+      ),
+    [state.leaveTypes],
+  );
+
+  const selectedDateEntry = useMemo(() => {
+    if (!startDate) return null;
+    return entries.find((e) => e.work_date === startDate) ?? null;
+  }, [entries, startDate]);
 
   // Check if TOIL Engine is enabled for company
   const isToilEngineActive = Boolean(state.toilEnabled);
@@ -239,12 +256,13 @@ export default function EmployeeLeaveRequests({
     async (previousState: LeaveRequestActionState, formData: FormData) => {
       const result = await submitLeaveRequest(previousState, formData);
 
-      if (result.ok && result.message === "Leave request sent.") {
+      if (result.ok) {
         setLeaveTypeId("");
         setStartDate("");
         setEndDate("");
         setAttachmentUrl("");
         setReason("");
+        setTimeOffHours("4");
       }
 
       return result;
@@ -361,7 +379,40 @@ export default function EmployeeLeaveRequests({
     return conflicts;
   }, [startDate, endDate, todayIso, timesheetDateSet, holidayMap, workSchedule]);
 
-  const hasBlockingConflict = rangeConflicts.some((c) => c.type === "timesheet");
+  const hasBlockingConflict =
+    applicationMode === "time_off"
+      ? false
+      : rangeConflicts.some((c) => c.type === "timesheet");
+
+  const appliedLeaveMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { status: string; leaveTypeName: string; isTimeOff: boolean; hours: number }
+    >();
+    for (const req of state.requests) {
+      if (req.status === "cancelled") continue;
+      const [sy, sm, sd] = req.start_date.split("-").map(Number);
+      const [ey, em, ed] = req.end_date.split("-").map(Number);
+      const curr = new Date(sy, sm - 1, sd);
+      const end = new Date(ey, em - 1, ed);
+      while (curr <= end) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, "0");
+        const d = String(curr.getDate()).padStart(2, "0");
+        const dateStr = `${y}-${m}-${d}`;
+        if (!map.has(dateStr) || req.status === "submitted") {
+          map.set(dateStr, {
+            status: req.status,
+            leaveTypeName: req.leaveTypeName ?? "Leave",
+            isTimeOff: req.reason?.includes("Time Off") ?? false,
+            hours: Number(req.total_hours ?? 0),
+          });
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+    return map;
+  }, [state.requests]);
 
   const calendarDays = useMemo(() => {
     const year = calendarViewMonth.getFullYear();
@@ -386,6 +437,12 @@ export default function EmployeeLeaveRequests({
       isEligiblePast: boolean;
       isSelected: boolean;
       isInRange: boolean;
+      appliedLeave: {
+        status: string;
+        leaveTypeName: string;
+        isTimeOff: boolean;
+        hours: number;
+      } | null;
     }[] = [];
 
     const prevMonthLastDay = new Date(year, month, 0).getDate();
@@ -402,6 +459,7 @@ export default function EmployeeLeaveRequests({
       const isEligiblePast = isPast && !hasTimesheet && !isHoliday && working;
       const isSelected = dateStr === startDate || dateStr === endDate;
       const isInRange = Boolean(startDate && endDate && dateStr >= startDate && dateStr <= endDate);
+      const appliedLeave = appliedLeaveMap.get(dateStr) ?? null;
 
       days.push({
         dateStr,
@@ -416,6 +474,7 @@ export default function EmployeeLeaveRequests({
         isEligiblePast,
         isSelected,
         isInRange,
+        appliedLeave,
       });
     }
 
@@ -430,6 +489,7 @@ export default function EmployeeLeaveRequests({
       const isEligiblePast = isPast && !hasTimesheet && !isHoliday && working;
       const isSelected = dateStr === startDate || dateStr === endDate;
       const isInRange = Boolean(startDate && endDate && dateStr >= startDate && dateStr <= endDate);
+      const appliedLeave = appliedLeaveMap.get(dateStr) ?? null;
 
       days.push({
         dateStr,
@@ -444,6 +504,7 @@ export default function EmployeeLeaveRequests({
         isEligiblePast,
         isSelected,
         isInRange,
+        appliedLeave,
       });
     }
 
@@ -460,6 +521,7 @@ export default function EmployeeLeaveRequests({
       const isEligiblePast = isPast && !hasTimesheet && !isHoliday && working;
       const isSelected = dateStr === startDate || dateStr === endDate;
       const isInRange = Boolean(startDate && endDate && dateStr >= startDate && dateStr <= endDate);
+      const appliedLeave = appliedLeaveMap.get(dateStr) ?? null;
 
       days.push({
         dateStr,
@@ -474,13 +536,19 @@ export default function EmployeeLeaveRequests({
         isEligiblePast,
         isSelected,
         isInRange,
+        appliedLeave,
       });
     }
 
     return days;
-  }, [calendarViewMonth, todayIso, timesheetDateSet, holidayMap, workSchedule, startDate, endDate]);
+  }, [calendarViewMonth, todayIso, timesheetDateSet, holidayMap, workSchedule, startDate, endDate, appliedLeaveMap]);
 
   function handleCalendarDateSelect(dateStr: string, isPast: boolean, isEligiblePast: boolean) {
+    if (applicationMode === "time_off") {
+      setStartDate(dateStr);
+      setEndDate(dateStr);
+      return;
+    }
     if (isPast && !isEligiblePast) return;
     if (!startDate || (startDate && endDate && startDate !== endDate)) {
       setStartDate(dateStr);
@@ -653,15 +721,173 @@ export default function EmployeeLeaveRequests({
             ) : null}
           </div>
 
+          {/* Application Mode Switcher: Full Day Leave vs Time Off */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface-muted/50 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setApplicationMode("leave");
+              }}
+              className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-bold transition-all cursor-pointer ${
+                applicationMode === "leave"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <CalendarPlus className="size-3.5" />
+              <span>Full Day Leave</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setApplicationMode("time_off");
+                if (annualLeaveType) {
+                  setLeaveTypeId(annualLeaveType.id);
+                }
+                if (startDate) {
+                  setEndDate(startDate);
+                }
+              }}
+              className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs font-bold transition-all cursor-pointer ${
+                applicationMode === "time_off"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <Clock className="size-3.5" />
+              <span>Time Off (Partial Day)</span>
+            </button>
+          </div>
+
+          {/* Time Off Banner & Guidance */}
+          {applicationMode === "time_off" ? (
+            <div className="w-full min-w-0 max-w-full rounded-2xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs text-amber-950 shadow-soft">
+              <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                <Clock className="size-4 text-amber-600 shrink-0" />
+                <span>Time Off — Booked Under Annual Leave</span>
+              </div>
+              <p className="mt-1 text-[11px] text-amber-900 leading-relaxed">
+                Applied for days where you clocked in for work but had to leave early.
+                These hours are booked under <strong>Annual Leave</strong> without conflicting with your timesheet.
+              </p>
+            </div>
+          ) : null}
+
+          {/* Shift Details on Selected Date if in Time Off mode */}
+          {applicationMode === "time_off" && startDate && selectedDateEntry ? (
+            <div className="w-full rounded-2xl border border-amber-200/80 bg-amber-50/50 p-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-amber-950">Clocked Shift on {formatDate(startDate)}</span>
+                <span className="font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-[10px]">
+                  {Number(selectedDateEntry.paid_hours ?? 0).toFixed(2)}h worked
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-muted text-[11px]">
+                <span>In: <strong className="text-foreground">{selectedDateEntry.clock_in ? selectedDateEntry.clock_in.slice(0, 5) : "--:--"}</strong></span>
+                <span>Lunch: <strong className="text-foreground">{selectedDateEntry.lunch_start ? selectedDateEntry.lunch_start.slice(0, 5) : "--"} - {selectedDateEntry.lunch_end ? selectedDateEntry.lunch_end.slice(0, 5) : "--"}</strong></span>
+                <span>Out: <strong className="text-foreground">{selectedDateEntry.clock_out ? selectedDateEntry.clock_out.slice(0, 5) : "--:--"}</strong></span>
+              </div>
+              {(() => {
+                const std = state.standardDailyHours || 8;
+                const worked = Number(selectedDateEntry.paid_hours ?? 0);
+                const unworked = Math.max(0, std - worked);
+                return unworked > 0 ? (
+                  <p className="mt-2 text-[11px] font-semibold text-amber-900">
+                    💡 Standard shift is {std}h. Unworked balance: <strong>{unworked.toFixed(1)}h</strong>.
+                  </p>
+                ) : null;
+              })()}
+            </div>
+          ) : null}
+
+          {/* Time Off Hours input when in Time Off mode */}
+          {applicationMode === "time_off" ? (
+            <div className="grid w-full min-w-0 max-w-full gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                  Time Off Hours to Deduct
+                </span>
+                <span className="text-[11px] font-bold text-amber-800">
+                  Deducted from Annual Leave
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center rounded-xl border border-border bg-background px-3 py-1">
+                  <input
+                    type="number"
+                    min="0.5"
+                    max="24"
+                    step="0.5"
+                    value={timeOffHours}
+                    onChange={(e) => setTimeOffHours(e.target.value)}
+                    className="w-16 bg-transparent text-sm font-bold text-foreground outline-none"
+                  />
+                  <span className="text-xs font-bold text-muted ml-1">hours</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {["1", "2", "3", "4", "5", "6"].map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setTimeOffHours(h)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                        timeOffHours === h
+                          ? "bg-amber-600 text-white shadow-xs"
+                          : "border border-border bg-surface text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                  {selectedDateEntry && (() => {
+                    const std = state.standardDailyHours || 8;
+                    const worked = Number(selectedDateEntry.paid_hours ?? 0);
+                    const unworked = Math.max(0, std - worked);
+                    if (unworked > 0 && !["1", "2", "3", "4", "5", "6"].includes(String(unworked))) {
+                      return (
+                        <button
+                          key="suggested"
+                          type="button"
+                          onClick={() => setTimeOffHours(String(unworked))}
+                          className="rounded-lg border border-amber-400 bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900 hover:bg-amber-200 transition"
+                        >
+                          Suggest ({unworked.toFixed(1)}h)
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Hidden inputs for Time Off and total hours */}
+          <input
+            type="hidden"
+            name="is_time_off"
+            value={applicationMode === "time_off" ? "true" : "false"}
+          />
+          <input
+            type="hidden"
+            name="time_off_hours"
+            value={timeOffHours}
+          />
+          <input
+            type="hidden"
+            name="request_total_hours"
+            value={applicationMode === "time_off" ? timeOffHours : (calculation ? String(calculation.total_hours) : "")}
+          />
+
           <label className="grid w-full min-w-0 max-w-full gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-              Leave Type
+              Leave Type {applicationMode === "time_off" ? "(Allocated under Annual Leave)" : ""}
             </span>
             <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
               <List className="size-4 shrink-0 text-muted" />
               <select
                 name="leave_type_id"
-                value={leaveTypeId}
+                value={applicationMode === "time_off" && annualLeaveType ? annualLeaveType.id : leaveTypeId}
                 onChange={(event) => setLeaveTypeId(event.target.value)}
                 className="h-10 w-full min-w-0 max-w-full flex-1 truncate bg-transparent text-sm text-foreground outline-none"
               >
@@ -852,11 +1078,25 @@ export default function EmployeeLeaveRequests({
               {/* Day cells grid */}
               <div className="mt-2 grid grid-cols-7 gap-1 text-center">
                 {calendarDays.map((cell) => {
-                  const isDisabledPast = cell.isPast && !cell.isEligiblePast;
+                  const isDisabledPast =
+                    applicationMode === "time_off"
+                      ? false
+                      : cell.isPast && !cell.isEligiblePast;
                   let cellClass = "";
                   let badgeText = "";
 
-                  if (isDisabledPast) {
+                  if (cell.appliedLeave) {
+                    if (cell.appliedLeave.status === "submitted" || cell.appliedLeave.status === "draft") {
+                      cellClass = "border-2 border-amber-500 bg-amber-100 text-amber-950 font-black shadow-xs ring-1 ring-amber-500/50 hover:bg-amber-200 cursor-pointer";
+                      badgeText = cell.appliedLeave.isTimeOff ? "TimeOff (Pending)" : "Pending";
+                    } else if (cell.appliedLeave.status === "approved") {
+                      cellClass = "border-2 border-emerald-600 bg-emerald-100 text-emerald-950 font-black shadow-xs ring-1 ring-emerald-600/40 hover:bg-emerald-200 cursor-pointer";
+                      badgeText = cell.appliedLeave.isTimeOff ? "TimeOff (OK)" : "Approved";
+                    } else if (cell.appliedLeave.status === "rejected") {
+                      cellClass = "border border-rose-400 bg-rose-100 text-rose-950 font-bold hover:bg-rose-200 cursor-pointer";
+                      badgeText = "Declined";
+                    }
+                  } else if (isDisabledPast) {
                     if (cell.hasTimesheet) {
                       cellClass = "border border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed line-through";
                       badgeText = "Worked";
@@ -898,15 +1138,17 @@ export default function EmployeeLeaveRequests({
                     }
                   }
 
-                  const title = cell.isPast
-                    ? cell.hasTimesheet
-                      ? `${cell.dateStr}: Timesheet loaded. Cannot request leave.`
-                      : cell.isHoliday
-                        ? `${cell.dateStr}: Public holiday (${cell.holidayName}).`
-                        : !cell.isWorkingDay
-                          ? `${cell.dateStr}: Scheduled off-day under work rule.`
-                          : `${cell.dateStr}: Unlogged work day. Eligible for leave.`
-                    : cell.dateStr;
+                  const title = cell.appliedLeave
+                    ? `${cell.dateStr}: ${cell.appliedLeave.isTimeOff ? "Time Off" : "Leave"} applied (${cell.appliedLeave.leaveTypeName}) - Status: ${cell.appliedLeave.status.toUpperCase()}`
+                    : cell.isPast
+                      ? cell.hasTimesheet
+                        ? `${cell.dateStr}: Timesheet loaded. ${applicationMode === "time_off" ? "Click to request Time Off for this shift." : "Cannot request full-day leave."}`
+                        : cell.isHoliday
+                          ? `${cell.dateStr}: Public holiday (${cell.holidayName}).`
+                          : !cell.isWorkingDay
+                            ? `${cell.dateStr}: Scheduled off-day under work rule.`
+                            : `${cell.dateStr}: Unlogged work day. Eligible for leave.`
+                      : cell.dateStr;
 
                   return (
                     <button
@@ -933,21 +1175,29 @@ export default function EmployeeLeaveRequests({
               {/* Legend & Controls */}
               <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-border/80 pt-3 text-[11px]">
                 <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="inline-flex items-center gap-1 font-semibold text-amber-800">
+                    <span className="size-2 rounded-full bg-amber-500" />
+                    Applied (Pending)
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
+                    <span className="size-2 rounded-full bg-emerald-600" />
+                    Approved
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-rose-800">
+                    <span className="size-2 rounded-full bg-rose-500" />
+                    Declined
+                  </span>
                   <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
                     <span className="size-2 rounded-full bg-emerald-500" />
-                    Past Unlogged (Eligible)
+                    Past Unlogged
                   </span>
                   <span className="inline-flex items-center gap-1 font-medium text-slate-500">
                     <span className="size-2 rounded-full bg-slate-300" />
-                    Timesheet Loaded (Blocked)
+                    Timesheet Loaded
                   </span>
                   <span className="inline-flex items-center gap-1 font-medium text-purple-700">
                     <span className="size-2 rounded-full bg-purple-400" />
                     Holiday
-                  </span>
-                  <span className="inline-flex items-center gap-1 font-medium text-muted">
-                    <span className="size-2 rounded-full bg-slate-200" />
-                    Off-day
                   </span>
                 </div>
 
@@ -968,10 +1218,10 @@ export default function EmployeeLeaveRequests({
           )}
 
           {/* Date Input Boxes */}
-          <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2">
+          {applicationMode === "time_off" ? (
             <label className="grid w-full min-w-0 max-w-full gap-1">
               <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                Start Date
+                Time Off Date
               </span>
               <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
                 <Calendar className="size-4 shrink-0 text-muted" />
@@ -979,30 +1229,52 @@ export default function EmployeeLeaveRequests({
                   name="start_date"
                   type="date"
                   value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => {
+                    setStartDate(event.target.value);
+                    setEndDate(event.target.value);
+                  }}
                   className="h-10 w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none"
                 />
               </span>
+              <input type="hidden" name="end_date" value={startDate} />
             </label>
-            <label className="grid w-full min-w-0 max-w-full gap-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                End Date
-              </span>
-              <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
-                <Calendar className="size-4 shrink-0 text-muted" />
-                <input
-                  name="end_date"
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="h-10 w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none"
-                />
-              </span>
-            </label>
-          </div>
+          ) : (
+            <div className="grid w-full min-w-0 max-w-full grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="grid w-full min-w-0 max-w-full gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                  Start Date
+                </span>
+                <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
+                  <Calendar className="size-4 shrink-0 text-muted" />
+                  <input
+                    name="start_date"
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                    className="h-10 w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none"
+                  />
+                </span>
+              </label>
+              <label className="grid w-full min-w-0 max-w-full gap-1">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                  End Date
+                </span>
+                <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
+                  <Calendar className="size-4 shrink-0 text-muted" />
+                  <input
+                    name="end_date"
+                    type="date"
+                    value={endDate}
+                    onChange={(event) => setEndDate(event.target.value)}
+                    className="h-10 w-full min-w-0 max-w-full flex-1 bg-transparent text-sm text-foreground outline-none"
+                  />
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Range Conflict Error and Informational Banners */}
-          {hasBlockingConflict && (
+          {hasBlockingConflict && applicationMode !== "time_off" && (
             <div className="flex items-start gap-2.5 rounded-2xl border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-900 shadow-soft">
               <AlertCircle className="size-4 shrink-0 text-rose-600 mt-0.5" />
               <div className="min-w-0 flex-1">
@@ -1015,7 +1287,7 @@ export default function EmployeeLeaveRequests({
                       .map((c) => c.dateStr)
                       .join(", ")}
                   </span>
-                  . Under work rules, past leave can only be requested for days where no timesheet was loaded.
+                  . Under work rules, past full-day leave can only be requested for days where no timesheet was loaded. Switch to <strong>Time Off (Partial Day)</strong> if you worked part of this day and had to leave early.
                 </p>
               </div>
             </div>
@@ -1200,158 +1472,313 @@ export default function EmployeeLeaveRequests({
           </label>
 
           <div className="grid w-full min-w-0 max-w-full gap-2 sm:grid-cols-2">
+            {applicationMode !== "time_off" ? (
+              <button
+                formAction={calculationAction}
+                disabled={calculationPending}
+                className="w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold text-foreground shadow-soft hover:bg-surface-muted disabled:opacity-60 transition-colors"
+              >
+                {calculationPending ? "Preparing..." : "Get advice"}
+              </button>
+            ) : null}
             <button
-              formAction={calculationAction}
-              disabled={calculationPending}
-              className="w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-border bg-surface px-4 text-sm font-semibold text-foreground shadow-soft hover:bg-surface-muted disabled:opacity-60 transition-colors"
-            >
-              {calculationPending ? "Preparing..." : "Get advice"}
-            </button>
-            <button
-              disabled={pending || hasBlockingConflict || Boolean(calculation?.exceeds_balance)}
-              className="w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-colors"
+              disabled={
+                pending ||
+                (applicationMode === "time_off"
+                  ? !startDate || Number(timeOffHours) <= 0
+                  : hasBlockingConflict || Boolean(calculation?.exceeds_balance))
+              }
+              className={`w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-soft disabled:opacity-60 transition-colors ${
+                applicationMode === "time_off"
+                  ? "bg-amber-600 hover:bg-amber-700 sm:col-span-2"
+                  : "bg-primary hover:bg-primary-hover"
+              }`}
             >
               <Send className="size-4" />
-              {pending ? "Sending..." : "Send request"}
+              {pending
+                ? "Sending..."
+                : applicationMode === "time_off"
+                  ? "Submit Time Off Request"
+                  : "Send request"}
             </button>
           </div>
         </form>
       </div>
 
-      {/* RECENT LEAVE REQUESTS */}
-      {state.requests.length > 0 ? (
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
-            Recent leave requests
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
-            {state.requests.map((request) => {
-              const isApproved = request.status === "approved";
-              const isRejected = request.status === "rejected";
+      {/* MY LEAVE APPLICATIONS & LIFECYCLE TRACKER */}
+      <section className="rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3.5">
+          <div>
+            <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
+              <History className="size-4.5 text-primary" />
+              <span>My Leave Applications</span>
+            </h3>
+            <p className="mt-0.5 text-xs text-muted">
+              Track your leave applications in real time from draft to submission, approval, or rejection — same as your timesheets.
+            </p>
+          </div>
 
-              return (
-                <article
-                  key={request.id}
-                  className={`flex flex-col justify-between gap-2.5 rounded-2xl p-4 text-white shadow-soft min-w-0 ${
-                    isApproved
-                      ? "bg-emerald-700 ring-1 ring-emerald-800/60"
-                      : isRejected
-                        ? "bg-rose-700 ring-1 ring-rose-800/60"
-                        : "bg-amber-700 ring-1 ring-amber-800/80"
-                  }`}
-                >
-                  {/* Top Bar: Monogram, Title, Dates & Status Badge */}
-                  <div className="flex items-start justify-between gap-2 min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <div
-                        className={`relative flex size-8.5 shrink-0 items-center justify-center rounded-full border shadow-soft text-xs font-black uppercase leading-none ${
-                          isApproved
-                            ? "border-emerald-500/50 bg-emerald-850 text-white"
-                            : isRejected
-                              ? "border-rose-500/50 bg-rose-850 text-white"
-                              : "border-amber-300/50 bg-amber-800/90 text-white"
-                        }`}
-                      >
-                        {request.leaveTypeName?.slice(0, 2) ?? "LV"}
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ${
-                            isApproved
-                              ? "bg-emerald-300 ring-emerald-700"
-                              : isRejected
-                                ? "bg-rose-300 ring-rose-700"
-                                : "bg-amber-300 ring-amber-700"
-                          }`}
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-white truncate">
-                          {request.leaveTypeName ?? "Leave"}
-                        </p>
-                        <p
-                          className={`text-[11px] font-medium truncate mt-0.5 ${
-                            isApproved
-                              ? "text-emerald-100"
-                              : isRejected
-                                ? "text-rose-100"
-                                : "text-white/85"
-                          }`}
-                        >
-                          {request.start_date} to {request.end_date}
-                        </p>
-                      </div>
-                    </div>
-
-                    <span
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
-                        isApproved
-                          ? "bg-emerald-950/40 text-emerald-200 border border-emerald-400/30"
-                          : isRejected
-                            ? "bg-rose-950/50 text-rose-200 border border-rose-400/30"
-                            : "bg-black/25 text-white border border-white/20"
-                      }`}
-                    >
-                      {request.status}
-                    </span>
-                  </div>
-
-                  {/* High-Contrast White Metric Boxes */}
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-soft min-w-0">
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Start</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight truncate">{request.start_date}</p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">End</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight truncate">{request.end_date}</p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
-                      <p className="font-black text-emerald-700 text-xs break-words font-mono leading-tight">{Number(request.total_hours).toFixed(2)}h</p>
-                    </div>
-                  </div>
-
-                  {request.rejection_reason ? (
-                    <div className="rounded-xl bg-white p-2.5 text-xs text-slate-900 shadow-soft break-words">
-                      <span className="font-extrabold uppercase tracking-wider text-rose-600">Rejection note: </span>
-                      <span className="font-semibold text-slate-900">{request.rejection_reason}</span>
-                    </div>
-                  ) : null}
-
-                  {/* Complementary Footer Pills */}
-                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] min-w-0 pt-0.5">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 font-semibold ${
-                        isApproved
-                          ? "bg-emerald-800/80 text-emerald-100"
-                          : isRejected
-                            ? "bg-rose-800/80 text-rose-100"
-                            : "bg-black/20 text-white"
-                      }`}
-                    >
-                      {request.use_toil_first ? "⚡ TOIL Applied" : "Standard Leave"}
-                    </span>
-
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 font-bold whitespace-nowrap border ${
-                        isApproved
-                          ? "bg-emerald-950/40 text-emerald-200 border border-emerald-400/20"
-                          : isRejected
-                            ? "bg-rose-950/50 text-rose-200 border border-rose-400/20"
-                            : "bg-amber-950/40 text-amber-100 border border-amber-300/20"
-                      }`}
-                    >
-                      {isApproved ? "Approved by Manager" : isRejected ? "Action Needed" : "Pending Review"}
-                    </span>
-                  </div>
-                </article>
-              );
-            })}
+          {/* Status Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-surface-muted/60 border border-border">
+            <button
+              type="button"
+              onClick={() => setHistoryStatusFilter("all")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                historyStatusFilter === "all"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              All ({state.requests.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryStatusFilter("submitted")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                historyStatusFilter === "submitted"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-amber-700 hover:text-amber-800"
+              }`}
+            >
+              Pending ({state.requests.filter((r) => r.status === "submitted" || r.status === "draft").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryStatusFilter("approved")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                historyStatusFilter === "approved"
+                  ? "bg-emerald-700 text-white shadow-xs"
+                  : "text-emerald-700 hover:text-emerald-800"
+              }`}
+            >
+              Approved ({state.requests.filter((r) => r.status === "approved").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryStatusFilter("rejected")}
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
+                historyStatusFilter === "rejected"
+                  ? "bg-rose-700 text-white shadow-xs"
+                  : "text-rose-700 hover:text-rose-800"
+              }`}
+            >
+              Declined ({state.requests.filter((r) => r.status === "rejected").length})
+            </button>
           </div>
         </div>
-      ) : null}
+
+        {/* Requests Cards Grid */}
+        {(() => {
+          const filtered =
+            historyStatusFilter === "all"
+              ? state.requests
+              : historyStatusFilter === "submitted"
+                ? state.requests.filter((r) => r.status === "submitted" || r.status === "draft")
+                : state.requests.filter((r) => r.status === historyStatusFilter);
+
+          if (filtered.length === 0) {
+            return (
+              <div className="py-8 text-center text-xs text-muted">
+                {historyStatusFilter === "all"
+                  ? "You haven't submitted any leave or time off requests yet."
+                  : `No requests in the "${historyStatusFilter}" category.`}
+              </div>
+            );
+          }
+
+          return (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5 items-start">
+              {filtered.map((request) => {
+                const isApproved = request.status === "approved";
+                const isRejected = request.status === "rejected";
+                const isPending = request.status === "submitted" || request.status === "draft";
+                const isTimeOff =
+                  request.reason?.includes("Time Off") ||
+                  (request.start_date === request.end_date &&
+                    Number(request.total_hours) < (state.standardDailyHours || 8));
+
+                return (
+                  <article
+                    key={request.id}
+                    className={`flex flex-col justify-between gap-3 rounded-2xl p-4 text-white shadow-soft min-w-0 transition-all ${
+                      isApproved
+                        ? "bg-emerald-700 ring-1 ring-emerald-800/60"
+                        : isRejected
+                          ? "bg-rose-700 ring-1 ring-rose-800/60"
+                          : "bg-amber-700 ring-1 ring-amber-800/80"
+                    }`}
+                  >
+                    {/* Top Bar: Monogram, Title, Dates & Status Badge */}
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div
+                          className={`relative flex size-8.5 shrink-0 items-center justify-center rounded-full border shadow-soft text-xs font-black uppercase leading-none ${
+                            isApproved
+                              ? "border-emerald-500/50 bg-emerald-850 text-white"
+                              : isRejected
+                                ? "border-rose-500/50 bg-rose-850 text-white"
+                                : "border-amber-300/50 bg-amber-800/90 text-white"
+                          }`}
+                        >
+                          {request.leaveTypeName?.slice(0, 2) ?? "LV"}
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ${
+                              isApproved
+                                ? "bg-emerald-300 ring-emerald-700"
+                                : isRejected
+                                  ? "bg-rose-300 ring-rose-700"
+                                  : "bg-amber-300 ring-amber-700"
+                            }`}
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-extrabold text-white truncate">
+                              {request.leaveTypeName ?? "Leave"}
+                            </p>
+                            {isTimeOff && (
+                              <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider text-white border border-white/30">
+                                Time Off
+                              </span>
+                            )}
+                          </div>
+                          <p
+                            className={`text-[11px] font-medium truncate mt-0.5 ${
+                              isApproved
+                                ? "text-emerald-100"
+                                : isRejected
+                                  ? "text-rose-100"
+                                  : "text-white/85"
+                            }`}
+                          >
+                            {request.start_date === request.end_date
+                              ? formatDate(request.start_date)
+                              : `${formatDate(request.start_date)} - ${formatDate(request.end_date)}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
+                          isApproved
+                            ? "bg-emerald-950/40 text-emerald-200 border border-emerald-400/30"
+                            : isRejected
+                              ? "bg-rose-950/50 text-rose-200 border border-rose-400/30"
+                              : "bg-black/25 text-white border border-white/20"
+                        }`}
+                      >
+                        {isPending ? "Pending Review" : isApproved ? "Approved" : "Declined"}
+                      </span>
+                    </div>
+
+                    {/* Lifecycle Stepper (Draft -> Submitted -> Approved/Rejected) */}
+                    <div className="rounded-xl bg-black/15 p-2 text-[10px]">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center gap-1 text-white">
+                          <CheckCircle2 className="size-3 text-white" /> Draft
+                        </span>
+                        <span className="h-0.5 flex-1 mx-2 bg-white/30" />
+                        <span className="flex items-center gap-1 text-white">
+                          <CheckCircle2 className="size-3 text-white" /> Submitted
+                        </span>
+                        <span className="h-0.5 flex-1 mx-2 bg-white/30" />
+                        <span
+                          className={`flex items-center gap-1 ${
+                            isApproved
+                              ? "text-emerald-200"
+                              : isRejected
+                                ? "text-rose-200"
+                                : "text-amber-200 animate-pulse"
+                          }`}
+                        >
+                          {isApproved ? (
+                            <>
+                              <CheckCircle2 className="size-3 text-emerald-300" /> Approved
+                            </>
+                          ) : isRejected ? (
+                            <>
+                              <X className="size-3 text-rose-300" /> Rejected
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="size-3 text-amber-300" /> In Review
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* High-Contrast White Metric Boxes */}
+                    <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-soft min-w-0">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Start</p>
+                        <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight truncate">{request.start_date}</p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">End</p>
+                        <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight truncate">{request.end_date}</p>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">
+                          {isTimeOff ? "Hours" : "Total"}
+                        </p>
+                        <p className="font-black text-emerald-700 text-xs break-words font-mono leading-tight">
+                          {Number(request.total_hours).toFixed(2)}h
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Reason provided */}
+                    {request.reason ? (
+                      <div className="rounded-xl bg-white/10 p-2 text-[11px] text-white/90 break-words">
+                        <span className="font-bold text-white/70">Reason: </span>
+                        <span>{request.reason}</span>
+                      </div>
+                    ) : null}
+
+                    {request.rejection_reason ? (
+                      <div className="rounded-xl bg-white p-2.5 text-xs text-slate-900 shadow-soft break-words">
+                        <span className="font-extrabold uppercase tracking-wider text-rose-600">Rejection note: </span>
+                        <span className="font-semibold text-slate-900">{request.rejection_reason}</span>
+                      </div>
+                    ) : null}
+
+                    {/* Complementary Footer Pills */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] min-w-0 pt-0.5">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 font-semibold ${
+                          isApproved
+                            ? "bg-emerald-800/80 text-emerald-100"
+                            : isRejected
+                              ? "bg-rose-800/80 text-rose-100"
+                              : "bg-black/20 text-white"
+                        }`}
+                      >
+                        {isTimeOff ? "⏱️ Time Off" : request.use_toil_first ? "⚡ TOIL Applied" : "Standard Leave"}
+                      </span>
+
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 font-bold whitespace-nowrap border ${
+                          isApproved
+                            ? "bg-emerald-950/40 text-emerald-200 border border-emerald-400/20"
+                            : isRejected
+                              ? "bg-rose-950/50 text-rose-200 border border-rose-400/20"
+                              : "bg-amber-950/40 text-amber-100 border border-amber-300/20"
+                        }`}
+                      >
+                        {isApproved ? "Approved by Manager" : isRejected ? "Declined by Manager" : "Awaiting Manager Decision"}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </section>
 
       {/* ENHANCED TOIL CONVERTER & PREVIEW CARD (Strictly rendered only when TOIL engine is enabled) */}
       {isToilEngineActive ? (

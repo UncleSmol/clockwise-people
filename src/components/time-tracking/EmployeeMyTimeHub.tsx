@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import PwaInstallButton from "@/components/PwaInstallButton";
 
@@ -96,6 +96,51 @@ export default function EmployeeMyTimeHub({
     "3": false,
     "4": false,
   });
+
+  useEffect(() => {
+    const handleUrlOrEvent = (detail?: { tab?: string; highlightEntryId?: string | null; highlightLeaveId?: string | null }) => {
+      let shouldOpenReview = false;
+      let shouldOpenLeave = false;
+
+      if (detail?.tab === "review" || detail?.highlightEntryId) {
+        shouldOpenReview = true;
+      } else if (detail?.tab === "leave" || detail?.highlightLeaveId) {
+        shouldOpenLeave = true;
+      }
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("highlightEntryId") || params.get("tab") === "review") {
+          shouldOpenReview = true;
+        } else if (params.get("highlightLeaveId") || params.get("tab") === "leave" || params.get("panel") === "leave") {
+          shouldOpenLeave = true;
+        }
+      }
+
+      if (shouldOpenReview) {
+        setOpenSteps((prev) => ({ ...prev, "2": true }));
+      } else if (shouldOpenLeave) {
+        setOpenSteps((prev) => ({ ...prev, "3": true }));
+      }
+    };
+
+    handleUrlOrEvent();
+
+    const handleNav = (e: Event) => {
+      handleUrlOrEvent((e as CustomEvent).detail);
+    };
+
+    const onPopState = () => {
+      handleUrlOrEvent();
+    };
+
+    window.addEventListener("clockwise:notification-nav", handleNav);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("clockwise:notification-nav", handleNav);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, []);
 
   const toggle = (step: string) =>
     setOpenSteps((prev) => ({ ...prev, [step]: !prev[step] }));
