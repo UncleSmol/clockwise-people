@@ -227,6 +227,14 @@ export default function ZenModeView({
     }).format(currentTime);
   }, [currentTime]);
 
+  const shortLiveDate = useMemo(() => {
+    return new Intl.DateTimeFormat("en-ZA", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    }).format(currentTime);
+  }, [currentTime]);
+
   // Format individual time strings
   const formatDisplayTime = (timeStr?: string | null) => {
     if (!timeStr) return "";
@@ -581,9 +589,9 @@ export default function ZenModeView({
           )}
         </div>
 
-        {/* Date, Live Clock & Exit Zen Mode Button */}
+        {/* Date, Live Clock (Desktop Only) & Exit Zen Mode Button */}
         <div className="flex items-center gap-2 sm:gap-3 text-right">
-          <div className="flex flex-col text-right" suppressHydrationWarning>
+          <div className="hidden sm:flex flex-col text-right" suppressHydrationWarning>
             <span suppressHydrationWarning className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-wide">
               {hasMounted ? formattedLiveDate : (currentDateLabel || "")}
             </span>
@@ -876,19 +884,58 @@ export default function ZenModeView({
 
           {/* Central Circular Button, Action Time Definition & Action Labels */}
           <div className="relative z-10 flex flex-col items-center">
-            {/* Time Definition inside Circle using the App's AnalogTimePicker */}
-            {timesheetState !== "submitted" && zenTab !== "leave" ? (
+            {/* Top Widget in Circle Dome: Status, Date & Interactive Time Definition (Styled like Leave Tab Boxes) */}
+            {zenTab !== "leave" ? (
               <div
-                className="mb-2 z-20"
+                className="mb-2.5 z-20"
                 onClick={(e) => e.stopPropagation()}
               >
-                <AnalogTimePicker
-                  value={actionCustomTime || (hasMounted ? formattedLiveTime : "")}
-                  onValueChange={(val) => setActionCustomTime(val)}
-                  compact
-                  className="flex h-7 items-center justify-center gap-1.5 rounded-full border border-white/50 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 text-xs font-black text-white outline-none shadow-xs transition-all cursor-pointer"
-                  placeholder="Set Time"
-                />
+                <div className="flex items-center gap-2 sm:gap-2.5 rounded-2xl border border-white/85 bg-white/85 hover:bg-white/95 backdrop-blur-xl px-3 py-1.5 sm:px-4 sm:py-2 text-slate-900 shadow-xs transition-all">
+                  {/* Status Indicator */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className={`size-2 rounded-full shrink-0 ${
+                        timesheetState === "clocked_in"
+                          ? "bg-emerald-500 animate-pulse"
+                          : timesheetState === "on_lunch"
+                          ? "bg-amber-500"
+                          : timesheetState === "draft" || timesheetState === "submitted"
+                          ? "bg-blue-500"
+                          : "bg-slate-400"
+                      }`}
+                    />
+                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-700">
+                      {timesheetState === "clocked_in"
+                        ? "Working"
+                        : timesheetState === "on_lunch"
+                        ? "On Lunch"
+                        : timesheetState === "draft" || timesheetState === "submitted"
+                        ? "Shift Finished"
+                        : "Ready"}
+                    </span>
+                  </div>
+
+                  <span className="text-slate-300 font-bold select-none text-xs">·</span>
+
+                  {/* Date */}
+                  <span
+                    suppressHydrationWarning
+                    className="text-[11px] sm:text-xs font-bold text-slate-600 truncate whitespace-nowrap"
+                  >
+                    {hasMounted ? shortLiveDate : (currentDateLabel || "")}
+                  </span>
+
+                  <span className="text-slate-300 font-bold select-none text-xs">·</span>
+
+                  {/* Interactive AnalogTimePicker */}
+                  <AnalogTimePicker
+                    value={actionCustomTime || (hasMounted ? formattedLiveTime : "")}
+                    onValueChange={(val) => setActionCustomTime(val)}
+                    compact
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-slate-900/5 hover:bg-slate-900/10 text-xs sm:text-sm font-black font-mono text-slate-900 tracking-tight transition-colors cursor-pointer"
+                    placeholder="--:--"
+                  />
+                </div>
               </div>
             ) : null}
 
@@ -911,7 +958,7 @@ export default function ZenModeView({
               {domeButtonConfig.sublabel}
             </p>
 
-            {/* Secondary action: Take Lunch right within the circle when Clocked In! */}
+            {/* Secondary action: Take Lunch right within the circle when Clocked In! (Styled like Leave Tab Boxes) */}
             {timesheetState === "clocked_in" ? (
               <button
                 type="button"
@@ -920,9 +967,9 @@ export default function ZenModeView({
                   handleStartLunch();
                 }}
                 disabled={isPending}
-                className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-extrabold text-xs border border-white/35 transition-all active:scale-95 cursor-pointer shadow-xs"
+                className="mt-2.5 inline-flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 rounded-2xl border border-white/85 bg-white/85 hover:bg-white/95 backdrop-blur-xl text-slate-900 font-black text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shadow-xs"
               >
-                <Coffee className="size-3.5 text-white" />
+                <Coffee className="size-4 text-amber-700" />
                 <span>Take Lunch</span>
               </button>
             ) : null}

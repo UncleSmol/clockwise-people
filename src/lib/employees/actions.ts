@@ -92,6 +92,7 @@ export async function createEmployee(
       employment_type: values.employment_type,
       employment_status: values.employment_status,
       start_date: values.start_date,
+      end_date: blankToNull(values.end_date),
       work_schedule_id: selectedScheduleIds[0] ?? null,
       manager_employee_id: blankToNull(values.manager_employee_id),
       payroll_identifier: payrollIdentifier,
@@ -126,6 +127,7 @@ export async function createEmployee(
             employment_type: values.employment_type,
             employment_status: values.employment_status,
             start_date: values.start_date,
+            end_date: blankToNull(values.end_date),
             work_schedule_id: selectedScheduleIds[0] ?? null,
             manager_employee_id: blankToNull(values.manager_employee_id),
             payroll_identifier: payrollIdentifier,
@@ -196,6 +198,7 @@ export async function updateEmployee(
       employment_type: values.employment_type,
       employment_status: values.employment_status,
       start_date: values.start_date,
+      end_date: blankToNull(values.end_date),
       work_schedule_id: selectedScheduleIds[0] ?? null,
       manager_employee_id: blankToNull(values.manager_employee_id),
       payroll_identifier: blankToNull(values.payroll_identifier),
@@ -229,6 +232,7 @@ export async function updateEmployee(
           employment_type: values.employment_type,
           employment_status: values.employment_status,
           start_date: values.start_date,
+          end_date: blankToNull(values.end_date),
           work_schedule_id: selectedScheduleIds[0] ?? null,
           manager_employee_id: blankToNull(values.manager_employee_id),
           payroll_identifier: blankToNull(values.payroll_identifier),
@@ -261,15 +265,22 @@ export async function updateEmployee(
   return { ok: true, message: "Employee updated." };
 }
 
-export async function deactivateEmployee(employeeId: string) {
+export async function deactivateEmployee(employeeId: string, formData?: FormData) {
   await requireEmployeeAdmin();
   const { company } = await getActiveCompany();
   const supabase = await createSupabaseServerClient();
 
+  const rawEndDate = formData?.get("end_date");
+  const endDate =
+    typeof rawEndDate === "string" && rawEndDate.trim()
+      ? rawEndDate.trim()
+      : new Date().toISOString().slice(0, 10);
+
   const { error } = await supabase
     .from("employees")
     .update({
-      employment_status: "inactive",
+      employment_status: "terminated",
+      end_date: endDate,
       deleted_at: new Date().toISOString(),
     })
     .eq("company_id", company.id)
@@ -283,6 +294,8 @@ export async function deactivateEmployee(employeeId: string) {
   revalidatePath("/dashboard");
   redirect("/dashboard?panel=people");
 }
+
+export const terminateEmployee = deactivateEmployee;
 
 export async function autoAssignMissingPayrollIdsAction(): Promise<ActionState> {
   await requireEmployeeAdmin();

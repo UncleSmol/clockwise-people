@@ -704,6 +704,7 @@ export async function executeMappedImportAction(
           const empType = sanitizeString(row.mappedData["employment_type"], 40) || "full_time";
           const empStatus = sanitizeString(row.mappedData["employment_status"], 40) || "active";
           const startDate = (row.resolvedData["start_date"] as string) || new Date().toISOString().split("T")[0];
+          const endDate = (row.resolvedData["end_date"] as string) || (row.mappedData["end_date"] as string) || null;
           const hourlyRate = (row.resolvedData["hourly_rate"] as number) || null;
           const monthlySalary = (row.resolvedData["monthly_salary"] as number) || null;
           const payrollId = sanitizeString(sanitizeSpreadsheetFormula(row.mappedData["payroll_identifier"]), 64) || (await getOrGenerateNextPayrollId(company.id, supabase));
@@ -761,6 +762,7 @@ export async function executeMappedImportAction(
                 employment_type: empType,
                 employment_status: empStatus,
                 start_date: startDate,
+                end_date: endDate,
                 hourly_rate: hourlyRate,
                 monthly_salary: monthlySalary,
                 payroll_identifier: payrollId,
@@ -790,6 +792,7 @@ export async function executeMappedImportAction(
               employment_type: empType,
               employment_status: empStatus,
               start_date: startDate,
+              end_date: endDate,
               hourly_rate: hourlyRate,
               monthly_salary: monthlySalary,
               payroll_identifier: payrollId,

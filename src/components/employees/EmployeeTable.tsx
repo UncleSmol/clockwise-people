@@ -322,7 +322,7 @@ export default function EmployeeTable({ employees, selectedEmployeeId }: Employe
 
                 {/* Expanded Details Panel */}
                 <div className="grid gap-3 border-t border-border bg-background/50 p-4 sm:grid-cols-[1fr_auto]">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  <div className={`grid grid-cols-2 gap-2 ${employee.end_date ? "sm:grid-cols-6" : "sm:grid-cols-5"}`}>
                     <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Job Title</p>
                       <p className="mt-0.5 text-xs font-bold text-foreground break-words leading-tight">
@@ -350,6 +350,15 @@ export default function EmployeeTable({ employees, selectedEmployeeId }: Employe
                         {employee.start_date ?? "--"}
                       </p>
                     </div>
+
+                    {employee.end_date ? (
+                      <div className="rounded-2xl border border-danger/30 bg-danger/5 p-2.5 text-center shadow-soft">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-danger">Terminated</p>
+                        <p className="mt-0.5 text-xs font-bold text-danger break-words leading-tight">
+                          {employee.end_date}
+                        </p>
+                      </div>
+                    ) : null}
 
                     <div className="rounded-2xl border border-border bg-surface p-2.5 text-center shadow-soft">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Payroll ID</p>

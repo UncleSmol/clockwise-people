@@ -55,6 +55,7 @@ function normalizeEmployee(row: EmployeeRow): EmployeeRecord {
 
   return {
     ...employee,
+    end_date: employee.end_date ?? null,
     id_number: employee.id_number ?? null,
     tax_number: employee.tax_number ?? null,
     address: employee.address ?? null,
@@ -151,7 +152,7 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     supabase
       .from("employees")
       .select(
-        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
+        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
       )
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -195,7 +196,7 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
       const fallbackEmployees = await supabase
         .from("employees")
         .select(
-          "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
+          "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
         )
         .eq("company_id", company.id)
         .is("deleted_at", null)
@@ -350,7 +351,7 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
     supabase
     .from("employees")
     .select(
-      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
+      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
     )
     .eq("company_id", company.id)
     .eq("id", employeeId)
@@ -371,7 +372,7 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
       const fallback = await supabase
         .from("employees")
         .select(
-          "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
+          "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, deleted_at, company_workstations(name), departments(name)",
         )
         .eq("company_id", company.id)
         .eq("id", employeeId)

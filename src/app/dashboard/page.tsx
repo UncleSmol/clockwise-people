@@ -6,7 +6,7 @@ import { ChevronDown, X } from "lucide-react";
 import ComplianceDocuments from "@/components/compliance/ComplianceDocuments";
 import CalendarWorkspace from "@/components/dashboard/CalendarWorkspace";
 import { getAccountProfile, getCompanySettings } from "@/lib/account/queries";
-import { deactivateEmployee } from "@/lib/employees/actions";
+import { deactivateEmployee, terminateEmployee } from "@/lib/employees/actions";
 import { getEmployeeDetail, getEmployeePageData } from "@/lib/employees/queries";
 import { getActiveCompany, getCompanySetup, getCurrentUserAccess } from "@/lib/foundation/queries";
 import { getCompanyGeolocationData } from "@/lib/geolocation/queries";
@@ -345,8 +345,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     </span>
   );
 
-  const employeeDeactivateAction = selectedEmployee
-    ? deactivateEmployee.bind(null, selectedEmployee.id)
+  const employeeTerminateAction = selectedEmployee
+    ? terminateEmployee.bind(null, selectedEmployee.id)
     : null;
 
   const payrollConfig =
@@ -531,16 +531,33 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     />
                   </section>
 
-                  {employeeDeactivateAction ? (
-                    <section className="rounded-lg border border-danger/20 bg-danger/8 p-4">
-                      <h2 className="text-xl font-semibold text-danger">Deactivate employee</h2>
-                      <p className="mt-2 max-w-2xl text-sm text-danger">
-                        This performs a soft delete by marking the employee inactive and setting
-                        deleted_at.
-                      </p>
-                      <form action={employeeDeactivateAction} className="mt-4">
-                        <button className="btn btn-danger">
-                          Deactivate employee
+                  {employeeTerminateAction ? (
+                    <section className="rounded-2xl border border-danger/20 bg-danger/8 p-5 sm:p-6 shadow-2xs">
+                      <div className="flex flex-col gap-1">
+                        <h2 className="text-lg font-bold text-danger">Terminate employee</h2>
+                        <p className="text-xs text-danger/80">
+                          Collect the termination date to set their end date, mark their employment as terminated, and archive their record.
+                        </p>
+                      </div>
+                      <form action={employeeTerminateAction} className="mt-4 grid gap-3 sm:flex sm:items-end sm:gap-3">
+                        <label className="grid gap-1 sm:max-w-xs flex-1">
+                          <span className="text-xs font-bold uppercase tracking-[0.12em] text-danger/90">
+                            Termination date
+                          </span>
+                          <input
+                            type="date"
+                            name="end_date"
+                            required
+                            defaultValue={selectedEmployee.end_date || new Date().toISOString().slice(0, 10)}
+                            min={selectedEmployee.start_date}
+                            className="h-11 sm:h-12 w-full rounded-full border border-danger/30 bg-background px-4 text-sm text-foreground outline-none focus:border-danger focus:ring-1 focus:ring-danger shadow-xs"
+                          />
+                        </label>
+                        <button
+                          type="submit"
+                          className="inline-flex h-11 sm:h-12 items-center justify-center rounded-full bg-danger px-6 text-xs font-bold text-white shadow-soft hover:bg-danger-hover transition-colors cursor-pointer"
+                        >
+                          Terminate employee
                         </button>
                       </form>
                     </section>

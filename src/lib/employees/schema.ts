@@ -70,6 +70,16 @@ export const employeeFormSchema = z
     employment_type: z.enum(employmentTypes),
     employment_status: z.enum(employmentStatuses),
     start_date: z.iso.date("Start date is required"),
+    end_date: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(""))
+      .nullable()
+      .refine(
+        (val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val),
+        "Invalid termination date format (expected YYYY-MM-DD)",
+      ),
     work_schedule_id: optionalUuid,
     work_schedule_ids: z.array(z.string()).optional(),
     manager_employee_id: optionalUuid,
@@ -84,6 +94,24 @@ export const employeeFormSchema = z
     bank_account_number: sanitizedOptionalText(40),
     bank_account_type: z.enum(bankAccountTypes).optional(),
     payment_mode: z.enum(paymentModes).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.employment_status === "terminated" && (!data.end_date || data.end_date.trim() === "")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Termination date is required when employee is terminated",
+        path: ["end_date"],
+      });
+    }
+    if (data.end_date && data.start_date && data.end_date.trim() !== "") {
+      if (data.end_date < data.start_date) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Termination date cannot be before start date",
+          path: ["end_date"],
+        });
+      }
+    }
   });
 
 export type EmployeeFormInput = z.input<typeof employeeFormSchema>;
@@ -110,6 +138,7 @@ export type EmployeeRecord = {
   employment_type: string;
   employment_status: string;
   start_date: string;
+  end_date: string | null;
   work_schedule_id: string | null;
   manager_employee_id: string | null;
   user_id: string | null;

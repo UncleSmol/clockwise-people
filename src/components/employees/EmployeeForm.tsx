@@ -48,6 +48,7 @@ function getEmployeeFormDefaultValues(employee?: EmployeeRecord): EmployeeFormIn
     employment_type: (employee?.employment_type ?? "full_time") as EmployeeFormValues["employment_type"],
     employment_status: (employee?.employment_status ?? "active") as EmployeeFormValues["employment_status"],
     start_date: employee?.start_date ?? "",
+    end_date: employee?.end_date ?? "",
     work_schedule_id: employee?.work_schedule_id ?? "",
     work_schedule_ids: employee?.work_schedule_ids ?? (
       employee?.work_schedule_id ? [employee.work_schedule_id] : []
@@ -95,6 +96,17 @@ export default function EmployeeForm({
   }, [employee, reset]);
 
   const monthlySalary = watch("monthly_salary");
+  const employmentStatus = watch("employment_status");
+  const startDate = watch("start_date");
+
+  useEffect(() => {
+    if (employmentStatus === "terminated") {
+      const currentEndDate = watch("end_date");
+      if (!currentEndDate) {
+        setValue("end_date", new Date().toISOString().slice(0, 10), { shouldValidate: true });
+      }
+    }
+  }, [employmentStatus, setValue, watch]);
 
   useEffect(() => {
     if (monthlySalary && standardMonthlyHours > 0) {
@@ -240,6 +252,28 @@ export default function EmployeeForm({
         </label>
 
         <label className="grid gap-1.5">
+          <span className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.12em] text-muted">
+            <span>Termination date</span>
+            {employmentStatus === "terminated" ? (
+              <span className="text-[10px] font-bold text-danger lowercase">(required)</span>
+            ) : (
+              <span className="text-[10px] font-normal text-muted lowercase">(when leaving)</span>
+            )}
+          </span>
+          <input
+            type="date"
+            min={startDate || undefined}
+            className={`h-11 sm:h-12 w-full rounded-full border bg-background px-4 text-sm text-foreground outline-none shadow-xs transition-colors ${
+              employmentStatus === "terminated"
+                ? "border-danger/60 focus:border-danger focus:ring-1 focus:ring-danger"
+                : "border-border/80 focus:border-primary focus:ring-1 focus:ring-primary"
+            }`}
+            {...register("end_date")}
+          />
+          {errors.end_date && <span className="text-xs text-danger">{errors.end_date.message}</span>}
+        </label>
+
+        <label className="grid gap-1.5">
           <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Employment status</span>
           <select
             className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
@@ -249,6 +283,7 @@ export default function EmployeeForm({
               <option key={status} value={status}>{labelize(status)}</option>
             ))}
           </select>
+          {errors.employment_status && <span className="text-xs text-danger">{errors.employment_status.message}</span>}
         </label>
 
         <fieldset className="grid gap-1.5 md:col-span-2">
