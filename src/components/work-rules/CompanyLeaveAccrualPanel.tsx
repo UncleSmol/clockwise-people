@@ -66,64 +66,70 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
 
   return (
     <section className="grid gap-4">
-      {/* 1-Click Automated BCEA South African Labour Law Accruals Card */}
+      {/* 1-Click Automated Statutory Accruals Card */}
       <form
         action={autoSyncAction}
-        className="grid gap-2.5 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft"
+        className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-foreground">
-                Automate All Accruals (BCEA SA Labour Law)
+                Leave Accrual Engine (Statutory BCEA &amp; Work Rules)
               </h3>
-              <p className="mt-0.5 text-xs text-muted">
-                {data.toilEnabled
-                  ? "Calculates 1h annual leave per 17h worked + 1.5\u00d7 overtime TOIL for all active employees"
-                  : "Calculates statutory annual leave (1h per 17h worked) for all active employees"}
-              </p>
+              <span className="rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 px-2.5 py-0.5 text-[10px] font-bold">
+                15 / 17 / 21 Days Conforming
+              </span>
+              <span className="rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 px-2.5 py-0.5 text-[10px] font-bold">
+                BCEA 1:17 Floor Protected
+              </span>
+              {data.toilEnabled ? (
+                <span className="rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 px-2.5 py-0.5 text-[10px] font-bold">
+                  {data.toilMultiplier ?? 1.5}× Overtime TOIL
+                </span>
+              ) : null}
             </div>
-            <p className="mt-2 text-xs font-normal text-muted leading-relaxed">
-              Scans all accumulated timesheets and approved leave requests across the company, calculates statutory BCEA accruals, and updates balances automatically in real time.
+
+            <p className="mt-1 text-xs text-muted leading-relaxed">
+              Calculates dynamic leave accumulation from actual shifts and hours worked according to each employee&apos;s assigned work rule.
+              Conforms strictly to South African statutory standards (15, 17, or 21 days annual entitlement), protecting employees with the statutory 1h per 17h worked floor (BCEA Section 20) and <strong>{data.toilMultiplier ?? 1.5}&times;</strong> approved overtime hours as TOIL leave.
             </p>
           </div>
 
           <button
             type="submit"
             disabled={autoSyncPending}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-primary px-5 text-xs font-bold uppercase tracking-wider text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-primary px-6 text-xs font-bold uppercase tracking-wider text-white shadow-soft hover:bg-primary-hover disabled:opacity-60 transition-all cursor-pointer"
           >
             {autoSyncPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : null}
-            <span>{autoSyncPending ? "Automating..." : "Auto-Accrue All"}</span>
+            <span>{autoSyncPending ? "Calculating & Syncing..." : "Sync & Recalculate Accruals"}</span>
           </button>
-        </div>
-      </form>
-
-      <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft">
-        <div>
-          <h3 className="text-sm font-bold text-foreground">
-            Load leave accruals
-          </h3>
-          <p className="mt-1 text-xs text-muted">
-            Accrue leave pro-rated by hours worked against the rule&apos;s yearly hours. The formula
-            is <span className="font-semibold text-foreground">yearly_hours &times; (hours worked &divide;{" "}
-            {data.standardAnnualHours.toFixed(0)}h)</span>.
-          </p>
         </div>
 
         {visibleMessage ? (
           <p
-            className={`rounded-2xl border px-3.5 py-2.5 text-sm font-medium shadow-soft ${
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-semibold shadow-soft ${
               visibleOk
-                ? "border-success/30 bg-success/10 text-success"
-                : "border-danger/30 bg-danger/10 text-danger"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+                : "border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200"
             }`}
           >
             {visibleMessage}
           </p>
         ) : null}
+      </form>
+
+      <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-5 shadow-soft">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">
+            Custom Period Preview &amp; Adjustment
+          </h3>
+          <p className="mt-1 text-xs text-muted">
+            Inspect hours worked and preview accruals over a specific historical date range.
+          </p>
+        </div>
 
         <form action={previewAction} className="grid gap-3">
           <div className="grid gap-2 sm:grid-cols-2">

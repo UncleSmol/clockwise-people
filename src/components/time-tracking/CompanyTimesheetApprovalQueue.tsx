@@ -4,6 +4,11 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardCheck,
   Clock,
   FileText,
@@ -11,12 +16,13 @@ import {
   LocateFixed,
   LogOut,
   MapPin,
+  Square,
   Timer,
   UtensilsCrossed,
   XCircle,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useMemo, useEffect, useCallback, useRef } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewSubmittedTimesheets } from "@/lib/time-tracking/actions";
 import type { CompanySubmittedTimesheet } from "@/lib/time-tracking/schema";
@@ -209,14 +215,89 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
 export default function CompanyTimesheetApprovalQueue({
   timesheets,
 }: CompanyTimesheetApprovalQueueProps) {
+  const queueSectionRef = useRef<HTMLElement>(null);
   const [activeMapEntryId, setActiveMapEntryId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  // Timesheets Pagination setup matching EmployeeTimesheetCorrections
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
+  const totalTimesheets = timesheets.length;
+  const totalPages = Math.max(1, Math.ceil(totalTimesheets / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedTimesheets = useMemo(() => {
+    const startIndex = (page - 1) * pageSize;
+    return timesheets.slice(startIndex, startIndex + pageSize);
+  }, [timesheets, page, pageSize]);
+
+  const startIndex = totalTimesheets > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endIndex = Math.min(page * pageSize, totalTimesheets);
+
+  const handlePageChange = useCallback((p: number) => {
+    setPage(p);
+    if (typeof window !== "undefined") {
+      requestAnimationFrame(() => {
+        queueSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, []);
+
+  const allSelected = totalTimesheets > 0 && selectedIds.size === totalTimesheets;
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(timesheets.map((t) => t.id)));
+    }
+  }, [allSelected, timesheets]);
+
+  const toggleSelectCurrentPage = useCallback(() => {
+    const pageIds = paginatedTimesheets.map((t) => t.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, [paginatedTimesheets, selectedIds]);
+
   const [state, formAction, pending] = useActionState(
-    reviewSubmittedTimesheets,
+    async (prev: ApprovalState, formData: FormData) => {
+      const result = await reviewSubmittedTimesheets(prev, formData);
+      if (result.ok) {
+        setSelectedIds(new Set());
+      }
+      return result;
+    },
     initialState,
   );
 
   return (
-    <section className="grid gap-4 min-w-0">
+    <section ref={queueSectionRef} className="grid gap-4 min-w-0">
       {/* Header */}
       <div className="card-hero-green rounded-2xl p-5 text-white shadow-soft sm:p-6">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
@@ -232,9 +313,47 @@ export default function CompanyTimesheetApprovalQueue({
               Approve ready timesheets or reject them with a clear note.
             </p>
           </div>
-          <span className="w-max rounded-full bg-white/20 px-3.5 py-1 text-xs font-bold text-white shadow-soft backdrop-blur-xs">
-            {timesheets.length} ready
-          </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {timesheets.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={toggleSelectCurrentPage}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
+                >
+                  <CheckSquare className="size-3.5" />
+                  Select page ({paginatedTimesheets.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
+                >
+                  {allSelected ? (
+                    <>
+                      <Square className="size-3.5" />
+                      Deselect all
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="size-3.5" />
+                      Select all ({timesheets.length})
+                    </>
+                  )}
+                </button>
+              </>
+            ) : null}
+
+            <span className="w-max rounded-full bg-white/20 px-3.5 py-1 text-xs font-bold text-white shadow-soft backdrop-blur-xs">
+              {timesheets.length} ready
+            </span>
+            {selectedIds.size > 0 && (
+              <span className="w-max rounded-full bg-emerald-300 text-emerald-950 px-3 py-1 text-xs font-black shadow-soft">
+                {selectedIds.size} selected
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -256,8 +375,12 @@ export default function CompanyTimesheetApprovalQueue({
         </p>
       ) : (
         <form action={formAction} className="grid gap-4">
+          {Array.from(selectedIds).map((id) => (
+            <input key={id} type="hidden" name="time_entry_ids" value={id} />
+          ))}
+
           <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
-            {timesheets.map((timesheet) => {
+            {paginatedTimesheets.map((timesheet) => {
               const hasWarning =
                 timesheet.missing_clocking ||
                 timesheet.late_arrival ||
@@ -271,11 +394,16 @@ export default function CompanyTimesheetApprovalQueue({
               );
               const clockOutDeviance = milestones.find((m) => m.eventType === "clock_out")?.isDeviance;
               const isCompliant = (validation?.isCompliant ?? !hasWarning) && deviances.length === 0;
+              const isSelected = selectedIds.has(timesheet.id);
 
               return (
                 <article
                   key={timesheet.id}
                   className={`flex flex-col justify-between gap-3 rounded-2xl p-4 shadow-soft transition-all w-full max-w-full overflow-hidden ${
+                    isSelected
+                      ? "ring-3 ring-white shadow-xl scale-[1.01]"
+                      : ""
+                  } ${
                     isCompliant
                       ? "card-hero-green text-white"
                       : "bg-rose-600 text-white"
@@ -287,8 +415,8 @@ export default function CompanyTimesheetApprovalQueue({
                       <label className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full border border-white/30 bg-white/20 shadow-soft hover:bg-white/30 transition-colors">
                         <input
                           type="checkbox"
-                          name="time_entry_ids"
-                          value={timesheet.id}
+                          checked={isSelected}
+                          onChange={() => toggleSelect(timesheet.id)}
                           aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
                           className="size-4 accent-primary cursor-pointer"
                         />
@@ -541,6 +669,127 @@ export default function CompanyTimesheetApprovalQueue({
             })}
           </div>
 
+          {/* Timesheets Pagination Controls matching EmployeeTimesheetCorrections */}
+          {totalTimesheets > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-soft">
+              <div className="flex flex-wrap items-center gap-2 text-muted">
+                <span>
+                  Showing <strong className="font-bold text-foreground">{startIndex}</strong> to{" "}
+                  <strong className="font-bold text-foreground">{endIndex}</strong> of{" "}
+                  <strong className="font-bold text-foreground">{totalTimesheets}</strong> timesheets
+                </span>
+
+                <div className="flex items-center gap-1.5 ml-2">
+                  <span className="text-[11px] font-semibold text-muted">Per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
+                  >
+                    {[6, 12, 24, 48].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedIds.size > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold text-primary border border-primary/20">
+                    {selectedIds.size} selected
+                  </span>
+                )}
+              </div>
+
+              {totalPages > 1 ? (
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(1)}
+                    disabled={page <= 1}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="First page"
+                    aria-label="First page"
+                  >
+                    <ChevronsLeft className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(Math.max(1, page - 1))}
+                    disabled={page <= 1}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="Previous page"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+
+                  <div className="flex items-center gap-1 px-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => {
+                        return (
+                          p === 1 ||
+                          p === totalPages ||
+                          Math.abs(p - page) <= 1
+                        );
+                      })
+                      .reduce<Array<number | string>>((acc, p, idx, arr) => {
+                        if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
+                          acc.push("...");
+                        }
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((item, idx) =>
+                        typeof item === "string" ? (
+                          <span key={`ts-page-ellipsis-${idx}`} className="px-1 text-muted">
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={`ts-page-${item}`}
+                            type="button"
+                            onClick={() => handlePageChange(item)}
+                            className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              item === page
+                                ? "bg-primary text-primary-foreground shadow-2xs scale-105"
+                                : "hover:bg-surface-muted text-muted hover:text-foreground"
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                    disabled={page >= totalPages}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="Next page"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={page >= totalPages}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="Last page"
+                    aria-label="Last page"
+                  >
+                    <ChevronsRight className="size-3.5" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Action Note Box & Decision Buttons */}
           <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-soft">
             <label className="grid gap-1.5">
@@ -560,20 +809,28 @@ export default function CompanyTimesheetApprovalQueue({
               <button
                 name="decision"
                 value="reject"
-                disabled={pending}
+                disabled={pending || selectedIds.size === 0}
                 className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-6 py-2.5 text-xs font-extrabold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition-all shadow-soft cursor-pointer"
               >
                 <XCircle className="size-4 shrink-0" />
-                {pending ? "Working..." : "Reject selected"}
+                {pending
+                  ? "Working..."
+                  : selectedIds.size > 0
+                    ? `Reject selected (${selectedIds.size})`
+                    : "Reject selected"}
               </button>
               <button
                 name="decision"
                 value="approve"
-                disabled={pending}
+                disabled={pending || selectedIds.size === 0}
                 className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-xs font-extrabold text-white hover:bg-primary-hover disabled:opacity-50 shadow-soft transition-all cursor-pointer"
               >
                 <CheckCircle2 className="size-4 shrink-0 text-white" />
-                {pending ? "Working..." : "Approve selected"}
+                {pending
+                  ? "Working..."
+                  : selectedIds.size > 0
+                    ? `Approve selected (${selectedIds.size})`
+                    : "Approve selected"}
               </button>
             </div>
           </div>

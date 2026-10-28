@@ -185,3 +185,184 @@ export function evaluateLeaveAccrual(input: AccrualEvaluationInput): AccrualEval
     auditDerivation,
   };
 }
+
+export type SimpleLeaveAccrualInput = {
+  shiftsWorked: number;
+  hoursWorked: number;
+  overtimeHours: number;
+  leaveType: {
+    id?: string;
+    name: string;
+    category: string;
+    accrual_rules?: Record<string, unknown> | null;
+  };
+  monthsEmployed: number;
+  standardDailyHours?: number;
+  workingDaysPerWeek?: number;
+  standardAnnualHours?: number;
+  toilMultiplier?: number;
+  toilEnabled?: boolean;
+};
+
+export type SimpleLeaveAccrualResult = {
+  accruedHours: number;
+  accruedDays: number;
+  explanation: string;
+};
+
+/**
+ * Clean, statutory & company-configured deterministic leave accrual engine.
+ * 
+ * Rules:
+ * 1. Annual Leave (BCEA Section 20):
+ *    - Standard setup: 1.75 days per 17 days worked (or 1h per 17h worked).
+ *    - Working 17 shifts (or 136h) yields 1.75 days (14h at 8h/day).
+ *    - Pro-rated against configured yearly entitlement hours (e.g. 17 days = 136h, 21 days = 168h, 15 days = 120h).
+ *    - Strictly 0 if 0 shifts or 0 hours worked.
+ * 
+ * 2. Overtime TOIL (BCEA Section 10(3)(b)):
+ *    - Accrues at configured multiplier (default 1.5x) of approved overtime hours worked.
+ * 
+ * 3. Sick Leave (BCEA Section 22):
+ *    - 1 day per 26 days worked, pro-rated up to annual entitlement (e.g. 80h / 10 days).
+ * 
+ * 4. Family Responsibility Leave (BCEA Section 27):
+ *    - 3 days (24h) statutory entitlement for employees with >= 4 months of service who have worked >= 16 shifts.
+ */
+/**
+ * Evaluates dynamic leave accrual conforming to South African BCEA statutory requirements
+ * and company/employee work rules:
+ * 
+ * 1. Annual Leave (BCEA Section 20):
+ *    - Entitlement is based on work rule assigned (typically 15, 17, or 21 days/year).
+ *    - 15 working days = statutory BCEA minimum for 5-day week (equivalent to 21 consecutive days).
+ *    - 17 working days = industry standard benchmark (~1.42 days/mo).
+ *    - 21 working days = standard professional 4-week benchmark (1.75 days/mo).
+ *    - Days needed to accrue 1 day of leave = annualWorkingDays / entitlementDays (e.g. 260/15 = 17.33 shifts, 260/17 = 15.29 shifts, 260/21 = 12.38 shifts).
+ *    - Statutory floor: 1 hour per 17 hours worked (BCEA Section 20(2)(c)) OR 1 day per 17 days worked (BCEA Section 20(2)(b)).
+ *    - No employee is robbed of their hours: max(shiftAccrual, hoursAccrual, bceaFloor).
+ * 
+ * 2. Overtime TOIL (BCEA Section 10(3)(b)):
+ *    - Accrues at configured multiplier (default 1.5x) of approved overtime hours worked.
+ * 
+ * 3. Sick Leave (BCEA Section 22):
+ *    - 1 day per 26 days worked, pro-rated up to annual entitlement (e.g. 80h / 10 days for 5-day week).
+ * 
+ * 4. Family Responsibility Leave (BCEA Section 27):
+ *    - 3 days (24h) statutory entitlement for employees with >= 4 months of service who have worked >= 16 shifts.
+ */
+export function calculateSimpleLeaveAccrual(input: SimpleLeaveAccrualInput): SimpleLeaveAccrualResult {
+  const {
+    shiftsWorked,
+    hoursWorked,
+    overtimeHours,
+    leaveType,
+    monthsEmployed,
+    standardDailyHours = 8,
+    workingDaysPerWeek = 5,
+    standardAnnualHours,
+    toilMultiplier = 1.5,
+    toilEnabled = true,
+  } = input;
+
+  const category = (leaveType.category || "").toLowerCase();
+  const yearlyHours = Number(leaveType.accrual_rules?.yearly_hours ?? 0);
+  
+  // Resolve entitlement days from work rule / leave type configuration
+  const rawEntitlementDays = Number(
+    leaveType.accrual_rules?.entitlement_days ??
+    leaveType.accrual_rules?.entitlement_amount ??
+    leaveType.accrual_rules?.yearly_days ??
+    (yearlyHours > 0 && yearlyHours <= 40 ? yearlyHours : 0)
+  );
+
+  const entitlementDays = rawEntitlementDays > 0
+    ? rawEntitlementDays
+    : yearlyHours > 0
+      ? Number((yearlyHours / standardDailyHours).toFixed(2))
+      : (category === "annual" ? 15.0 : category === "sick" ? 10.0 : category === "family_responsibility" ? 3.0 : 0);
+
+  const daysPerWeek = Math.max(1, Math.min(7, Number(workingDaysPerWeek || 5)));
+  const annualWorkingDays = Math.max(1, Math.round(daysPerWeek * 52)); // e.g. 5 * 52 = 260 days, 6 * 52 = 312 days
+  const annualWorkingHours = standardAnnualHours && standardAnnualHours > 0
+    ? standardAnnualHours
+    : annualWorkingDays * standardDailyHours; // e.g. 260 * 8 = 2080h
+
+  let accruedHours = 0;
+  let explanation = "";
+
+  if (shiftsWorked === 0 || hoursWorked <= 0) {
+    return {
+      accruedHours: 0,
+      accruedDays: 0,
+      explanation: "No recorded shifts or hours worked; statutory accrual is 0.00h.",
+    };
+  }
+
+  if (category === "annual") {
+    const annualCapHours = Number(
+      leaveType.accrual_rules?.annual_cap_hours ??
+      leaveType.accrual_rules?.cap_hours ??
+      0
+    );
+
+    // 1. Shift-based accrual according to employee's assigned work rule & entitlement (15, 17, 21 days)
+    // Days needed to accumulate 1 day of leave:
+    const daysNeededPerDay = Number((annualWorkingDays / Math.max(1, entitlementDays)).toFixed(2));
+    const shiftAccrual = Number(((shiftsWorked * (entitlementDays * standardDailyHours)) / annualWorkingDays).toFixed(2));
+
+    // 2. Hours-based accrual according to work rule
+    const hoursAccrual = Number(((hoursWorked * (entitlementDays * standardDailyHours)) / annualWorkingHours).toFixed(2));
+
+    // 3. Statutory BCEA Section 20 floor: 1 hour per 17 hours worked (or 1 day per 17 days worked)
+    const bceaHoursFloor = Number((hoursWorked / 17.0).toFixed(2));
+    const bceaShiftsFloor = Number(((shiftsWorked / 17.0) * standardDailyHours).toFixed(2));
+    const bceaFloor = Math.max(bceaHoursFloor, bceaShiftsFloor);
+
+    // Accrued hours is the highest of work rule pro-rata or statutory BCEA floor
+    accruedHours = Math.max(shiftAccrual, hoursAccrual, bceaFloor);
+    const days = Number((accruedHours / standardDailyHours).toFixed(2));
+    const capNote = annualCapHours > 0 ? ` [Capped at ${annualCapHours}h, accrues on hours worked once depleted]` : "";
+    explanation = `${shiftsWorked} shifts (${hoursWorked.toFixed(1)}h worked, ${standardDailyHours}h/day schedule) → ${accruedHours.toFixed(2)}h (${days.toFixed(1)} days) accrued based on ${entitlementDays}d entitlement (${daysNeededPerDay} shifts to accrue 1 day, BCEA 1:17 floor protected)${capNote}.`;
+  } else if (category === "toil_taken" || leaveType.name.toLowerCase().includes("toil")) {
+    if (toilEnabled && overtimeHours > 0) {
+      accruedHours = Number((overtimeHours * toilMultiplier).toFixed(2));
+      const days = Number((accruedHours / standardDailyHours).toFixed(2));
+      explanation = `${overtimeHours.toFixed(2)}h overtime worked × ${toilMultiplier.toFixed(2)}× rate = ${accruedHours.toFixed(2)}h (${days.toFixed(1)} days) TOIL accrued.`;
+    } else {
+      accruedHours = 0;
+      explanation = toilEnabled ? "0 overtime hours worked." : "TOIL engine is disabled.";
+    }
+  } else if (category === "sick") {
+    const sickDays = entitlementDays > 0 ? entitlementDays : 10;
+    const cap = yearlyHours > 0 ? yearlyHours : Number((sickDays * standardDailyHours).toFixed(2));
+    const shiftSick = Number(((shiftsWorked / 26.0) * standardDailyHours).toFixed(2));
+    const hoursSick = Number((hoursWorked / 26.0).toFixed(2));
+    const proRataSick = Number(((cap * hoursWorked) / annualWorkingHours).toFixed(2));
+    accruedHours = Math.min(cap, Math.max(shiftSick, hoursSick, proRataSick));
+    const days = Number((accruedHours / standardDailyHours).toFixed(2));
+    explanation = `${shiftsWorked} shifts worked → ${accruedHours.toFixed(2)}h (${days.toFixed(1)} days) sick leave accrued (BCEA Section 22 1:26 rate, capped at ${cap}h/yr).`;
+  } else if (category === "family_responsibility" || category === "frl") {
+    if (monthsEmployed >= 4 && shiftsWorked >= 16) {
+      const frlDays = entitlementDays > 0 ? entitlementDays : 3;
+      accruedHours = yearlyHours > 0 ? yearlyHours : Number((frlDays * standardDailyHours).toFixed(2));
+      const days = Number((accruedHours / standardDailyHours).toFixed(2));
+      explanation = `Qualified (employed ${monthsEmployed.toFixed(1)} months >= 4m & ${shiftsWorked} shifts >= 16): ${accruedHours.toFixed(2)}h (${days.toFixed(1)} days) Family Responsibility Leave.`;
+    } else {
+      accruedHours = 0;
+      explanation = `Requires at least 4 months of service and 16 shifts (currently ${monthsEmployed.toFixed(1)}m, ${shiftsWorked} shifts).`;
+    }
+  } else {
+    accruedHours = 0;
+    explanation = `Leave category "${category}" does not accrue automatically.`;
+  }
+
+  const accruedDays = Number((accruedHours / standardDailyHours).toFixed(2));
+
+  return {
+    accruedHours,
+    accruedDays,
+    explanation,
+  };
+}
+

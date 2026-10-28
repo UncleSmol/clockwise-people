@@ -6,6 +6,7 @@ import {
   getCurrentUserAccess,
   requireUser,
 } from "@/lib/foundation/queries";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   CompanyWorkRulesData,
   EmployeeLeaveState,
@@ -155,6 +156,12 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
       : typeof leaveRules.carry_over_cap_hours === "string" && leaveRules.carry_over_cap_hours.trim() !== ""
         ? Number(leaveRules.carry_over_cap_hours)
         : carryOverHours;
+  const annualLeaveCapHours =
+    typeof leaveRules.annual_leave_cap_hours === "number"
+      ? leaveRules.annual_leave_cap_hours
+      : typeof leaveRules.annual_leave_cap_hours === "string" && leaveRules.annual_leave_cap_hours.trim() !== ""
+        ? Number(leaveRules.annual_leave_cap_hours)
+        : null;
   const lockImportedBaselines = Boolean(leaveRules.lock_imported_leave_baselines ?? true);
   const accrualBaselineDate = (leaveRules.accrual_baseline_date as string) || null;
   const preventAdditiveImportStacking = Boolean(leaveRules.prevent_additive_import_stacking ?? true);
@@ -185,6 +192,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     carryOverHours: carryOverHours !== null && Number.isFinite(carryOverHours) ? carryOverHours : null,
     useItOrLoseItEnabled,
     carryOverCapHours: carryOverCapHours !== null && Number.isFinite(carryOverCapHours) ? carryOverCapHours : null,
+    annualLeaveCapHours: annualLeaveCapHours !== null && Number.isFinite(annualLeaveCapHours) ? annualLeaveCapHours : null,
     lockImportedBaselines,
     accrualBaselineDate,
     preventAdditiveImportStacking,
@@ -460,18 +468,39 @@ export const getCompanyLeaveRequestQueue = cache(async function getCompanyLeaveR
     requireUser(),
   ]);
 
-  if (!access.canReviewBranchTime && !access.canManageDirectReports) {
+  const canReview =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canManageCompany ||
+    access.canReviewBranchTime ||
+    access.canManageDirectReports;
+
+  if (!canReview) {
     return [];
   }
 
-  const { data, error } = await supabase
+  // Use admin client when user has Root Admin, Admin, or Manager role to guarantee complete queue visibility across tenants
+  const client =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canManageCompany
+      ? createSupabaseAdminClient()
+      : supabase;
+
+  const { data, error } = await client
     .from("leave_requests")
     .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, use_toil_first, toil_hours_used, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
     .eq("company_id", company.id)
     .eq("status", "submitted")
     .is("deleted_at", null)
     .order("submitted_at", { ascending: true })
-    .limit(30);
+    .limit(200);
 
   if (error) {
     throw new Error(error.message);

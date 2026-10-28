@@ -80,7 +80,7 @@ function navItemDescription(key: string) {
     case "leave":
       return "Book leave, view balances & requests";
     case "manager-review":
-      return "Approve submitted timesheets & corrections";
+      return "Approve leave requests, timesheets & corrections";
     case "my-reports":
       return "View shift hours worked & mini reports";
     case "account":

@@ -111,6 +111,11 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
       ? String(data.carryOverCapHours)
       : ""
   );
+  const [annualLeaveCap, setAnnualLeaveCap] = useState(
+    data.annualLeaveCapHours !== null && data.annualLeaveCapHours !== undefined
+      ? String(data.annualLeaveCapHours)
+      : ""
+  );
   const [lockBaselines, setLockBaselines] = useState(
     Boolean(data.lockImportedBaselines ?? true)
   );
@@ -131,6 +136,9 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
   const [autoClockoutGrace, setAutoClockoutGrace] = useState(
     Number(data.autoClockoutGraceMinutes ?? 0),
   );
+
+  const [addCategory, setAddCategory] = useState("annual");
+  const [addEntitlementDays, setAddEntitlementDays] = useState(15);
 
   const [isPendingProvision, startProvisionTransition] = useTransition();
   const [provisionMessage, setProvisionMessage] = useState<string | null>(null);
@@ -367,16 +375,21 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
 
           {(activeSection === "all" || activeSection === "leave_rules") && (
             <form action={leaveAction} className="grid gap-3 rounded-xl border border-border bg-surface p-4 shadow-2xs">
-              <h3 className="font-bold text-foreground text-sm">
-                Configure Leave Rule Engine
-              </h3>
+              <div>
+                <h3 className="font-bold text-foreground text-sm">
+                  Add Leave Rule
+                </h3>
+                <p className="text-xs text-muted mt-0.5">
+                  Define annual entitlement. The engine automatically calculates dynamic accrual based on shifts &amp; hours worked (1.75 days per 17 days worked).
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="grid gap-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Rule Name</span>
                   <input
                     name="name"
-                    placeholder="e.g. Statutory Annual Leave"
+                    placeholder="e.g. Annual Leave"
                     className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     required
                   />
@@ -386,6 +399,14 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Category</span>
                   <select
                     name="category"
+                    value={addCategory}
+                    onChange={(e) => {
+                      const cat = e.target.value;
+                      setAddCategory(cat);
+                      if (cat === "annual") setAddEntitlementDays(15);
+                      else if (cat === "sick") setAddEntitlementDays(10);
+                      else if (cat === "family_responsibility") setAddEntitlementDays(3);
+                    }}
                     className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary"
                   >
                     {leaveCategories.map((category) => (
@@ -397,88 +418,63 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 </label>
               </div>
 
-              {/* Entitlement & Unit */}
+              {/* Simple Entitlement in Days with 15, 17, 21 BCEA Standard Presets */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Entitlement</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Annual Entitlement (Days)</span>
                   <input
-                    name="entitlement_amount"
-                    type="number"
-                    min="0"
-                    step="0.25"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-mono focus:border-primary"
-                    placeholder="15"
-                    defaultValue="15"
-                  />
-                </label>
-
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Entitlement Unit</span>
-                  <select
-                    name="entitlement_unit"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-semibold focus:border-primary"
-                  >
-                    <option value="days">Days (Schedule-Derived Hours)</option>
-                    <option value="hours">Hours (Direct Entitlement)</option>
-                  </select>
-                </label>
-              </div>
-
-              {/* Accrual Method & Proration */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Accrual Method</span>
-                  <select
-                    name="accrual_method"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-semibold focus:border-primary"
-                  >
-                    <option value="monthly">Method B: Monthly Accrual (1/12th per month)</option>
-                    <option value="annual_upfront">Method A: Annual Upfront Entitlement</option>
-                    <option value="service_prorated">Method C: Pro-Rata Based on Service Period</option>
-                    <option value="hours_worked_divisor">Method D: Hours-Worked Divisor (Qualifying Hours / X)</option>
-                  </select>
-                </label>
-
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Proration Basis (Method C)</span>
-                  <select
-                    name="proration_mode"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
-                  >
-                    <option value="scheduled_working_hours">Scheduled Working Hours (Exact)</option>
-                    <option value="scheduled_working_days">Scheduled Working Days</option>
-                    <option value="calendar_days">Calendar Days</option>
-                    <option value="completed_months">Completed Months</option>
-                  </select>
-                </label>
-              </div>
-
-              {/* Method D Divisor & Rounding */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Hours Divisor (Method D)</span>
-                  <input
-                    name="hours_divisor"
+                    name="entitlement_days"
                     type="number"
                     min="1"
-                    placeholder="e.g. 20 (1h per 20h worked)"
+                    max="365"
+                    step="0.5"
+                    value={addEntitlementDays}
+                    onChange={(e) => setAddEntitlementDays(Number(e.target.value) || 0)}
                     className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-mono focus:border-primary"
+                    placeholder="15, 17, or 21"
+                    required
                   />
+                  {addCategory === "annual" && (
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <span className="text-[10px] text-muted font-bold">Standard Presets:</span>
+                      {[15, 17, 21].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setAddEntitlementDays(preset)}
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-black transition-all cursor-pointer ${
+                            addEntitlementDays === preset
+                              ? "bg-primary text-white shadow-2xs"
+                              : "bg-surface-muted text-foreground hover:bg-border border border-border"
+                          }`}
+                        >
+                          {preset} Days {preset === 15 ? "(BCEA Min)" : preset === 21 ? "(4 Weeks)" : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </label>
 
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted">Rounding Precision</span>
-                  <select
-                    name="rounding_precision"
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none font-mono focus:border-primary"
-                  >
-                    <option value="0.01">0.01 (Two Decimals)</option>
-                    <option value="0.1">0.1 (One Decimal)</option>
-                    <option value="0.25">0.25 (Quarter Unit)</option>
-                    <option value="0.5">0.5 (Half Unit)</option>
-                    <option value="1.0">1.0 (Whole Unit)</option>
-                  </select>
-                </label>
+                <div className="flex flex-col justify-end pb-1 text-xs text-muted">
+                  <span className="font-semibold text-foreground">Accrual Rate &amp; BCEA Conformity:</span>
+                  {addCategory === "annual" ? (
+                    <span className="mt-0.5 leading-relaxed text-[11px]">
+                      Employees accumulate <strong>1 day of leave every {(260 / Math.max(1, addEntitlementDays)).toFixed(1)} shifts worked</strong> ({(addEntitlementDays / 12).toFixed(2)}d/month on a 5-day week), protected by BCEA Section 20 statutory minimum floor of 1h per 17h worked.
+                    </span>
+                  ) : addCategory === "sick" ? (
+                    <span className="mt-0.5 leading-relaxed text-[11px]">
+                      Accrues 1 day per 26 days worked under BCEA Section 22, capped at {addEntitlementDays} days/yr ({addEntitlementDays * 8}h).
+                    </span>
+                  ) : addCategory === "family_responsibility" ? (
+                    <span className="mt-0.5 leading-relaxed text-[11px]">
+                      3 days (24h) statutory entitlement for employees employed &ge; 4 months with &ge; 16 shifts worked (BCEA Section 27).
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 leading-relaxed text-[11px]">
+                      Leave movements tracked per approved requests.
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Toggles */}
@@ -490,12 +486,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
 
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" name="requires_attachment" className="size-4 rounded border-border text-primary focus:ring-primary" />
-                  Requires Attachment
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="use_it_or_lose_it" className="size-4 rounded border-border text-primary focus:ring-primary" />
-                  &quot;Use It or Lose It&quot; Forfeiture
+                  Requires Attachment / Proof
                 </label>
               </div>
 
@@ -503,7 +494,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                 disabled={leavePending}
                 className="mt-1 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-2xs hover:bg-primary/90 disabled:opacity-60 transition-all cursor-pointer"
               >
-                {leavePending ? "Saving Leave Rule..." : "Save Configurable Leave Rule"}
+                {leavePending ? "Saving Leave Rule..." : "Add Leave Rule"}
               </button>
             </form>
           )}
@@ -644,36 +635,79 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           )}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {/* Setting 1: Use It or Lose It Policy */}
+            {/* Setting 1: Carry Over vs Use It or Lose It Policy */}
+            <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
+              <div>
+                <span className="text-xs font-bold text-foreground block mb-2">Leave Rollover Policy</span>
+                <div className="grid gap-2.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-border/60 bg-surface p-2.5 hover:border-primary/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="policy_type"
+                      value="carry_over"
+                      checked={!useItOrLoseIt}
+                      onChange={() => setUseItOrLoseIt(false)}
+                      className="mt-0.5 size-4 text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">Carry Over Policy</span>
+                      <span className="text-[11px] text-muted block leading-relaxed">
+                        Unused leave balances roll over into the next annual leave cycle.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-border/60 bg-surface p-2.5 hover:border-primary/50 transition-colors">
+                    <input
+                      type="radio"
+                      name="policy_type"
+                      value="use_it_or_lose_it"
+                      checked={useItOrLoseIt}
+                      onChange={() => setUseItOrLoseIt(true)}
+                      className="mt-0.5 size-4 text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">&quot;Use It or Lose It&quot; Policy</span>
+                      <span className="text-[11px] text-muted block leading-relaxed">
+                        Unused leave from the expired cycle is forfeited at annual cycle renewal. Current cycle leave accumulates with shifts worked.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="border-t border-border/60 pt-2 text-[11px] text-muted font-medium">
+                {useItOrLoseIt ? (
+                  <span className="text-amber-800 dark:text-amber-300 font-semibold">
+                    ⚠ Unused leave from the prior cycle expires at cycle renewal. Current accrued balance remains intact and available to use.
+                  </span>
+                ) : (
+                  <span className="text-emerald-800 dark:text-emerald-300 font-semibold">
+                    ✓ Full leave balance carries forward into the subsequent year.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Setting 2: Carry-Over Cap */}
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-foreground">
-                    <input
-                      type="checkbox"
-                      name="use_it_or_lose_it_enabled"
-                      checked={useItOrLoseIt}
-                      onChange={(e) => setUseItOrLoseIt(e.target.checked)}
-                      className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>&quot;Use It or Lose It&quot; Policy</span>
-                  </label>
-                  <span
-                    className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                      useItOrLoseIt ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {useItOrLoseIt ? "Forfeiture ON" : "Rollover All"}
+                  <span className="font-bold text-xs text-foreground">
+                    Max Carry-Over Cap
+                  </span>
+                  <span className="rounded bg-slate-100 dark:bg-slate-800 border border-border px-2 py-0.5 text-[10px] font-mono font-bold text-muted">
+                    {carryCap ? `${carryCap} Hours` : "Unlimited"}
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs text-muted leading-relaxed">
-                  When enabled, accrued leave is forfeited at cycle end if not taken. Specify maximum carry-over hours allowed below.
+                  Maximum hours an employee is allowed to carry over into the new leave cycle. Leave empty or 0 for unlimited carry-over.
                 </p>
               </div>
 
               <div className="grid gap-1.5 border-t border-border/60 pt-2.5">
                 <span className="text-[11px] font-semibold text-muted">
-                  Max Carry-Over Hours Cap (0 = Strict Forfeiture)
+                  Max Carry-Over Hours
                 </span>
                 <div className="flex items-center gap-2">
                   <input
@@ -687,80 +721,49 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                     className="h-8 w-28 rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-hidden font-mono"
                   />
                   <span className="text-xs text-muted">
-                    {carryCap ? `(${ (Number(carryCap) / (data.standardDailyHours || 8)).toFixed(1) } days)` : "No Cap"}
+                    {carryCap ? `(${ (Number(carryCap) / (data.standardDailyHours || 8)).toFixed(1) } days)` : "No Cap (All hours carry over)"}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Setting 2: Import Baseline Lock & Anti-Double-Counting */}
+            {/* Setting 3: Annual Leave Cap (Formalize 144h cap, once depleted accrues based on hours worked) */}
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-foreground">
-                    <input
-                      type="checkbox"
-                      name="lock_imported_leave_baselines"
-                      checked={lockBaselines}
-                      onChange={(e) => setLockBaselines(e.target.checked)}
-                      className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>Lock Accruals to Import Baseline</span>
-                  </label>
-                  <span
-                    className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                      lockBaselines ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {lockBaselines ? "Protected" : "Unlocked"}
+                  <span className="font-bold text-xs text-foreground">
+                    Annual Leave Cap
+                  </span>
+                  <span className="rounded bg-emerald-100 text-emerald-950 dark:bg-emerald-950/80 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 px-2 py-0.5 text-[10px] font-mono font-bold">
+                    {annualLeaveCap ? `${annualLeaveCap} Hours` : "Uncapped"}
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs text-muted leading-relaxed">
-                  Prevents automated accruals from double-counting past work shifts prior to the imported balance date.
+                  Maximum annual leave balance cap. When depleted (e.g. leave is taken), accrual continues dynamically based on hours worked up to this cap.
                 </p>
               </div>
 
               <div className="grid gap-1.5 border-t border-border/60 pt-2.5">
-                <span className="text-[11px] font-semibold text-muted">Accrual Baseline Start Date</span>
-                <input
-                  type="date"
-                  name="accrual_baseline_date"
-                  value={baselineDate}
-                  onChange={(e) => setBaselineDate(e.target.value)}
-                  className="h-8 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-hidden"
-                />
-              </div>
-            </div>
-
-            {/* Setting 3: Direct Baseline Reset on Import */}
-            <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-foreground">
-                    <input
-                      type="checkbox"
-                      name="prevent_additive_import_stacking"
-                      checked={preventAdditive}
-                      onChange={(e) => setPreventAdditive(e.target.checked)}
-                      className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>Direct Baseline Reset on Import</span>
-                  </label>
-                  <span
-                    className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                      preventAdditive ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {preventAdditive ? "Overwrite" : "Additive"}
+                <span className="text-[11px] font-semibold text-muted">
+                  Max Annual Balance (Hours)
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    name="annual_leave_cap_hours"
+                    value={annualLeaveCap}
+                    onChange={(e) => setAnnualLeaveCap(e.target.value)}
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 144"
+                    className="h-8 w-28 rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-hidden font-mono font-bold"
+                  />
+                  <span className="text-xs text-muted">
+                    {annualLeaveCap
+                      ? `(${ (Number(annualLeaveCap) / (data.standardDailyHours || 8)).toFixed(1) } days cap)`
+                      : "No Cap (Standard BCEA)"}
                   </span>
                 </div>
-                <p className="mt-1.5 text-xs text-muted leading-relaxed">
-                  When importing leave balances, replace existing balances with imported figures instead of adding on top.
-                </p>
-              </div>
-
-              <div className="border-t border-border/60 pt-2.5 text-[11px] text-muted">
-                <span>Isolates balance modifications strictly to this company.</span>
               </div>
             </div>
           </div>

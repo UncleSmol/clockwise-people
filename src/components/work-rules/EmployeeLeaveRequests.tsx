@@ -126,6 +126,11 @@ export default function EmployeeLeaveRequests({
     [state.leaveTypes],
   );
 
+  const selectedLeaveType = useMemo(() => {
+    const targetId = applicationMode === "time_off" && annualLeaveType ? annualLeaveType.id : leaveTypeId;
+    return state.leaveTypes.find((lt) => lt.id === targetId) ?? null;
+  }, [state.leaveTypes, applicationMode, annualLeaveType, leaveTypeId]);
+
   const selectedDateEntry = useMemo(() => {
     if (!startDate) return null;
     return entries.find((e) => e.work_date === startDate) ?? null;
@@ -678,9 +683,14 @@ export default function EmployeeLeaveRequests({
                     {/* High-Contrast White Metrics Box */}
                     <div className="rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-soft">
                       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight">Available Balance</p>
-                      <p className={`text-base font-black font-mono leading-tight mt-0.5 ${isToil ? "text-amber-800" : "text-emerald-800"}`}>
-                        {balHours.toFixed(2)}h
-                      </p>
+                      <div className="flex items-baseline justify-center gap-1.5 mt-0.5">
+                        <span className={`text-base font-black font-mono leading-tight ${isToil ? "text-amber-800" : "text-emerald-800"}`}>
+                          {(balHours / 8).toFixed(1)} days
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500">
+                          ({balHours.toFixed(2)}h)
+                        </span>
+                      </div>
                     </div>
 
                     {/* Footer Pills */}
@@ -903,11 +913,17 @@ export default function EmployeeLeaveRequests({
                     (lt.category === "toil_taken" ||
                       lt.id === toilLeaveType?.id ||
                       lt.name.toLowerCase().includes("toil"));
+                  const matchingBal = state.balances.find((b) => {
+                    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+                    return rel?.id === lt.id || b.leave_type_id === lt.id;
+                  });
+                  const bal = matchingBal ? Number(matchingBal.balance_hours ?? 0) : null;
+                  const balDisplay = bal !== null ? ` (${(bal / 8).toFixed(1)} days / ${bal.toFixed(1)}h)` : "";
                   return (
                     <option key={lt.id} value={lt.id} className="truncate">
                       {isToil
-                        ? `⚡ ${lt.name} (${toilAvailableHours.toFixed(2)}h balance available)`
-                        : lt.name}
+                        ? `⚡ ${lt.name}${balDisplay || ` (${toilAvailableHours.toFixed(2)}h available)`}`
+                        : `${lt.name}${balDisplay}`}
                     </option>
                   );
                 })}
@@ -1431,27 +1447,32 @@ export default function EmployeeLeaveRequests({
             </div>
           )}
 
-          <label className="grid w-full min-w-0 max-w-full gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-              Attachment Link
-            </span>
-            <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-background px-3.5 overflow-hidden">
-              <Link className="size-4 shrink-0 text-muted" />
-              <input
-                name="attachment_url"
-                value={attachmentUrl}
-                onChange={(event) => setAttachmentUrl(event.target.value)}
-                className="h-10 w-full min-w-0 max-w-full flex-1 truncate bg-transparent text-sm text-foreground outline-none"
-                placeholder="Attachment link, if needed"
-              />
-            </span>
-          </label>
-          <StorageUploadButton
-            accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-            folder="attachment"
-            hint="Allowed: PDF, JPG, PNG, WebP (Max 10 MB). Executable scripts and macro-enabled files are blocked."
-            onUploaded={(publicUrl) => setAttachmentUrl(publicUrl)}
-          />
+          {/* Supporting Document / Medical Certificate Dropzone */}
+          <div className="grid w-full min-w-0 max-w-full gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                Supporting Document / Medical Certificate
+              </span>
+              {selectedLeaveType?.requires_attachment ? (
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                  Proof required for this leave rule
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted">Images (JPG, PNG, WebP) or PDF</span>
+              )}
+            </div>
+
+            <StorageUploadButton
+              accept=".pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf"
+              folder="attachment"
+              variant="dropzone"
+              currentUrl={attachmentUrl}
+              onUploaded={(publicUrl) => setAttachmentUrl(publicUrl)}
+              onClear={() => setAttachmentUrl("")}
+              hint="Upload clear images or PDF certificates (up to 5 MB). Uploads are stored securely in Supabase storage."
+            />
+            <input type="hidden" name="attachment_url" value={attachmentUrl} />
+          </div>
 
 
           <label className="grid w-full min-w-0 max-w-full gap-1">
@@ -1736,6 +1757,25 @@ export default function EmployeeLeaveRequests({
                       <div className="rounded-xl bg-white/10 p-2 text-[11px] text-white/90 break-words">
                         <span className="font-bold text-white/70">Reason: </span>
                         <span>{request.reason}</span>
+                      </div>
+                    ) : null}
+
+                    {/* Supporting Attachment Link / Proof */}
+                    {request.attachment_url ? (
+                      <div className="flex items-center justify-between rounded-xl bg-white/15 p-2 text-[11px] text-white shadow-2xs">
+                        <span className="flex items-center gap-1.5 font-semibold truncate">
+                          <FileText className="size-3.5 shrink-0" />
+                          <span>Supporting Proof / Medical Note</span>
+                        </span>
+                        <a
+                          href={request.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg bg-white px-2.5 py-1 text-[10px] font-black text-slate-900 hover:bg-slate-100 transition shadow-2xs shrink-0 inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>View Proof</span>
+                          <span className="text-[9px]">&rarr;</span>
+                        </a>
                       </div>
                     ) : null}
 

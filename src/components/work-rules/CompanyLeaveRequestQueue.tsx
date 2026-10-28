@@ -1,6 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+import { useActionState, useState, useMemo, useEffect, useCallback, useRef } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewLeaveRequest } from "@/lib/work-rules/actions";
 import type { LeaveRequest } from "@/lib/work-rules/schema";
@@ -17,13 +23,43 @@ const initialState = {
 export default function CompanyLeaveRequestQueue({
   requests,
 }: CompanyLeaveRequestQueueProps) {
+  const queueSectionRef = useRef<HTMLElement>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
+  const totalRequests = requests.length;
+  const totalPages = Math.max(1, Math.ceil(totalRequests / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (page - 1) * pageSize;
+    return requests.slice(startIndex, startIndex + pageSize);
+  }, [requests, page, pageSize]);
+
+  const startIndex = totalRequests > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endIndex = Math.min(page * pageSize, totalRequests);
+
+  const handlePageChange = useCallback((p: number) => {
+    setPage(p);
+    if (typeof window !== "undefined") {
+      requestAnimationFrame(() => {
+        queueSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, []);
+
   const [state, formAction, pending] = useActionState(
     reviewLeaveRequest,
     initialState,
   );
 
   return (
-    <section className="grid min-w-0 gap-4">
+    <section ref={queueSectionRef} className="grid min-w-0 gap-4">
       {/* Header */}
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
@@ -35,9 +71,30 @@ export default function CompanyLeaveRequestQueue({
             Approve or reject leave requests from employees you manage.
           </p>
         </div>
-        <span className="w-max rounded-full border border-border bg-surface px-3 py-1 text-xs font-bold text-foreground shadow-soft">
-          {requests.length} pending
-        </span>
+        <div className="flex items-center gap-2">
+          {totalRequests > pageSize ? (
+            <div className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="text-[11px] font-semibold">Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="px-2 py-0.5 text-xs rounded-full bg-background border border-border/80 text-foreground font-semibold cursor-pointer shadow-2xs"
+              >
+                {[6, 12, 24, 48].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <span className="w-max rounded-full border border-border bg-surface px-3 py-1 text-xs font-bold text-foreground shadow-soft">
+            {requests.length} pending
+          </span>
+        </div>
       </div>
 
       {state.message ? (
@@ -58,7 +115,7 @@ export default function CompanyLeaveRequestQueue({
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5 items-start">
-          {requests.map((request) => (
+          {paginatedRequests.map((request) => (
             <article
               key={request.id}
               className="flex flex-col justify-between gap-3 rounded-2xl bg-amber-700 p-4 text-white shadow-soft ring-1 ring-amber-800/80 min-w-0"
@@ -163,6 +220,120 @@ export default function CompanyLeaveRequestQueue({
         </div>
       )}
 
+      {/* Leave Requests Tab Pagination Controls */}
+      {totalRequests > 0 ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-soft">
+          <div className="flex flex-wrap items-center gap-2 text-muted">
+            <span>
+              Showing <strong className="font-bold text-foreground">{startIndex}</strong> to{" "}
+              <strong className="font-bold text-foreground">{endIndex}</strong> of{" "}
+              <strong className="font-bold text-foreground">{totalRequests}</strong> requests
+            </span>
+
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[11px] font-semibold text-muted">Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-amber-500 shadow-2xs font-semibold cursor-pointer"
+              >
+                {[6, 12, 24, 48].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-1.5 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => handlePageChange(1)}
+                disabled={page <= 1}
+                className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                title="First page"
+                aria-label="First page"
+              >
+                <ChevronsLeft className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePageChange(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-3.5" />
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    return (
+                      p === 1 ||
+                      p === totalPages ||
+                      Math.abs(p - page) <= 1
+                    );
+                  })
+                  .reduce<Array<number | string>>((acc, p, idx, arr) => {
+                    if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
+                      acc.push("...");
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    typeof item === "string" ? (
+                      <span key={`leave-page-ellipsis-${idx}`} className="px-1 text-muted">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={`leave-page-${item}`}
+                        type="button"
+                        onClick={() => handlePageChange(item)}
+                        className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          item === page
+                            ? "bg-amber-600 text-white shadow-2xs scale-105"
+                            : "hover:bg-surface-muted text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                disabled={page >= totalPages}
+                className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={page >= totalPages}
+                className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                title="Last page"
+                aria-label="Last page"
+              >
+                <ChevronsRight className="size-3.5" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

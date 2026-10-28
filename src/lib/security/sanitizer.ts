@@ -24,7 +24,7 @@ export type MediaUploadCategory = keyof typeof UPLOAD_WHITELIST;
 export const MAX_FILE_SIZES: Record<MediaUploadCategory, number> = {
   avatar: 5 * 1024 * 1024,      // 5 MB
   logo: 5 * 1024 * 1024,        // 5 MB
-  attachment: 10 * 1024 * 1024, // 10 MB
+  attachment: 5 * 1024 * 1024,  // 5 MB (aligned with Supabase Storage bucket)
   spreadsheet: 20 * 1024 * 1024 // 20 MB
 };
 

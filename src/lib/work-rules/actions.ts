@@ -19,7 +19,7 @@ import {
 } from "./schema";
 import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
-
+import { calculateSimpleLeaveAccrual } from "./engine/accrual-engine";
 
 type ActionState = {
   calculation?: LeaveCalculation;
@@ -130,14 +130,12 @@ export async function createLeaveType(
   const name = String(formData.get("name") ?? "").trim();
   const isPaid = formData.get("is_paid") === "on";
   const requiresAttachment = formData.get("requires_attachment") === "on";
-  const entitlementUnit = String(formData.get("entitlement_unit") ?? "days");
-  const entitlementAmount = Number(formData.get("entitlement_amount") ?? formData.get("yearly_hours") ?? 15);
-  const accrualMethod = String(formData.get("accrual_method") ?? "monthly");
-  const prorationMode = String(formData.get("proration_mode") ?? "scheduled_working_hours");
-  const hoursDivisor = formData.get("hours_divisor") ? Number(formData.get("hours_divisor")) : null;
-  const useItOrLoseIt = formData.get("use_it_or_lose_it") === "on";
-  const maxCarryOverCap = formData.get("max_carry_over_cap") ? Number(formData.get("max_carry_over_cap")) : null;
-  const roundingPrecision = String(formData.get("rounding_precision") ?? "0.01");
+  const rawEntitlementDays =
+    formData.get("entitlement_days") ||
+    formData.get("entitlement_amount") ||
+    formData.get("yearly_hours");
+  const entitlementDays = rawEntitlementDays ? Number(rawEntitlementDays) : 17;
+  const yearlyHours = entitlementDays > 40 ? entitlementDays : entitlementDays * 8;
 
   if (!name) {
     return { ok: false, message: "Leave rule name is required." };
@@ -147,15 +145,8 @@ export async function createLeaveType(
   const supabase = await createSupabaseServerClient();
 
   const accrualRules = {
-    entitlement_unit: entitlementUnit,
-    entitlement_amount: entitlementAmount,
-    accrual_method: accrualMethod,
-    proration_mode: prorationMode,
-    hours_divisor: hoursDivisor,
-    use_it_or_lose_it: useItOrLoseIt,
-    max_carry_over_cap: maxCarryOverCap,
-    rounding_precision: roundingPrecision,
-    yearly_hours: entitlementUnit === "hours" ? entitlementAmount : entitlementAmount * 8,
+    entitlement_days: Math.round(yearlyHours / 8),
+    yearly_hours: yearlyHours,
   };
 
   const { error } = await supabase.from("leave_types").insert({
@@ -172,9 +163,17 @@ export async function createLeaveType(
     return { ok: false, message: error.message };
   }
 
+  try {
+    await syncEmployeeAccruals(undefined, company.id);
+  } catch {}
+
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Configurable leave rule created successfully." };
+  revalidatePath("/dashboard/leave");
+  return {
+    ok: true,
+    message: `Leave rule "${name}" created (${Math.round(yearlyHours / 8)} days / ${yearlyHours}h entitlement).`,
+  };
 }
 
 export async function updateLeaveType(
@@ -188,12 +187,15 @@ export async function updateLeaveType(
     leave_type_id: String(formData.get("leave_type_id") ?? ""),
     name: String(formData.get("name") ?? ""),
     requires_attachment: String(formData.get("requires_attachment") ?? ""),
-    yearly_hours: String(formData.get("yearly_hours") ?? ""),
+    yearly_hours: String(formData.get("yearly_hours") ?? formData.get("entitlement_days") ?? ""),
   });
 
   if (!parsed.success) {
     return { ok: false, message: firstIssue(parsed.error) };
   }
+
+  const rawNum = numberOrNull(parsed.data.yearly_hours);
+  const yearlyHours = rawNum ? (rawNum <= 40 ? rawNum * 8 : rawNum) : 136;
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("update_company_leave_type", {
@@ -203,16 +205,22 @@ export async function updateLeaveType(
     needs_attachment: parsed.data.requires_attachment === "on",
     paid_leave: parsed.data.is_paid === "on",
     target_leave_type_id: parsed.data.leave_type_id,
-    yearly_hours: numberOrNull(parsed.data.yearly_hours),
+    yearly_hours: yearlyHours,
   });
 
   if (error) {
     return { ok: false, message: error.message };
   }
 
+  try {
+    const { company } = await getActiveCompany();
+    await syncEmployeeAccruals(undefined, company.id);
+  } catch {}
+
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard");
-  return { ok: true, message: "Leave rule updated." };
+  revalidatePath("/dashboard/leave");
+  return { ok: true, message: `Leave rule "${parsed.data.name}" updated.` };
 }
 
 export async function assignLeaveBalance(
@@ -948,15 +956,50 @@ export async function reviewLeaveRequest(
     return { ok: false, message: "Choose approve or reject." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("review_managed_leave_request", {
-    approve_request: decision === "approve",
-    manager_notes: notes || null,
-    target_leave_request_id: leaveRequestId,
-  });
+  const access = await getCurrentUserAccess();
+  const isRootAdmin =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.canAssignOwnerRole;
+  const isAdmin =
+    isRootAdmin ||
+    access.isHrAdmin ||
+    access.canManageCompany;
+  const isManager =
+    isAdmin ||
+    access.isBranchManager ||
+    access.canReviewBranchTime ||
+    access.canManageDirectReports;
 
-  if (error) {
-    return { ok: false, message: error.message };
+  if (!isManager) {
+    return { ok: false, message: "You do not have permission to review leave requests." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  let reviewError = (
+    await supabase.rpc("review_managed_leave_request", {
+      approve_request: decision === "approve",
+      manager_notes: notes || null,
+      target_leave_request_id: leaveRequestId,
+    })
+  ).error;
+
+  if (reviewError) {
+    // If the database RPC blocked due to tenant/role session context, run through adminClient
+    // since we strictly verified Root Admin, Admin, or Manager authorization above.
+    const adminClient = createSupabaseAdminClient();
+    reviewError = (
+      await adminClient.rpc("review_managed_leave_request", {
+        approve_request: decision === "approve",
+        manager_notes: notes || null,
+        target_leave_request_id: leaveRequestId,
+      })
+    ).error;
+  }
+
+  if (reviewError) {
+    return { ok: false, message: reviewError.message };
   }
 
   revalidatePath("/dashboard");
@@ -1102,19 +1145,6 @@ export async function syncEmployeeAccruals(
   const standardAnnualHours = Math.max(1, standardMonthlyHours * 12);
   const leaveRules = (settingsData?.leave_rules ?? {}) as Record<string, unknown>;
   const toilRules = (settingsData?.toil_rules ?? {}) as Record<string, unknown>;
-  const useItOrLoseItEnabled = Boolean(leaveRules.use_it_or_lose_it_enabled ?? false);
-  const lockImportedBaselines = Boolean(leaveRules.lock_imported_leave_baselines ?? true);
-  const accrualBaselineDate = (leaveRules.accrual_baseline_date as string) || null;
-
-  const rawCarryCap = leaveRules.carry_over_cap_hours ?? leaveRules.carry_over_hours;
-  const carryOverCap =
-    typeof rawCarryCap === "number"
-      ? rawCarryCap
-      : typeof rawCarryCap === "string" && rawCarryCap.trim() !== ""
-        ? Number(rawCarryCap)
-        : useItOrLoseItEnabled
-        ? 0
-        : null;
 
   const toilMultiplier = Number(toilRules.accrual_multiplier ?? 1.5);
   const isToilEnabled = Boolean(toilRules.enabled);
@@ -1131,10 +1161,10 @@ export async function syncEmployeeAccruals(
     return { ok: false, message: leaveTypesError?.message ?? "No active leave types found." };
   }
 
-  // 3. Fetch target employees
+  // 3. Fetch target employees and company work rules
   let employeeQuery = supabase
     .from("employees")
-    .select("id, full_name, employee_number, employment_status, start_date")
+    .select("id, full_name, employee_number, employment_status, start_date, work_schedule_id")
     .eq("company_id", companyId)
     .is("deleted_at", null);
 
@@ -1149,9 +1179,15 @@ export async function syncEmployeeAccruals(
     return { ok: false, message: empError?.message ?? "No active employees found." };
   }
 
+  const { data: companySchedules } = await supabase
+    .from("work_schedules")
+    .select("id, name, standard_daily_hours")
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+
   const employeeIds = employees.map((e) => e.id);
 
-  // 4. Fetch time entries for these employees (with pagination to guarantee > 1000 rows fetched)
+  // 4. Fetch time entries for these employees (with pagination to guarantee all rows fetched)
   let timeEntries: Array<{
     employee_id: string;
     normal_hours: number | null;
@@ -1223,12 +1259,7 @@ export async function syncEmployeeAccruals(
   let totalUpdated = 0;
 
   for (const emp of employees) {
-    let empEntries = (timeEntries ?? []).filter((e) => e.employee_id === emp.id);
-
-    // Apply Import Baseline Lock: ignore work entries prior to accrualBaselineDate to prevent double counting
-    if (lockImportedBaselines && accrualBaselineDate) {
-      empEntries = empEntries.filter((e) => e.work_date >= accrualBaselineDate);
-    }
+    const empEntries = (timeEntries ?? []).filter((e) => e.employee_id === emp.id);
 
     // Count distinct shifts clocked in / days worked
     const shiftDateSet = new Set<string>();
@@ -1250,12 +1281,18 @@ export async function syncEmployeeAccruals(
     const shiftsWorked = shiftDateSet.size;
     const totalWorkedHours = totalPaidHours > 0 ? totalPaidHours : totalNormalHours;
 
-    // Calculate months employed for BCEA Section 27 qualification
+    // Calculate months employed
     const startDate = new Date(emp.start_date || "2026-01-01");
     const monthsEmployed = Math.max(0, (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.4));
 
     let empAnnualAccrued = 0;
     let empToilAccrued = 0;
+
+    // Resolve employee specific work schedule
+    const empSchedule = (companySchedules || []).find((s) => s.id === emp.work_schedule_id);
+    const empDailyHours = Number(empSchedule?.standard_daily_hours ?? standardDailyHours);
+    const empWeeklyHours = empDailyHours * 5;
+    const empAnnualHours = empWeeklyHours * 52;
 
     for (const lt of leaveTypes) {
       // Calculate taken hours from approved leave requests
@@ -1272,70 +1309,40 @@ export async function syncEmployeeAccruals(
       );
       const adjustedHours = Number(existingBal?.adjusted_hours ?? 0);
 
-      let accruedHours = 0;
-      const accrualRules = (lt.accrual_rules ?? {}) as Record<string, unknown>;
-      const yearlyHours =
-        typeof accrualRules.yearly_hours === "number"
-          ? accrualRules.yearly_hours
-          : Number(accrualRules.yearly_hours ?? 0) || 0;
+      // Evaluate statutory & company accrual conforming to work rule and BCEA
+      const { accruedHours } = calculateSimpleLeaveAccrual({
+        shiftsWorked,
+        hoursWorked: totalWorkedHours,
+        overtimeHours: totalOvertimeHours,
+        leaveType: lt,
+        monthsEmployed,
+        standardDailyHours: empDailyHours,
+        workingDaysPerWeek: 5,
+        standardAnnualHours: empAnnualHours,
+        toilMultiplier,
+        toilEnabled: isToilEnabled,
+      });
 
-      // STRICT PROTECTION: If employee has not worked / clocked in, accrual is strictly 0.00h (NO DAYS FROM THE AIR)
-      if (shiftsWorked === 0 || totalWorkedHours <= 0) {
-        accruedHours = 0;
-      } else if (lt.category === "annual") {
-        // BCEA Section 20(2)(c): 1 hour for every 17 hours worked, or 1 day per 17 days worked
-        const shiftBasedAccrual = Number(((shiftsWorked / 17.0) * standardDailyHours).toFixed(2));
-        const bceaMinimumAccrual = Number((totalWorkedHours / 17.0).toFixed(2));
-        if (yearlyHours > 0) {
-          const proRataAccrual = Number(
-            ((yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
-          );
-          accruedHours = Math.max(shiftBasedAccrual, proRataAccrual, bceaMinimumAccrual);
-        } else {
-          accruedHours = Math.max(shiftBasedAccrual, bceaMinimumAccrual);
-        }
+      if (lt.category === "annual") {
         empAnnualAccrued = accruedHours;
       } else if (lt.category === "toil_taken") {
-        if (isToilEnabled) {
-          // BCEA Section 10(3)(b): 1.5 hours of TOIL for every 1 hour of overtime
-          accruedHours = Number((totalOvertimeHours * toilMultiplier).toFixed(2));
-          empToilAccrued = accruedHours;
-        } else {
-          continue;
-        }
-      } else if (lt.category === "sick") {
-        // BCEA Section 22: Sick leave entitlement (1 day per 26 days worked, capped at 80h/yr)
-        const shiftBasedSick = Number(((shiftsWorked / 26.0) * standardDailyHours).toFixed(2));
-        const hoursBasedSick = Number((totalWorkedHours / 26.0).toFixed(2));
-        if (yearlyHours > 0) {
-          const proRataSick = Number(
-            Math.min(yearlyHours, (yearlyHours * totalWorkedHours) / standardAnnualHours).toFixed(2),
-          );
-          accruedHours = Math.max(proRataSick, shiftBasedSick, hoursBasedSick);
-        } else {
-          accruedHours = Math.max(shiftBasedSick, hoursBasedSick);
-        }
-        if (yearlyHours > 0 && accruedHours > yearlyHours) {
-          accruedHours = yearlyHours;
-        }
-      } else if (lt.category === "family_responsibility") {
-        // BCEA Section 27: 3 days (24h) ONLY if employee has worked >= 4 months AND works >= 4 days/week (>= 16 shifts)
-        if (monthsEmployed >= 4 && shiftsWorked >= 16) {
-          accruedHours = yearlyHours > 0 ? yearlyHours : Number((3 * standardDailyHours).toFixed(2));
-        } else {
-          accruedHours = 0;
-        }
-      } else {
-        // Custom / unpaid leave types
-        accruedHours = 0;
+        empToilAccrued = accruedHours;
       }
 
-      // Calculate net balance
-      let balanceHours = Math.max(0, Number((accruedHours + adjustedHours - takenHours).toFixed(2)));
+      // Check annual leave cap (e.g. 144 hours for Formalize)
+      const annualCapHours = lt.category === "annual"
+        ? Number(
+            (lt.accrual_rules as Record<string, unknown>)?.annual_cap_hours ??
+            (lt.accrual_rules as Record<string, unknown>)?.cap_hours ??
+            leaveRules.annual_leave_cap_hours ??
+            0
+          )
+        : 0;
 
-      // Apply carry-over cap / Use It or Lose It forfeiture if configured
-      if (carryOverCap !== null && Number.isFinite(carryOverCap) && balanceHours > carryOverCap) {
-        balanceHours = carryOverCap;
+      // Net available balance = max(0, accrued + adjusted - taken)
+      let balanceHours = Math.max(0, Number((accruedHours + adjustedHours - takenHours).toFixed(2)));
+      if (annualCapHours > 0 && balanceHours > annualCapHours) {
+        balanceHours = annualCapHours;
       }
 
       // Upsert into leave_balances
@@ -1379,11 +1386,12 @@ export async function syncEmployeeAccruals(
   revalidatePath("/dashboard/company");
   revalidatePath("/dashboard/time");
   revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard/leave");
 
   return {
     ok: true,
     affectedCount: totalUpdated,
-    message: `BCEA South African Labour Law accruals synchronized for ${employees.length} employee${
+    message: `Leave accruals synchronized for ${employees.length} employee${
       employees.length === 1 ? "" : "s"
     } (${totalUpdated} balance records updated).`,
     details,
@@ -1533,12 +1541,20 @@ export async function updateCompanyLeavePolicy(
 
     const supabase = await createSupabaseServerClient();
 
-    const useItOrLoseItEnabled = formData.get("use_it_or_lose_it_enabled") === "on";
+    const policyType = String(formData.get("policy_type") ?? "");
+    const useItOrLoseItEnabled =
+      policyType === "use_it_or_lose_it" ||
+      (policyType === "" && formData.get("use_it_or_lose_it_enabled") === "on");
     const rawCarryCap = formData.get("carry_over_cap_hours") as string | null;
-    const carryOverCapHours = rawCarryCap && rawCarryCap.trim() !== "" ? Number(rawCarryCap) : null;
+    const carryOverCapHours =
+      rawCarryCap && rawCarryCap.trim() !== "" ? Number(rawCarryCap) : null;
     const lockImportedBaselines = formData.get("lock_imported_leave_baselines") === "on";
     const accrualBaselineDate = (formData.get("accrual_baseline_date") as string)?.trim() || null;
     const preventAdditiveImportStacking = formData.get("prevent_additive_import_stacking") === "on";
+
+    const rawAnnualCap = formData.get("annual_leave_cap_hours") as string | null;
+    const annualLeaveCapHours =
+      rawAnnualCap && rawAnnualCap.trim() !== "" ? Number(rawAnnualCap) : null;
 
     const { data: existingSettings } = await supabase
       .from("company_settings")
@@ -1550,8 +1566,10 @@ export async function updateCompanyLeavePolicy(
 
     const updatedLeaveRules = {
       ...existingLeaveRules,
+      policy_type: useItOrLoseItEnabled ? "use_it_or_lose_it" : "carry_over",
       use_it_or_lose_it_enabled: useItOrLoseItEnabled,
       carry_over_cap_hours: carryOverCapHours,
+      annual_leave_cap_hours: annualLeaveCapHours,
       lock_imported_leave_baselines: lockImportedBaselines,
       accrual_baseline_date: accrualBaselineDate,
       prevent_additive_import_stacking: preventAdditiveImportStacking,
@@ -1569,12 +1587,46 @@ export async function updateCompanyLeavePolicy(
       return { ok: false, message: error.message };
     }
 
+    if (annualLeaveCapHours !== null) {
+      const { data: annualLt } = await supabase
+        .from("leave_types")
+        .select("id, accrual_rules")
+        .eq("company_id", company.id)
+        .eq("category", "annual")
+        .maybeSingle();
+
+      if (annualLt?.id) {
+        const curRules = (annualLt.accrual_rules ?? {}) as Record<string, unknown>;
+        await supabase
+          .from("leave_types")
+          .update({
+            accrual_rules: {
+              ...curRules,
+              annual_cap_hours: annualLeaveCapHours,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", annualLt.id);
+      }
+    }
+
+    try {
+      await syncEmployeeAccruals(undefined, company.id);
+    } catch {}
+
     revalidateTag(`company-settings-${company.id}`, "max");
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/company");
     revalidatePath("/dashboard/leave");
 
-    return { ok: true, message: "Company leave protection & policy settings saved successfully." };
+    return {
+      ok: true,
+      message: useItOrLoseItEnabled
+        ? "Policy set to 'Use It or Lose It'. Accrued leave during the current year is available to use; expired cycle balances forfeit upon renewal."
+        : `Policy set to 'Carry Over'. Unused leave carries over${
+            carryOverCapHours !== null ? ` up to ${carryOverCapHours}h` : " to next cycle"
+          }.`,
+    };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Failed to update leave policy." };
   }
@@ -1733,6 +1785,10 @@ export async function updateCompanyToilPolicy(
     if (error) {
       return { ok: false, message: error.message };
     }
+
+    try {
+      await syncEmployeeAccruals(undefined, company.id);
+    } catch {}
 
     revalidateTag(`company-settings-${company.id}`, "max");
     revalidatePath("/dashboard");

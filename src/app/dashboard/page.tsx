@@ -218,10 +218,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     getCurrentUserAccess(),
   ]);
 
-  const canManageCompany = access.canManageCompany;
+  const isRootAdmin =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.canAssignOwnerRole;
+  const isAdmin =
+    isRootAdmin ||
+    access.isHrAdmin ||
+    access.canManageCompany;
+  const isManager =
+    isAdmin ||
+    access.isBranchManager ||
+    access.canReviewBranchTime ||
+    access.canManageDirectReports;
+
+  const canManageCompany = access.canManageCompany || isRootAdmin;
   const canManageEmployees = access.canManageEmployees;
   const canViewPayslips = access.canViewPayslips;
-  const canReviewTime = access.canReviewBranchTime || access.canManageDirectReports;
+  const canReviewTime = isManager;
+  const canReviewLeave = isManager;
   const activePanel = params?.panel ?? null;
 
   if (activePanel === "people" && !canManageEmployees) {
@@ -274,7 +290,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     canReviewTime ? getCompanyTimesheetCorrectionQueue() : Promise.resolve([]),
     canReviewTime ? getCompanySubmittedTimesheetQueue() : Promise.resolve([]),
     getEmployeeLeaveState(),
-    canReviewTime ? getCompanyLeaveRequestQueue() : Promise.resolve([]),
+    canReviewLeave ? getCompanyLeaveRequestQueue() : Promise.resolve([]),
     getAccountProfile(),
     canManageCompany || canReviewTime ? getCompanyWorkRulesData() : Promise.resolve(null),
     canManageCompany ? getCompanyGeolocationData() : Promise.resolve(null),
@@ -425,7 +441,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               workSchedule={employeeTimeState?.workSchedule ?? null}
             />
           ) : null}
-          {canReviewTime ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
+          {canReviewLeave ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
           {(canManageCompany || canReviewTime) && workRulesData ? (
             <CompanyAllAccrualsTable
               data={workRulesData}
@@ -443,10 +459,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       key: "manager-review",
       label: "Approvals and corrections",
       description:
-        "Review submitted timesheets, correction requests, and live workforce status.",
+        "Review pending leave requests, submitted timesheets, correction requests, and live workforce status.",
       content: (
         <div className="grid gap-6">
           {liveTimeOverview ? <CompanyLiveWorkforce overview={liveTimeOverview} /> : null}
+          {canReviewLeave ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
           <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
           <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
         </div>

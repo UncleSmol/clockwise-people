@@ -3,6 +3,10 @@
 import {
   CheckCircle2,
   CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardList,
   Clock,
   FileText,
@@ -11,7 +15,7 @@ import {
   ThumbsUp,
   XCircle,
 } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useMemo, useEffect, useCallback, useRef } from "react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewTimesheetCorrection } from "@/lib/time-tracking/actions";
 import type { CompanyTimesheetCorrectionRequest } from "@/lib/time-tracking/schema";
@@ -55,7 +59,39 @@ function formatTime(value: string | null) {
 export default function CompanyTimesheetCorrectionQueue({
   requests,
 }: CompanyTimesheetCorrectionQueueProps) {
+  const queueSectionRef = useRef<HTMLElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+
+  // Pagination setup matching EmployeeTimesheetCorrections
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
+  const totalRequests = requests.length;
+  const totalPages = Math.max(1, Math.ceil(totalRequests / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (page - 1) * pageSize;
+    return requests.slice(startIndex, startIndex + pageSize);
+  }, [requests, page, pageSize]);
+
+  const startIndex = totalRequests > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endIndex = Math.min(page * pageSize, totalRequests);
+
+  const handlePageChange = useCallback((p: number) => {
+    setPage(p);
+    if (typeof window !== "undefined") {
+      requestAnimationFrame(() => {
+        queueSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, []);
+
   const [state, formAction, pending] = useActionState(
     async (prev: ReviewActionState, formData: FormData) => {
       const result = await reviewTimesheetCorrection(prev, formData);
@@ -89,8 +125,22 @@ export default function CompanyTimesheetCorrectionQueue({
     }
   };
 
+  const toggleSelectCurrentPage = () => {
+    const pageIds = paginatedRequests.map((r) => r.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
   return (
-    <section className="grid gap-4 min-w-0">
+    <section ref={queueSectionRef} className="grid gap-4 min-w-0">
       {/* Header */}
       <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
@@ -108,30 +158,45 @@ export default function CompanyTimesheetCorrectionQueue({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {requests.length > 0 ? (
-              <button
-                type="button"
-                onClick={toggleSelectAll}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all"
-              >
-              {allSelected ? (
-                <>
-                  <Square className="size-3.5" />
-                  Deselect all
-                </>
-              ) : (
-                <>
+              <>
+                <button
+                  type="button"
+                  onClick={toggleSelectCurrentPage}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
+                >
                   <CheckSquare className="size-3.5" />
-                  Select all ({requests.length})
-                </>
-              )}
-            </button>
-          ) : null}
-          <span className="w-max rounded bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-xs">
-            {requests.length} pending
-          </span>
+                  Select page ({paginatedRequests.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
+                >
+                  {allSelected ? (
+                    <>
+                      <Square className="size-3.5" />
+                      Deselect all
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="size-3.5" />
+                      Select all ({requests.length})
+                    </>
+                  )}
+                </button>
+              </>
+            ) : null}
+            <span className="w-max rounded bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-xs">
+              {requests.length} pending
+            </span>
+            {selectedIds.size > 0 && (
+              <span className="w-max rounded bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow-xs">
+                {selectedIds.size} selected
+              </span>
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
       {state.message && (
         <div
@@ -156,7 +221,7 @@ export default function CompanyTimesheetCorrectionQueue({
           ))}
 
           <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5 items-start">
-            {requests.map((request) => {
+            {paginatedRequests.map((request) => {
               const isSelected = selectedIds.has(request.id);
 
               return (
@@ -292,6 +357,127 @@ export default function CompanyTimesheetCorrectionQueue({
               );
             })}
           </div>
+
+          {/* Correction Requests Pagination Controls */}
+          {totalRequests > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/80 bg-surface/90 backdrop-blur-md p-3 sm:p-3.5 text-xs shadow-soft">
+              <div className="flex flex-wrap items-center gap-2 text-muted">
+                <span>
+                  Showing <strong className="font-bold text-foreground">{startIndex}</strong> to{" "}
+                  <strong className="font-bold text-foreground">{endIndex}</strong> of{" "}
+                  <strong className="font-bold text-foreground">{totalRequests}</strong> requests
+                </span>
+
+                <div className="flex items-center gap-1.5 ml-2">
+                  <span className="text-[11px] font-semibold text-muted">Per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
+                  >
+                    {[6, 12, 24, 48].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedIds.size > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold">
+                    {selectedIds.size} selected
+                  </span>
+                )}
+              </div>
+
+              {totalPages > 1 ? (
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(1)}
+                    disabled={page <= 1}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="First page"
+                    aria-label="First page"
+                  >
+                    <ChevronsLeft className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(Math.max(1, page - 1))}
+                    disabled={page <= 1}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="Previous page"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+
+                  <div className="flex items-center gap-1 px-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => {
+                        return (
+                          p === 1 ||
+                          p === totalPages ||
+                          Math.abs(p - page) <= 1
+                        );
+                      })
+                      .reduce<Array<number | string>>((acc, p, idx, arr) => {
+                        if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
+                          acc.push("...");
+                        }
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((item, idx) =>
+                        typeof item === "string" ? (
+                          <span key={`req-page-ellipsis-${idx}`} className="px-1 text-muted">
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={`req-page-${item}`}
+                            type="button"
+                            onClick={() => handlePageChange(item)}
+                            className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              item === page
+                                ? "bg-amber-600 text-white shadow-2xs scale-105"
+                                : "hover:bg-surface-muted text-muted hover:text-foreground"
+                            }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+                    disabled={page >= totalPages}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="Next page"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={page >= totalPages}
+                    className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                    title="Last page"
+                    aria-label="Last page"
+                  >
+                    <ChevronsRight className="size-3.5" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Action Box */}
           <div className="grid gap-3 rounded-lg border border-border bg-background p-3.5">

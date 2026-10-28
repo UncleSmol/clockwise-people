@@ -1,15 +1,52 @@
 "use client";
 
-import React, { useRef } from "react";
-import { Printer, Download, X, Edit3, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { formatPlainCurrency } from "@/lib/payroll/payslip-engine";
 import type { PayslipRecordData } from "@/lib/payroll/payslip-types";
-import { formatRand, formatPlainCurrency } from "@/lib/payroll/payslip-engine";
+import { Edit3, Printer, ShieldAlert, X } from "lucide-react";
+import { useRef } from "react";
 
 type PayslipPrintDocumentProps = {
   payslip: PayslipRecordData;
   onClose?: () => void;
   onOpenAdjust?: () => void;
 };
+
+// Column grids copied from the Excel template (B | C | D | E | F)
+const G4 = "grid grid-cols-[41.4%_20%_14.9%_23.7%]";
+const G5 = "grid grid-cols-[37.4%_4%_20%_14.9%_23.7%]";
+
+const GREY_LINE = "#7f7f7f";
+const BLUE = "#0070c0";
+const RED = "#e32d2d";
+
+const fmtQty = (n: number) =>
+  Number.isInteger(n) ? String(n) : Number(n).toFixed(2);
+
+function LabelBox({
+  label,
+  value,
+  center = false,
+}: {
+  label: string;
+  value?: string | null;
+  center?: boolean;
+}) {
+  return (
+    <div
+      className="min-h-[42px] px-[7px] py-1"
+      style={{ border: `1px solid ${GREY_LINE}` }}
+    >
+      <span className="block text-[11px] text-[#7f7f7f]">{label}</span>
+      <span
+        className={`mt-[3px] block break-words text-[12px] text-[#1f1f1f] ${
+          center ? "text-center" : ""
+        }`}
+      >
+        {value || "\u00A0"}
+      </span>
+    </div>
+  );
+}
 
 export default function PayslipPrintDocument({
   payslip,
@@ -22,11 +59,11 @@ export default function PayslipPrintDocument({
     window.print();
   };
 
-  // Compile active earnings rows (exclude zero values for clean presentation, matching template)
+  // Earnings rows (zero values are hidden, same as the Excel "auto-fit")
   const earningsRows = [
     {
       description: "Basic Salary",
-      hoursOrAmount: payslip.normalHours > 0 ? payslip.normalHours : 1,
+      qty: payslip.normalHours > 0 ? payslip.normalHours : 1,
       rate: payslip.hourlyRate > 0 ? payslip.hourlyRate : payslip.basicSalary,
       total: payslip.basicSalary,
     },
@@ -34,7 +71,7 @@ export default function PayslipPrintDocument({
       ? [
           {
             description: "Overtime @ 1.5",
-            hoursOrAmount: payslip.overtime15Hours,
+            qty: payslip.overtime15Hours,
             rate: payslip.overtime15Rate,
             total: payslip.overtime15Total,
           },
@@ -44,7 +81,7 @@ export default function PayslipPrintDocument({
       ? [
           {
             description: "Overtime @ 2.0 (Sunday / Holiday)",
-            hoursOrAmount: payslip.overtime20Hours,
+            qty: payslip.overtime20Hours,
             rate: payslip.overtime20Rate,
             total: payslip.overtime20Total,
           },
@@ -53,9 +90,15 @@ export default function PayslipPrintDocument({
     ...(payslip.commissionTotal > 0
       ? [
           {
-            description: payslip.commissionRate > 0 ? `Commission @ ${payslip.commissionRate}%` : "Commission",
-            hoursOrAmount: payslip.commissionBase > 0 ? payslip.commissionBase : 1,
-            rate: payslip.commissionRate > 0 ? payslip.commissionRate : payslip.commissionTotal,
+            description:
+              payslip.commissionRate > 0
+                ? `Commission @ ${payslip.commissionRate}%`
+                : "Commission",
+            qty: payslip.commissionBase > 0 ? payslip.commissionBase : 1,
+            rate:
+              payslip.commissionRate > 0
+                ? payslip.commissionRate
+                : payslip.commissionTotal,
             total: payslip.commissionTotal,
           },
         ]
@@ -64,7 +107,7 @@ export default function PayslipPrintDocument({
       ? [
           {
             description: "Annual Bonus",
-            hoursOrAmount: 1,
+            qty: 1,
             rate: payslip.annualBonus,
             total: payslip.annualBonus,
           },
@@ -74,7 +117,7 @@ export default function PayslipPrintDocument({
       ? [
           {
             description: "Performance Bonus",
-            hoursOrAmount: 1,
+            qty: 1,
             rate: payslip.performanceBonus,
             total: payslip.performanceBonus,
           },
@@ -84,7 +127,7 @@ export default function PayslipPrintDocument({
       ? [
           {
             description: "Travel Allowance",
-            hoursOrAmount: 1,
+            qty: 1,
             rate: payslip.travelAllowance,
             total: payslip.travelAllowance,
           },
@@ -94,7 +137,7 @@ export default function PayslipPrintDocument({
       ? [
           {
             description: "Other Allowance",
-            hoursOrAmount: 1,
+            qty: 1,
             rate: payslip.otherAllowance,
             total: payslip.otherAllowance,
           },
@@ -102,70 +145,43 @@ export default function PayslipPrintDocument({
       : []),
   ];
 
-  // Compile active deductions rows
   const deductionsRows = [
     ...(payslip.payeTax > 0
-      ? [
-          {
-            description: "PAYE (Income Tax)",
-            total: payslip.payeTax,
-          },
-        ]
+      ? [{ description: "PAYE", total: payslip.payeTax }]
       : []),
     ...(payslip.uifAmount > 0
-      ? [
-          {
-            description: "UIF (1% Statutory Contribution)",
-            total: payslip.uifAmount,
-          },
-        ]
+      ? [{ description: "UIF", total: payslip.uifAmount }]
       : []),
     ...(payslip.medicalAid > 0
-      ? [
-          {
-            description: "Medical Aid",
-            total: payslip.medicalAid,
-          },
-        ]
+      ? [{ description: "Medical Aid", total: payslip.medicalAid }]
       : []),
     ...(payslip.pensionFund > 0
-      ? [
-          {
-            description: "Pension / Provident Fund",
-            total: payslip.pensionFund,
-          },
-        ]
+      ? [{ description: "Pension Fund", total: payslip.pensionFund }]
       : []),
     ...(payslip.staffLoan > 0
-      ? [
-          {
-            description: "Staff Loan / Advance Repayment",
-            total: payslip.staffLoan,
-          },
-        ]
+      ? [{ description: "Staff Loan", total: payslip.staffLoan }]
       : []),
     ...(payslip.unpaidAbsence > 0
-      ? [
-          {
-            description: "Unpaid Absence / Leave Deduction",
-            total: payslip.unpaidAbsence,
-          },
-        ]
+      ? [{ description: "Unpaid Absence", total: payslip.unpaidAbsence }]
       : []),
     ...(payslip.otherDeductions > 0
-      ? [
-          {
-            description: "Other Deductions / Net Adjustments",
-            total: payslip.otherDeductions,
-          },
-        ]
+      ? [{ description: "Other Deductions", total: payslip.otherDeductions }]
       : []),
   ];
 
+  const footerText =
+    payslip.queryOfficeText ||
+    "Employee questions may be directed to business administration office : 49 Duncan Street, Witbank, 1039   010 824 9087 Or Managing Partner 0817657816";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4 overflow-y-auto backdrop-blur-xs print:static print:p-0 print:bg-white print:overflow-visible">
-      {/* Print-specific style tags for clean A4 paper page formatting */}
+      {/* Print-specific styles for clean A4 output */}
       <style jsx global>{`
+        #payslip-print-sheet {
+          font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         @media print {
           body * {
             visibility: hidden;
@@ -197,7 +213,7 @@ export default function PayslipPrintDocument({
       `}</style>
 
       <div className="flex flex-col max-h-[96vh] w-full max-w-4xl rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden print:max-h-none print:w-full print:border-none print:shadow-none print:rounded-none">
-        {/* Top Controls Toolbar (Hidden during print) */}
+        {/* Toolbar (hidden when printing) */}
         <div className="no-print flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white">
           <div className="flex items-center gap-2">
             <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-white">
@@ -210,7 +226,8 @@ export default function PayslipPrintDocument({
             )}
             {!payslip.isApprovedForSimulation && (
               <span className="inline-flex items-center gap-1 rounded bg-amber-600 px-2 py-0.5 text-xs font-bold text-white shadow-2xs">
-                <ShieldAlert className="size-3 text-white" /> Unapproved Timesheets
+                <ShieldAlert className="size-3 text-white" /> Unapproved
+                Timesheets
               </span>
             )}
           </div>
@@ -249,7 +266,7 @@ export default function PayslipPrintDocument({
           </div>
         </div>
 
-        {/* Warning Banner if timesheets are pending approval */}
+        {/* Approval warning (hidden when printing) */}
         {!payslip.isApprovedForSimulation && payslip.approvalGateMessage && (
           <div className="no-print border-b border-amber-500/30 bg-amber-950 px-4 py-2.5 text-xs font-medium text-white flex items-center gap-2">
             <ShieldAlert className="size-4 shrink-0 text-amber-300" />
@@ -257,273 +274,280 @@ export default function PayslipPrintDocument({
           </div>
         )}
 
-        {/* Scrollable Document Container */}
+        {/* Scrollable preview area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/60 print:p-0 print:overflow-visible">
-          {/* A4 Printable Sheet Container */}
+          {/* ===== A4 SHEET ===== */}
           <div
             id="payslip-print-sheet"
             ref={printAreaRef}
-            className="mx-auto w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-900 p-8 sm:p-10 shadow-lg border border-slate-200 text-xs font-sans print:shadow-none print:border-none print:p-0"
+            className="mx-auto flex w-full max-w-[210mm] min-h-[297mm] flex-col bg-white px-8 pb-5 pt-8 text-[13px] leading-[1.3] text-[#1f1f1f] shadow-lg border border-slate-200 print:shadow-none print:border-none print:p-0"
           >
-            {/* Header: PAYSLIP, Company info & Logo */}
-            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
-              <div className="flex-1">
-                <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900">
+            {/* Header: title, company, address, logo */}
+            <div
+              className="grid grid-cols-[41.4%_35.1%_23.5%] items-end pb-[6px]"
+              style={{ borderBottom: `3px double ${GREY_LINE}` }}
+            >
+              <div>
+                <div
+                  className="text-[38px] leading-[1.1]"
+                  style={{ color: BLUE }}
+                >
                   PAYSLIP
-                </h1>
-                <h2 className="mt-1 text-base font-extrabold text-slate-800">
-                  {payslip.companyName}
-                </h2>
-                {payslip.companyTradingName && payslip.companyTradingName !== payslip.companyName && (
-                  <p className="text-[11px] font-semibold text-slate-600 mt-0.5">
-                    {payslip.companyTradingName}
-                  </p>
-                )}
-                {payslip.companyAddress && (
-                  <p className="mt-1 text-[11px] text-slate-600 leading-tight">
-                    {payslip.companyAddress}
-                  </p>
-                )}
-                <div className="mt-1 flex flex-wrap items-center gap-3 text-[10.5px] text-slate-500 font-medium">
-                  {payslip.companyWebsite && <span>{payslip.companyWebsite}</span>}
-                  {payslip.companyPhone && <span>Tel: {payslip.companyPhone}</span>}
-                  {payslip.companyEmail && <span>{payslip.companyEmail}</span>}
                 </div>
+                <div className="mt-[10px] text-[18px]">
+                  {payslip.companyName}
+                </div>
+                {payslip.companyWebsite && (
+                  <div className="mt-[14px] text-[12px] text-[#0563c1] underline">
+                    {payslip.companyWebsite}
+                  </div>
+                )}
               </div>
 
-              {payslip.companyLogoUrl ? (
-                <div className="ml-4 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+              <div className="text-[11px] leading-[1.35] text-[#595959]">
+                {payslip.companyAddress && (
+                  <div className="whitespace-pre-line">
+                    {payslip.companyAddress}
+                  </div>
+                )}
+                {payslip.companyPhone && (
+                  <div>[Phone: {payslip.companyPhone}]</div>
+                )}
+                {payslip.companyEmail && <div>{payslip.companyEmail}</div>}
+              </div>
+
+              <div className="flex items-start justify-end self-start">
+                {payslip.companyLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={payslip.companyLogoUrl}
                     alt={payslip.companyName}
-                    className="max-h-16 max-w-36 object-contain"
+                    className="max-h-[80px] max-w-full object-contain"
                   />
+                ) : null}
+              </div>
+            </div>
+
+            {/* Employee box (heavy black border) */}
+            <div className="mt-[14px]" style={{ border: "2px solid #000" }}>
+              <div className={G5}>
+                <div className="col-span-2 px-2 py-1">
+                  <span className="block text-[11px] text-[#7f7f7f]">
+                    EMPLOYEE
+                  </span>
+                  <span className="mt-[3px] block break-words text-[12px] font-medium">
+                    {payslip.fullName}
+                  </span>
                 </div>
-              ) : null}
-            </div>
-
-            {/* Employee Details Grid (High-fidelity boxed layout matching template) */}
-            <div className="mt-4 grid grid-cols-4 border border-slate-900 divide-x divide-y divide-slate-900 text-[11px]">
-              {/* Row 1 */}
-              <div className="p-2 bg-slate-50">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  EMPLOYEE
-                </span>
-                <span className="mt-0.5 block font-extrabold text-slate-900 break-words">
-                  {payslip.fullName}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-50">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  ID NUMBER
-                </span>
-                <span className="mt-0.5 block font-semibold text-slate-900">
-                  {payslip.idNumber || "–"}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-50">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  TAX REFERENCE NUMBER
-                </span>
-                <span className="mt-0.5 block font-semibold text-slate-900">
-                  {payslip.taxNumber || "–"}
-                </span>
-              </div>
-              <div className="p-2 bg-slate-50">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  EMPLOYEE NUMBER
-                </span>
-                <span className="mt-0.5 block font-extrabold text-slate-900">
-                  {payslip.employeeNumber}
-                </span>
-              </div>
-
-              {/* Row 2 */}
-              <div className="col-span-2 p-2">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  ADDRESS
-                </span>
-                <span className="mt-0.5 block font-medium text-slate-800 break-words">
-                  {payslip.address || "–"}
-                </span>
-              </div>
-              <div className="p-2">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  PHONE
-                </span>
-                <span className="mt-0.5 block font-medium text-slate-800">
-                  {payslip.phone || "–"}
-                </span>
-              </div>
-              <div className="p-2">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  EMAIL
-                </span>
-                <span className="mt-0.5 block font-medium text-slate-800 break-words">
-                  {payslip.email || "–"}
-                </span>
-              </div>
-
-              {/* Row 3 */}
-              <div className="col-span-2 p-2">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  OCCUPATION / DESIGNATION
-                </span>
-                <span className="mt-0.5 block font-bold text-slate-900">
-                  {payslip.occupation || "Team Member"}
-                  {payslip.department ? ` (${payslip.department})` : ""}
-                </span>
-              </div>
-              <div className="p-2">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  PAY DATE / PERIOD
-                </span>
-                <span className="mt-0.5 block font-bold text-slate-900">
-                  {payslip.payPeriodLabel}
-                </span>
-              </div>
-              <div className="p-2">
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  FREQUENCY
-                </span>
-                <span className="mt-0.5 block font-bold text-slate-900 capitalize">
-                  {payslip.paymentFrequency}
-                </span>
+                <div
+                  className="px-2 py-1"
+                  style={{ borderLeft: `1px solid ${GREY_LINE}` }}
+                >
+                  <span className="block text-[11px] text-[#7f7f7f]">
+                    ID NUMBER
+                  </span>
+                  <span className="mt-[3px] block text-[12px]">
+                    {payslip.idNumber || "\u00A0"}
+                  </span>
+                </div>
+                <div
+                  className="px-2 py-1"
+                  style={{ borderLeft: `1px solid ${GREY_LINE}` }}
+                >
+                  <span className="block text-[11px] text-[#7f7f7f]">
+                    TAX REFERENCE NUMBER
+                  </span>
+                  <span className="mt-[3px] block text-center text-[12px]">
+                    {payslip.taxNumber || "\u00A0"}
+                  </span>
+                </div>
+                <div
+                  className="px-2 py-1"
+                  style={{ borderLeft: `1px solid ${GREY_LINE}` }}
+                >
+                  <span className="block text-[11px] text-[#7f7f7f]">
+                    EMPLOYEE NUMBER
+                  </span>
+                  <span className="mt-[3px] block text-center text-[12px]">
+                    {payslip.employeeNumber}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Earnings Section */}
-            <div className="mt-5">
-              <table className="w-full border-collapse border border-slate-900 text-[11px]">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-900 text-left font-bold text-slate-800">
-                    <th className="p-2 border-r border-slate-900">EARNINGS</th>
-                    <th className="p-2 border-r border-slate-900 text-right w-28">HOURS/AMOUNT</th>
-                    <th className="p-2 border-r border-slate-900 text-right w-28">RATE</th>
-                    <th className="p-2 text-right w-32">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {earningsRows.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50/50" : ""}>
-                      <td className="p-2 border-r border-slate-900 font-medium text-slate-900">
+            {/* Address / Phone / Email */}
+            <div className={`${G5} mt-3`}>
+              <LabelBox label="ADDRESS" value={payslip.address} />
+              <div />
+              <LabelBox label="PHONE" value={payslip.phone} />
+              <div />
+              <LabelBox label="EMAIL" value={payslip.email} center />
+            </div>
+
+            {/* Occupation / Pay date / Frequency */}
+            <div className={`${G5} mt-3`}>
+              <LabelBox
+                label="Occupation"
+                value={`${payslip.occupation || "Team Member"}${
+                  payslip.department ? ` (${payslip.department})` : ""
+                }`}
+              />
+              <div />
+              <LabelBox
+                label="PAY DATE"
+                value={payslip.payPeriodLabel}
+                center
+              />
+              <div />
+              <LabelBox
+                label="FREQUENCY"
+                value={
+                  payslip.paymentFrequency
+                    ? payslip.paymentFrequency.charAt(0).toUpperCase() +
+                      payslip.paymentFrequency.slice(1)
+                    : ""
+                }
+                center
+              />
+            </div>
+
+            {/* Earnings */}
+            <div className="mt-4" style={{ border: `1px solid ${GREY_LINE}` }}>
+              <div
+                className={`${G4} bg-[#f2f2f2] text-[13px]`}
+                style={{ color: BLUE, borderBottom: "3px double #000" }}
+              >
+                <div className="px-2 py-[3px]">EARNINGS</div>
+                <div className="px-2 py-[3px] text-center">HOURS/AMOUNT</div>
+                <div className="px-2 py-[3px] text-center">RATE</div>
+                <div className="px-2 py-[3px] text-center">TOTAL</div>
+              </div>
+
+              <div className="text-[12px] text-[#595959]">
+                {earningsRows.map((row, idx) => (
+                  <div
+                    key={idx}
+                    className={`${G4} ${idx % 2 === 1 ? "bg-[#f2f2f2]" : ""}`}
+                  >
+                    <div className="px-2 py-[3px]">{row.description}</div>
+                    <div className="px-2 py-[3px] text-center">
+                      {row.qty ? fmtQty(Number(row.qty)) : "–"}
+                    </div>
+                    <div className="px-2 py-[3px] text-center">
+                      {row.rate ? formatPlainCurrency(row.rate) : "–"}
+                    </div>
+                    <div className="px-2 py-[3px] text-center">
+                      {formatPlainCurrency(row.total)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                className={`${G4} mt-[6px] text-[13px] font-medium text-[#595959]`}
+                style={{ borderTop: `0.5px solid ${GREY_LINE}` }}
+              >
+                <div className="col-span-3 px-2 py-[3px] text-right">
+                  Total Payments
+                </div>
+                <div className="px-2 py-[3px] text-center">
+                  {formatPlainCurrency(payslip.grossEarnings)}
+                </div>
+              </div>
+            </div>
+
+            {/* Deductions */}
+            <div className="mt-4" style={{ border: `1px solid ${GREY_LINE}` }}>
+              <div
+                className={`${G4} bg-[#f2f2f2] text-[12px]`}
+                style={{ color: RED, borderBottom: "3px double #000" }}
+              >
+                <div className="px-2 py-[3px]">DEDUCTIONS</div>
+                <div />
+                <div />
+                <div className="px-2 py-[3px] text-center">TOTAL</div>
+              </div>
+
+              <div className="text-[12px] text-[#595959]">
+                {deductionsRows.length === 0 ? (
+                  <div className={G4}>
+                    <div className="col-span-3 px-2 py-[3px] italic">
+                      No deductions recorded for this period
+                    </div>
+                    <div className="px-2 py-[3px] text-center">0.00</div>
+                  </div>
+                ) : (
+                  deductionsRows.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className={`${G4} ${idx % 2 === 1 ? "bg-[#f2f2f2]" : ""}`}
+                    >
+                      <div className="col-span-3 px-2 py-[3px]">
                         {row.description}
-                      </td>
-                      <td className="p-2 border-r border-slate-900 text-right font-mono text-slate-800">
-                        {row.hoursOrAmount ? Number(row.hoursOrAmount).toFixed(2) : "–"}
-                      </td>
-                      <td className="p-2 border-r border-slate-900 text-right font-mono text-slate-800">
-                        {row.rate ? formatPlainCurrency(row.rate) : "–"}
-                      </td>
-                      <td className="p-2 text-right font-bold font-mono text-slate-950">
+                      </div>
+                      <div className="px-2 py-[3px] text-center">
                         {formatPlainCurrency(row.total)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-900 bg-slate-100 font-extrabold text-slate-900">
-                    <td colSpan={3} className="p-2 text-right border-r border-slate-900 uppercase tracking-wider">
-                      Total Payments
-                    </td>
-                    <td className="p-2 text-right font-mono text-xs">
-                      {formatPlainCurrency(payslip.grossEarnings)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Deductions Section */}
-            <div className="mt-5">
-              <table className="w-full border-collapse border border-slate-900 text-[11px]">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-900 text-left font-bold text-slate-800">
-                    <th className="p-2 border-r border-slate-900">DEDUCTIONS</th>
-                    <th className="p-2 text-right w-32">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {deductionsRows.length === 0 ? (
-                    <tr>
-                      <td className="p-2 border-r border-slate-900 text-slate-500 italic">
-                        No deductions recorded for this period
-                      </td>
-                      <td className="p-2 text-right font-mono text-slate-700">0.00</td>
-                    </tr>
-                  ) : (
-                    deductionsRows.map((row, idx) => (
-                      <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50/50" : ""}>
-                        <td className="p-2 border-r border-slate-900 font-medium text-slate-900">
-                          {row.description}
-                        </td>
-                        <td className="p-2 text-right font-bold font-mono text-slate-950">
-                          {formatPlainCurrency(row.total)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-900 bg-slate-100 font-extrabold text-slate-900">
-                    <td className="p-2 text-right border-r border-slate-900 uppercase tracking-wider">
-                      Total Deductions
-                    </td>
-                    <td className="p-2 text-right font-mono text-xs">
-                      {formatPlainCurrency(payslip.totalDeductions)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Highlighted NET PAY Box */}
-            <div className="mt-5 border-2 border-slate-900 bg-slate-50 p-3 flex items-center justify-between text-slate-950 font-black">
-              <span className="text-sm uppercase tracking-wider">
-                NET PAY AMOUNT
-              </span>
-              <span className="text-lg font-mono tracking-tight bg-white px-4 py-1.5 rounded border border-slate-300 shadow-2xs">
-                {formatRand(payslip.netPay)}
-              </span>
-            </div>
-
-            {/* Banking Details Grid */}
-            <div className="mt-5 border border-slate-900 divide-y divide-slate-900 text-[11px]">
-              <div className="grid grid-cols-2 divide-x divide-slate-900">
-                <div className="p-2">
-                  <span className="text-[9px] font-bold uppercase text-slate-500 block">Bank Name</span>
-                  <span className="font-semibold text-slate-900">{payslip.bankName || "–"}</span>
-                </div>
-                <div className="p-2">
-                  <span className="text-[9px] font-bold uppercase text-slate-500 block">Bank Account</span>
-                  <span className="font-mono font-bold text-slate-900">{payslip.bankAccountNumber || "–"}</span>
-                </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-              <div className="grid grid-cols-2 divide-x divide-slate-900">
-                <div className="p-2">
-                  <span className="text-[9px] font-bold uppercase text-slate-500 block">Account Type</span>
-                  <span className="font-medium text-slate-900">{payslip.bankAccountType || "–"}</span>
+
+              <div
+                className={`${G4} mt-[6px] text-[13px] font-medium text-[#595959]`}
+                style={{ borderTop: `0.5px solid ${GREY_LINE}` }}
+              >
+                <div className="col-span-3 px-2 py-[3px] text-right">
+                  Total Deductions
                 </div>
-                <div className="p-2">
-                  <span className="text-[9px] font-bold uppercase text-slate-500 block">Payment Mode</span>
-                  <span className="font-bold text-slate-900">{payslip.paymentMode || "EFT"}</span>
+                <div className="px-2 py-[3px] text-center">
+                  {formatPlainCurrency(payslip.totalDeductions)}
                 </div>
               </div>
             </div>
 
-            {/* Optional Notes */}
+            {/* NET PAY bar */}
+            <div className={`${G4} mt-[14px]`}>
+              <div />
+              <div className="col-span-2 bg-[#f2f2f2] px-2 py-[6px] text-right text-[17px] font-medium">
+                NET PAY
+              </div>
+              <div className="bg-[#f2f2f2] px-2 py-[6px] text-center text-[17px] font-medium">
+                {formatPlainCurrency(payslip.netPay)}
+              </div>
+            </div>
+
+            {/* Banking details */}
+            <div className="mt-4 grid grid-cols-[41.4%_1fr] gap-y-[2px] text-[12px]">
+              <div className="italic text-[#595959]">Bank Name</div>
+              <div>{payslip.bankName || "–"}</div>
+              <div className="italic text-[#595959]">Bank Account</div>
+              <div>{payslip.bankAccountNumber || "–"}</div>
+              <div className="italic text-[#595959]">Account Type</div>
+              <div>{payslip.bankAccountType || "–"}</div>
+              <div className="italic text-[#595959]">Payment Mode</div>
+              <div>{payslip.paymentMode || "EFT"}</div>
+            </div>
+
+            {/* Optional notes */}
             {payslip.notes && (
-              <div className="mt-4 p-2.5 rounded border border-slate-300 bg-slate-50/70 text-[10.5px]">
-                <span className="font-bold uppercase tracking-wider text-slate-600 block mb-0.5">Notes:</span>
-                <span className="text-slate-800">{payslip.notes}</span>
+              <div
+                className="mt-4 px-2.5 py-2 text-[11px]"
+                style={{ border: `1px solid ${GREY_LINE}` }}
+              >
+                <span className="mb-0.5 block text-[11px] text-[#7f7f7f]">
+                  Notes
+                </span>
+                <span className="text-[#1f1f1f]">{payslip.notes}</span>
               </div>
             )}
 
-            {/* BCEA / Query Office Footer Note matching template */}
-            <div className="mt-8 pt-4 border-t border-slate-300 text-[9.5px] text-slate-500 text-center leading-relaxed italic">
-              {payslip.queryOfficeText ||
-                "Employee questions may be directed to business administration office : 49 Duncan Street, Witbank, 1039 | 010 824 9087 Or Managing Partner 0817657816"}
+            {/* Footer pinned to the bottom of the A4 page */}
+            <div
+              className="mt-auto pt-8 pb-[6px] text-center text-[11px] italic leading-[1.4] text-[#a6a6a6]"
+              style={{ borderBottom: `0.5px solid ${GREY_LINE}` }}
+            >
+              {footerText}
             </div>
           </div>
         </div>

@@ -86,8 +86,8 @@ function getCategoryMeta(category: string) {
       statutoryTitle: "Annual Leave Entitlement",
       statutoryNote: "BCEA Sec 20: Accrues 1h per 17h worked (21 consecutive days / year)",
       summary:
-        "Every employee is legally entitled to at least 21 consecutive days (15 working days = 120 hours for a 5-day / 40h work week) of paid annual leave per 12-month leave cycle, or 1 hour for every 17 hours worked.",
-      formula: "Accrued Hours = Max( (120 × Hours Worked) / 2080, Hours Worked / 17 )",
+        "Every employee is legally entitled to at least 21 consecutive days (15 working days = 120 hours for a 5-day / 40h work week) of paid annual leave per 12-month leave cycle, or according to contract (15, 17, or 21 days), with statutory minimum protection of 1 hour for every 17 hours worked.",
+      formula: "Accrued Hours = Max( (Entitlement Days × Daily Hours × Shifts) / Annual Work Days, (Entitlement Hours × Hours Worked) / Annual Work Hours, Hours Worked / 17 )",
       keyRules: [
         "Accrues dynamically from submitted, approved, and locked timesheet hours.",
         "Statutory minimum rate: 1 hour earned for every 17 hours worked (or pro-rated against 40h work schedule).",

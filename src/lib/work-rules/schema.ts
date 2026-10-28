@@ -222,6 +222,7 @@ export type CompanyWorkRulesData = {
   carryOverHours: number | null;
   useItOrLoseItEnabled?: boolean;
   carryOverCapHours?: number | null;
+  annualLeaveCapHours?: number | null;
   lockImportedBaselines?: boolean;
   accrualBaselineDate?: string | null;
   preventAdditiveImportStacking?: boolean;
