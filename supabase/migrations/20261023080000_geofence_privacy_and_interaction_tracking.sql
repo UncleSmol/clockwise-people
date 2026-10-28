@@ -105,10 +105,11 @@ begin
   end if;
 
   if employee.id is null and actor.auth_user_id is not null then
-    select *
+    select e.*
       into employee
     from public.employees e
-    where e.auth_user_id = actor.auth_user_id
+    join public.users u on u.id = e.user_id
+    where u.auth_user_id = actor.auth_user_id
       and e.company_id = resolved_company_id
       and e.employment_status = 'active'
       and e.deleted_at is null

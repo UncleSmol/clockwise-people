@@ -77,7 +77,7 @@ begin
   where id = entry.id
   returning * into entry;
 
-  perform public.refresh_time_entry(entry.id);
+  perform public.refresh_time_entry_calculations(entry.id);
 
   select *
     into entry
@@ -174,7 +174,7 @@ begin
   where id = entry.id
   returning * into entry;
 
-  perform public.refresh_time_entry(entry.id);
+  perform public.refresh_time_entry_calculations(entry.id);
 
   select *
     into entry

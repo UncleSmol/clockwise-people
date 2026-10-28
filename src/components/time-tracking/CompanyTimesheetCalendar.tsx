@@ -51,6 +51,7 @@ type CompanyTimesheetCalendarProps = {
   publicHolidays: CompanyPublicHoliday[];
   liveOverview?: CompanyLiveTimeOverview | null;
   isSysAdmin?: boolean;
+  isSuperAdmin?: boolean;
 };
 
 const initialActionState = {
@@ -138,8 +139,8 @@ function isLeaveEntry(entry?: Partial<CompanyTimesheetCalendarEntry> | null): bo
   return Boolean(
     entry.leave_type_id != null ||
     entry.notes?.startsWith("Leave:") ||
-    entry.notes?.startsWith("TOIL / Leave:") ||
-    entry.notes?.toLowerCase().includes("leave")
+    entry.notes?.startsWith("Leave (Pending):") ||
+    entry.notes?.startsWith("TOIL / Leave:")
   );
 }
 
@@ -245,7 +246,13 @@ function getCalendarEntryCardTheme(entry: CompanyTimesheetCalendarEntry) {
   };
 }
 
-function canEdit(status: CompanyTimesheetCalendarEntry["status"]) {
+function canEdit(
+  status: CompanyTimesheetCalendarEntry["status"],
+  isRootSuperAdmin: boolean = false,
+) {
+  if (isRootSuperAdmin) {
+    return status !== "locked";
+  }
   return status === "draft" || status === "rejected";
 }
 
@@ -335,7 +342,10 @@ export default function CompanyTimesheetCalendar({
   publicHolidays,
   liveOverview = null,
   isSysAdmin = false,
+  isSuperAdmin = false,
 }: CompanyTimesheetCalendarProps) {
+  const isRootSuperAdmin = Boolean(isSuperAdmin || isSysAdmin);
+
   const activeColleagues = useMemo(() => {
     if (!liveOverview?.entries) return [];
     return liveOverview.entries.filter(
@@ -769,11 +779,21 @@ export default function CompanyTimesheetCalendar({
     setSelectedApprovalIds(new Set(checked ? employeeSubmitted.map((entry) => entry.id) : []));
   };
 
-  const globalMessage = createState.message || loadLeaveState.message || updateState.message || deleteState.message;
-  const globalOk = updateState.message ? updateState.ok
-    : deleteState.message ? deleteState.ok
-      : createState.message ? createState.ok
-        : loadLeaveState.ok;
+  const globalMessage =
+    createState.message ||
+    loadLeaveState.message ||
+    updateState.message ||
+    deleteState.message ||
+    forceDeleteState.message;
+  const globalOk = updateState.message
+    ? updateState.ok
+    : deleteState.message
+      ? deleteState.ok
+      : forceDeleteState.message
+        ? forceDeleteState.ok
+        : createState.message
+          ? createState.ok
+          : loadLeaveState.ok;
 
   return (
     <section className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
@@ -1495,12 +1515,13 @@ export default function CompanyTimesheetCalendar({
             : ""
         }
         actions={
-          selectedEntry && canEdit(selectedEntry.status) && !editing ? (
+          selectedEntry && !isLeaveEntry(selectedEntry) && canEdit(selectedEntry.status, isRootSuperAdmin) && !editing ? (
             <button
               type="button"
               onClick={startEditing}
               className="grid size-8 place-items-center rounded border border-border bg-surface text-foreground hover:bg-surface-muted"
-              aria-label="Edit timesheet"
+              aria-label={selectedEntry.status === "approved" ? "Root Super Admin: Edit approved timesheet" : "Edit timesheet"}
+              title={selectedEntry.status === "approved" ? "Root Super Admin: Edit approved timesheet" : "Edit timesheet"}
             >
               <Pencil className="size-4" />
             </button>
@@ -1551,7 +1572,13 @@ export default function CompanyTimesheetCalendar({
               </div>
             </div>
 
-            {selectedEntry.status === "draft" && !isSysAdmin ? (
+            {editing && selectedEntry.status === "approved" ? (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-800">
+                <span className="font-bold">Root Super Admin override:</span> Editing approved timesheet. Normal and overtime hours will recalculate automatically upon saving.
+              </div>
+            ) : null}
+
+            {!editing && selectedEntry.status === "draft" && !isSysAdmin ? (
               <div className="rounded-lg border border-border bg-surface-muted p-2.5 text-xs font-medium text-muted">
                 Draft timesheet — pending employee submission before manager approval.
               </div>
@@ -1717,7 +1744,7 @@ export default function CompanyTimesheetCalendar({
               </div>
             ) : null}
 
-            {!editing ? (
+            {!editing && !isLeaveEntry(selectedEntry) ? (
               <div className="border-t border-border pt-3">
                 <form
                   action={forceDeleteAction}
@@ -1742,20 +1769,20 @@ export default function CompanyTimesheetCalendar({
               </div>
             ) : null}
 
-            {editing && canEdit(selectedEntry.status) ? (
+            {editing && canEdit(selectedEntry.status, isRootSuperAdmin) ? (
               <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background p-2.5 shadow-soft">
                 <form
-                  action={deleteAction}
+                  action={selectedEntry.status === "approved" || isRootSuperAdmin ? forceDeleteAction : deleteAction}
                   onSubmit={() => { setTimeout(closeEntryModal, 100); }}
                 >
                   <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
                   <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
                   <button
-                    disabled={deletePending}
+                    disabled={(isRootSuperAdmin || selectedEntry.status === "approved") ? forceDeletePending : deletePending}
                     className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
                   >
                     <Trash2 className="size-3 shrink-0" />
-                    {deletePending ? "..." : "Delete"}
+                    {((isRootSuperAdmin || selectedEntry.status === "approved") ? forceDeletePending : deletePending) ? "..." : "Delete"}
                   </button>
                 </form>
                 <form

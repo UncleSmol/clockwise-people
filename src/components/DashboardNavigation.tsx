@@ -109,8 +109,8 @@ export default function DashboardNavigation({
   profileAvatarUrl,
   profileName,
 }: DashboardNavigationProps) {
-  const { navItems, openPanel } = usePanelBridge();
-  const { isZenMode, toggleZenMode, activeColorConfig } = useZenMode();
+  const { navItems, openPanel, closePanel, activePanelKey } = usePanelBridge();
+  const { isZenMode, toggleZenMode, activeColorConfig, zenModeEnabled } = useZenMode();
   const [open, setOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -202,28 +202,36 @@ export default function DashboardNavigation({
 
         <NotificationMenu companyId={companyId} notifications={notifications} />
 
-        {/* Zen Mode Button in Top Header (Mobile & Desktop) */}
-        <button
-          type="button"
-          onClick={toggleZenMode}
-          aria-label={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
-          title={isZenMode ? "Exit Zen Mode" : "Zen Mode (Calm View)"}
-          className="relative flex size-8 sm:size-9 items-center justify-center rounded-full text-white font-black text-xs sm:text-sm shadow-xs border border-white/40 transition-transform active:scale-95 cursor-pointer shrink-0"
-          style={{
-            backgroundColor: activeColorConfig.bgHex,
-            boxShadow: `0 0 10px ${activeColorConfig.glowHex}`,
-          }}
-        >
-          <span className="font-sans font-black select-none">Z</span>
-        </button>
+        {/* Zen Mode Header Toggle Button (Accessible in top header on mobile & desktop) */}
+        {zenModeEnabled ? (
+          <button
+            type="button"
+            onClick={toggleZenMode}
+            title={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
+            aria-label={isZenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
+            className="relative flex size-8 sm:size-9 items-center justify-center rounded-full text-white font-black text-xs sm:text-sm shadow-xs border border-white/40 transition-transform active:scale-95 cursor-pointer shrink-0"
+            style={{
+              backgroundColor: activeColorConfig.bgHex,
+              boxShadow: `0 0 10px ${activeColorConfig.glowHex}`,
+            }}
+          >
+            <span className="font-sans font-black select-none">Z</span>
+          </button>
+        ) : null}
 
-        {/* Standalone User Profile Avatar (Opens Mobile Drawer on phone screens) */}
+        {/* Standalone User Profile Avatar */}
         <button
           type="button"
-          onClick={() => setMobileDrawerOpen(true)}
+          onClick={() => {
+            if (typeof window !== "undefined" && window.innerWidth >= 640) {
+              setOpen((c) => !c);
+            } else {
+              setMobileDrawerOpen(true);
+            }
+          }}
           className="relative flex items-center cursor-pointer transition-transform active:scale-95"
           title={profileName ? `${profileName} profile` : "User profile"}
-          aria-label="Open user settings drawer"
+          aria-label="Open user settings menu"
         >
           <div className="relative grid size-8 place-items-center rounded-full border border-border bg-background transition-all sm:size-9 hover:border-primary/50">
             <div className="size-full overflow-hidden rounded-full">
@@ -295,43 +303,6 @@ export default function DashboardNavigation({
                 })}
               </div>
 
-              {/* Zen Mode Item in Desktop Dropdown */}
-              <div className="border-t border-border/80 bg-surface/90 backdrop-blur-xs p-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleZenMode();
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/40 p-2.5 text-left transition-all hover:bg-surface-muted active:scale-[0.98] cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span
-                      className="flex size-7 shrink-0 items-center justify-center rounded-md text-white font-black text-xs shadow-2xs"
-                      style={{ backgroundColor: activeColorConfig.bgHex }}
-                    >
-                      Z
-                    </span>
-                    <div className="min-w-0">
-                      <span className="block truncate text-xs font-black text-foreground">
-                        Zen Mode
-                      </span>
-                      <span className="block truncate text-[10px] font-semibold text-muted">
-                        {isZenMode ? "Switch to standard view" : "Simplified calm view"}
-                      </span>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0 ${
-                      isZenMode
-                        ? "bg-slate-900 text-white"
-                        : "bg-surface text-foreground border border-border"
-                    }`}
-                  >
-                    {isZenMode ? "Active" : "Enter"}
-                  </span>
-                </button>
-              </div>
 
               {/* Download App Action in Menu Drawer */}
               <div className="border-t border-border/80 bg-surface/90 backdrop-blur-xs p-2">
@@ -502,88 +473,200 @@ export default function DashboardNavigation({
           )
         : null}
 
-      {/* Mobile-First Floating Bottom Navigation Bar (Anchored to bottom of viewport) */}
+      {/* Universal Floating Bottom Navigation Bar (Persistent across tab switches) */}
       {mounted
         ? createPortal(
             <nav
-              aria-label="Mobile Bottom Navigation"
-              className="hide-when-zen fixed bottom-0 inset-x-0 z-50 flex sm:hidden items-center justify-around border-t border-border bg-surface/95 backdrop-blur-md px-2 pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+              aria-label="Bottom Navigation"
+              className="sm:hidden md:hidden lg:hidden mobile-bottom-nav hide-when-zen fixed bottom-0 inset-x-0 z-[75] flex items-center justify-around border-t border-border bg-surface/95 backdrop-blur-md px-3 pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] pointer-events-auto"
               style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
             >
               {/* 1. Home */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileDrawerOpen(false);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-primary transition-all active:scale-95"
-              >
-                <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Home className="size-4" />
-                </span>
-                <span className="text-[10px] font-bold tracking-tight text-primary">Home</span>
-              </button>
+              {(() => {
+                const isHomeActive = !activePanelKey && !mobileDrawerOpen;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      closePanel();
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className={`group flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-all active:scale-95 ${
+                      isHomeActive ? "text-primary" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+                        isHomeActive
+                          ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                          : "bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted"
+                      }`}
+                    >
+                      <Home className="size-4" />
+                    </span>
+                    <span
+                      className={`text-[10px] tracking-tight ${
+                        isHomeActive ? "font-bold text-primary" : "font-semibold text-muted group-hover:text-foreground"
+                      }`}
+                    >
+                      Home
+                    </span>
+                  </button>
+                );
+              })()}
 
               {/* 2. My Hours */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileDrawerOpen(false);
-                  openPanel("my-reports");
-                }}
-                className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
-              >
-                <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
-                  <Clock className="size-4" />
-                </span>
-                <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">My Hours</span>
-              </button>
+              {(() => {
+                const isMyHoursActive = activePanelKey === "my-reports" && !mobileDrawerOpen;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      if (activePanelKey === "my-reports") {
+                        closePanel();
+                      } else {
+                        openPanel("my-reports");
+                      }
+                    }}
+                    className={`group flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-all active:scale-95 ${
+                      isMyHoursActive ? "text-primary" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+                        isMyHoursActive
+                          ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                          : "bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted"
+                      }`}
+                    >
+                      <Clock className="size-4" />
+                    </span>
+                    <span
+                      className={`text-[10px] tracking-tight ${
+                        isMyHoursActive ? "font-bold text-primary" : "font-semibold text-muted group-hover:text-foreground"
+                      }`}
+                    >
+                      My Hours
+                    </span>
+                  </button>
+                );
+              })()}
 
               {/* 3. Leave */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileDrawerOpen(false);
-                  openPanel("leave");
-                }}
-                className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
-              >
-                <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
-                  <CalendarRange className="size-4" />
-                </span>
-                <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">Leave</span>
-              </button>
+              {(() => {
+                const isLeaveActive = activePanelKey === "leave" && !mobileDrawerOpen;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      if (activePanelKey === "leave") {
+                        closePanel();
+                      } else {
+                        openPanel("leave");
+                      }
+                    }}
+                    className={`group flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-all active:scale-95 ${
+                      isLeaveActive ? "text-primary" : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+                        isLeaveActive
+                          ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                          : "bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted"
+                      }`}
+                    >
+                      <CalendarRange className="size-4" />
+                    </span>
+                    <span
+                      className={`text-[10px] tracking-tight ${
+                        isLeaveActive ? "font-bold text-primary" : "font-semibold text-muted group-hover:text-foreground"
+                      }`}
+                    >
+                      Leave
+                    </span>
+                  </button>
+                );
+              })()}
 
               {/* 4. Approvals (for Managers/Admins) or Attendance (for Employees) */}
               {navItems.some((n) => n.key === "manager-review") ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileDrawerOpen(false);
-                    openPanel("manager-review");
-                  }}
-                  className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
-                >
-                  <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
-                    <ClipboardCheck className="size-4" />
-                  </span>
-                  <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">Approvals</span>
-                </button>
+                (() => {
+                  const isApprovalsActive = activePanelKey === "manager-review" && !mobileDrawerOpen;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileDrawerOpen(false);
+                        if (activePanelKey === "manager-review") {
+                          closePanel();
+                        } else {
+                          openPanel("manager-review");
+                        }
+                      }}
+                      className={`group flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-all active:scale-95 ${
+                        isApprovalsActive ? "text-primary" : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+                          isApprovalsActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted"
+                        }`}
+                      >
+                        <ClipboardCheck className="size-4" />
+                      </span>
+                      <span
+                        className={`text-[10px] tracking-tight ${
+                          isApprovalsActive ? "font-bold text-primary" : "font-semibold text-muted group-hover:text-foreground"
+                        }`}
+                      >
+                        Approvals
+                      </span>
+                    </button>
+                  );
+                })()
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileDrawerOpen(false);
-                    openPanel("attendance");
-                  }}
-                  className="group flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted hover:text-foreground transition-all active:scale-95"
-                >
-                  <span className="flex size-8 items-center justify-center rounded-full bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted">
-                    <Users className="size-4" />
-                  </span>
-                  <span className="text-[10px] font-semibold tracking-tight text-muted group-hover:text-foreground">Attendance</span>
-                </button>
+                (() => {
+                  const isAttendanceActive = activePanelKey === "attendance" && !mobileDrawerOpen;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileDrawerOpen(false);
+                        if (activePanelKey === "attendance") {
+                          closePanel();
+                        } else {
+                          openPanel("attendance");
+                        }
+                      }}
+                      className={`group flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-all active:scale-95 ${
+                        isAttendanceActive ? "text-primary" : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`flex size-8 items-center justify-center rounded-full transition-colors ${
+                          isAttendanceActive
+                            ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                            : "bg-surface-muted/60 text-muted group-hover:text-foreground group-hover:bg-surface-muted"
+                        }`}
+                      >
+                        <Users className="size-4" />
+                      </span>
+                      <span
+                        className={`text-[10px] tracking-tight ${
+                          isAttendanceActive ? "font-bold text-primary" : "font-semibold text-muted group-hover:text-foreground"
+                        }`}
+                      >
+                        Attendance
+                      </span>
+                    </button>
+                  );
+                })()
               )}
 
               {/* 5. Mobile Drawer Trigger */}
@@ -620,11 +703,11 @@ export default function DashboardNavigation({
       {mounted && mobileDrawerOpen
         ? createPortal(
             <div
-              className="fixed inset-0 z-[70] flex sm:hidden items-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+              className="sm:hidden md:hidden lg:hidden mobile-drawer-modal fixed inset-x-0 top-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-[70] flex items-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
               onClick={() => setMobileDrawerOpen(false)}
             >
               <div
-                className="relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl border-t border-border bg-surface shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden"
+                className="relative flex max-h-full w-full flex-col rounded-t-3xl border-t border-border bg-surface shadow-2xl animate-in slide-in-from-bottom duration-300 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Drag Handle */}
@@ -685,49 +768,6 @@ export default function DashboardNavigation({
                     </div>
                   ) : null}
 
-                  {/* Zen Mode in Mobile Drawer */}
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted px-2 pb-1">
-                      Display Mode
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileDrawerOpen(false);
-                        toggleZenMode();
-                      }}
-                      className="flex w-full items-center justify-between rounded-2xl border border-border bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-amber-500/10 p-3 text-left transition-all hover:bg-surface-muted active:scale-[0.98] cursor-pointer shadow-xs"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className="flex size-9 shrink-0 items-center justify-center rounded-xl text-white font-black text-sm shadow-xs"
-                          style={{ backgroundColor: activeColorConfig.bgHex }}
-                        >
-                          Z
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-xs font-black text-foreground">
-                              Zen Mode
-                            </p>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                isZenMode
-                                  ? "bg-slate-900 text-white"
-                                  : "bg-emerald-600 text-white"
-                              }`}
-                            >
-                              {isZenMode ? "Active" : "Enter"}
-                            </span>
-                          </div>
-                          <p className="truncate text-[10px] text-muted font-medium mt-0.5">
-                            {isZenMode ? "Tap to exit Zen Mode" : "Simplified circular time clock & leave"}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="size-4 shrink-0 text-muted" />
-                    </button>
-                  </div>
 
                   {/* Simplified Mobile Navigation */}
                   <div className="space-y-1">

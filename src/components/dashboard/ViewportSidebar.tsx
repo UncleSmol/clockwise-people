@@ -90,13 +90,13 @@ export default function ViewportSidebar({
 
   return createPortal(
     <div
-      className={`fixed inset-0 ${zIndex} flex justify-end ${backdropClassName}`}
+      className={`fixed inset-x-0 top-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:inset-0 ${zIndex} flex justify-end ${backdropClassName}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <div
-        className={`flex h-full min-w-0 w-full flex-col overflow-hidden border-l border-border/80 bg-white shadow-2xl animate-slide-in-right max-sm:rounded-t-3xl max-sm:h-[94vh] max-sm:mt-auto max-sm:border-t max-sm:border-l-0 ${maxWidth}`}
+        className={`flex h-full min-w-0 w-full flex-col overflow-hidden border-l border-border/80 bg-white shadow-2xl animate-slide-in-right max-sm:rounded-t-3xl max-sm:border-t max-sm:border-l-0 ${maxWidth}`}
         style={panelStyle}
         role="dialog"
         aria-modal="true"

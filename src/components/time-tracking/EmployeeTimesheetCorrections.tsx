@@ -328,6 +328,49 @@ function dateKey(date: Date) {
   ].join("-");
 }
 
+function checkDraftNoteRequirement(entry: TimeEntryRecord, scheduledHours: number = 8) {
+  const hasClocking = Boolean(entry.clock_in && entry.clock_out);
+  const paidHours = Number(entry.paid_hours ?? 0);
+  const overtimeHours = Number(entry.overtime_hours ?? 0);
+  const lunchHours = Number(entry.lunch_hours ?? 0);
+  const hasLunch = Boolean(entry.lunch_start && entry.lunch_end && lunchHours > 0);
+
+  const isNoLunch = hasClocking && !hasLunch;
+  const isFlagged = Boolean(
+    entry.missing_clocking ||
+    entry.late_arrival ||
+    entry.early_departure ||
+    (entry.clock_in && paidHours <= 0),
+  );
+  const isShort = hasClocking && paidHours > 0 && paidHours < scheduledHours;
+  const isOvertime = overtimeHours > 0 || paidHours > scheduledHours;
+
+  const reasons: string[] = [];
+  if (isNoLunch) reasons.push("No lunch");
+  if (isFlagged) reasons.push("Flagged review");
+  if (isShort) reasons.push(`Short (${paidHours.toFixed(1)}h)`);
+  if (isOvertime) reasons.push(`OT (${overtimeHours > 0 ? `+${overtimeHours.toFixed(1)}h` : `${paidHours.toFixed(1)}h`})`);
+
+  const requiresNote = false;
+  const hasUserNote = Boolean(
+    entry.notes &&
+    entry.notes.trim().length > 0 &&
+    !entry.notes.startsWith("Public holiday:") &&
+    !entry.notes.startsWith("Created via schedule template") &&
+    !entry.notes.startsWith("Bulk draft generated from"),
+  );
+
+  return {
+    requiresNote,
+    reasons,
+    hasUserNote,
+    isNoLunch,
+    isFlagged,
+    isShort,
+    isOvertime,
+  };
+}
+
 function getScheduleTemplate(
   schedule: EmployeeScheduleInfo | null | undefined,
   todaySchedule: {
@@ -338,6 +381,7 @@ function getScheduleTemplate(
   } | null | undefined,
   defaultLunchMinutes: number = 60,
   targetDate?: string,
+  includeLunch: boolean = true,
 ) {
   let startTime = "08:00";
   let endTime = "17:00";
@@ -359,15 +403,26 @@ function getScheduleTemplate(
     if (day) {
       if (day.start_time) startTime = day.start_time.slice(0, 5);
       if (day.end_time) endTime = day.end_time.slice(0, 5);
-      if (day.lunch_minutes > 0) lunchMinutes = day.lunch_minutes;
+      if (day.lunch_minutes !== undefined) lunchMinutes = day.lunch_minutes;
     }
   } else if (todaySchedule) {
     if (todaySchedule.start_time) startTime = todaySchedule.start_time.slice(0, 5);
     if (todaySchedule.end_time) endTime = todaySchedule.end_time.slice(0, 5);
-    if (todaySchedule.lunch_minutes > 0) lunchMinutes = todaySchedule.lunch_minutes;
+    if (todaySchedule.lunch_minutes !== undefined) lunchMinutes = todaySchedule.lunch_minutes;
   }
 
-  // Derive lunch break interval (mandatory lunch insertion)
+  if (!includeLunch || lunchMinutes <= 0) {
+    return {
+      scheduleName,
+      clock_in: startTime,
+      lunch_start: "",
+      lunch_end: "",
+      clock_out: endTime,
+      lunch_minutes: 0,
+    };
+  }
+
+  // Derive lunch break interval (optional lunch insertion)
   const [sh = 8, sm = 0] = startTime.split(":").map(Number);
   const [eh = 17, em = 0] = endTime.split(":").map(Number);
   const startMins = sh * 60 + sm;
@@ -616,18 +671,21 @@ export default function EmployeeTimesheetCorrections({
   const [bulkStartDate, setBulkStartDate] = useState(initialPreset.start);
   const [bulkEndDate, setBulkEndDate] = useState(initialPreset.end);
   const [bulkExcludeWeekends, setBulkExcludeWeekends] = useState(true);
+  const [bulkIncludeLunch, setBulkIncludeLunch] = useState(true);
   const [bulkClockIn, setBulkClockIn] = useState(scheduleTemplate.clock_in);
   const [bulkLunchStart, setBulkLunchStart] = useState(scheduleTemplate.lunch_start);
   const [bulkLunchEnd, setBulkLunchEnd] = useState(scheduleTemplate.lunch_end);
   const [bulkClockOut, setBulkClockOut] = useState(scheduleTemplate.clock_out);
   const [bulkNotes, setBulkNotes] = useState("Bulk draft generated from work schedule template");
+  const [includeLunchInDraft, setIncludeLunchInDraft] = useState(true);
+  const [inlineSubmissionNotes, setInlineSubmissionNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setBulkClockIn(scheduleTemplate.clock_in);
-    setBulkLunchStart(scheduleTemplate.lunch_start);
-    setBulkLunchEnd(scheduleTemplate.lunch_end);
+    setBulkLunchStart(bulkIncludeLunch ? scheduleTemplate.lunch_start : "");
+    setBulkLunchEnd(bulkIncludeLunch ? scheduleTemplate.lunch_end : "");
     setBulkClockOut(scheduleTemplate.clock_out);
-  }, [scheduleTemplate]);
+  }, [scheduleTemplate, bulkIncludeLunch]);
 
   useEffect(() => {
     if (bulkState.ok && bulkState.message) {
@@ -640,8 +698,14 @@ export default function EmployeeTimesheetCorrections({
   >(() => new Map());
 
   const applyTemplateToDraft = useCallback(
-    (entry: TimeEntryRecord) => {
-      const tpl = getScheduleTemplate(workSchedule, todaySchedule, defaultLunchMinutes, entry.work_date);
+    (entry: TimeEntryRecord, withLunch: boolean = true) => {
+      const tpl = getScheduleTemplate(
+        workSchedule,
+        todaySchedule,
+        defaultLunchMinutes,
+        entry.work_date,
+        withLunch,
+      );
       setDraftOverrides((prev) => {
         const next = new Map(prev);
         next.set(entry.id, {
@@ -700,6 +764,7 @@ export default function EmployeeTimesheetCorrections({
           return next;
         });
         setModifiedEntryIds(new Set());
+        setInlineSubmissionNotes({});
       }
       return result;
     },
@@ -1084,6 +1149,8 @@ export default function EmployeeTimesheetCorrections({
     lastClickedEntryIdRef.current = null;
     setAcknowledgedFlags(false);
   };
+  const standardHours = Number(workSchedule?.standard_daily_hours ?? 8);
+
   const flaggedSelected = editableEntries.filter(
     (entry) => selectedEntryIds.has(entry.id) && entryNeedsAttention(entry) && !isEntryFixed(entry),
   );
@@ -1094,15 +1161,36 @@ export default function EmployeeTimesheetCorrections({
   const hasRejectedSelected = editableEntries.some(
     (entry) => selectedEntryIds.has(entry.id) && entry.status === "rejected" && !isEntryFixed(entry),
   );
+
+  const missingNoteSelected: TimeEntryRecord[] = [];
+  const hasMissingNotes = false;
+
   const submitBlocked =
-    selectedEntryIds.size === 0 || (hasFlaggedSelected && !acknowledgedFlags);
-  const message =
+    selectedEntryIds.size === 0 ||
+    (hasFlaggedSelected && !acknowledgedFlags);
+  const rawMessage =
     bulkState.message ||
     createState.message ||
     deleteState.message ||
     correctionState.message ||
     saveState.message ||
     submitState.message;
+
+  const message = useMemo(() => {
+    if (!rawMessage) return null;
+    const msg = rawMessage.trim();
+    if (
+      msg.includes("refresh_time_entry") ||
+      msg.includes("does not exist") ||
+      msg.includes("function public.")
+    ) {
+      return "Timesheet calculation service was updated. Please try submitting again.";
+    }
+    if (msg.includes("violates check constraint") || msg.includes("violates")) {
+      return "Unable to save due to an invalid time range. Please verify your clock-in and clock-out times.";
+    }
+    return msg;
+  }, [rawMessage]);
   const messageOk = bulkState.message
     ? bulkState.ok
     : createState.message
@@ -1328,20 +1416,56 @@ export default function EmployeeTimesheetCorrections({
             <input type="hidden" name="time_entry_id" value={entry.id} />
             
             {/* Quick schedule template loader bar */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-0.5">
+            <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-100 pb-1.5 mb-0.5">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
                 <Clock className="size-3 text-slate-400" />
                 Draft Times
               </span>
-              <button
-                type="button"
-                onClick={() => applyTemplateToDraft(entry)}
-                className="inline-flex items-center gap-1 rounded bg-amber-50 hover:bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 border border-amber-200/80 transition-colors shadow-2xs"
-                title={`Load schedule template: ${scheduleTemplate.scheduleName} (${scheduleTemplate.clock_in} - ${scheduleTemplate.clock_out})`}
-              >
-                <Sparkles className="size-2.5 text-amber-600" />
-                Load Work Schedule
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => applyTemplateToDraft(entry, true)}
+                  className="inline-flex items-center gap-1 rounded bg-amber-50 hover:bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900 border border-amber-200/80 transition-colors shadow-2xs cursor-pointer"
+                  title={`Load schedule template with lunch: ${scheduleTemplate.scheduleName}`}
+                >
+                  <Sparkles className="size-2.5 text-amber-600" />
+                  Load Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyTemplateToDraft(entry, false)}
+                  className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-300 transition-colors shadow-2xs cursor-pointer"
+                  title="Load schedule hours without lunch"
+                >
+                  No Lunch
+                </button>
+                {(draftOverrides.get(entry.id)?.lunch_start ||
+                  draftOverrides.get(entry.id)?.lunch_end ||
+                  entry.lunch_start ||
+                  entry.lunch_end) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftOverrides((prev) => {
+                        const next = new Map(prev);
+                        const current = next.get(entry.id) ?? {};
+                        next.set(entry.id, {
+                          ...current,
+                          lunch_start: "",
+                          lunch_end: "",
+                        });
+                        return next;
+                      });
+                      handleEntryModified(entry.id);
+                    }}
+                    className="inline-flex items-center gap-0.5 rounded bg-rose-50 hover:bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200 transition-colors cursor-pointer"
+                    title="Clear lunch times"
+                  >
+                    <X className="size-2.5 text-rose-600" />
+                    Clear Lunch
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 min-w-0 w-full">
@@ -1403,13 +1527,17 @@ export default function EmployeeTimesheetCorrections({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 rounded-md bg-amber-50/80 border border-amber-200/60 px-2 py-1 text-[10px] font-semibold text-amber-900">
-              <UtensilsCrossed className="size-3 text-amber-600 shrink-0" />
-              <span>Lunch break is required on draft timesheets for labor compliance.</span>
+            <div className="flex items-center gap-1.5 rounded-md bg-slate-50 border border-slate-200/60 px-2 py-1 text-[10px] font-medium text-slate-600">
+              <UtensilsCrossed className="size-3 text-slate-400 shrink-0" />
+              <span>Flexible lunch: Lunch can be taken anytime, for any duration, or omitted completely.</span>
             </div>
 
             <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5 min-w-0 w-full">
-              <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">Note</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 truncate block">
+                  Note
+                </span>
+              </div>
               <textarea
                 name="notes"
                 rows={1}
@@ -1555,11 +1683,13 @@ export default function EmployeeTimesheetCorrections({
                 ? "Submitting..."
                 : selectedEntryIds.size === 0
                   ? "Select timesheets"
-                  : hasFixedSelected && !hasRejectedSelected
-                    ? `Resubmit fixed (${selectedEntryIds.size})`
-                    : hasRejectedSelected
-                      ? `Resubmit selected (${selectedEntryIds.size})`
-                      : `Submit selected (${selectedEntryIds.size})`}
+                  : hasMissingNotes
+                    ? `Notes required (${missingNoteSelected.length} needed)`
+                    : hasFixedSelected && !hasRejectedSelected
+                      ? `Resubmit fixed (${selectedEntryIds.size})`
+                      : hasRejectedSelected
+                        ? `Resubmit selected (${selectedEntryIds.size})`
+                        : `Submit selected (${selectedEntryIds.size})`}
             </button>
           </div>
         </div>
@@ -1750,6 +1880,25 @@ export default function EmployeeTimesheetCorrections({
             <span>I understand the flagged days need attention and will be sent for manager review.</span>
           </label>
         ) : null}
+
+        {/* Hidden inputs for any inline notes already filled for selected entries */}
+        {Object.entries(inlineSubmissionNotes).map(([entryId, noteVal]) => {
+          if (
+            selectedEntryIds.has(entryId) &&
+            !missingNoteSelected.some((e) => e.id === entryId) &&
+            noteVal.trim()
+          ) {
+            return (
+              <input
+                key={`hidden-inline-note-${entryId}`}
+                type="hidden"
+                name={`note_${entryId}`}
+                value={noteVal}
+              />
+            );
+          }
+          return null;
+        })}
       </form>
     ) : null;
 
@@ -2679,7 +2828,6 @@ export default function EmployeeTimesheetCorrections({
                 : "text-foreground"
                 }`}
             >
-              <ClipboardCheck className="size-4" />
               <span>Timesheets</span>
               <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                 activeTab === "timesheets"
@@ -2697,7 +2845,6 @@ export default function EmployeeTimesheetCorrections({
                 : "text-foreground"
                 }`}
             >
-              <FileQuestion className="size-4" />
               <span>Requests</span>
               <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                 activeTab === "requests"
@@ -3603,26 +3750,60 @@ export default function EmployeeTimesheetCorrections({
             Employees can only add past timesheets from the calendar.
           </p>
         ) : (() => {
-          const daySchedule = getScheduleTemplate(workSchedule, todaySchedule, defaultLunchMinutes, selectedDate);
+          const dayScheduleWithLunch = getScheduleTemplate(
+            workSchedule,
+            todaySchedule,
+            defaultLunchMinutes,
+            selectedDate,
+            true,
+          );
+          const dayScheduleNoLunch = getScheduleTemplate(
+            workSchedule,
+            todaySchedule,
+            defaultLunchMinutes,
+            selectedDate,
+            false,
+          );
+          const activeSchedule = includeLunchInDraft ? dayScheduleWithLunch : dayScheduleNoLunch;
+
           return (
             <div className="grid gap-3">
               <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 text-xs">
-                <div className="flex items-center gap-2 font-bold text-foreground">
-                  <Sparkles className="size-3.5 text-primary" />
-                  <span>{daySchedule.scheduleName}</span>
+                <div className="flex items-center justify-between gap-2 font-bold text-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="size-3.5 text-primary" />
+                    <span>{dayScheduleWithLunch.scheduleName}</span>
+                  </div>
+                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={includeLunchInDraft}
+                      onChange={(e) => setIncludeLunchInDraft(e.target.checked)}
+                      className="size-3.5 rounded border-border text-primary focus:ring-primary accent-primary"
+                    />
+                    <span>Include Lunch</span>
+                  </label>
                 </div>
                 <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg bg-surface/80 p-2 border border-border/60">
                     <span className="text-[10px] text-muted uppercase font-bold block">Shift Hours</span>
-                    <strong className="text-foreground">{daySchedule.clock_in} - {daySchedule.clock_out}</strong>
+                    <strong className="text-foreground">{activeSchedule.clock_in} - {activeSchedule.clock_out}</strong>
                   </div>
                   <div className="rounded-lg bg-surface/80 p-2 border border-border/60">
-                    <span className="text-[10px] text-muted uppercase font-bold block">Required Lunch</span>
-                    <strong className="text-foreground">{daySchedule.lunch_start} - {daySchedule.lunch_end}</strong>
+                    <span className="text-[10px] text-muted uppercase font-bold block">
+                      Lunch Break
+                    </span>
+                    <strong className={includeLunchInDraft ? "text-foreground" : "text-muted"}>
+                      {includeLunchInDraft
+                        ? `${activeSchedule.lunch_start} - ${activeSchedule.lunch_end} (${dayScheduleWithLunch.lunch_minutes}m)`
+                        : "No Lunch (0m)"}
+                    </strong>
                   </div>
                 </div>
                 <p className="mt-2 text-[11px] text-muted leading-relaxed">
-                  Quick-load an editable draft pre-filled with your assigned shift hours and required {daySchedule.lunch_minutes}m lunch break.
+                  {includeLunchInDraft
+                    ? `Quick-load an editable draft pre-filled with shift hours and ${dayScheduleWithLunch.lunch_minutes}m lunch break.`
+                    : "Quick-load a draft without lunch. You can still add lunch anytime or submit with an explanatory note."}
                 </p>
               </div>
 
@@ -3630,31 +3811,56 @@ export default function EmployeeTimesheetCorrections({
                 <form action={createAction}>
                   <input type="hidden" name="work_date" value={selectedDate} />
                   <input type="hidden" name="use_template" value="true" />
-                  <input type="hidden" name="clock_in" value={daySchedule.clock_in} />
-                  <input type="hidden" name="lunch_start" value={daySchedule.lunch_start} />
-                  <input type="hidden" name="lunch_end" value={daySchedule.lunch_end} />
-                  <input type="hidden" name="clock_out" value={daySchedule.clock_out} />
+                  <input type="hidden" name="include_lunch" value={includeLunchInDraft ? "true" : "false"} />
+                  <input type="hidden" name="clock_in" value={activeSchedule.clock_in} />
+                  <input type="hidden" name="lunch_start" value={activeSchedule.lunch_start} />
+                  <input type="hidden" name="lunch_end" value={activeSchedule.lunch_end} />
+                  <input type="hidden" name="clock_out" value={activeSchedule.clock_out} />
                   <button
                     type="submit"
                     disabled={!selectedCanAdd || createPending}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
                   >
                     <Sparkles className="size-4" />
-                    {createPending ? "Adding draft..." : "Load Schedule Draft"}
+                    {createPending
+                      ? "Adding draft..."
+                      : includeLunchInDraft
+                        ? "Load Schedule Draft (With Lunch)"
+                        : "Load Schedule Draft (No Lunch)"}
                   </button>
                 </form>
 
-                <form action={createAction}>
-                  <input type="hidden" name="work_date" value={selectedDate} />
-                  <button
-                    type="submit"
-                    disabled={!selectedCanAdd || createPending}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:opacity-50 transition-colors"
-                  >
-                    <Plus className="size-3.5" />
-                    Add Blank Draft
-                  </button>
-                </form>
+                <div className="grid grid-cols-2 gap-2">
+                  <form action={createAction}>
+                    <input type="hidden" name="work_date" value={selectedDate} />
+                    <input type="hidden" name="use_template" value="true" />
+                    <input type="hidden" name="include_lunch" value={includeLunchInDraft ? "false" : "true"} />
+                    <input type="hidden" name="clock_in" value={includeLunchInDraft ? dayScheduleNoLunch.clock_in : dayScheduleWithLunch.clock_in} />
+                    <input type="hidden" name="lunch_start" value={includeLunchInDraft ? dayScheduleNoLunch.lunch_start : dayScheduleWithLunch.lunch_start} />
+                    <input type="hidden" name="lunch_end" value={includeLunchInDraft ? dayScheduleNoLunch.lunch_end : dayScheduleWithLunch.lunch_end} />
+                    <input type="hidden" name="clock_out" value={includeLunchInDraft ? dayScheduleNoLunch.clock_out : dayScheduleWithLunch.clock_out} />
+                    <button
+                      type="submit"
+                      disabled={!selectedCanAdd || createPending}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      <UtensilsCrossed className="size-3 text-muted" />
+                      {includeLunchInDraft ? "Load No Lunch" : "Load With Lunch"}
+                    </button>
+                  </form>
+
+                  <form action={createAction}>
+                    <input type="hidden" name="work_date" value={selectedDate} />
+                    <button
+                      type="submit"
+                      disabled={!selectedCanAdd || createPending}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      <Plus className="size-3 text-muted" />
+                      Blank Draft
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           );
@@ -3760,18 +3966,43 @@ export default function EmployeeTimesheetCorrections({
                 </label>
               </div>
 
-              {/* Exclude Weekends Checkbox */}
-              <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  name="exclude_weekends"
-                  value="true"
-                  checked={bulkExcludeWeekends}
-                  onChange={(e) => setBulkExcludeWeekends(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-primary size-4"
-                />
-                <span>Skip weekend days (Saturday & Sunday)</span>
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Exclude Weekends Checkbox */}
+                <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    name="exclude_weekends"
+                    value="true"
+                    checked={bulkExcludeWeekends}
+                    onChange={(e) => setBulkExcludeWeekends(e.target.checked)}
+                    className="rounded border-border text-primary focus:ring-primary size-4"
+                  />
+                  <span>Skip weekend days (Saturday & Sunday)</span>
+                </label>
+
+                {/* Include Lunch Checkbox */}
+                <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    name="include_lunch"
+                    value="true"
+                    checked={bulkIncludeLunch}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setBulkIncludeLunch(checked);
+                      if (!checked) {
+                        setBulkLunchStart("");
+                        setBulkLunchEnd("");
+                      } else {
+                        setBulkLunchStart(scheduleTemplate.lunch_start);
+                        setBulkLunchEnd(scheduleTemplate.lunch_end);
+                      }
+                    }}
+                    className="rounded border-border text-primary focus:ring-primary size-4 accent-primary"
+                  />
+                  <span>Include lunch break</span>
+                </label>
+              </div>
 
               {/* Work Schedule Rule Hours */}
               <div className="rounded-2xl border border-border/80 bg-surface-muted/50 p-4 grid gap-3">
@@ -3786,8 +4017,8 @@ export default function EmployeeTimesheetCorrections({
                     type="button"
                     onClick={() => {
                       setBulkClockIn(scheduleTemplate.clock_in);
-                      setBulkLunchStart(scheduleTemplate.lunch_start);
-                      setBulkLunchEnd(scheduleTemplate.lunch_end);
+                      setBulkLunchStart(bulkIncludeLunch ? scheduleTemplate.lunch_start : "");
+                      setBulkLunchEnd(bulkIncludeLunch ? scheduleTemplate.lunch_end : "");
                       setBulkClockOut(scheduleTemplate.clock_out);
                     }}
                     className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
@@ -3808,33 +4039,41 @@ export default function EmployeeTimesheetCorrections({
                     />
                   </label>
 
-                  <label className="grid gap-1 text-[11px] font-bold text-primary">
-                    <span className="flex items-center gap-1">
-                      <UtensilsCrossed className="size-3" />
-                      Lunch Start
-                    </span>
-                    <AnalogTimePicker
-                      name="lunch_start"
-                      value={bulkLunchStart}
-                      onValueChange={(val) => setBulkLunchStart(val)}
-                      compact
-                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                    />
-                  </label>
+                  {bulkIncludeLunch ? (
+                    <>
+                      <label className="grid gap-1 text-[11px] font-bold text-primary">
+                        <span className="flex items-center gap-1">
+                          <UtensilsCrossed className="size-3" />
+                          Lunch Start
+                        </span>
+                        <AnalogTimePicker
+                          name="lunch_start"
+                          value={bulkLunchStart}
+                          onValueChange={(val) => setBulkLunchStart(val)}
+                          compact
+                          className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                        />
+                      </label>
 
-                  <label className="grid gap-1 text-[11px] font-bold text-primary">
-                    <span className="flex items-center gap-1">
-                      <UtensilsCrossed className="size-3" />
-                      Lunch End
-                    </span>
-                    <AnalogTimePicker
-                      name="lunch_end"
-                      value={bulkLunchEnd}
-                      onValueChange={(val) => setBulkLunchEnd(val)}
-                      compact
-                      className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                    />
-                  </label>
+                      <label className="grid gap-1 text-[11px] font-bold text-primary">
+                        <span className="flex items-center gap-1">
+                          <UtensilsCrossed className="size-3" />
+                          Lunch End
+                        </span>
+                        <AnalogTimePicker
+                          name="lunch_end"
+                          value={bulkLunchEnd}
+                          onValueChange={(val) => setBulkLunchEnd(val)}
+                          compact
+                          className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <div className="col-span-2 flex items-center justify-center rounded-lg border border-dashed border-border bg-surface p-2 text-center text-[11px] text-muted">
+                      <span>No lunch break will be added for this batch.</span>
+                    </div>
+                  )}
 
                   <label className="grid gap-1 text-[11px] font-semibold text-foreground">
                     <span>Shift End</span>
@@ -3848,10 +4087,14 @@ export default function EmployeeTimesheetCorrections({
                   </label>
                 </div>
 
-                {/* Mandatory Lunch notice */}
+                {/* Flexible Lunch notice */}
                 <div className="flex items-center gap-1.5 text-[11px] text-muted">
-                  <AlertTriangle className="size-3.5 text-amber-500 shrink-0" />
-                  <span>Lunch break insertion is mandatory by rule policy and cannot be left blank.</span>
+                  <UtensilsCrossed className="size-3.5 text-primary shrink-0" />
+                  <span>
+                    {bulkIncludeLunch
+                      ? "Lunch breaks are flexible. Employees can take lunch anytime for any duration."
+                      : "Batch will generate drafts with no lunch. Note: Submitting drafts with no lunch requires an explanatory note."}
+                  </span>
                 </div>
               </div>
 

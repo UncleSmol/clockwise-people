@@ -18,6 +18,7 @@ import {
   type PayrollPeriodConfig,
 } from "@/lib/reports/payroll-periods";
 import { saveCompanyPayrollRulesAction } from "@/lib/work-rules/actions";
+import { dispatchGlobalToast } from "@/components/notifications/SlidingToastProvider";
 
 function addDaysToDateString(dateStr: string, days: number): string {
   if (!dateStr) return "";
@@ -94,7 +95,14 @@ export default function CompanyPayrollRulesSection({
   const [isPending, startTransition] = useTransition();
   const [activeSubTab, setActiveSubTab] = useState<"rules" | "assignments" | "preview">("rules");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusMessage, setStatusMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const setStatusMessage = (msg: { text: string; ok: boolean } | null) => {
+    if (msg) {
+      dispatchGlobalToast({
+        type: msg.ok ? "success" : "error",
+        message: msg.text,
+      });
+    }
+  };
 
   // Stored Payroll Rules
   const [rules, setRules] = useState<CustomPayrollRule[]>(() => {
@@ -631,22 +639,6 @@ export default function CompanyPayrollRulesSection({
         </div>
       </div>
 
-      {statusMessage && (
-        <div
-          className={`flex items-center gap-2 rounded-xl border p-3 text-xs font-bold ${
-            statusMessage.ok
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-rose-300 bg-rose-50 text-rose-950"
-          }`}
-        >
-          {statusMessage.ok ? (
-            <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="size-4 text-rose-600 shrink-0" />
-          )}
-          <span>{statusMessage.text}</span>
-        </div>
-      )}
 
       {/* Sub-tab 1: Payroll Rules & Custom Creator */}
       {activeSubTab === "rules" && (

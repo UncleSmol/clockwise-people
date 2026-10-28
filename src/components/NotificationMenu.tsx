@@ -20,6 +20,11 @@ import {
 } from "@/lib/dashboard/actions";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { DashboardNotification } from "@/lib/dashboard/schema";
+import { dispatchGlobalToast } from "@/components/notifications/SlidingToastProvider";
+import {
+  playNotificationPing,
+  primeNotificationAudio,
+} from "@/lib/audio/notification-sound";
 
 type NotificationMenuProps = {
   companyId: string;
@@ -164,6 +169,7 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
 
   const requestPermission = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
+    primeNotificationAudio();
     setRequestingPerm(true);
     try {
       if ("serviceWorker" in navigator) {
@@ -172,6 +178,7 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
       const res = await Notification.requestPermission();
       setPermission(res);
       if (res === "granted") {
+        playNotificationPing();
         await triggerDeviceNotification({
           title: "ClockWise People Alerts Active",
           body: "Mobile vibration and desktop popup alerts are enabled!",
@@ -209,12 +216,26 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
         const next = await fetchDashboardNotifications();
         setLiveNotifications(next);
 
-        // Check for newly arrived notifications to trigger native phone / desktop alert
-        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-          for (const item of next) {
-            if (!notifiedIdsRef.current.has(item.id)) {
-              notifiedIdsRef.current.add(item.id);
-              const destination = getNotificationDestination(item);
+        // Dispatch sliding bottom toast and device notification for newly arrived notifications
+        for (const item of next) {
+          if (!notifiedIdsRef.current.has(item.id)) {
+            notifiedIdsRef.current.add(item.id);
+            const destination = getNotificationDestination(item);
+
+            // Play iPhone ping sound
+            playNotificationPing();
+
+            // Pop up at the bottom of the screen
+            dispatchGlobalToast({
+              id: item.id,
+              type: "notification",
+              title: item.title,
+              message: item.body,
+              targetHref: destination,
+            });
+
+            // Native device / OS notification if granted
+            if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
               triggerDeviceNotification({
                 id: item.id,
                 title: item.title,

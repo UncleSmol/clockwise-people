@@ -14,6 +14,7 @@ import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
 import { useRealtimeEvent } from "@/components/realtime/RealtimeSyncProvider";
 import LiveLocationTracker from "./LiveLocationTracker";
 import AnalogTimePicker from "./AnalogTimePicker";
+import { dispatchGlobalToast } from "@/components/notifications/SlidingToastProvider";
 
 type TodaySchedule = {
   start_time: string | null;
@@ -65,7 +66,7 @@ function nextActions(entry: TimeEntryRecord | null, noLunchToday: boolean): Cloc
 
   const actions: ClockAction[] = [];
 
-  if (!noLunchToday && !entry.lunch_start) {
+  if (!entry.lunch_start) {
     actions.push({ label: "Start lunch", action: startLunch, tone: "secondary" });
   } else if (entry.lunch_start && !entry.lunch_end) {
     actions.push({ label: "End lunch", action: endLunch, tone: "primary" });
@@ -509,6 +510,18 @@ export default function EmployeeTimeClock({
         setLiveTodayEntry(result.entry);
       }
 
+      if (result.ok) {
+        dispatchGlobalToast({
+          type: "success",
+          message: result.message || "Action completed successfully.",
+        });
+      } else if (result.message) {
+        dispatchGlobalToast({
+          type: "error",
+          message: result.message,
+        });
+      }
+
       return result;
     },
     initialState,
@@ -674,7 +687,7 @@ export default function EmployeeTimeClock({
     const isClockInBusy = pendingActionRef.current === "Clock in" && (pending || locating);
     const clockInLabel = isClockInBusy ? (locating ? "Locating..." : "Saving...") : "Clock in";
 
-    const canLunchAction = isClockedIn && !noLunchToday && (!displayEntry?.lunch_start || isOnLunch);
+    const canLunchAction = isClockedIn && (!displayEntry?.lunch_start || isOnLunch);
     const lunchActionValue = isOnLunch ? "End lunch" : "Start lunch";
     const lunchDisabled = !canLunchAction || pending || locating;
     const isLunchBusy =
@@ -690,9 +703,7 @@ export default function EmployeeTimeClock({
           ? "Start lunch"
           : hasLunchEnded
             ? "Lunch ended"
-            : noLunchToday
-              ? "No lunch"
-              : "Lunch";
+            : "Lunch";
 
     const canClockOutAction = isClockedIn;
     const clockOutDisabled = !canClockOutAction || pending || locating;

@@ -12,6 +12,11 @@ import {
   Send,
   ShieldAlert,
 } from "lucide-react";
+import { dispatchGlobalToast } from "@/components/notifications/SlidingToastProvider";
+import {
+  playNotificationPing,
+  primeNotificationAudio,
+} from "@/lib/audio/notification-sound";
 
 export default function PushNotificationSettings() {
   const [supported] = useState(() => {
@@ -56,6 +61,7 @@ export default function PushNotificationSettings() {
   const requestNotificationPermission = async () => {
     if (!supported) return;
 
+    primeNotificationAudio();
     setLoading(true);
     setStatusMessage(null);
 
@@ -69,20 +75,22 @@ export default function PushNotificationSettings() {
       setPermission(result);
 
       if (result === "granted") {
-        setStatusMessage("Push notifications successfully enabled!");
+        playNotificationPing();
+        dispatchGlobalToast({ type: "success", message: "Push notifications successfully enabled!" });
         // Send a welcome test notification
         sendTestNotification();
       } else if (result === "denied") {
-        setStatusMessage("Notifications were blocked. Please allow notifications in your browser site settings.");
+        dispatchGlobalToast({ type: "error", message: "Notifications were blocked. Please allow notifications in your browser site settings." });
       }
     } catch {
-      setStatusMessage("Failed to request permission. Please try again.");
+      dispatchGlobalToast({ type: "error", message: "Failed to request permission. Please try again." });
     } finally {
       setLoading(false);
     }
   };
 
   const sendTestNotification = async () => {
+    playNotificationPing();
     if (Notification.permission !== "granted") return;
 
     const registration = await navigator.serviceWorker?.ready.catch(() => null);
@@ -178,17 +186,6 @@ export default function PushNotificationSettings() {
         </span>
       </div>
 
-      {statusMessage && (
-        <div
-          className={`rounded-2xl border p-3 text-xs font-bold ${
-            isGranted
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-rose-300 bg-rose-50 text-rose-950"
-          }`}
-        >
-          {statusMessage}
-        </div>
-      )}
 
       {/* Permission Block Banner / Action */}
       {!isGranted && !isDenied && (

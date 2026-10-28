@@ -16,15 +16,23 @@ export type PanelNavItem = {
 
 type PanelBridgeValue = {
   navItems: PanelNavItem[];
+  activePanelKey: string | null;
   openPanel: (key: string) => void;
+  closePanel: () => void;
   registerPanelOpener: (open: (key: string) => void) => void;
+  registerPanelCloser: (close: () => void) => void;
+  registerActivePanelKey: (key: string | null) => void;
   registerNavItems: (items: PanelNavItem[]) => void;
 };
 
 const PanelBridgeContext = createContext<PanelBridgeValue>({
   navItems: [],
+  activePanelKey: null,
   openPanel: () => {},
+  closePanel: () => {},
   registerPanelOpener: () => {},
+  registerPanelCloser: () => {},
+  registerActivePanelKey: () => {},
   registerNavItems: () => {},
 });
 
@@ -34,17 +42,36 @@ export function usePanelBridge() {
 
 export function PanelBridgeProvider({ children }: { children: ReactNode }) {
   const [navItems, setNavItems] = useState<PanelNavItem[]>([]);
+  const [activePanelKey, setActivePanelKey] = useState<string | null>(null);
   const [opener, setOpener] = useState<(key: string) => void>(() => () => {});
+  const [closer, setCloser] = useState<() => void>(() => () => {});
 
   const openPanel = useCallback(
-    (key: string) => opener(key),
+    (key: string) => {
+      setActivePanelKey(key);
+      opener(key);
+    },
     [opener],
   );
+
+  const closePanel = useCallback(() => {
+    setActivePanelKey(null);
+    closer();
+  }, [closer]);
 
   const registerPanelOpener = useCallback(
     (open: (key: string) => void) => setOpener(() => open),
     [],
   );
+
+  const registerPanelCloser = useCallback(
+    (close: () => void) => setCloser(() => close),
+    [],
+  );
+
+  const registerActivePanelKey = useCallback((key: string | null) => {
+    setActivePanelKey(key);
+  }, []);
 
   const registerNavItems = useCallback((items: PanelNavItem[]) => {
     setNavItems((current) =>
@@ -64,8 +91,12 @@ export function PanelBridgeProvider({ children }: { children: ReactNode }) {
     <PanelBridgeContext.Provider
       value={{
         navItems,
+        activePanelKey,
         openPanel,
+        closePanel,
         registerPanelOpener,
+        registerPanelCloser,
+        registerActivePanelKey,
         registerNavItems,
       }}
     >

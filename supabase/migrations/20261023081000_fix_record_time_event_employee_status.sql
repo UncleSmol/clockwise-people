@@ -86,10 +86,11 @@ begin
   end if;
 
   if employee.id is null and actor.auth_user_id is not null then
-    select *
+    select e.*
       into employee
     from public.employees e
-    where e.auth_user_id = actor.auth_user_id
+    join public.users u on u.id = e.user_id
+    where u.auth_user_id = actor.auth_user_id
       and e.company_id = resolved_company_id
       and e.employment_status = 'active'
       and e.deleted_at is null
@@ -336,8 +337,8 @@ begin
     if entry.clock_out is not null then
       raise exception 'Shift is already complete';
     end if;
-    if entry.lunch_start is not null then
-      raise exception 'Lunch already started';
+    if entry.lunch_start is not null or entry.lunch_end is not null then
+      raise exception 'You have already taken your allocated lunch for this shift';
     end if;
 
     update public.time_entries

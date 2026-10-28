@@ -378,10 +378,17 @@ export async function createPastDraftTimeEntry(
 
   const clockIn = optionalTime(formData, "clock_in");
   const clockOut = optionalTime(formData, "clock_out");
-  const lunchStart = optionalTime(formData, "lunch_start");
-  const lunchEnd = optionalTime(formData, "lunch_end");
+  const includeLunch = formData.get("include_lunch") !== "false";
+  const lunchStart = includeLunch ? optionalTime(formData, "lunch_start") : null;
+  const lunchEnd = includeLunch ? optionalTime(formData, "lunch_end") : null;
   const useTemplate = formData.get("use_template") === "true";
-  const notes = sanitizeMultilineText(formData.get("notes"), 1000) || (useTemplate ? "Created via schedule template" : null);
+  const notes =
+    sanitizeMultilineText(formData.get("notes"), 1000) ||
+    (useTemplate
+      ? includeLunch
+        ? "Created via schedule template"
+        : "Created via schedule template (no lunch)"
+      : null);
 
   if (lunchStart && lunchEnd && lunchEnd <= lunchStart) {
     return { ok: false, message: "Lunch out time must be after lunch in time." };
@@ -423,11 +430,16 @@ export async function createBulkDraftTimeEntriesAction(
   const startDateStr = String(formData.get("start_date") ?? "").trim();
   const endDateStr = String(formData.get("end_date") ?? "").trim();
   const excludeWeekends = formData.get("exclude_weekends") !== "false";
+  const includeLunch = formData.get("include_lunch") !== "false";
   const clockIn = optionalTime(formData, "clock_in");
-  const lunchStart = optionalTime(formData, "lunch_start");
-  const lunchEnd = optionalTime(formData, "lunch_end");
+  const lunchStart = includeLunch ? optionalTime(formData, "lunch_start") : null;
+  const lunchEnd = includeLunch ? optionalTime(formData, "lunch_end") : null;
   const clockOut = optionalTime(formData, "clock_out");
-  const notes = sanitizeMultilineText(formData.get("notes"), 1000) || "Bulk draft generated from work schedule template";
+  const notes =
+    sanitizeMultilineText(formData.get("notes"), 1000) ||
+    (includeLunch
+      ? "Bulk draft generated from work schedule template"
+      : "Bulk draft generated from work schedule template (no lunch)");
 
   if (!startDateStr || !endDateStr) {
     return { ok: false, message: "Please select both a start date and an end date." };
@@ -812,12 +824,28 @@ export async function submitSelectedTimesheets(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  // If inline notes are submitted for any entries, persist them first
+  for (const id of timeEntryIds) {
+    const inlineNote = sanitizeMultilineText(formData.get(`note_${id}`), 1000);
+    if (inlineNote) {
+      await supabase
+        .from("time_entries")
+        .update({ notes: inlineNote })
+        .eq("id", id)
+        .in("status", ["draft", "rejected"]);
+    }
+  }
+
   const { data, error } = await supabase.rpc("submit_own_timesheets", {
     target_time_entry_ids: timeEntryIds,
     acknowledged_ids: acknowledgedIds,
   });
 
   if (error) {
+    if (error.message?.includes("refresh_time_entry") || error.message?.includes("does not exist")) {
+      return { ok: false, message: "Timesheet calculations were updated. Please click submit again." };
+    }
     return { ok: false, message: error.message };
   }
 

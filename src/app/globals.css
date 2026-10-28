@@ -1379,4 +1379,16 @@ body.zen-mode .hide-when-zen {
   border: 2px solid #2E9B5F !important;
   position: relative;
   z-index: 25 !important;
-}
+}
+
+/* =========================================================================
+   Mobile Navigation & Drawer: Strictly hidden on tablets & desktops (>= 640px)
+   ========================================================================= */
+@media (min-width: 640px) {
+  nav[aria-label="Bottom Navigation"],
+  .mobile-bottom-nav,
+  .mobile-drawer-modal {
+    display: none !important;
+  }
+}
+

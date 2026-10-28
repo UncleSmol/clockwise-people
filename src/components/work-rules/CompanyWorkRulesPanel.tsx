@@ -921,7 +921,7 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Setting 1: Auto Lunch Clock-Out / Lapse */}
+            {/* Setting 1: Flexible Lunch & Optional Auto Return */}
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-border/80 bg-background p-3.5 shadow-2xs">
               <div>
                 <div className="flex items-center justify-between gap-2">
@@ -933,18 +933,18 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                       onChange={(e) => setAutoLunchEnabled(e.target.checked)}
                       className="size-4 rounded border-border text-primary focus:ring-primary"
                     />
-                    <span>Auto Lunch Clock-Out &amp; Return</span>
+                    <span>Optional Auto Lunch Return</span>
                   </label>
                   <span
                     className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                       autoLunchEnabled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {autoLunchEnabled ? "Active" : "Disabled"}
+                    {autoLunchEnabled ? "Active" : "Disabled (Flexible)"}
                   </span>
                 </div>
                 <p className="mt-1.5 text-xs text-muted leading-relaxed">
-                  When employees start lunch, their break automatically ends and returns them to clocked-in status after their scheduled lunch duration lapses.
+                  Employees can take lunch anytime and for as long as they want, or work through lunch without automatic deductions. Enabling this setting automatically completes breaks after the scheduled duration.
                 </p>
               </div>
 

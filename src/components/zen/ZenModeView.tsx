@@ -20,6 +20,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useZenMode, type ZenTab, type ZenState, ZEN_STATE_COLORS } from "./ZenModeContext";
+import { useToast } from "@/components/notifications/SlidingToastProvider";
 import {
   clockIn,
   clockOut,
@@ -80,6 +81,7 @@ export default function ZenModeView({
   currentDateLabel,
 }: ZenModeViewProps) {
   const { zenTab, setZenTab, setActiveZenState, toggleZenMode } = useZenMode();
+  const { showToast } = useToast();
   const [todayEntry, setTodayEntry] = useState<TimeEntryRecord | null>(initialTodayEntry);
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
   const [hasMounted, setHasMounted] = useState(false);
@@ -89,7 +91,6 @@ export default function ZenModeView({
   useEffect(() => {
     setHasMounted(true);
   }, []);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; type: "ok" | "error" } | null>(null);
 
   // Modals state
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
@@ -157,57 +158,73 @@ export default function ZenModeView({
   const currentStateKey: ZenState = zenTab === "leave" ? "leave" : timesheetState;
   const colorConfig = ZEN_STATE_COLORS[currentStateKey] || ZEN_STATE_COLORS.not_clocked_in;
 
-  // Format greeting based on time of day and employee name
+  // Format greeting based on time of day, employee name, and work state
   const greetingData = useMemo(() => {
     const hours = currentTime.getHours();
     const cleanName = employeeName ? employeeName.split(" ")[0] : "Doc";
 
     let timeGreeting = "Good morning";
-    let icon = "☼";
     if (hours >= 12 && hours < 17) {
       timeGreeting = "Good afternoon";
-      icon = "☼";
     } else if (hours >= 17) {
       timeGreeting = "Good evening";
-      icon = "☽";
     }
 
     if (zenTab === "leave") {
+      const hasPendingLeave = leaveState?.requests?.some(
+        (r) => r.status === "submitted" || r.status === "draft",
+      );
       return {
-        title: `${timeGreeting}, ${cleanName} ${icon}`,
-        subtitle: "Your leave balance is up to date. Need to apply for leave?",
+        title: `${timeGreeting}, ${cleanName}`,
+        subtitle: hasPendingLeave
+          ? "You have leave requests currently under review. Balances update automatically."
+          : "Your leave balance is up to date. Apply for time off or track past requests.",
       };
     }
 
     switch (timesheetState) {
-      case "not_clocked_in":
+      case "not_clocked_in": {
+        let subtitle = "A fresh start to your workday. Clock in whenever your shift begins.";
+        if (hours >= 12 && hours < 17) {
+          subtitle = "Logging your hours for today? Clock in or load a past draft whenever you're ready.";
+        } else if (hours >= 17 && hours < 22) {
+          subtitle = "Review your timesheets or submit any pending records before tomorrow.";
+        } else if (hours >= 22 || hours < 4) {
+          subtitle = "Winding down for the day. You can review your records or manage drafts anytime.";
+        }
         return {
-          title: `${timeGreeting}, ${cleanName} ${icon}`,
-          subtitle: "A fresh start. Your timesheet is ready when you are. Let's make it a great day!",
+          title: `${timeGreeting}, ${cleanName}`,
+          subtitle,
         };
-      case "clocked_in":
+      }
+      case "clocked_in": {
+        let subtitle = "Your shift is actively being tracked. Lunch breaks are flexible — take one whenever you need.";
+        if (hours >= 18 || hours < 4) {
+          subtitle = "Shift still in progress. Remember to clock out or take a break when your work is finished.";
+        }
         return {
-          title: `Keep it going, ${cleanName} ${icon}`,
-          subtitle: "You're doing great! Stay focused and make it count.",
+          title: `${timeGreeting}, ${cleanName}`,
+          subtitle,
         };
+      }
       case "on_lunch":
         return {
-          title: `Take a well-deserved break, ${cleanName} ☺`,
-          subtitle: "Recharge, you've earned it! See you soon.",
+          title: `${timeGreeting}, ${cleanName}`,
+          subtitle: "Lunch break in progress. Take all the time you need — return whenever you are ready.",
         };
       case "draft":
         return {
-          title: `Work day wrapped, ${cleanName} ✦`,
-          subtitle: "Your shift has ended and timesheet is ready to submit.",
+          title: `${timeGreeting}, ${cleanName}`,
+          subtitle: "Your shift has ended and is saved as a draft. Review your details and submit when ready.",
         };
       case "submitted":
       default:
         return {
-          title: `All done for today, ${cleanName} ✓`,
-          subtitle: "Your timesheet has been submitted for manager approval.",
+          title: `${timeGreeting}, ${cleanName}`,
+          subtitle: "Your timesheet has been submitted and is awaiting manager approval.",
         };
     }
-  }, [currentTime, employeeName, timesheetState, zenTab]);
+  }, [currentTime, employeeName, timesheetState, zenTab, leaveState]);
 
   // Live time and date strings
   const formattedLiveTime = useMemo(() => {
@@ -215,15 +232,6 @@ export default function ZenModeView({
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-    }).format(currentTime);
-  }, [currentTime]);
-
-  const formattedLiveDate = useMemo(() => {
-    return new Intl.DateTimeFormat("en-ZA", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      year: "numeric",
     }).format(currentTime);
   }, [currentTime]);
 
@@ -409,9 +417,8 @@ export default function ZenModeView({
     });
   };
 
-  // Clock Actions
+  // Clock Actions with Sliding Bottom Modal Notifications
   const handleClockIn = async () => {
-    setStatusMessage(null);
     startTransition(async () => {
       try {
         const formData = await getGeoFormData();
@@ -419,18 +426,17 @@ export default function ZenModeView({
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
           setActionCustomTime("");
-          setStatusMessage({ text: "Clocked in successfully!", type: "ok" });
+          showToast({ type: "success", message: "Clocked in successfully!" });
         } else {
-          setStatusMessage({ text: res.message || "Failed to clock in", type: "error" });
+          showToast({ type: "error", message: res.message || "Failed to clock in" });
         }
       } catch (err: any) {
-        setStatusMessage({ text: err.message || "An error occurred", type: "error" });
+        showToast({ type: "error", message: err.message || "An error occurred" });
       }
     });
   };
 
   const handleClockOut = async () => {
-    setStatusMessage(null);
     startTransition(async () => {
       try {
         const formData = await getGeoFormData();
@@ -438,18 +444,24 @@ export default function ZenModeView({
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
           setActionCustomTime("");
-          setStatusMessage({ text: "Clocked out successfully!", type: "ok" });
+          showToast({ type: "success", message: "Clocked out successfully!" });
         } else {
-          setStatusMessage({ text: res.message || "Failed to clock out", type: "error" });
+          showToast({ type: "error", message: res.message || "Failed to clock out" });
         }
       } catch (err: any) {
-        setStatusMessage({ text: err.message || "An error occurred", type: "error" });
+        showToast({ type: "error", message: err.message || "An error occurred" });
       }
     });
   };
 
   const handleStartLunch = async () => {
-    setStatusMessage(null);
+    if (todayEntry?.lunch_end) {
+      showToast({
+        type: "error",
+        message: "You have already taken your allocated lunch for this shift.",
+      });
+      return;
+    }
     startTransition(async () => {
       try {
         const formData = await getGeoFormData();
@@ -457,18 +469,17 @@ export default function ZenModeView({
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
           setActionCustomTime("");
-          setStatusMessage({ text: "Lunch break started", type: "ok" });
+          showToast({ type: "success", message: "Lunch break started" });
         } else {
-          setStatusMessage({ text: res.message || "Failed to start lunch", type: "error" });
+          showToast({ type: "error", message: res.message || "Failed to start lunch" });
         }
       } catch (err: any) {
-        setStatusMessage({ text: err.message || "An error occurred", type: "error" });
+        showToast({ type: "error", message: err.message || "An error occurred" });
       }
     });
   };
 
   const handleEndLunch = async () => {
-    setStatusMessage(null);
     startTransition(async () => {
       try {
         const formData = await getGeoFormData();
@@ -476,12 +487,12 @@ export default function ZenModeView({
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
           setActionCustomTime("");
-          setStatusMessage({ text: "Lunch break ended. Welcome back!", type: "ok" });
+          showToast({ type: "success", message: "Lunch break ended. Welcome back!" });
         } else {
-          setStatusMessage({ text: res.message || "Failed to end lunch", type: "error" });
+          showToast({ type: "error", message: res.message || "Failed to end lunch" });
         }
       } catch (err: any) {
-        setStatusMessage({ text: err.message || "An error occurred", type: "error" });
+        showToast({ type: "error", message: err.message || "An error occurred" });
       }
     });
   };
@@ -489,7 +500,6 @@ export default function ZenModeView({
   const handleSubmitDraft = async (targetId?: string) => {
     const idToSubmit = targetId || todayEntry?.id;
     if (!idToSubmit) return;
-    setStatusMessage(null);
     startTransition(async () => {
       try {
         const formData = new FormData();
@@ -499,12 +509,12 @@ export default function ZenModeView({
           if (todayEntry?.id === idToSubmit) {
             setTodayEntry((prev) => (prev ? { ...prev, status: "submitted" } : null));
           }
-          setStatusMessage({ text: "Timesheet submitted for approval!", type: "ok" });
+          showToast({ type: "success", message: "Timesheet submitted for approval!" });
         } else {
-          setStatusMessage({ text: res.message || "Failed to submit timesheet", type: "error" });
+          showToast({ type: "error", message: res.message || "Failed to submit timesheet" });
         }
       } catch (err: any) {
-        setStatusMessage({ text: err.message || "An error occurred", type: "error" });
+        showToast({ type: "error", message: err.message || "An error occurred" });
       }
     });
   };
@@ -560,9 +570,59 @@ export default function ZenModeView({
     }
   }, [zenTab, timesheetState, todayEntry]);
 
-  // Leave balances
+  // Leave balances with fallback & statutory prioritization
   const leaveBalances = useMemo(() => {
-    return leaveState?.balances ?? [];
+    const raw = leaveState?.balances ?? [];
+    let list: LeaveBalance[] = raw;
+    if (list.length === 0 && leaveState?.leaveTypes && leaveState.leaveTypes.length > 0) {
+      list = leaveState.leaveTypes.map((lt) => ({
+        id: `fallback-${lt.id}`,
+        company_id: "",
+        employee_id: "",
+        leave_type_id: lt.id,
+        balance_hours: 0,
+        accrued_hours: 0,
+        taken_hours: 0,
+        adjusted_hours: 0,
+        as_of_date: new Date().toISOString().split("T")[0],
+        leave_types: lt,
+      } as unknown as LeaveBalance));
+    }
+    if (list.length === 0) {
+      list = [
+        {
+          id: "def-annual",
+          balance_hours: 0,
+          leave_types: { id: "def-annual", name: "Annual Leave", category: "annual" },
+        },
+        {
+          id: "def-sick",
+          balance_hours: 0,
+          leave_types: { id: "def-sick", name: "Sick Leave", category: "sick" },
+        },
+        {
+          id: "def-family",
+          balance_hours: 0,
+          leave_types: { id: "def-family", name: "Family Leave", category: "family_responsibility" },
+        },
+      ] as unknown as LeaveBalance[];
+    }
+    return [...list].sort((a, b) => {
+      const relA = Array.isArray(a.leave_types) ? a.leave_types[0] : a.leave_types;
+      const relB = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+      const catA = (relA?.category ?? "").toLowerCase();
+      const catB = (relB?.category ?? "").toLowerCase();
+      const nameA = (relA?.name ?? "").toLowerCase();
+      const nameB = (relB?.name ?? "").toLowerCase();
+      const score = (cat: string, name: string) => {
+        if (cat === "annual" || name.includes("annual")) return 1;
+        if (cat === "sick" || name.includes("sick")) return 2;
+        if (cat === "family_responsibility" || name.includes("family")) return 3;
+        if (cat === "toil_taken" || name.includes("toil")) return 4;
+        return 10;
+      };
+      return score(catA, nameA) - score(catB, nameB);
+    });
   }, [leaveState]);
 
   // Clean brand name display
@@ -589,17 +649,8 @@ export default function ZenModeView({
           )}
         </div>
 
-        {/* Date, Live Clock (Desktop Only) & Exit Zen Mode Button */}
+        {/* Exit Zen Mode Button & Profile Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 text-right">
-          <div className="hidden sm:flex flex-col text-right" suppressHydrationWarning>
-            <span suppressHydrationWarning className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-wide">
-              {hasMounted ? formattedLiveDate : (currentDateLabel || "")}
-            </span>
-            <span suppressHydrationWarning className="text-base sm:text-xl font-black text-slate-900 font-mono tracking-tight">
-              {hasMounted ? formattedLiveTime : "--:--"}
-            </span>
-          </div>
-
           {/* Zen Mode Button in Zen Header (Mobile & Desktop) */}
           <button
             type="button"
@@ -660,36 +711,8 @@ export default function ZenModeView({
         </div>
       </div>
 
-      {/* Status Toast Message */}
-      {statusMessage ? (
-        <div className="w-full flex justify-center px-4 shrink-0">
-          <div
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 max-w-sm transition-all animate-in fade-in duration-200 shadow-md ${
-              statusMessage.type === "ok"
-                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                : "bg-rose-100 text-rose-800 border border-rose-300"
-            }`}
-          >
-            {statusMessage.type === "ok" ? (
-              <CheckCircle2 className="size-4.5 shrink-0 text-emerald-600" />
-            ) : (
-              <AlertCircle className="size-4.5 shrink-0 text-rose-600" />
-            )}
-            <span className="flex-1">{statusMessage.text}</span>
-            <button
-              type="button"
-              onClick={() => setStatusMessage(null)}
-              className="text-slate-400 hover:text-slate-700 p-0.5"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {/* ========================================================
-          3. RESPONSIVE MAIN CONTENT (MOVED UP, NO VIEWPORT OVERFLOW)
-          ========================================      {/* ========================================================
           3. UNIFIED ZEN CONTENT (CLEAN HEADLINE, TIMINGS, PAST DRAFTS)
           ======================================================== */}
       <section
@@ -714,55 +737,204 @@ export default function ZenModeView({
           ) : null}
         </div>
 
-        {/* Middle Space Between Content & Circle: Minimal Past Drafts & Days Without Entries (Max 3) */}
+        {/* Middle Space Between Content & Circle: Cards (Timesheets Tab: 2 cards; Leave Tab: 3 cards) */}
         {zenTab === "timesheets" ? (
-          maxThreePending.length > 0 ? (
-            <div className="w-full max-w-md mx-auto my-auto py-2 shrink-0">
-              <div className="w-full flex items-center justify-between px-1 mb-1.5">
-                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Past Drafts &amp; Missing Days ({maxThreePending.length})
-                </span>
-                <span className="text-[10px] text-slate-400 font-bold">
-                  Max 3 past
+          <div className="w-full max-w-md mx-auto my-auto py-2 shrink-0 space-y-2">
+            {/* The 2 Cards on Timesheet Tab (Styled identically to the 3 boxes on Leave Tab) */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full">
+              {/* Card 1: Time Definition & Status */}
+              <div className="relative rounded-2xl border border-white/85 bg-white/80 hover:bg-white/95 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all">
+                <div className="flex items-center justify-center">
+                  <AnalogTimePicker
+                    value={actionCustomTime || (hasMounted ? formattedLiveTime : "")}
+                    onValueChange={(val) => setActionCustomTime(val)}
+                    compact
+                    className="text-xl sm:text-2xl font-black font-mono text-slate-900 tracking-tight leading-none px-1.5 py-0.5 rounded-lg hover:bg-slate-900/5 transition-colors cursor-pointer"
+                    placeholder="--:--"
+                  />
+                </div>
+                <div className="flex items-center justify-center gap-1.5 mt-1">
+                  <span
+                    className={`size-2 rounded-full shrink-0 ${
+                      timesheetState === "clocked_in"
+                        ? "bg-emerald-500 animate-pulse"
+                        : timesheetState === "on_lunch"
+                        ? "bg-amber-500"
+                        : timesheetState === "draft" || timesheetState === "submitted"
+                        ? "bg-blue-500"
+                        : "bg-slate-400"
+                    }`}
+                  />
+                  <p className="text-[10px] sm:text-xs font-black text-slate-600 uppercase tracking-wider">
+                    {timesheetState === "clocked_in"
+                      ? "Working"
+                      : timesheetState === "on_lunch"
+                      ? "On Lunch"
+                      : timesheetState === "draft" || timesheetState === "submitted"
+                      ? "Shift Done"
+                      : "Ready"}
+                  </p>
+                </div>
+                <span
+                  suppressHydrationWarning
+                  className="text-[10px] text-slate-500 font-bold mt-0.5"
+                >
+                  {hasMounted ? shortLiveDate : (currentDateLabel || "")}
                 </span>
               </div>
-              <div className="w-full space-y-1.5">
-                {maxThreePending.map((item) => (
-                  <div
-                    key={item.date}
-                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/70 hover:bg-white/90 backdrop-blur-md border border-white/80 shadow-2xs transition-all text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className={`size-1.5 rounded-full shrink-0 ${
-                          item.type === "rejected"
-                            ? "bg-rose-500"
-                            : item.type === "draft"
-                            ? "bg-amber-500"
-                            : "bg-slate-400"
-                        }`}
-                      />
-                      <span className="font-extrabold text-slate-800 truncate">
-                        {item.formattedDate}
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-500 capitalize">
-                        {item.type === "draft" && item.hours
-                          ? `Draft (${Number(item.hours).toFixed(1)}h)`
-                          : item.type}
+
+              {/* Card 2: Lunch & Shift Activity Card */}
+              {timesheetState === "clocked_in" ? (
+                todayEntry?.lunch_end ? (
+                  <div className="relative rounded-2xl border border-white/85 bg-white/80 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all">
+                    <div className="flex items-center justify-center gap-1.5 text-emerald-700">
+                      <Coffee className="size-5 shrink-0 text-emerald-600" />
+                      <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                        Done
                       </span>
                     </div>
+                    <p className="text-[10px] sm:text-xs font-black text-slate-600 uppercase tracking-wider mt-1">
+                      Lunch Taken
+                    </p>
+                    <span className="text-[10px] text-slate-500 font-bold mt-0.5">
+                      Full lunch allocated &amp; completed
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleStartLunch}
+                    disabled={isPending}
+                    className="relative rounded-2xl border border-white/85 bg-white/80 hover:bg-white/95 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all group active:scale-98 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-center gap-1.5 text-amber-700">
+                      <Coffee className="size-5 shrink-0 transition-transform group-hover:scale-110" />
+                      <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                        Lunch
+                      </span>
+                    </div>
+                    <p className="text-[10px] sm:text-xs font-black text-slate-600 uppercase tracking-wider mt-1">
+                      Take Break
+                    </p>
+                    <span className="text-[10px] text-amber-800 font-bold mt-0.5">
+                      Tap to start lunch
+                    </span>
+                  </button>
+                )
+              ) : timesheetState === "on_lunch" ? (
+                <button
+                  type="button"
+                  onClick={handleEndLunch}
+                  disabled={isPending}
+                  className="relative rounded-2xl border border-amber-300/80 bg-amber-50/90 hover:bg-amber-100/90 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all group active:scale-98 cursor-pointer"
+                >
+                  <div className="flex items-center justify-center gap-1.5 text-amber-700">
+                    <Coffee className="size-5 shrink-0 animate-bounce" />
+                    <span className="text-xl sm:text-2xl font-black text-amber-950 tracking-tight leading-none">
+                      Resume
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs font-black text-amber-800 uppercase tracking-wider mt-1">
+                    On Break
+                  </p>
+                  <span className="text-[10px] text-amber-700 font-bold mt-0.5">
+                    Tap to end lunch
+                  </span>
+                </button>
+              ) : timesheetState === "draft" || timesheetState === "submitted" ? (
+                <div className="relative rounded-2xl border border-white/85 bg-white/80 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all">
+                  <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                    {Number(todayEntry?.paid_hours ?? 8).toFixed(1)} hrs
+                  </p>
+                  <p className="text-[10px] sm:text-xs font-black text-slate-600 uppercase tracking-wider mt-1">
+                    Shift Worked
+                  </p>
+                  <span className="text-[10px] text-slate-500 font-bold mt-0.5">
+                    {todayEntry?.status === "submitted" ? "Submitted for approval" : "Shift completed"}
+                  </span>
+                </div>
+              ) : (
+                <div className="relative rounded-2xl border border-white/85 bg-white/80 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all">
+                  <div className="flex items-center justify-center gap-1.5 text-slate-700">
+                    <Coffee className="size-4 shrink-0 text-slate-400" />
+                    <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                      1.0h
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs font-black text-slate-600 uppercase tracking-wider mt-1">
+                    Lunch Allotted
+                  </p>
+                  <span className="text-[10px] text-slate-500 font-bold mt-0.5">
+                    Standard break
+                  </span>
+                </div>
+              )}
+            </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {item.type === "draft" && item.entry ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleSubmitDraft(item.entry!.id)}
-                            disabled={isPending}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] transition shadow-2xs cursor-pointer"
-                          >
-                            Submit
-                          </button>
+            {/* Past Drafts & Missing Days (Max 3) */}
+            {maxThreePending.length > 0 ? (
+              <div className="w-full pt-1">
+                <div className="w-full flex items-center justify-between px-1 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    Past Drafts &amp; Missing Days ({maxThreePending.length})
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold">
+                    Max 3 past
+                  </span>
+                </div>
+                <div className="w-full space-y-1">
+                  {maxThreePending.map((item) => (
+                    <div
+                      key={item.date}
+                      className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white/70 hover:bg-white/90 backdrop-blur-md border border-white/80 shadow-2xs transition-all text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`size-1.5 rounded-full shrink-0 ${
+                            item.type === "rejected"
+                              ? "bg-rose-500"
+                              : item.type === "draft"
+                              ? "bg-amber-500"
+                              : "bg-slate-400"
+                          }`}
+                        />
+                        <span className="font-extrabold text-slate-800 truncate">
+                          {item.formattedDate}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500 capitalize">
+                          {item.type === "draft" && item.hours
+                            ? `Draft (${Number(item.hours).toFixed(1)}h)`
+                            : item.type}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.type === "draft" && item.entry ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleSubmitDraft(item.entry!.id)}
+                              disabled={isPending}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] transition shadow-2xs cursor-pointer"
+                            >
+                              Submit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActiveModalEntry({
+                                  entry: item.entry,
+                                  date: item.date,
+                                  isNew: false,
+                                })
+                              }
+                              className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
+                              title="Edit Draft"
+                            >
+                              <Edit3 className="size-3" />
+                            </button>
+                          </>
+                        ) : item.type === "rejected" && item.entry ? (
                           <button
                             type="button"
                             onClick={() =>
@@ -772,50 +944,33 @@ export default function ZenModeView({
                                 isNew: false,
                               })
                             }
-                            className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
-                            title="Edit Draft"
+                            className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition shadow-2xs cursor-pointer flex items-center gap-1"
                           >
                             <Edit3 className="size-3" />
+                            <span>Fix</span>
                           </button>
-                        </>
-                      ) : item.type === "rejected" && item.entry ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveModalEntry({
-                              entry: item.entry,
-                              date: item.date,
-                              isNew: false,
-                            })
-                          }
-                          className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] transition shadow-2xs cursor-pointer flex items-center gap-1"
-                        >
-                          <Edit3 className="size-3" />
-                          <span>Fix</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveModalEntry({
-                              date: item.date,
-                              isNew: true,
-                            })
-                          }
-                          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-black text-[11px] transition shadow-2xs cursor-pointer flex items-center gap-1"
-                        >
-                          <Plus className="size-3" />
-                          <span>Add</span>
-                        </button>
-                      )}
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveModalEntry({
+                                date: item.date,
+                                isNew: true,
+                              })
+                            }
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-black text-[11px] transition shadow-2xs cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="size-3" />
+                            <span>Add</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex-1 min-h-[16px]" />
-          )
+            ) : null}
+          </div>
         ) : (
           /* Leave Tab: 3 Accrual Balances Cards */
           <div className="w-full max-w-md mx-auto my-auto py-2 shrink-0">
@@ -850,15 +1005,15 @@ export default function ZenModeView({
       </section>
 
       {/* ========================================================
-          4. FULL-BLEED TRUE CIRCLE DOME WITH TIME PICKER & CENTERED ACTION
+          4. FULL-BLEED CIRCULAR DOME WITH CENTERED ACTION
           ======================================================== */}
-      <div className="relative w-full overflow-hidden flex justify-center mt-auto shrink-0 select-none h-[270px] sm:h-[300px] lg:h-[330px] xl:h-[350px]">
-        {/* Mathematically True Circle Dome (Equal Width and Height with border-radius: 50%) */}
+      <div className="relative w-full overflow-hidden flex justify-center items-start mt-auto shrink-0 select-none h-[35dvh] min-h-[220px] max-h-[320px]">
+        {/* Upright Circular Dome (Uniform circular arc matching true circle geometry) */}
         <div
-          className="relative flex flex-col items-center justify-start cursor-pointer transition-all duration-500 group overflow-hidden w-[112vw] h-[112vw] sm:w-[130vw] sm:h-[130vw] lg:w-[150vw] lg:h-[150vw] xl:w-[160vw] xl:h-[160vw] rounded-full shrink-0"
+          className="relative flex flex-col items-center justify-start cursor-pointer transition-all duration-500 group overflow-hidden w-[122vw] h-[122vw] sm:w-[135vw] sm:h-[135vw] lg:w-[160vw] lg:h-[160vw] rounded-full shrink-0"
           style={{
             backgroundColor: colorConfig.bgHex,
-            paddingTop: "clamp(2.4rem, 6vw, 3.8rem)",
+            paddingTop: "clamp(1.75rem, 4vw, 2.75rem)",
           }}
           onClick={domeButtonConfig.onClick}
         >
@@ -882,63 +1037,8 @@ export default function ZenModeView({
             />
           </div>
 
-          {/* Central Circular Button, Action Time Definition & Action Labels */}
+          {/* Central Circular Button & Action Labels */}
           <div className="relative z-10 flex flex-col items-center">
-            {/* Top Widget in Circle Dome: Status, Date & Interactive Time Definition (Styled like Leave Tab Boxes) */}
-            {zenTab !== "leave" ? (
-              <div
-                className="mb-2.5 z-20"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-2 sm:gap-2.5 rounded-2xl border border-white/85 bg-white/85 hover:bg-white/95 backdrop-blur-xl px-3 py-1.5 sm:px-4 sm:py-2 text-slate-900 shadow-xs transition-all">
-                  {/* Status Indicator */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span
-                      className={`size-2 rounded-full shrink-0 ${
-                        timesheetState === "clocked_in"
-                          ? "bg-emerald-500 animate-pulse"
-                          : timesheetState === "on_lunch"
-                          ? "bg-amber-500"
-                          : timesheetState === "draft" || timesheetState === "submitted"
-                          ? "bg-blue-500"
-                          : "bg-slate-400"
-                      }`}
-                    />
-                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-700">
-                      {timesheetState === "clocked_in"
-                        ? "Working"
-                        : timesheetState === "on_lunch"
-                        ? "On Lunch"
-                        : timesheetState === "draft" || timesheetState === "submitted"
-                        ? "Shift Finished"
-                        : "Ready"}
-                    </span>
-                  </div>
-
-                  <span className="text-slate-300 font-bold select-none text-xs">·</span>
-
-                  {/* Date */}
-                  <span
-                    suppressHydrationWarning
-                    className="text-[11px] sm:text-xs font-bold text-slate-600 truncate whitespace-nowrap"
-                  >
-                    {hasMounted ? shortLiveDate : (currentDateLabel || "")}
-                  </span>
-
-                  <span className="text-slate-300 font-bold select-none text-xs">·</span>
-
-                  {/* Interactive AnalogTimePicker */}
-                  <AnalogTimePicker
-                    value={actionCustomTime || (hasMounted ? formattedLiveTime : "")}
-                    onValueChange={(val) => setActionCustomTime(val)}
-                    compact
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-slate-900/5 hover:bg-slate-900/10 text-xs sm:text-sm font-black font-mono text-slate-900 tracking-tight transition-colors cursor-pointer"
-                    placeholder="--:--"
-                  />
-                </div>
-              </div>
-            ) : null}
-
             {/* Central Circular Button */}
             <div className="zen-center-pulse relative size-15 sm:size-18 lg:size-20 rounded-full border-2 border-white/60 bg-white/15 group-hover:bg-white/25 group-hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-xl backdrop-blur-md">
               {isPending ? (
@@ -957,22 +1057,6 @@ export default function ZenModeView({
             <p className="relative z-10 text-xs sm:text-sm lg:text-base text-white/95 font-bold mt-0.5 drop-shadow-xs">
               {domeButtonConfig.sublabel}
             </p>
-
-            {/* Secondary action: Take Lunch right within the circle when Clocked In! (Styled like Leave Tab Boxes) */}
-            {timesheetState === "clocked_in" ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStartLunch();
-                }}
-                disabled={isPending}
-                className="mt-2.5 inline-flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 rounded-2xl border border-white/85 bg-white/85 hover:bg-white/95 backdrop-blur-xl text-slate-900 font-black text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shadow-xs"
-              >
-                <Coffee className="size-4 text-amber-700" />
-                <span>Take Lunch</span>
-              </button>
-            ) : null}
           </div>
         </div>
       </div>
@@ -986,7 +1070,7 @@ export default function ZenModeView({
           onClose={() => setIsLeaveModalOpen(false)}
           onSuccess={() => {
             setIsLeaveModalOpen(false);
-            setStatusMessage({ text: "Leave application submitted!", type: "ok" });
+            showToast({ type: "success", message: "Leave application submitted!" });
           }}
         />
       ) : null}
@@ -1000,7 +1084,7 @@ export default function ZenModeView({
           onClose={() => setActiveModalEntry(null)}
           onSuccess={() => {
             setActiveModalEntry(null);
-            setStatusMessage({ text: "Timesheet updated successfully!", type: "ok" });
+            showToast({ type: "success", message: "Timesheet updated successfully!" });
           }}
         />
       ) : null}
@@ -1255,17 +1339,20 @@ function ZenEditOrAddTimesheetModal({
 }) {
   const { entry, date, isNew } = target;
 
+  const [includeLunch, setIncludeLunch] = useState(() =>
+    Boolean(entry?.lunch_start || entry?.lunch_end),
+  );
   const [clockInTime, setClockInTime] = useState(
-    entry?.clock_in ? entry.clock_in.slice(0, 5) : "08:00"
+    entry?.clock_in ? entry.clock_in.slice(0, 5) : "08:00",
   );
   const [lunchStartTime, setLunchStartTime] = useState(
-    entry?.lunch_start ? entry.lunch_start.slice(0, 5) : "12:00"
+    entry?.lunch_start ? entry.lunch_start.slice(0, 5) : "12:00",
   );
   const [lunchEndTime, setLunchEndTime] = useState(
-    entry?.lunch_end ? entry.lunch_end.slice(0, 5) : "13:00"
+    entry?.lunch_end ? entry.lunch_end.slice(0, 5) : "13:00",
   );
   const [clockOutTime, setClockOutTime] = useState(
-    entry?.clock_out ? entry.clock_out.slice(0, 5) : "17:00"
+    entry?.clock_out ? entry.clock_out.slice(0, 5) : "17:00",
   );
   const [notes, setNotes] = useState(entry?.notes ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1274,13 +1361,21 @@ function ZenEditOrAddTimesheetModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+
+    const isNoLunch = Boolean(clockInTime && clockOutTime && (!includeLunch || !lunchStartTime || !lunchEndTime));
+    if (isNoLunch && !notes.trim()) {
+      setErrorMsg("Please provide an explanatory note for shifts with no lunch before saving.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const formData = new FormData();
       if (clockInTime) formData.set("clock_in", clockInTime);
-      if (lunchStartTime) formData.set("lunch_start", lunchStartTime);
-      if (lunchEndTime) formData.set("lunch_end", lunchEndTime);
+      formData.set("include_lunch", includeLunch ? "true" : "false");
+      if (includeLunch && lunchStartTime) formData.set("lunch_start", lunchStartTime);
+      if (includeLunch && lunchEndTime) formData.set("lunch_end", lunchEndTime);
       if (clockOutTime) formData.set("clock_out", clockOutTime);
       if (notes) formData.set("notes", notes);
 
@@ -1365,41 +1460,87 @@ function ZenEditOrAddTimesheetModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                Lunch In
+          {/* Lunch Break Toggle */}
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeLunch}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIncludeLunch(checked);
+                    if (checked && !lunchStartTime) {
+                      setLunchStartTime("12:00");
+                      setLunchEndTime("13:00");
+                    }
+                  }}
+                  className="size-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-xs sm:text-sm font-bold text-slate-900">
+                  Include Lunch Break
+                </span>
               </label>
-              <AnalogTimePicker
-                value={lunchStartTime}
-                onValueChange={(val) => setLunchStartTime(val)}
-                className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs sm:text-sm font-bold text-slate-900 outline-none hover:border-slate-400 focus:border-blue-600 focus:bg-white transition-all shadow-2xs"
-                placeholder="--:--"
-              />
+              <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                includeLunch ? "bg-blue-100 text-blue-800" : "bg-slate-200 text-slate-600"
+              }`}>
+                {includeLunch ? "Lunch Taken" : "No Lunch"}
+              </span>
             </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                Lunch Out
-              </label>
-              <AnalogTimePicker
-                value={lunchEndTime}
-                onValueChange={(val) => setLunchEndTime(val)}
-                className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs sm:text-sm font-bold text-slate-900 outline-none hover:border-slate-400 focus:border-blue-600 focus:bg-white transition-all shadow-2xs"
-                placeholder="--:--"
-              />
-            </div>
+
+            {includeLunch ? (
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Lunch In
+                  </label>
+                  <AnalogTimePicker
+                    value={lunchStartTime}
+                    onValueChange={(val) => setLunchStartTime(val)}
+                    className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-xs sm:text-sm font-bold text-slate-900 outline-none hover:border-slate-400 focus:border-blue-600 transition-all shadow-2xs"
+                    placeholder="--:--"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                    Lunch Out
+                  </label>
+                  <AnalogTimePicker
+                    value={lunchEndTime}
+                    onValueChange={(val) => setLunchEndTime(val)}
+                    className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-xs sm:text-sm font-bold text-slate-900 outline-none hover:border-slate-400 focus:border-blue-600 transition-all shadow-2xs"
+                    placeholder="--:--"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Timesheets can have no lunch break. An explanatory note below is required before submitting.
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600 mb-1.5">
-              Notes
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs sm:text-sm font-black uppercase tracking-wider text-slate-600">
+                Notes
+              </label>
+              {!includeLunch ? (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                  Required (No lunch)
+                </span>
+              ) : null}
+            </div>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Shift notes or adjustments..."
-              className="w-full text-xs sm:text-sm font-medium rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-blue-600 focus:bg-white resize-none"
+              placeholder={!includeLunch ? "Explain why no lunch was taken (required)..." : "Shift notes or adjustments..."}
+              className={`w-full text-xs sm:text-sm font-medium rounded-xl border p-3 outline-none focus:bg-white resize-none ${
+                !includeLunch && !notes.trim()
+                  ? "border-amber-300 bg-amber-50/30 focus:border-amber-500"
+                  : "border-slate-200 bg-slate-50 focus:border-blue-600"
+              }`}
             />
           </div>
 

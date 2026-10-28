@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { Poppins } from "next/font/google";
 import { ThemeCleanup } from "@/components/ThemeCleanup";
 import LuminousFluidBackground from "@/components/background/LuminousFluidBackground";
-import { ZenModeProvider } from "@/components/zen/ZenModeContext";
+import { ZenModeProvider, ZEN_MODE_ENABLED } from "@/components/zen/ZenModeContext";
+import { SlidingToastProvider } from "@/components/notifications/SlidingToastProvider";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -38,7 +39,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const isZenModeInitial = cookieStore.get("clockwise_zen_mode")?.value === "true";
+  const isZenModeInitial =
+    ZEN_MODE_ENABLED && cookieStore.get("clockwise_zen_mode")?.value === "true";
   const initialZenTab =
     (cookieStore.get("clockwise_zen_tab")?.value as "timesheets" | "leave") || "timesheets";
   const initialPaletteIndex = Number(cookieStore.get("clockwise_fluid_palette")?.value || 0);
@@ -55,9 +57,11 @@ export default async function RootLayout({
           initialZenTab={initialZenTab}
           initialPaletteIndex={initialPaletteIndex}
         >
-          <LuminousFluidBackground />
-          <ThemeCleanup />
-          {children}
+          <SlidingToastProvider>
+            <LuminousFluidBackground />
+            <ThemeCleanup />
+            {children}
+          </SlidingToastProvider>
         </ZenModeProvider>
       </body>
     </html>

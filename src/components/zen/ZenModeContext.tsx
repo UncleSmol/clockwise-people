@@ -92,7 +92,14 @@ export const ZEN_STATE_COLORS: Record<ZenState, ZenStateColorConfig> = {
   },
 };
 
+/**
+ * Master feature flag for Zen Mode.
+ * Set to `true` to enable Zen Mode across the entire app.
+ */
+export const ZEN_MODE_ENABLED = true;
+
 interface ZenModeContextValue {
+  zenModeEnabled: boolean;
   isZenMode: boolean;
   setIsZenMode: (val: boolean) => void;
   toggleZenMode: () => void;
@@ -125,13 +132,28 @@ export function ZenModeProvider({
   initialZenTab = "timesheets",
   initialPaletteIndex = 0,
 }: ZenModeProviderProps) {
-  const [isZenMode, setIsZenModeState] = useState<boolean>(initialIsZenMode);
+  const [isZenMode, setIsZenModeState] = useState<boolean>(
+    ZEN_MODE_ENABLED ? initialIsZenMode : false,
+  );
   const [zenTab, setZenTabState] = useState<ZenTab>(initialZenTab);
   const [paletteIndex, setPaletteIndexState] = useState<number>(initialPaletteIndex);
   const [activeZenState, setActiveZenState] = useState<ZenState>("not_clocked_in");
 
   // Sync DOM classes and localStorage in useEffect after client mount (zero hydration error)
   useEffect(() => {
+    if (!ZEN_MODE_ENABLED) {
+      setIsZenModeState(false);
+      try {
+        localStorage.setItem(STORAGE_KEY, "false");
+        document.cookie = `${STORAGE_KEY}=false; path=/; max-age=31536000; SameSite=Lax`;
+      } catch {
+        // ignore
+      }
+      document.documentElement.classList.remove("zen-mode");
+      document.body.classList.remove("zen-mode");
+      return;
+    }
+
     try {
       const storedZen = localStorage.getItem(STORAGE_KEY);
       const isZen = storedZen !== null ? storedZen === "true" : initialIsZenMode;
@@ -159,6 +181,7 @@ export function ZenModeProvider({
   }, [initialIsZenMode]);
 
   const setIsZenMode = useCallback((val: boolean) => {
+    if (!ZEN_MODE_ENABLED) return;
     setIsZenModeState(val);
     try {
       localStorage.setItem(STORAGE_KEY, String(val));
@@ -176,6 +199,7 @@ export function ZenModeProvider({
   }, []);
 
   const toggleZenMode = useCallback(() => {
+    if (!ZEN_MODE_ENABLED) return;
     setIsZenModeState((prev) => {
       const next = !prev;
       try {
@@ -220,6 +244,7 @@ export function ZenModeProvider({
   return (
     <ZenModeContext.Provider
       value={{
+        zenModeEnabled: ZEN_MODE_ENABLED,
         isZenMode,
         setIsZenMode,
         toggleZenMode,
@@ -242,6 +267,7 @@ export function useZenMode() {
   if (!ctx) {
     // Return graceful fallback if used outside provider
     return {
+      zenModeEnabled: false,
       isZenMode: false,
       setIsZenMode: () => {},
       toggleZenMode: () => {},

@@ -10,7 +10,6 @@ import {
 import { usePanelBridge } from "./panel-bridge";
 import ViewportSidebar from "./ViewportSidebar";
 import { useZenMode } from "@/components/zen/ZenModeContext";
-import ZenModeTrigger from "@/components/zen/ZenModeTrigger";
 
 type WorkspacePanel = {
   content: ReactNode;
@@ -50,7 +49,7 @@ export default function CalendarWorkspace({
   panels,
   zenView,
 }: CalendarWorkspaceProps) {
-  const { registerNavItems, registerPanelOpener } = usePanelBridge();
+  const { registerNavItems, registerPanelOpener, registerPanelCloser, registerActivePanelKey } = usePanelBridge();
   const [activePanelKey, setActivePanelKey] = useState<string | null>(initialActivePanelKey);
 
   useEffect(() => {
@@ -58,6 +57,10 @@ export default function CalendarWorkspace({
       setActivePanelKey(initialActivePanelKey);
     }
   }, [initialActivePanelKey]);
+
+  useEffect(() => {
+    registerActivePanelKey(activePanelKey);
+  }, [activePanelKey, registerActivePanelKey]);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState<"clock" | "calendar" | "records">("clock");
   const [workspaceMode, setWorkspaceMode] = useState<"me" | "team">(
@@ -88,7 +91,8 @@ export default function CalendarWorkspace({
 
   useEffect(() => {
     registerPanelOpener(handleOpenPanel);
-  }, [handleOpenPanel, registerPanelOpener]);
+    registerPanelCloser(() => setActivePanelKey(null));
+  }, [handleOpenPanel, registerPanelOpener, registerPanelCloser]);
 
   useEffect(() => {
     const handleNav = (detail?: { tab?: string; highlightEntryId?: string | null; highlightLeaveId?: string | null }) => {
@@ -165,9 +169,9 @@ export default function CalendarWorkspace({
   }, []);
 
   const isTeamMode = !isMobile && workspaceMode === "team" && isManager && managerCalendar;
-  const { isZenMode } = useZenMode();
+  const { isZenMode, zenModeEnabled } = useZenMode();
 
-  if (isZenMode && zenView) {
+  if (zenModeEnabled && isZenMode && zenView) {
     return (
       <PanelContext.Provider value={{ openPanel: handleOpenPanel }}>
         <WorkspaceSectionContext.Provider value="full">
@@ -374,7 +378,7 @@ export default function CalendarWorkspace({
             ) : null}
           </div>
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6 pb-16 sm:pb-8 bg-surface"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6 pb-28 sm:pb-16 bg-surface"
       >
         {isMobile && activePanel?.desktopOnly ? (
           <div className="mx-auto my-auto flex max-w-sm flex-col items-center justify-center rounded-2xl border border-border bg-surface-muted/60 p-6 text-center shadow-xs">
@@ -397,8 +401,6 @@ export default function CalendarWorkspace({
           activePanel?.content
         )}
       </ViewportSidebar>
-
-      <ZenModeTrigger />
     </div>
       </WorkspaceSectionContext.Provider>
     </PanelContext.Provider>

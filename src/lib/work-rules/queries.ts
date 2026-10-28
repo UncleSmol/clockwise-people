@@ -234,7 +234,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       .order("name"),
     supabase
       .from("leave_balances")
-      .select("id, balance_hours, accrued_hours, taken_hours, leave_types(id, name, category, is_paid, requires_attachment, accrual_rules)")
+      .select("id, employee_id, leave_type_id, balance_hours, accrued_hours, taken_hours, leave_types(id, name, category, is_paid, requires_attachment, accrual_rules)")
       .eq("company_id", company.id)
       .eq("employee_id", access.employeeId),
     supabase
@@ -327,6 +327,104 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       return rel?.category !== "toil_taken" && !rel?.name?.toLowerCase().includes("toil");
     });
   }
+
+  // If no leave types exist for company, supply standard statutory BCEA leave types
+  if (leaveTypes.length === 0) {
+    const defaultStatutory: LeaveType[] = [
+      {
+        id: "stat-annual",
+        name: "Annual Leave",
+        category: "annual",
+        is_paid: true,
+        requires_attachment: false,
+        accrual_rules: {},
+      },
+      {
+        id: "stat-sick",
+        name: "Sick Leave",
+        category: "sick",
+        is_paid: true,
+        requires_attachment: true,
+        accrual_rules: {},
+      },
+      {
+        id: "stat-family",
+        name: "Family Responsibility Leave",
+        category: "family_responsibility",
+        is_paid: true,
+        requires_attachment: false,
+        accrual_rules: {},
+      },
+    ];
+    leaveTypes = defaultStatutory;
+  }
+
+  // Ensure every active leave type has a corresponding balance row for the employee
+  const existingLeaveTypeIds = new Set(
+    balances.map((b) => {
+      const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+      return b.leave_type_id || rel?.id;
+    }).filter(Boolean)
+  );
+
+  const missingTypes = leaveTypes.filter((lt) => !existingLeaveTypeIds.has(lt.id));
+
+  if (missingTypes.length > 0 && access.employeeId) {
+    const today = new Date().toISOString().split("T")[0];
+    const newBalances = missingTypes.map((lt) => ({
+      id: `auto-${lt.id}`,
+      company_id: company.id,
+      employee_id: access.employeeId,
+      leave_type_id: lt.id,
+      balance_hours: 0,
+      accrued_hours: 0,
+      taken_hours: 0,
+      adjusted_hours: 0,
+      as_of_date: today,
+      leave_types: lt,
+    } as unknown as LeaveBalance));
+
+    balances = [...balances, ...newBalances];
+
+    // Attempt to persist missing rows to leave_balances in database asynchronously
+    if (access.employeeId) {
+      try {
+        await supabase.from("leave_balances").upsert(
+          missingTypes.map((lt) => ({
+            company_id: company.id,
+            employee_id: access.employeeId,
+            leave_type_id: lt.id,
+            balance_hours: 0,
+            accrued_hours: 0,
+            taken_hours: 0,
+            adjusted_hours: 0,
+            as_of_date: today,
+          })),
+          { onConflict: "company_id,employee_id,leave_type_id", ignoreDuplicates: true }
+        );
+      } catch {
+        // Non-fatal fallback
+      }
+    }
+  }
+
+  // Sort statutory balances to the top: Annual -> Sick -> Family -> TOIL -> Others
+  balances = [...balances].sort((a, b) => {
+    const relA = Array.isArray(a.leave_types) ? a.leave_types[0] : a.leave_types;
+    const relB = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+    const catA = (relA?.category ?? "").toLowerCase();
+    const catB = (relB?.category ?? "").toLowerCase();
+    const nameA = (relA?.name ?? "").toLowerCase();
+    const nameB = (relB?.name ?? "").toLowerCase();
+    const score = (cat: string, name: string) => {
+      if (cat === "annual" || name.includes("annual")) return 1;
+      if (cat === "sick" || name.includes("sick")) return 2;
+      if (cat === "family_responsibility" || name.includes("family")) return 3;
+      if (cat === "toil_taken" || name.includes("toil")) return 4;
+      return 10;
+    };
+    return score(catA, nameA) - score(catB, nameB);
+  });
 
   const requests = ((requestsResult.data ?? []) as unknown as LeaveRequestRow[]).map(
     (request) => ({

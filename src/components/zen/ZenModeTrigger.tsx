@@ -7,6 +7,7 @@ import { Sparkles, Maximize2, Minimize2, Palette, Check } from "lucide-react";
 
 export default function ZenModeTrigger() {
   const {
+    zenModeEnabled,
     isZenMode,
     toggleZenMode,
     paletteIndex,
@@ -43,10 +44,17 @@ export default function ZenModeTrigger() {
 
   const currentPalette = PALETTES[paletteIndex] || PALETTES[0];
 
+  // Zen Mode is only accessible at the header on top, nowhere else.
+  return null;
+
   return (
     <div
       ref={triggerRef}
-      className="hidden sm:flex fixed sm:bottom-6 sm:right-6 z-50 flex-col items-end gap-2.5 pointer-events-auto"
+      className={`flex fixed ${
+        isZenMode
+          ? "bottom-5 right-5 sm:bottom-6 sm:right-6"
+          : "bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 sm:bottom-6 sm:right-6"
+      } z-[76] flex-col items-end gap-2.5 pointer-events-auto transition-all`}
     >
       {/* Simplified Palette Ribbon Popover */}
       {isOpen ? (

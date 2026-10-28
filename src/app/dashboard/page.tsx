@@ -996,6 +996,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             publicHolidays={calendarHolidays}
             liveOverview={liveTimeOverview}
             isSysAdmin={access.isSuperAdmin}
+            isSuperAdmin={access.isSuperAdmin}
           />
         ) : undefined
       }

@@ -131,6 +131,8 @@ export type LeaveType = {
 
 export type LeaveBalance = {
   id: string;
+  employee_id?: string;
+  leave_type_id?: string;
   balance_hours: number | string;
   accrued_hours: number | string;
   taken_hours: number | string;
