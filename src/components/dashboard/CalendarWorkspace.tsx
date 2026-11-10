@@ -378,7 +378,7 @@ export default function CalendarWorkspace({
             ) : null}
           </div>
         }
-        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6 pb-36 sm:pb-16 bg-surface"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto px-2.5 py-3 sm:px-6 sm:py-6 pb-36 sm:pb-16 bg-surface"
       >
         {isMobile && activePanel?.desktopOnly ? (
           <div className="mx-auto my-auto flex max-w-sm flex-col items-center justify-center rounded-2xl border border-border bg-surface-muted/60 p-6 text-center shadow-xs">

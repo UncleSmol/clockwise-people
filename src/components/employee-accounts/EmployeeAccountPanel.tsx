@@ -529,7 +529,10 @@ export default function EmployeeAccountPanel({
             </div>
 
             <form onSubmit={handleSetEmailSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <div className="relative flex-1 min-w-0">
+              <div className="relative flex-1 min-w-0 flex items-center">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted z-10">
+                  <Mail className="size-4 shrink-0" />
+                </div>
                 <input
                   type="email"
                   value={targetEmail}
@@ -540,7 +543,6 @@ export default function EmployeeAccountPanel({
                   style={{ paddingLeft: "2.75rem", paddingRight: "1rem" }}
                   className="h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background !pl-11 !pr-4 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                 />
-                <Mail className="size-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               <button

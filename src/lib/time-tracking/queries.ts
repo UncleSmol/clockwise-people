@@ -412,21 +412,45 @@ function currentDateInTimezone(timezone: string) {
 }
 
 const ensuredPublicHolidaysCache = new Set<string>();
+const holidayPromiseMap = new Map<string, Promise<void>>();
 
 async function ensureHolidaysOnce(client: SupabaseClient, companyId: string, year: number) {
   const cacheKey = `${companyId}:${year}`;
   if (ensuredPublicHolidaysCache.has(cacheKey)) {
     return;
   }
-  try {
-    await client.rpc("ensure_current_year_za_public_holidays", {
-      target_company_id: companyId,
-      target_year: year,
-    });
-    ensuredPublicHolidaysCache.add(cacheKey);
-  } catch (err) {
-    console.warn("Public holiday initialization skipped:", err);
+  let promise = holidayPromiseMap.get(cacheKey);
+  if (!promise) {
+    promise = (async () => {
+      try {
+        // Fast pre-check: if public holidays are already populated for this year, skip the heavy RPC loop entirely
+        const { count, error } = await client
+          .from("company_public_holidays")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("holiday_date", `${year}-01-01`)
+          .lte("holiday_date", `${year}-12-31`)
+          .is("deleted_at", null);
+
+        if (!error && typeof count === "number" && count >= 10) {
+          ensuredPublicHolidaysCache.add(cacheKey);
+          return;
+        }
+
+        await client.rpc("ensure_current_year_za_public_holidays", {
+          target_company_id: companyId,
+          target_year: year,
+        });
+        ensuredPublicHolidaysCache.add(cacheKey);
+      } catch (err) {
+        console.warn("Public holiday initialization skipped:", err);
+      } finally {
+        holidayPromiseMap.delete(cacheKey);
+      }
+    })();
+    holidayPromiseMap.set(cacheKey, promise);
   }
+  return promise;
 }
 
 export const getEmployeeTimeState = cache(async function getEmployeeTimeState(): Promise<EmployeeTimeState> {

@@ -523,7 +523,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   id="selected-employee-manage-pane"
                   className="space-y-4 sm:space-y-6 min-w-0"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 sm:p-4 shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3 sm:p-4 shadow-2xs">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-white shadow-2xs">
@@ -563,7 +563,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
                   {manualInviteUrl ? <InviteLinkPanel inviteUrl={manualInviteUrl} /> : null}
 
-                  <section className="grid gap-4 rounded-2xl border border-border/80 bg-surface p-3.5 sm:p-6 shadow-soft">
+                  <section className="grid gap-4 rounded-xl sm:rounded-2xl border border-border/80 bg-surface p-3 sm:p-6 shadow-soft">
                     <div className="border-b border-border/80 pb-3">
                       <h2 className="text-base sm:text-xl font-bold text-foreground">Edit employee</h2>
                       <p className="mt-0.5 text-xs text-muted">
