@@ -747,3 +747,4 @@ end;
 $$;
 
 grant execute on function public.review_managed_leave_request(uuid, boolean, text) to authenticated, service_role;
+

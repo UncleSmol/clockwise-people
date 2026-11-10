@@ -185,12 +185,6 @@ const CompanyAllAccrualsTable = dynamic(
     loading: () => <LoadingPanel label="company accruals" />,
   },
 );
-const CompanyRulesForm = dynamic(
-  () => import("@/components/account/CompanyRulesForm"),
-  {
-    loading: () => <LoadingPanel label="company rules" />,
-  },
-);
 import {
   getSysAdminCompaniesOverview,
   getSysAdminCompanyMetadata,
@@ -897,7 +891,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <ChangePasswordForm />
             </section>
           </div>
-          {companySettings && canManageCompany ? <CompanyRulesForm settings={companySettings} /> : null}
         </div>
       ),
     });

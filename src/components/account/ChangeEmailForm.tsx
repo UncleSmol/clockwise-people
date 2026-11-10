@@ -53,8 +53,8 @@ export default function ChangeEmailForm({ currentEmail }: ChangeEmailFormProps) 
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             placeholder="new-email@company.com"
-            style={{ paddingLeft: "2.75rem" }}
-            className="h-11 w-full rounded-full border border-border bg-surface !pl-11 pr-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            style={{ paddingLeft: "3rem", paddingRight: "1.125rem" }}
+            className="has-icon-left h-11 w-full rounded-full border border-border bg-surface pl-12 pr-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <Mail className="size-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -69,8 +69,8 @@ export default function ChangeEmailForm({ currentEmail }: ChangeEmailFormProps) 
             required
             autoComplete="current-password"
             placeholder="Enter current password"
-            style={{ paddingLeft: "2.75rem", paddingRight: "2.75rem" }}
-            className="h-11 w-full rounded-full border border-border bg-surface !pl-11 !pr-11 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            style={{ paddingLeft: "3rem", paddingRight: "3rem" }}
+            className="has-icon-left has-icon-right h-11 w-full rounded-full border border-border bg-surface pl-12 pr-12 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <Lock className="size-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <button

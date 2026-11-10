@@ -540,8 +540,8 @@ export default function EmployeeAccountPanel({
                   placeholder="Enter new login email address"
                   autoComplete="email"
                   disabled={isEmailPending}
-                  style={{ paddingLeft: "2.75rem", paddingRight: "1rem" }}
-                  className="h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background !pl-11 !pr-4 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                  style={{ paddingLeft: "3rem", paddingRight: "1.125rem" }}
+                  className="has-icon-left h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background pl-12 pr-4 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                 />
               </div>
 
@@ -598,8 +598,8 @@ export default function EmployeeAccountPanel({
                     placeholder="Enter new password (min. 8 characters)"
                     autoComplete="new-password"
                     disabled={isPasswordPending}
-                    style={{ paddingLeft: "1rem", paddingRight: "2.75rem" }}
-                    className="h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background !pl-4 !pr-11 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                    style={{ paddingLeft: "1.125rem", paddingRight: "3rem" }}
+                    className="has-icon-right h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background pl-4 pr-12 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                   />
                   <button
                     type="button"

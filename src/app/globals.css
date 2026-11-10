@@ -343,7 +343,10 @@ button:disabled {
     textarea {
       font-size: 0.875rem;
       min-height: 2.75rem;
-      padding: 0.625rem 1.25rem;
+      padding-top: 0.625rem;
+      padding-bottom: 0.625rem;
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
     }
 
     textarea {
@@ -385,16 +388,28 @@ select {
 .relative > svg.absolute.left-3 + input,
 .relative > svg.absolute.left-3\.5 + input,
 .relative > svg.absolute.left-4 + input,
-input.has-icon-left {
-  padding-left: 2.75rem !important;
+.relative:has(> svg.absolute.left-3) > input,
+.relative:has(> svg.absolute.left-3\.5) > input,
+.relative:has(> svg.absolute.left-4) > input,
+.relative:has(> div.absolute.left-0) > input,
+.relative:has(> div.absolute.left-3) > input,
+.relative:has(> div.absolute.left-3\.5) > input,
+input.has-icon-left,
+.has-icon-left {
+  padding-left: 2.875rem !important;
 }
 
 .relative > input:has(+ button),
 .relative > input:has(+ svg.absolute.right-3),
 .relative > input:has(+ svg.absolute.right-3\.5),
 .relative > input:has(+ svg.absolute.right-4),
-input.has-icon-right {
-  padding-right: 2.75rem !important;
+.relative:has(> button.absolute.right-3) > input,
+.relative:has(> button.absolute.right-3\.5) > input,
+.relative:has(> svg.absolute.right-3) > input,
+.relative:has(> svg.absolute.right-3\.5) > input,
+input.has-icon-right,
+.has-icon-right {
+  padding-right: 2.875rem !important;
 }
 
 .card {
