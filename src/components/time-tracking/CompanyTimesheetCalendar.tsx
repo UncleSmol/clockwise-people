@@ -53,6 +53,7 @@ type CompanyTimesheetCalendarProps = {
   leaveRequests: CompanyCalendarLeaveRequest[];
   publicHolidays: CompanyPublicHoliday[];
   liveOverview?: CompanyLiveTimeOverview | null;
+  canViewLiveWorkforce?: boolean;
   isSysAdmin?: boolean;
   isSuperAdmin?: boolean;
   leaveTypes?: LeaveType[];
@@ -346,6 +347,7 @@ export default function CompanyTimesheetCalendar({
   leaveRequests,
   publicHolidays,
   liveOverview = null,
+  canViewLiveWorkforce = false,
   isSysAdmin = false,
   isSuperAdmin = false,
   leaveTypes = [],
@@ -377,11 +379,11 @@ export default function CompanyTimesheetCalendar({
   });
 
   const activeColleagues = useMemo(() => {
-    if (!liveOverview?.entries) return [];
+    if (!canViewLiveWorkforce || !liveOverview?.entries) return [];
     return liveOverview.entries.filter(
       (c) => c.status === "working" || c.status === "on_lunch",
     );
-  }, [liveOverview]);
+  }, [liveOverview, canViewLiveWorkforce]);
 
   const [showAllColleagues, setShowAllColleagues] = useState(false);
   const [showAllMobileEntries, setShowAllMobileEntries] = useState(false);
@@ -889,7 +891,7 @@ export default function CompanyTimesheetCalendar({
       </div>
 
       <div className="flex min-w-0 max-w-full flex-col gap-4">
-        {activeColleagues.length > 0 && (
+        {canViewLiveWorkforce && activeColleagues.length > 0 && (
           <div className="rounded-2xl border border-border/80 bg-surface p-4 shadow-soft">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">

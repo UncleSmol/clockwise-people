@@ -854,11 +854,32 @@ function liveStatus(entry: TimeEntryRecord | null): CompanyLiveTimeEntry["status
 }
 
 export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTimeOverview(): Promise<CompanyLiveTimeOverview> {
-  const { company } = await getActiveCompany();
-  const { supabase } = await requireUser();
-  const adminClient = createSupabaseAdminClient();
+  const [access, { company }] = await Promise.all([
+    getCurrentUserAccess(),
+    getActiveCompany(),
+  ]);
+
   const effectiveTimezone = company.timezone || "Africa/Johannesburg";
   const workDate = currentDateInTimezone(effectiveTimezone);
+
+  if (!access.canViewLiveWorkforce) {
+    return {
+      companyId: company.id,
+      entries: [],
+      totals: {
+        activeEmployees: 0,
+        needsReview: 0,
+        notStarted: 0,
+        onLunch: 0,
+        totalEmployees: 0,
+        workedToday: 0,
+      },
+      workDate,
+    };
+  }
+
+  const { supabase } = await requireUser();
+  const adminClient = createSupabaseAdminClient();
 
   await ensureHolidaysOnce(adminClient, company.id, Number(workDate.slice(0, 4)));
 

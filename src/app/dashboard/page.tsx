@@ -242,16 +242,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const canViewPayslips = access.canViewPayslips;
   const canReviewTime = isManager;
   const canReviewLeave = isManager;
+  const canViewLiveWorkforce = access.canViewLiveWorkforce;
   const activePanel = params?.panel ?? null;
 
+  const defaultRestrictedRedirect = canViewLiveWorkforce
+    ? "/dashboard?panel=attendance"
+    : "/dashboard";
+
+  if (activePanel === "attendance" && !canViewLiveWorkforce) {
+    redirect("/dashboard?message=" + encodeURIComponent("Access restricted: Live workforce attendance is restricted to authorized superuser."));
+  }
   if (activePanel === "people" && !canManageEmployees) {
-    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: You do not have permission to view employee records."));
+    redirect(defaultRestrictedRedirect + "&message=" + encodeURIComponent("Access restricted: You do not have permission to view employee records."));
   }
   if (activePanel === "payslips" && !canViewPayslips) {
-    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: You do not have permission to view the payslip generator."));
+    redirect(defaultRestrictedRedirect + "&message=" + encodeURIComponent("Access restricted: You do not have permission to view the payslip generator."));
   }
   if (activePanel === "sysadmin" && !access.isFullSuperAdmin) {
-    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: System admin workspace is restricted to full super administrators."));
+    redirect(defaultRestrictedRedirect + "&message=" + encodeURIComponent("Access restricted: System admin workspace is restricted to full super administrators."));
   }
 
   const selectedEmployeeId = params?.employeeId ?? null;
@@ -286,7 +294,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     canManageCompany
       ? getCompanySetup(company.id)
       : Promise.resolve({ workstations: [], departments: [] }),
-    getCompanyLiveTimeOverview(),
+    canViewLiveWorkforce
+      ? getCompanyLiveTimeOverview()
+      : Promise.resolve(null),
     canReviewTime ? getCompanyTimesheetCalendarEntries() : Promise.resolve([]),
     canReviewTime ? getCompanyCalendarEmployeeOptions() : Promise.resolve([]),
     canReviewTime ? getCompanyTimesheetCalendarHolidays() : Promise.resolve([]),
@@ -431,7 +441,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     });
   }
 
-  if (liveTimeOverview) {
+  if (canViewLiveWorkforce && liveTimeOverview) {
     panels.push({
       key: "attendance",
       label: "Today's attendance",
@@ -485,7 +495,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         "Review pending leave requests, submitted timesheets, correction requests, and live workforce status.",
       content: (
         <div className="grid gap-6">
-          {liveTimeOverview ? <CompanyLiveWorkforce overview={liveTimeOverview} /> : null}
+          {canViewLiveWorkforce && liveTimeOverview ? <CompanyLiveWorkforce overview={liveTimeOverview} /> : null}
           {canReviewLeave ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
           <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
           <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
@@ -1050,7 +1060,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             entries={calendarEntries}
             leaveRequests={calendarLeaveRequests}
             publicHolidays={calendarHolidays}
-            liveOverview={liveTimeOverview}
+            liveOverview={canViewLiveWorkforce ? liveTimeOverview : null}
+            canViewLiveWorkforce={canViewLiveWorkforce}
             isSysAdmin={access.isSuperAdmin}
             isSuperAdmin={access.isSuperAdmin}
             leaveTypes={leaveState?.leaveTypes ?? []}

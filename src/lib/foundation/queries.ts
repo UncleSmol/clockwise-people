@@ -101,6 +101,13 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   const userEmail = user.email?.toLowerCase().trim();
   const canAssignSuperAdmin = Boolean(userEmail && SUPER_ADMIN_GRANTORS.has(userEmail));
 
+  // Live workforce attendance ("who is working today", "who is on lunch"):
+  // Users should not be able to see who is working today or who is on lunch.
+  // Strictly restricted to superuser Doctor Khoza (doctor@formalize.co.za).
+  const canViewLiveWorkforce = Boolean(
+    userEmail && userEmail === "doctor@formalize.co.za"
+  );
+
   // Restricted Super Admins are Super Admins who can switch between companies to monitor
   // and assist with time management across all branches, but are strictly prohibited
   // from viewing employee records, sensitive personal data, or the payslip generator.
@@ -251,6 +258,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   const canViewPayroll = canViewPayslips;
 
   return {
+    userEmail: userEmail ?? null,
     appUserId: targetAppUser?.id ?? null,
     employeeId: activeEmployeeId,
     companyIds,
@@ -260,6 +268,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     isFullSuperAdmin,
     isSuperUser,
     canAssignSuperAdmin,
+    canViewLiveWorkforce,
     isOwner,
     isHrAdmin,
     isBranchManager,

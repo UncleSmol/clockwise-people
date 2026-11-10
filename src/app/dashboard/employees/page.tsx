@@ -8,7 +8,8 @@ type EmployeesPageProps = {
 export default async function EmployeesPage({ searchParams }: EmployeesPageProps) {
   const access = await getCurrentUserAccess();
   if (!access.canManageEmployees) {
-    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: You do not have permission to view employee records."));
+    const fallback = access.canViewLiveWorkforce ? "/dashboard?panel=attendance" : "/dashboard";
+    redirect(`${fallback}&message=${encodeURIComponent("Access restricted: You do not have permission to view employee records.")}`);
   }
   const params = await searchParams;
   const message = params?.message ? `&message=${encodeURIComponent(params.message)}` : "";

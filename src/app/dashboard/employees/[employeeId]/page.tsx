@@ -12,7 +12,8 @@ export default async function EmployeeDetailPage({
 }: EmployeeDetailPageProps) {
   const access = await getCurrentUserAccess();
   if (!access.canManageEmployees) {
-    redirect("/dashboard?panel=attendance&message=" + encodeURIComponent("Access restricted: You do not have permission to view employee records."));
+    const fallback = access.canViewLiveWorkforce ? "/dashboard?panel=attendance" : "/dashboard";
+    redirect(`${fallback}&message=${encodeURIComponent("Access restricted: You do not have permission to view employee records.")}`);
   }
   const { employeeId } = await params;
   const resolvedSearchParams = await searchParams;
