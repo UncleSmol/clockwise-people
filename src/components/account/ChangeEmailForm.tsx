@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Mail, Check, AlertTriangle, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Check, AlertTriangle, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { changeOwnEmail, type ChangeEmailState } from "@/lib/account/actions";
 
 const initialState: ChangeEmailState = {
@@ -19,6 +19,7 @@ export default function ChangeEmailForm({ currentEmail }: ChangeEmailFormProps) 
     initialState,
   );
   const [newEmail, setNewEmail] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
 
   return (
     <form action={formAction} className="grid gap-4">
@@ -64,14 +65,28 @@ export default function ChangeEmailForm({ currentEmail }: ChangeEmailFormProps) 
         <div className="relative">
           <input
             name="current_password"
-            type="password"
+            type={showCurrentPassword ? "text" : "password"}
             required
             autoComplete="current-password"
             placeholder="Enter current password"
-            style={{ paddingLeft: "2.75rem" }}
-            className="h-11 w-full rounded-full border border-border bg-surface !pl-11 pr-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            style={{ paddingLeft: "2.75rem", paddingRight: "2.75rem" }}
+            className="h-11 w-full rounded-full border border-border bg-surface !pl-11 !pr-11 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <Lock className="size-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <button
+            type="button"
+            onClick={() => setShowCurrentPassword((prev) => !prev)}
+            tabIndex={-1}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-foreground cursor-pointer transition-colors z-10 flex items-center justify-center rounded-full hover:bg-surface-muted focus:outline-none"
+            aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+            title={showCurrentPassword ? "Hide password" : "Show password"}
+          >
+            {showCurrentPassword ? (
+              <EyeOff className="size-4 shrink-0" />
+            ) : (
+              <Eye className="size-4 shrink-0" />
+            )}
+          </button>
         </div>
       </label>
 

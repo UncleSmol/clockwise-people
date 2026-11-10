@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { changePassword } from "@/lib/account/actions";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 const initialState = {
   ok: true,
@@ -30,36 +31,33 @@ export default function ChangePasswordForm() {
 
       <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
         <span>Current password</span>
-        <input
+        <PasswordInput
           name="current_password"
-          type="password"
           required
           autoComplete="current-password"
-          className="h-11 rounded-full border border-border bg-surface px-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+          placeholder="Enter current password"
         />
       </label>
 
       <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
         <span>New password</span>
-        <input
+        <PasswordInput
           name="password"
-          type="password"
           minLength={8}
           required
           autoComplete="new-password"
-          className="h-11 rounded-full border border-border bg-surface px-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+          placeholder="Enter new password (min. 8 characters)"
         />
       </label>
 
       <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
         <span>Confirm new password</span>
-        <input
+        <PasswordInput
           name="confirm_password"
-          type="password"
           minLength={8}
           required
           autoComplete="new-password"
-          className="h-11 rounded-full border border-border bg-surface px-4 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+          placeholder="Confirm new password"
         />
       </label>
 

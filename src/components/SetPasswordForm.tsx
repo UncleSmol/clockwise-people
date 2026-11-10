@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function SetPasswordForm() {
   const router = useRouter();
@@ -48,26 +49,24 @@ export default function SetPasswordForm() {
       )}
 
       <label className="grid gap-1.5 text-sm font-bold text-foreground">
-        New password
-        <input
+        <span>New password</span>
+        <PasswordInput
           name="password"
-          type="password"
           minLength={8}
           required
           autoComplete="new-password"
-          className="h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
+          placeholder="At least 8 characters"
         />
       </label>
 
       <label className="grid gap-1.5 text-sm font-bold text-foreground">
-        Confirm password
-        <input
+        <span>Confirm password</span>
+        <PasswordInput
           name="confirm_password"
-          type="password"
           minLength={8}
           required
           autoComplete="new-password"
-          className="h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary shadow-xs"
+          placeholder="Re-enter password"
         />
       </label>
 

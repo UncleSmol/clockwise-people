@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import SignInButton from "@/components/auth/SignInButton";
+import PasswordInput from "@/components/ui/PasswordInput";
 import { signIn } from "@/lib/auth/actions";
 
 type LoginPageProps = {
@@ -61,12 +62,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </label>
             <label className="grid gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
               <span>Password</span>
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
                 required
+                autoComplete="current-password"
                 placeholder="Enter your password"
-                className="w-full rounded-full border border-border bg-surface px-4 py-3 text-sm text-foreground placeholder-muted outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="py-3 text-sm"
               />
             </label>
             <div className="mt-2">
