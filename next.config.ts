@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
+  },
   typescript: {
     ignoreBuildErrors: false,
   },

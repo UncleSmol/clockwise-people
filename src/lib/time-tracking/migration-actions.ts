@@ -280,203 +280,252 @@ export async function executeTimesheetMigration(
       }
     }
 
-    // 2. Fetch or create timesheets per employee
-    // Group entries by matchedEmployeeId
-    const entriesByEmployee = new Map<string, NormalizedImportEntry[]>();
-    for (const entry of entries) {
-      if (!entry.matchedEmployeeId) continue;
-      if (!entriesByEmployee.has(entry.matchedEmployeeId)) {
-        entriesByEmployee.set(entry.matchedEmployeeId, []);
-      }
-      entriesByEmployee.get(entry.matchedEmployeeId)!.push(entry);
+    // 2. Fetch or create timesheets in batch per employee
+    const uniqueEmpIds = Array.from(
+      new Set(entries.map((e) => e.matchedEmployeeId).filter(Boolean) as string[])
+    );
+
+    if (uniqueEmpIds.length === 0) {
+      return {
+        ok: false,
+        message: "No entries with matched employees found to import.",
+      };
     }
 
-    let totalImported = 0;
-    let importedShifts = 0;
-    let importedLeaves = 0;
-    let skippedCount = 0;
+    // Query standard daily hours for overtime calculations
+    const { data: compSettings } = await supabase
+      .from("company_settings")
+      .select("standard_daily_hours")
+      .eq("company_id", company.id)
+      .maybeSingle();
+    const standardDailyHours = Number(compSettings?.standard_daily_hours) || 8;
 
-    for (const [employeeId, empEntries] of entriesByEmployee.entries()) {
-      // Find or create active draft or approved timesheet for this employee
-      const { data: existingTimesheets } = await supabase
+    const { data: existingTimesheets } = await supabase
+      .from("timesheets")
+      .select("id, employee_id")
+      .eq("company_id", company.id)
+      .in("employee_id", uniqueEmpIds)
+      .is("deleted_at", null);
+
+    const timesheetMap = new Map<string, string>();
+    (existingTimesheets || []).forEach((t) => {
+      timesheetMap.set(t.employee_id, t.id);
+    });
+
+    const missingEmpIds = uniqueEmpIds.filter((id) => !timesheetMap.has(id));
+    if (missingEmpIds.length > 0) {
+      const { data: newTimesheets, error: tsErr } = await supabase
         .from("timesheets")
-        .select("id, status")
-        .eq("company_id", company.id)
-        .eq("employee_id", employeeId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      let timesheetId: string;
-      if (existingTimesheets && existingTimesheets.length > 0) {
-        timesheetId = existingTimesheets[0].id;
-      } else {
-        const { data: newTimesheet, error: tsErr } = await supabase
-          .from("timesheets")
-          .insert({
+        .insert(
+          missingEmpIds.map((id) => ({
             company_id: company.id,
-            employee_id: employeeId,
+            employee_id: id,
             status: "approved",
             notes: "Migrated from spreadsheet",
-          })
-          .select("id")
-          .single();
+          }))
+        )
+        .select("id, employee_id");
 
-        if (tsErr || !newTimesheet) {
-          throw new Error(
-            `Failed to create timesheet for employee: ${tsErr?.message}`,
-          );
+      if (tsErr) {
+        console.error("Batch timesheets creation error:", tsErr);
+      }
+      (newTimesheets || []).forEach((t) => timesheetMap.set(t.employee_id, t.id));
+    }
+
+    // Pre-fetch all existing entries for duplicate / overwrite detection in 1 query
+    const { data: existingTimeEntries } = await supabase
+      .from("time_entries")
+      .select("id, employee_id, work_date")
+      .eq("company_id", company.id)
+      .in("employee_id", uniqueEmpIds)
+      .is("deleted_at", null);
+
+    const existingDatesMap = new Map<string, string>();
+    (existingTimeEntries || []).forEach((e) => {
+      existingDatesMap.set(`${e.employee_id}_${e.work_date}`, e.id);
+    });
+
+    const deleteIds: string[] = [];
+    const insertPayloads: Array<Record<string, unknown>> = [];
+    let skippedCount = 0;
+    let importedShifts = 0;
+    let importedLeaves = 0;
+
+    for (const entry of entries) {
+      if (!entry.matchedEmployeeId || !entry.workDate) continue;
+      const key = `${entry.matchedEmployeeId}_${entry.workDate}`;
+      const existingEntryId = existingDatesMap.get(key);
+
+      if (existingEntryId) {
+        if (conflictStrategy === "skip") {
+          skippedCount++;
+          continue;
+        } else if (conflictStrategy === "overwrite") {
+          deleteIds.push(existingEntryId);
         }
-        timesheetId = newTimesheet.id;
       }
 
-      // Check existing time_entries dates for this employee
-      const { data: existingTimeEntries } = await supabase
-        .from("time_entries")
-        .select("id, work_date")
-        .eq("company_id", company.id)
-        .eq("employee_id", employeeId)
-        .is("deleted_at", null);
+      const timesheetId = timesheetMap.get(entry.matchedEmployeeId);
+      if (!timesheetId) continue;
 
-      const existingDatesMap = new Map<string, string>();
-      (existingTimeEntries || []).forEach((e) => {
-        existingDatesMap.set(e.work_date, e.id);
-      });
-
-      // Process each entry for this employee
-      for (const entry of empEntries) {
-        if (!entry.workDate) continue;
-
-        const existingEntryId = existingDatesMap.get(entry.workDate);
-
-        if (existingEntryId) {
-          if (conflictStrategy === "skip") {
-            skippedCount++;
-            continue;
-          } else if (conflictStrategy === "overwrite") {
-            // Overwrite: delete existing entry for that date first
-            await supabase
-              .from("time_entries")
-              .delete()
-              .eq("id", existingEntryId);
-          }
-          // If "stack", keep the existing entry and additively insert this entry
+      if (entry.entryType === "work") {
+        let gross = 0;
+        let lunch = 0;
+        if (entry.clockIn && entry.clockOut) {
+          const [inH, inM] = entry.clockIn.split(":").map(Number);
+          const [outH, outM] = entry.clockOut.split(":").map(Number);
+          let startMin = inH * 60 + (inM || 0);
+          let endMin = outH * 60 + (outM || 0);
+          if (endMin < startMin) endMin += 24 * 60;
+          gross = Math.max(0, (endMin - startMin) / 60);
         }
+        if (entry.lunchStart && entry.lunchEnd) {
+          const [lsH, lsM] = entry.lunchStart.split(":").map(Number);
+          const [leH, leM] = entry.lunchEnd.split(":").map(Number);
+          let lStart = lsH * 60 + (lsM || 0);
+          let lEnd = leH * 60 + (leM || 0);
+          if (lEnd < lStart) lEnd += 24 * 60;
+          lunch = Math.max(0, (lEnd - lStart) / 60);
+        }
+        const paid = Math.max(0, gross - lunch);
+        const normal = Math.min(paid, standardDailyHours);
+        const overtime = Math.max(0, paid - standardDailyHours);
 
-        if (entry.entryType === "work") {
-          // Insert shift
-          const { data: insertedShift, error: shiftErr } = await supabase
-            .from("time_entries")
-            .insert({
+        insertPayloads.push({
+          company_id: company.id,
+          timesheet_id: timesheetId,
+          employee_id: entry.matchedEmployeeId,
+          work_date: entry.workDate,
+          workstation_id: entry.matchedWorkstationId || null,
+          clock_in: entry.clockIn || null,
+          lunch_start: entry.lunchStart || null,
+          lunch_end: entry.lunchEnd || null,
+          clock_out: entry.clockOut || null,
+          gross_hours: Math.round(gross * 100) / 100,
+          lunch_hours: Math.round(lunch * 100) / 100,
+          paid_hours: Math.round(paid * 100) / 100,
+          normal_hours: Math.round(normal * 100) / 100,
+          overtime_hours: Math.round(overtime * 100) / 100,
+          missing_clocking:
+            !entry.clockIn || !entry.clockOut || Boolean(entry.lunchStart && !entry.lunchEnd),
+          status: entry.status || "approved",
+          notes: entry.notes || null,
+        });
+        importedShifts++;
+      } else if (entry.entryType === "leave") {
+        const hours = entry.leaveHours || 8.0;
+        const isPaid = entry.isPaidLeave ?? true;
+
+        insertPayloads.push({
+          company_id: company.id,
+          timesheet_id: timesheetId,
+          employee_id: entry.matchedEmployeeId,
+          work_date: entry.workDate,
+          workstation_id: entry.matchedWorkstationId || null,
+          clock_in: null,
+          lunch_start: null,
+          lunch_end: null,
+          clock_out: null,
+          gross_hours: hours,
+          lunch_hours: 0,
+          paid_hours: isPaid ? hours : 0,
+          normal_hours: isPaid ? hours : 0,
+          overtime_hours: 0,
+          missing_clocking: false,
+          late_arrival: false,
+          early_departure: false,
+          leave_type_id: entry.matchedLeaveTypeId || null,
+          status: "approved",
+          notes: entry.notes || `Leave: ${entry.leaveTypeName || "Approved Leave"}`,
+        });
+        importedLeaves++;
+      }
+    }
+
+    // Delete overwritten entries in chunks of 200
+    for (let i = 0; i < deleteIds.length; i += 200) {
+      const chunk = deleteIds.slice(i, i + 200);
+      await supabase.from("time_entries").delete().in("id", chunk);
+    }
+
+    // Batch insert all records in chunks of 200
+    for (let i = 0; i < insertPayloads.length; i += 200) {
+      const chunk = insertPayloads.slice(i, i + 200);
+      const { error: insErr } = await supabase.from("time_entries").insert(chunk);
+      if (insErr) {
+        console.error("Batch time_entries insert error:", insErr);
+      }
+    }
+
+    // Aggregate and reconcile leave balances if requested
+    if (updateLeaveBalances) {
+      const leaveHoursByEmpAndType = new Map<
+        string,
+        { employeeId: string; leaveTypeId: string; totalHours: number; latestDate: string }
+      >();
+
+      for (const entry of entries) {
+        if (entry.entryType === "leave" && entry.matchedEmployeeId && entry.matchedLeaveTypeId) {
+          const key = `${entry.matchedEmployeeId}__${entry.matchedLeaveTypeId}`;
+          const current = leaveHoursByEmpAndType.get(key) || {
+            employeeId: entry.matchedEmployeeId,
+            leaveTypeId: entry.matchedLeaveTypeId,
+            totalHours: 0,
+            latestDate: entry.workDate,
+          };
+          current.totalHours += entry.leaveHours || 8.0;
+          if (entry.workDate > current.latestDate) current.latestDate = entry.workDate;
+          leaveHoursByEmpAndType.set(key, current);
+        }
+      }
+
+      if (leaveHoursByEmpAndType.size > 0) {
+        const empIds = Array.from(
+          new Set(Array.from(leaveHoursByEmpAndType.values()).map((x) => x.employeeId))
+        );
+        const { data: existingBals } = await supabase
+          .from("leave_balances")
+          .select("id, employee_id, leave_type_id, balance_hours, taken_hours")
+          .eq("company_id", company.id)
+          .in("employee_id", empIds);
+
+        const balMap = new Map<string, { id: string; balance_hours: number; taken_hours: number }>();
+        (existingBals || []).forEach((b) =>
+          balMap.set(`${b.employee_id}__${b.leave_type_id}`, {
+            id: b.id,
+            balance_hours: Number(b.balance_hours) || 0,
+            taken_hours: Number(b.taken_hours) || 0,
+          })
+        );
+
+        for (const item of leaveHoursByEmpAndType.values()) {
+          const key = `${item.employeeId}__${item.leaveTypeId}`;
+          const existingBal = balMap.get(key);
+          if (existingBal) {
+            await supabase
+              .from("leave_balances")
+              .update({
+                taken_hours: existingBal.taken_hours + item.totalHours,
+                balance_hours: existingBal.balance_hours - item.totalHours,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingBal.id);
+          } else {
+            await supabase.from("leave_balances").insert({
               company_id: company.id,
-              timesheet_id: timesheetId,
-              employee_id: employeeId,
-              work_date: entry.workDate,
-              workstation_id: entry.matchedWorkstationId || null,
-              clock_in: entry.clockIn || null,
-              lunch_start: entry.lunchStart || null,
-              lunch_end: entry.lunchEnd || null,
-              clock_out: entry.clockOut || null,
-              status: entry.status || "approved",
-              notes: entry.notes || null,
-            })
-            .select("id")
-            .single();
-
-          if (shiftErr || !insertedShift) {
-            console.error("Error inserting shift entry:", shiftErr);
-            continue;
-          }
-
-          // Trigger PostgreSQL stored procedure to calculate hours, lunch, and overtime
-          if (entry.clockIn && entry.clockOut) {
-            await supabase.rpc("refresh_time_entry_calculations", {
-              target_time_entry_id: insertedShift.id,
+              employee_id: item.employeeId,
+              leave_type_id: item.leaveTypeId,
+              accrued_hours: 0,
+              taken_hours: item.totalHours,
+              balance_hours: -item.totalHours,
+              as_of_date: item.latestDate,
             });
           }
-
-          importedShifts++;
-          totalImported++;
-        } else if (entry.entryType === "leave") {
-          // Insert leave entry
-          const hours = entry.leaveHours || 8.0;
-          const isPaid = entry.isPaidLeave ?? true;
-
-          const { data: insertedLeave, error: leaveErr } = await supabase
-            .from("time_entries")
-            .insert({
-              company_id: company.id,
-              timesheet_id: timesheetId,
-              employee_id: employeeId,
-              work_date: entry.workDate,
-              workstation_id: entry.matchedWorkstationId || null,
-              clock_in: null,
-              lunch_start: null,
-              lunch_end: null,
-              clock_out: null,
-              gross_hours: hours,
-              lunch_hours: 0,
-              paid_hours: isPaid ? hours : 0,
-              normal_hours: isPaid ? hours : 0,
-              overtime_hours: 0,
-              missing_clocking: false,
-              late_arrival: false,
-              early_departure: false,
-              leave_type_id: entry.matchedLeaveTypeId || null,
-              status: "approved",
-              notes:
-                entry.notes ||
-                `Leave: ${entry.leaveTypeName || "Approved Leave"}`,
-            })
-            .select("id")
-            .single();
-
-          if (leaveErr || !insertedLeave) {
-            console.error("Error inserting leave entry:", leaveErr);
-            continue;
-          }
-
-          // Reconcile leave balances if requested and leave_type is linked
-          if (updateLeaveBalances && entry.matchedLeaveTypeId) {
-            const { data: bal } = await supabase
-              .from("leave_balances")
-              .select("id, balance_hours, taken_hours")
-              .eq("company_id", company.id)
-              .eq("employee_id", employeeId)
-              .eq("leave_type_id", entry.matchedLeaveTypeId)
-              .maybeSingle();
-
-            if (bal) {
-              const currentTaken = Number(bal.taken_hours) || 0;
-              const currentBal = Number(bal.balance_hours) || 0;
-              await supabase
-                .from("leave_balances")
-                .update({
-                  taken_hours: currentTaken + hours,
-                  balance_hours: currentBal - hours,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", bal.id);
-            } else {
-              // Create balance row
-              await supabase.from("leave_balances").insert({
-                company_id: company.id,
-                employee_id: employeeId,
-                leave_type_id: entry.matchedLeaveTypeId,
-                accrued_hours: 0,
-                taken_hours: hours,
-                balance_hours: -hours,
-                as_of_date: entry.workDate,
-              });
-            }
-          }
-
-          importedLeaves++;
-          totalImported++;
         }
       }
     }
 
+    const totalImported = importedShifts + importedLeaves;
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/company");
     revalidatePath("/dashboard/reports");

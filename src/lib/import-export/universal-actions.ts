@@ -976,9 +976,64 @@ export async function executeMappedImportAction(
       }
       revalidatePath("/dashboard/employees");
     } else if (targetEntity === "timesheets") {
-      // Group by matched employee
-      for (const row of validRows) {
-        try {
+      // 1. Gather all unique matched employee IDs
+      const uniqueEmpIds = Array.from(
+        new Set(validRows.map((r) => r.matchedEmployeeId).filter(Boolean) as string[])
+      );
+
+      if (uniqueEmpIds.length > 0) {
+        // Query standard daily hours for overtime calculations
+        const { data: compSettings } = await supabase
+          .from("company_settings")
+          .select("standard_daily_hours")
+          .eq("company_id", company.id)
+          .maybeSingle();
+        const standardDailyHours = Number(compSettings?.standard_daily_hours) || 8;
+
+        // Pre-fetch active timesheets in batch
+        const { data: existingTsList } = await supabase
+          .from("timesheets")
+          .select("id, employee_id")
+          .eq("company_id", company.id)
+          .in("employee_id", uniqueEmpIds)
+          .is("deleted_at", null);
+
+        const timesheetMap = new Map<string, string>();
+        (existingTsList || []).forEach((ts) => timesheetMap.set(ts.employee_id, ts.id));
+
+        const missingTsEmps = uniqueEmpIds.filter((id) => !timesheetMap.has(id));
+        if (missingTsEmps.length > 0) {
+          const { data: createdTsList } = await supabase
+            .from("timesheets")
+            .insert(
+              missingTsEmps.map((empId) => ({
+                company_id: company.id,
+                employee_id: empId,
+                status: "approved",
+                notes: "Imported via Universal Importer",
+              }))
+            )
+            .select("id, employee_id");
+          (createdTsList || []).forEach((ts) => timesheetMap.set(ts.employee_id, ts.id));
+        }
+
+        // Pre-fetch all existing entries in 1 query
+        const { data: existingEntries } = await supabase
+          .from("time_entries")
+          .select("id, employee_id, work_date")
+          .eq("company_id", company.id)
+          .in("employee_id", uniqueEmpIds)
+          .is("deleted_at", null);
+
+        const existingEntriesMap = new Map<string, string>();
+        (existingEntries || []).forEach((e) =>
+          existingEntriesMap.set(`${e.employee_id}__${e.work_date}`, e.id)
+        );
+
+        const idsToDelete: string[] = [];
+        const entriesToInsert: Array<Record<string, unknown>> = [];
+
+        for (const row of validRows) {
           const empId = row.matchedEmployeeId;
           const workDate = row.resolvedData["work_date"] as string;
 
@@ -987,56 +1042,25 @@ export async function executeMappedImportAction(
             continue;
           }
 
-          // Check if employee has active timesheet container
-          const { data: timesheets } = await supabase
-            .from("timesheets")
-            .select("id")
-            .eq("company_id", company.id)
-            .eq("employee_id", empId)
-            .is("deleted_at", null)
-            .limit(1);
-
-          let timesheetId: string;
-          if (timesheets && timesheets.length > 0) {
-            timesheetId = timesheets[0].id;
-          } else {
-            const { data: newTs } = await supabase
-              .from("timesheets")
-              .insert({
-                company_id: company.id,
-                employee_id: empId,
-                status: "approved",
-                notes: "Imported via Universal Importer",
-              })
-              .select("id")
-              .single();
-            if (!newTs) {
-              errorCount++;
-              continue;
-            }
-            timesheetId = newTs.id;
+          const timesheetId = timesheetMap.get(empId);
+          if (!timesheetId) {
+            errorCount++;
+            continue;
           }
 
-          // Check existing entry for date
-          const { data: existingEntry } = await supabase
-            .from("time_entries")
-            .select("id")
-            .eq("company_id", company.id)
-            .eq("employee_id", empId)
-            .eq("work_date", workDate)
-            .is("deleted_at", null)
-            .maybeSingle();
-
-          let isOverwriting = false;
-          if (existingEntry) {
+          const existingId = existingEntriesMap.get(`${empId}__${workDate}`);
+          if (existingId) {
             if (conflictStrategy === "skip") {
               skippedCount++;
               continue;
             } else if (conflictStrategy === "overwrite") {
-              await supabase.from("time_entries").delete().eq("id", existingEntry.id);
-              isOverwriting = true;
+              idsToDelete.push(existingId);
+              updatedCount++;
+            } else {
+              insertedCount++;
             }
-            // If "stack", we do not delete existingEntry, allowing additive shift entry
+          } else {
+            insertedCount++;
           }
 
           const clockIn = (row.resolvedData["clock_in"] as string) || null;
@@ -1047,45 +1071,66 @@ export async function executeMappedImportAction(
             ? sanitizeMultilineText(sanitizeSpreadsheetFormula(row.mappedData["notes"]), 1000)
             : null;
           const entryType = row.mappedData["entry_type"]?.trim() === "leave" ? "leave" : "work";
+          const workstationId = row.matchedWorkstationId || null;
 
-          const { data: insertedEntry, error: insertErr } = await supabase
-            .from("time_entries")
-            .insert({
-              company_id: company.id,
-              timesheet_id: timesheetId,
-              employee_id: empId,
-              work_date: workDate,
-              entry_type: entryType,
-              clock_in: clockIn,
-              clock_out: clockOut,
-              lunch_start: lunchStart,
-              lunch_end: lunchEnd,
-              notes: notes,
-              status: "approved",
-            })
-            .select("id")
-            .single();
-
-          if (insertErr || !insertedEntry) {
-            console.error("Failed to insert timesheet row:", insertErr);
-            errorCount++;
-            continue;
-          }
-
+          let gross = 0;
+          let lunch = 0;
           if (clockIn && clockOut) {
-            await supabase.rpc("refresh_time_entry_calculations", {
-              target_time_entry_id: insertedEntry.id,
-            });
+            const [inH, inM] = clockIn.split(":").map(Number);
+            const [outH, outM] = clockOut.split(":").map(Number);
+            let startMin = inH * 60 + (inM || 0);
+            let endMin = outH * 60 + (outM || 0);
+            if (endMin < startMin) endMin += 24 * 60;
+            gross = Math.max(0, (endMin - startMin) / 60);
           }
+          if (lunchStart && lunchEnd) {
+            const [lsH, lsM] = lunchStart.split(":").map(Number);
+            const [leH, leM] = lunchEnd.split(":").map(Number);
+            let lStart = lsH * 60 + (lsM || 0);
+            let lEnd = leH * 60 + (leM || 0);
+            if (lEnd < lStart) lEnd += 24 * 60;
+            lunch = Math.max(0, (lEnd - lStart) / 60);
+          }
+          const paid = Math.max(0, gross - lunch);
+          const normal = Math.min(paid, standardDailyHours);
+          const overtime = Math.max(0, paid - standardDailyHours);
 
-          if (isOverwriting) {
-            updatedCount++;
-          } else {
-            insertedCount++;
+          entriesToInsert.push({
+            company_id: company.id,
+            timesheet_id: timesheetId,
+            employee_id: empId,
+            workstation_id: workstationId,
+            work_date: workDate,
+            entry_type: entryType,
+            clock_in: clockIn,
+            clock_out: clockOut,
+            lunch_start: lunchStart,
+            lunch_end: lunchEnd,
+            gross_hours: Math.round(gross * 100) / 100,
+            lunch_hours: Math.round(lunch * 100) / 100,
+            paid_hours: Math.round(paid * 100) / 100,
+            normal_hours: Math.round(normal * 100) / 100,
+            overtime_hours: Math.round(overtime * 100) / 100,
+            missing_clocking:
+              !clockIn || !clockOut || Boolean(lunchStart && !lunchEnd),
+            notes,
+            status: "approved",
+          });
+        }
+
+        // Delete overwrites in batches of 200
+        for (let i = 0; i < idsToDelete.length; i += 200) {
+          const chunk = idsToDelete.slice(i, i + 200);
+          await supabase.from("time_entries").delete().in("id", chunk);
+        }
+
+        // Batch insert entries in chunks of 200
+        for (let i = 0; i < entriesToInsert.length; i += 200) {
+          const chunk = entriesToInsert.slice(i, i + 200);
+          const { error: insErr } = await supabase.from("time_entries").insert(chunk);
+          if (insErr) {
+            console.error("Batch timesheet entries insert error:", insErr);
           }
-        } catch (err) {
-          console.error("Failed to import timesheet row:", err);
-          errorCount++;
         }
       }
       revalidatePath("/dashboard/timesheets");
