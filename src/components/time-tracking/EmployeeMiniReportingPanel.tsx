@@ -163,9 +163,12 @@ export default function EmployeeMiniReportingPanel({
 }: EmployeeMiniReportingPanelProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  // Generate payroll periods
+  // Generate payroll periods (strictly exclude future cycles)
   const generatedPeriods = useMemo(
-    () => generatePayrollPeriods(payrollConfig, todayIso, 12),
+    () =>
+      generatePayrollPeriods(payrollConfig, todayIso, 12).filter(
+        (p) => p.startDate <= todayIso,
+      ),
     [payrollConfig, todayIso],
   );
 

@@ -57,6 +57,7 @@ export default function PayrollPeriodSettingsForm({
     },
     new Date().toISOString().slice(0, 10),
     6,
+    true,
   );
 
   return (

@@ -231,9 +231,17 @@ export default function EmployeeLeaveRequests({
     }
   }, [payrollConfig, todayIso]);
 
-  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>("current");
-  const [customStart, setCustomStart] = useState<string>(currentMonthStart);
-  const [customEnd, setCustomEnd] = useState<string>(currentMonthEnd);
+  const initialPeriodKey =
+    generatedPeriods.find((p) => p.isCurrent)?.id ??
+    generatedPeriods[0]?.id ??
+    "current";
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>(initialPeriodKey);
+  const [customStart, setCustomStart] = useState<string>(
+    generatedPeriods[0]?.startDate ?? currentMonthStart,
+  );
+  const [customEnd, setCustomEnd] = useState<string>(
+    generatedPeriods[0]?.endDate ?? currentMonthEnd,
+  );
 
   let activeStart = currentMonthStart;
   let activeEnd = currentMonthEnd;
@@ -247,7 +255,7 @@ export default function EmployeeLeaveRequests({
     activeStart = customStart || currentMonthStart;
     activeEnd = customEnd || currentMonthEnd;
     activePeriodLabel = `Custom Range (${activeStart} to ${activeEnd})`;
-  } else if (selectedPeriodKey.startsWith("payroll-")) {
+  } else {
     const match = generatedPeriods.find((p) => p.id === selectedPeriodKey);
     if (match) {
       activeStart = match.startDate;
@@ -1985,19 +1993,24 @@ export default function EmployeeLeaveRequests({
             <select
               value={selectedPeriodKey}
               onChange={(e) => setSelectedPeriodKey(e.target.value)}
-              className="mt-2.5 h-11 w-full rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="mt-2.5 h-11 w-full rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
             >
-              <option value="current">
-                Current Month ({formatDate(currentMonthStart)} - {formatDate(currentMonthEnd)})
-              </option>
-              <option value="previous">
-                Previous Month ({formatDate(prevMonthStart)} - {formatDate(prevMonthEnd)})
-              </option>
-              {generatedPeriods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label} ({formatDate(p.startDate)} - {formatDate(p.endDate)})
-                </option>
-              ))}
+              {generatedPeriods.length > 0 ? (
+                generatedPeriods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.isCurrent ? "Current Cycle: " : ""}{p.label}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="current">
+                    Current Month ({formatDate(currentMonthStart)} - {formatDate(currentMonthEnd)})
+                  </option>
+                  <option value="previous">
+                    Previous Month ({formatDate(prevMonthStart)} - {formatDate(prevMonthEnd)})
+                  </option>
+                </>
+              )}
               <option value="custom">Custom Date Range...</option>
             </select>
 

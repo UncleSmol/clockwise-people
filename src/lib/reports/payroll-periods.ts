@@ -147,8 +147,9 @@ export function generatePayrollPeriods(
   config: PayrollPeriodConfig = defaultPayrollConfig,
   currentDateStr: string = formatIso(new Date()),
   count: number = 12,
+  includeFuture: boolean = false,
 ): PayrollPeriod[] {
-  const periods: PayrollPeriod[] = [];
+  let periods: PayrollPeriod[] = [];
   const currentDate = parseIso(currentDateStr);
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
@@ -192,8 +193,13 @@ export function generatePayrollPeriods(
       }
     }
 
-    // Generate monthly periods covering past 6 months to next 5 months (total 12 periods)
-    for (let offset = -6; offset <= 5; offset++) {
+    // Generate monthly periods.
+    // If includeFuture is false, we only generate cycles up to the current cycle (offset <= 0).
+    // If includeFuture is true, we generate up to +5 future cycles.
+    const maxOffset = includeFuture ? 5 : 0;
+    const minOffset = -(Math.max(count, 12) - 1);
+
+    for (let offset = minOffset; offset <= maxOffset; offset++) {
       const cycleStartMonth = anchorMonth + offset;
       let periodStart: Date;
       let periodEnd: Date;
@@ -232,7 +238,10 @@ export function generatePayrollPeriods(
     }
   } else if (config.frequency === "semi_monthly") {
     // 1st to 15th, and 16th to End of Month
-    for (let offset = -4; offset <= 3; offset++) {
+    const maxOffset = includeFuture ? 3 : 0;
+    const minOffset = -(Math.max(count, 12) - 1);
+
+    for (let offset = minOffset; offset <= maxOffset; offset++) {
       const p1Start = new Date(currentYear, currentMonth + offset, 1);
       const p1End = new Date(currentYear, currentMonth + offset, 15);
       const p1StartIso = formatIso(p1Start);
@@ -289,7 +298,10 @@ export function generatePayrollPeriods(
     const diffDays = Math.floor((currentDate.getTime() - anchor.getTime()) / (1000 * 60 * 60 * 24));
     const currentCycleIndex = Math.floor(diffDays / cycleLength);
 
-    for (let i = currentCycleIndex - 6; i <= currentCycleIndex + 5; i++) {
+    const maxIndex = includeFuture ? currentCycleIndex + 5 : currentCycleIndex;
+    const minIndex = currentCycleIndex - (Math.max(count, 12) - 1);
+
+    for (let i = minIndex; i <= maxIndex; i++) {
       const pStart = addDays(anchor, i * cycleLength);
       const pEnd = addDays(pStart, cycleLength - 1);
       const startIso = formatIso(pStart);
@@ -310,6 +322,11 @@ export function generatePayrollPeriods(
         ruleName,
       });
     }
+  }
+
+  // Filter out future cycles if not requested
+  if (!includeFuture) {
+    periods = periods.filter((p) => p.startDate <= currentDateStr);
   }
 
   // Sort descending by startDate so recent periods appear first

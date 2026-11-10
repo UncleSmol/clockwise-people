@@ -1,24 +1,18 @@
 "use client";
 
+import { dispatchGlobalToast } from "@/components/notifications/SlidingToastProvider";
 import {
-  AlertCircle,
-  CheckCircle2,
-  Search,
-  Trash2,
-} from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
-import {
-  calculatePeriodEndDate,
-  defaultPayrollConfig,
-  formatPeriodDate,
-  generatePayrollPeriods,
-  type CustomPayrollRule,
-  type EmployeePayrollAssignment,
-  type PayrollFrequency,
-  type PayrollPeriodConfig,
+    calculatePeriodEndDate,
+    formatPeriodDate,
+    generatePayrollPeriods,
+    type CustomPayrollRule,
+    type EmployeePayrollAssignment,
+    type PayrollFrequency,
+    type PayrollPeriodConfig
 } from "@/lib/reports/payroll-periods";
 import { saveCompanyPayrollRulesAction } from "@/lib/work-rules/actions";
-import { dispatchGlobalToast } from "@/components/notifications/SlidingToastProvider";
+import { Search, Trash2 } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 
 function addDaysToDateString(dateStr: string, days: number): string {
   if (!dateStr) return "";
@@ -44,8 +38,18 @@ function generateSmartRuleDescription(params: {
   startDayOfMonth?: number;
   endDayOfMonth?: number;
 }): string {
-  const { frequency, startDate, endDate, cycleDays, disbursementDate, startDayOfMonth, endDayOfMonth } = params;
-  const disbFormatted = disbursementDate ? formatPeriodDate(disbursementDate) : "end of cycle";
+  const {
+    frequency,
+    startDate,
+    endDate,
+    cycleDays,
+    disbursementDate,
+    startDayOfMonth,
+    endDayOfMonth,
+  } = params;
+  const disbFormatted = disbursementDate
+    ? formatPeriodDate(disbursementDate)
+    : "end of cycle";
 
   if (frequency === "monthly") {
     const sDay = startDayOfMonth ?? 1;
@@ -82,7 +86,8 @@ const initialDefaultRule: CustomPayrollRule = {
   endDayOfMonth: 31,
   startDayOfWeek: 1,
   payDayOffsetDays: 3,
-  description: "Standard monthly calendar payroll cycle running from 1st to month-end, restarting on the 1st of every month.",
+  description:
+    "Standard monthly calendar payroll cycle running from 1st to month-end, restarting on the 1st of every month.",
   assignedEmployeeIds: [],
 };
 
@@ -93,7 +98,9 @@ export default function CompanyPayrollRulesSection({
   initialAssignments,
 }: CompanyPayrollRulesSectionProps) {
   const [isPending, startTransition] = useTransition();
-  const [activeSubTab, setActiveSubTab] = useState<"rules" | "assignments" | "preview">("rules");
+  const [activeSubTab, setActiveSubTab] = useState<
+    "rules" | "assignments" | "preview"
+  >("rules");
   const [searchQuery, setSearchQuery] = useState("");
   const setStatusMessage = (msg: { text: string; ok: boolean } | null) => {
     if (msg) {
@@ -120,14 +127,17 @@ export default function CompanyPayrollRulesSection({
         anchorDate: "2026-01-01",
         startDayOfWeek: 1,
         payDayOffsetDays: 2,
-        description: "14-day rolling cycle running from start to end date, restarting automatically with the next 14-day period.",
+        description:
+          "14-day rolling cycle running from start to end date, restarting automatically with the next 14-day period.",
         assignedEmployeeIds: [],
       },
     ];
   });
 
   // Employee Assignments Map: EmployeeId -> RuleId
-  const [employeeAssignments, setEmployeeAssignments] = useState<Record<string, string>>(() => {
+  const [employeeAssignments, setEmployeeAssignments] = useState<
+    Record<string, string>
+  >(() => {
     const map: Record<string, string> = {};
     if (initialAssignments) {
       for (const a of initialAssignments) {
@@ -245,7 +255,8 @@ export default function CompanyPayrollRulesSection({
       nextOffset = Math.max(
         0,
         Math.round(
-          (new Date(`${updates.disbDate}T00:00:00`).getTime() - new Date(`${nextEnd}T00:00:00`).getTime()) /
+          (new Date(`${updates.disbDate}T00:00:00`).getTime() -
+            new Date(`${nextEnd}T00:00:00`).getTime()) /
             (1000 * 3600 * 24),
         ),
       );
@@ -301,7 +312,9 @@ export default function CompanyPayrollRulesSection({
     const offset = rule.payDayOffsetDays;
     const disb = addDaysToDateString(end, offset);
     const sDay = rule.startDayOfMonth ?? 1;
-    const eDay = rule.endDayOfMonth ?? (rule.startDayOfMonth === 1 ? 31 : (rule.startDayOfMonth ?? 1) - 1);
+    const eDay =
+      rule.endDayOfMonth ??
+      (rule.startDayOfMonth === 1 ? 31 : (rule.startDayOfMonth ?? 1) - 1);
     const customDays = rule.customCycleDays ?? calculateDiffDays(start, end);
 
     setFrequency(rule.frequency);
@@ -362,7 +375,10 @@ export default function CompanyPayrollRulesSection({
   const handleSaveRule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ruleName.trim()) {
-      setStatusMessage({ text: "Please enter a payroll rule name.", ok: false });
+      setStatusMessage({
+        text: "Please enter a payroll rule name.",
+        ok: false,
+      });
       return;
     }
 
@@ -384,11 +400,16 @@ export default function CompanyPayrollRulesSection({
                     customCycleDays,
                   }),
                 anchorDate: startDate,
-                customCycleDays: frequency === "custom" ? customCycleDays : undefined,
-                startDayOfMonth: frequency === "monthly" ? startDayOfMonth : undefined,
-                endDayOfMonth: frequency === "monthly" ? endDayOfMonth : undefined,
+                customCycleDays:
+                  frequency === "custom" ? customCycleDays : undefined,
+                startDayOfMonth:
+                  frequency === "monthly" ? startDayOfMonth : undefined,
+                endDayOfMonth:
+                  frequency === "monthly" ? endDayOfMonth : undefined,
                 startDayOfWeek:
-                  frequency === "weekly" || frequency === "bi_weekly" ? startDayOfWeek : undefined,
+                  frequency === "weekly" || frequency === "bi_weekly"
+                    ? startDayOfWeek
+                    : undefined,
                 payDayOffsetDays,
                 description: description.trim(),
               }
@@ -411,10 +432,13 @@ export default function CompanyPayrollRulesSection({
           endDate: calculatedEnd,
           anchorDate: startDate,
           customCycleDays: frequency === "custom" ? customCycleDays : undefined,
-          startDayOfMonth: frequency === "monthly" ? startDayOfMonth : undefined,
+          startDayOfMonth:
+            frequency === "monthly" ? startDayOfMonth : undefined,
           endDayOfMonth: frequency === "monthly" ? endDayOfMonth : undefined,
           startDayOfWeek:
-            frequency === "weekly" || frequency === "bi_weekly" ? startDayOfWeek : undefined,
+            frequency === "weekly" || frequency === "bi_weekly"
+              ? startDayOfWeek
+              : undefined,
           payDayOffsetDays,
           description: description.trim(),
           assignedEmployeeIds: [],
@@ -437,14 +461,20 @@ export default function CompanyPayrollRulesSection({
         });
         resetForm();
       } else {
-        setStatusMessage({ text: `Failed to save rule to database: ${res.message}`, ok: false });
+        setStatusMessage({
+          text: `Failed to save rule to database: ${res.message}`,
+          ok: false,
+        });
       }
     });
   };
 
   const handleDeleteRule = (ruleId: string) => {
     if (ruleId === "company-default") {
-      setStatusMessage({ text: "Cannot delete the company default payroll rule.", ok: false });
+      setStatusMessage({
+        text: "Cannot delete the company default payroll rule.",
+        ok: false,
+      });
       return;
     }
     startTransition(async () => {
@@ -466,9 +496,15 @@ export default function CompanyPayrollRulesSection({
       });
 
       if (res.ok) {
-        setStatusMessage({ text: "Custom payroll rule deleted and database updated.", ok: true });
+        setStatusMessage({
+          text: "Custom payroll rule deleted and database updated.",
+          ok: true,
+        });
       } else {
-        setStatusMessage({ text: `Failed to delete rule from database: ${res.message}`, ok: false });
+        setStatusMessage({
+          text: `Failed to delete rule from database: ${res.message}`,
+          ok: false,
+        });
       }
     });
   };
@@ -476,7 +512,10 @@ export default function CompanyPayrollRulesSection({
   const handleAssignEmployee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployeeId) {
-      setStatusMessage({ text: "Please select an employee to assign.", ok: false });
+      setStatusMessage({
+        text: "Please select an employee to assign.",
+        ok: false,
+      });
       return;
     }
 
@@ -506,11 +545,19 @@ export default function CompanyPayrollRulesSection({
         const empName =
           selectedEmployeeId === "ALL_UNASSIGNED"
             ? "All unassigned employees"
-            : employees.find((e) => e.id === selectedEmployeeId)?.label ?? "Employee";
-        const targetRuleName = rules.find((r) => r.id === targetRuleId)?.name ?? "Payroll Rule";
-        setStatusMessage({ text: `Assigned ${empName} to "${targetRuleName}" (saved globally).`, ok: true });
+            : (employees.find((e) => e.id === selectedEmployeeId)?.label ??
+              "Employee");
+        const targetRuleName =
+          rules.find((r) => r.id === targetRuleId)?.name ?? "Payroll Rule";
+        setStatusMessage({
+          text: `Assigned ${empName} to "${targetRuleName}" (saved globally).`,
+          ok: true,
+        });
       } else {
-        setStatusMessage({ text: `Failed to save assignment: ${res.message}`, ok: false });
+        setStatusMessage({
+          text: `Failed to save assignment: ${res.message}`,
+          ok: false,
+        });
       }
       setSelectedEmployeeId("");
     });
@@ -530,17 +577,26 @@ export default function CompanyPayrollRulesSection({
       });
 
       if (res.ok) {
-        const empName = employees.find((e) => e.id === employeeId)?.label ?? "Employee";
-        const rName = rules.find((r) => r.id === ruleId)?.name ?? "Payroll Rule";
-        setStatusMessage({ text: `Updated ${empName} to "${rName}" (saved globally).`, ok: true });
+        const empName =
+          employees.find((e) => e.id === employeeId)?.label ?? "Employee";
+        const rName =
+          rules.find((r) => r.id === ruleId)?.name ?? "Payroll Rule";
+        setStatusMessage({
+          text: `Updated ${empName} to "${rName}" (saved globally).`,
+          ok: true,
+        });
       } else {
-        setStatusMessage({ text: `Failed to update assignment: ${res.message}`, ok: false });
+        setStatusMessage({
+          text: `Failed to update assignment: ${res.message}`,
+          ok: false,
+        });
       }
     });
   };
 
   // Get active preview rule
-  const currentPreviewRule = rules.find((r) => r.id === previewRuleId) ?? rules[0] ?? initialDefaultRule;
+  const currentPreviewRule =
+    rules.find((r) => r.id === previewRuleId) ?? rules[0] ?? initialDefaultRule;
   const generatedPeriods = generatePayrollPeriods(
     {
       frequency: currentPreviewRule.frequency,
@@ -553,6 +609,7 @@ export default function CompanyPayrollRulesSection({
     },
     undefined,
     8,
+    true,
   );
 
   const filteredEmployees = employees.filter((emp) =>
@@ -568,7 +625,8 @@ export default function CompanyPayrollRulesSection({
             Payroll Period Rules &amp; Employee Assignments
           </h3>
           <p className="text-xs text-muted">
-            Configure standard or custom payroll cycles, then assign specific employees to each payroll period rule.
+            Configure standard or custom payroll cycles, then assign specific
+            employees to each payroll period rule.
           </p>
         </div>
 
@@ -639,21 +697,24 @@ export default function CompanyPayrollRulesSection({
         </div>
       </div>
 
-
       {/* Sub-tab 1: Payroll Rules & Custom Creator */}
       {activeSubTab === "rules" && (
         <div className="grid gap-5 min-w-0">
           {/* Top Form: Creator / Editor Form Card */}
           <div className="rounded-xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs">
             <h4 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3.5 pb-2.5 border-b border-border/60">
-              {editingRuleId ? "Edit Payroll Period Rule" : "Create Custom Payroll Rule"}
+              {editingRuleId
+                ? "Edit Payroll Period Rule"
+                : "Create Custom Payroll Rule"}
             </h4>
 
             <form onSubmit={handleSaveRule} className="grid gap-3.5">
               {/* Row 1: Rule Name & Frequency */}
               <div className="grid sm:grid-cols-12 gap-3">
                 <label className="sm:col-span-7 grid gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Rule Name</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                    Rule Name
+                  </span>
                   <input
                     type="text"
                     value={ruleName}
@@ -665,17 +726,29 @@ export default function CompanyPayrollRulesSection({
                 </label>
 
                 <label className="sm:col-span-5 grid gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Cycle Frequency</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                    Cycle Frequency
+                  </span>
                   <select
                     value={frequency}
-                    onChange={(e) => updateRuleFields({ freq: e.target.value as PayrollFrequency })}
+                    onChange={(e) =>
+                      updateRuleFields({
+                        freq: e.target.value as PayrollFrequency,
+                      })
+                    }
                     className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                   >
-                    <option value="monthly">Monthly (e.g. 26th to 25th, or 1st to Month-End)</option>
-                    <option value="semi_monthly">Semi-Monthly (1st-15th &amp; 16th-End)</option>
+                    <option value="monthly">
+                      Monthly (e.g. 26th to 25th, or 1st to Month-End)
+                    </option>
+                    <option value="semi_monthly">
+                      Semi-Monthly (1st-15th &amp; 16th-End)
+                    </option>
                     <option value="bi_weekly">Bi-Weekly (14-Day Cycle)</option>
                     <option value="weekly">Weekly (7-Day Cycle)</option>
-                    <option value="custom">Custom Duration (e.g. 10, 15, 21, 30 Days)</option>
+                    <option value="custom">
+                      Custom Duration (e.g. 10, 15, 21, 30 Days)
+                    </option>
                   </select>
                 </label>
               </div>
@@ -691,7 +764,9 @@ export default function CompanyPayrollRulesSection({
                     <input
                       type="date"
                       value={startDate}
-                      onChange={(e) => updateRuleFields({ start: e.target.value })}
+                      onChange={(e) =>
+                        updateRuleFields({ start: e.target.value })
+                      }
                       className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                       required
                     />
@@ -704,7 +779,9 @@ export default function CompanyPayrollRulesSection({
                     <input
                       type="date"
                       value={endDate}
-                      onChange={(e) => updateRuleFields({ end: e.target.value })}
+                      onChange={(e) =>
+                        updateRuleFields({ end: e.target.value })
+                      }
                       className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                       required
                     />
@@ -723,11 +800,14 @@ export default function CompanyPayrollRulesSection({
                   </div>
                   <div className="flex items-center justify-between text-[10px] font-extrabold text-muted mt-1">
                     <span className="font-semibold">
-                      {Math.floor(cycleLengthDays / 7) > 0 ? `${Math.floor(cycleLengthDays / 7)}w ` : ""}
+                      {Math.floor(cycleLengthDays / 7) > 0
+                        ? `${Math.floor(cycleLengthDays / 7)}w `
+                        : ""}
                       {cycleLengthDays % 7 > 0 ? `${cycleLengthDays % 7}d` : ""}
                     </span>
                     <span>
-                      {formatPeriodDate(startDate)} &rarr; {formatPeriodDate(endDate)}
+                      {formatPeriodDate(startDate)} &rarr;{" "}
+                      {formatPeriodDate(endDate)}
                     </span>
                   </div>
                 </div>
@@ -739,14 +819,18 @@ export default function CompanyPayrollRulesSection({
                       Pay Disbursement Date
                     </span>
                     <span className="text-[9px] font-black text-foreground bg-surface-muted px-1.5 py-0.5 rounded border border-border">
-                      {payDayOffsetDays === 0 ? "Same day" : `+${payDayOffsetDays}d`}
+                      {payDayOffsetDays === 0
+                        ? "Same day"
+                        : `+${payDayOffsetDays}d`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="date"
                       value={disbursementDate}
-                      onChange={(e) => updateRuleFields({ disbDate: e.target.value })}
+                      onChange={(e) =>
+                        updateRuleFields({ disbDate: e.target.value })
+                      }
                       className="h-10 min-h-[40px] flex-1 rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer leading-normal"
                       required
                     />
@@ -766,7 +850,9 @@ export default function CompanyPayrollRulesSection({
                       <button
                         key={preset.days}
                         type="button"
-                        onClick={() => updateRuleFields({ offsetDays: preset.days })}
+                        onClick={() =>
+                          updateRuleFields({ offsetDays: preset.days })
+                        }
                         className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold transition-all cursor-pointer ${
                           payDayOffsetDays === preset.days
                             ? "bg-primary text-primary-foreground shadow-2xs"
@@ -792,12 +878,16 @@ export default function CompanyPayrollRulesSection({
                       min={1}
                       max={365}
                       value={customCycleDays}
-                      onChange={(e) => updateRuleFields({ customDays: Number(e.target.value) })}
+                      onChange={(e) =>
+                        updateRuleFields({ customDays: Number(e.target.value) })
+                      }
                       className="h-8.5 w-20 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-bold text-foreground outline-none text-right leading-normal"
                     />
                   </div>
                   <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-border/40">
-                    <span className="text-[9px] font-bold text-muted mr-1">Presets:</span>
+                    <span className="text-[9px] font-bold text-muted mr-1">
+                      Presets:
+                    </span>
                     {[7, 10, 14, 15, 21, 28, 30, 60].map((days) => (
                       <button
                         key={days}
@@ -828,16 +918,30 @@ export default function CompanyPayrollRulesSection({
                         const sDay = Number(e.target.value);
                         const eDay = sDay === 1 ? 31 : sDay - 1;
                         const sStr = `2026-01-${String(sDay).padStart(2, "0")}`;
-                        updateRuleFields({ sDayOfMonth: sDay, eDayOfMonth: eDay, start: sStr });
+                        updateRuleFields({
+                          sDayOfMonth: sDay,
+                          eDayOfMonth: eDay,
+                          start: sStr,
+                        });
                       }}
                       className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer leading-normal"
                     >
                       <option value={1}>1st of Month (1st &rarr; 31st)</option>
-                      <option value={11}>11th of Month (11th &rarr; 10th)</option>
-                      <option value={16}>16th of Month (16th &rarr; 15th)</option>
-                      <option value={20}>20th of Month (20th &rarr; 19th)</option>
-                      <option value={25}>25th of Month (25th &rarr; 24th)</option>
-                      <option value={26}>26th of Month (26th &rarr; 25th)</option>
+                      <option value={11}>
+                        11th of Month (11th &rarr; 10th)
+                      </option>
+                      <option value={16}>
+                        16th of Month (16th &rarr; 15th)
+                      </option>
+                      <option value={20}>
+                        20th of Month (20th &rarr; 19th)
+                      </option>
+                      <option value={25}>
+                        25th of Month (25th &rarr; 24th)
+                      </option>
+                      <option value={26}>
+                        26th of Month (26th &rarr; 25th)
+                      </option>
                     </select>
                   </label>
 
@@ -850,7 +954,11 @@ export default function CompanyPayrollRulesSection({
                       min={1}
                       max={31}
                       value={endDayOfMonth}
-                      onChange={(e) => updateRuleFields({ eDayOfMonth: Number(e.target.value) })}
+                      onChange={(e) =>
+                        updateRuleFields({
+                          eDayOfMonth: Number(e.target.value),
+                        })
+                      }
                       className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none leading-normal"
                     />
                   </label>
@@ -859,10 +967,14 @@ export default function CompanyPayrollRulesSection({
 
               {frequency === "weekly" && (
                 <label className="grid gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Start Day of Week</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
+                    Start Day of Week
+                  </span>
                   <select
                     value={startDayOfWeek}
-                    onChange={(e) => updateRuleFields({ sDayOfWeek: Number(e.target.value) })}
+                    onChange={(e) =>
+                      updateRuleFields({ sDayOfWeek: Number(e.target.value) })
+                    }
                     className="h-10 min-h-[40px] rounded-lg border border-border bg-surface px-3 py-2 text-xs font-bold text-foreground outline-none cursor-pointer leading-normal"
                   >
                     <option value={1}>Monday</option>
@@ -951,7 +1063,9 @@ export default function CompanyPayrollRulesSection({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {rules.map((rule) => {
                 const assignedCount = employees.filter(
-                  (emp) => (employeeAssignments[emp.id] ?? "company-default") === rule.id,
+                  (emp) =>
+                    (employeeAssignments[emp.id] ?? "company-default") ===
+                    rule.id,
                 ).length;
                 const isDefault = rule.id === "company-default";
 
@@ -967,7 +1081,9 @@ export default function CompanyPayrollRulesSection({
                     <div className="flex items-start justify-between gap-2 min-w-0">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-extrabold text-foreground text-sm break-words leading-tight">{rule.name}</p>
+                          <p className="font-extrabold text-foreground text-sm break-words leading-tight">
+                            {rule.name}
+                          </p>
                           {isDefault && (
                             <span className="shrink-0 rounded bg-primary px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary-foreground shadow-2xs">
                               Default
@@ -975,7 +1091,8 @@ export default function CompanyPayrollRulesSection({
                           )}
                         </div>
                         <p className="text-[11px] font-medium text-muted mt-0.5 break-words leading-tight">
-                          {rule.description || "Configured company payroll schedule"}
+                          {rule.description ||
+                            "Configured company payroll schedule"}
                         </p>
                       </div>
 
@@ -1015,15 +1132,21 @@ export default function CompanyPayrollRulesSection({
                     {/* Rule Details Strip */}
                     <div className="grid grid-cols-2 gap-1.5 text-center text-xs">
                       <div className="rounded-lg border border-border/80 bg-background/80 p-1.5 min-w-0">
-                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Frequency</span>
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">
+                          Frequency
+                        </span>
                         <span className="font-extrabold text-foreground capitalize block text-xs mt-0.5 break-words leading-tight">
                           {rule.frequency.replace("_", " ")}
-                          {rule.frequency === "custom" ? ` (${rule.customCycleDays}d)` : ""}
+                          {rule.frequency === "custom"
+                            ? ` (${rule.customCycleDays}d)`
+                            : ""}
                         </span>
                       </div>
 
                       <div className="rounded-lg border border-border/80 bg-background/80 p-1.5 min-w-0">
-                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Cycle Range</span>
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">
+                          Cycle Range
+                        </span>
                         <span className="font-extrabold text-foreground block text-xs mt-0.5 break-words leading-tight">
                           {rule.startDate && rule.endDate
                             ? `${formatPeriodDate(rule.startDate)} → ${formatPeriodDate(rule.endDate)}`
@@ -1034,16 +1157,21 @@ export default function CompanyPayrollRulesSection({
                       </div>
 
                       <div className="rounded-lg border border-border/80 bg-background/80 p-1.5 min-w-0">
-                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Disbursement</span>
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">
+                          Disbursement
+                        </span>
                         <span className="font-extrabold text-foreground block text-xs mt-0.5 break-words leading-tight">
                           +{rule.payDayOffsetDays} days
                         </span>
                       </div>
 
                       <div className="rounded-lg border border-border/80 bg-surface-muted/50 p-1.5 min-w-0">
-                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">Assigned</span>
+                        <span className="text-[9px] font-bold uppercase text-muted block break-words leading-tight">
+                          Assigned
+                        </span>
                         <span className="font-black text-foreground block text-xs mt-0.5 break-words leading-tight">
-                          {assignedCount} employee{assignedCount === 1 ? "" : "s"}
+                          {assignedCount} employee
+                          {assignedCount === 1 ? "" : "s"}
                         </span>
                       </div>
                     </div>
@@ -1073,7 +1201,9 @@ export default function CompanyPayrollRulesSection({
                   required
                 >
                   <option value="">-- Choose Employee --</option>
-                  <option value="ALL_UNASSIGNED">All Unassigned Employees</option>
+                  <option value="ALL_UNASSIGNED">
+                    All Unassigned Employees
+                  </option>
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.label}
@@ -1137,7 +1267,8 @@ export default function CompanyPayrollRulesSection({
           {/* Employee Assignments List */}
           <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {filteredEmployees.map((emp) => {
-              const assignedRuleId = employeeAssignments[emp.id] ?? "company-default";
+              const assignedRuleId =
+                employeeAssignments[emp.id] ?? "company-default";
 
               return (
                 <div
@@ -1145,7 +1276,9 @@ export default function CompanyPayrollRulesSection({
                   className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-surface/40 hover:bg-surface p-3 shadow-2xs text-xs transition-all"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-extrabold text-foreground break-words leading-tight">{emp.label}</p>
+                    <p className="font-extrabold text-foreground break-words leading-tight">
+                      {emp.label}
+                    </p>
                     <p className="text-[10px] font-medium text-muted break-words leading-tight mt-0.5">
                       {emp.department || "Standard Staff"}
                     </p>
@@ -1154,7 +1287,9 @@ export default function CompanyPayrollRulesSection({
                   {/* Reassign Dropdown */}
                   <select
                     value={assignedRuleId}
-                    onChange={(e) => handleQuickReassign(emp.id, e.target.value)}
+                    onChange={(e) =>
+                      handleQuickReassign(emp.id, e.target.value)
+                    }
                     className="h-9 min-h-[36px] rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-extrabold text-foreground outline-none shrink-0 shadow-2xs cursor-pointer leading-normal"
                   >
                     {rules.map((r) => (
@@ -1175,7 +1310,9 @@ export default function CompanyPayrollRulesSection({
         <div className="grid gap-4 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface/50 p-3 shadow-2xs">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted">Previewing Rule:</span>
+              <span className="text-xs font-bold text-muted">
+                Previewing Rule:
+              </span>
               <select
                 value={previewRuleId}
                 onChange={(e) => setPreviewRuleId(e.target.value)}
@@ -1189,7 +1326,8 @@ export default function CompanyPayrollRulesSection({
               </select>
             </div>
             <p className="text-xs text-muted">
-              Auto-generated periods for auditing and payroll disbursement scheduling.
+              Auto-generated periods for auditing and payroll disbursement
+              scheduling.
             </p>
           </div>
 
@@ -1213,13 +1351,21 @@ export default function CompanyPayrollRulesSection({
                           : "bg-surface-muted text-foreground border border-border"
                     }`}
                   >
-                    {period.isCurrent ? "Current Period" : period.isClosed ? "Closed" : "Upcoming"}
+                    {period.isCurrent
+                      ? "Current Period"
+                      : period.isClosed
+                        ? "Closed"
+                        : "Upcoming"}
                   </span>
-                  <span className="text-[10px] font-bold text-muted capitalize">{period.frequency}</span>
+                  <span className="text-[10px] font-bold text-muted capitalize">
+                    {period.frequency}
+                  </span>
                 </div>
 
                 <div>
-                  <p className="font-extrabold text-foreground text-sm break-words leading-tight">{period.label}</p>
+                  <p className="font-extrabold text-foreground text-sm break-words leading-tight">
+                    {period.label}
+                  </p>
                   <p className="text-[11px] font-semibold text-muted mt-0.5">
                     {period.startDate} &rarr; {period.endDate}
                   </p>

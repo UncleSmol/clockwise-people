@@ -120,16 +120,13 @@ export default function CompanyReportsWorkspace({
 }: CompanyReportsWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ReportTab>("analytics");
 
-  // Periods calculation
-  const generatedPeriods = useMemo(
-    () =>
-      generatePayrollPeriods(
-        payrollConfig,
-        new Date().toISOString().slice(0, 10),
-        12,
-      ),
-    [payrollConfig],
-  );
+  // Periods calculation (strictly exclude future cycles)
+  const generatedPeriods = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return generatePayrollPeriods(payrollConfig, todayStr, 12).filter(
+      (p) => p.startDate <= todayStr,
+    );
+  }, [payrollConfig]);
 
   const initialPeriodId =
     generatedPeriods.find((p) => p.isCurrent)?.id ??

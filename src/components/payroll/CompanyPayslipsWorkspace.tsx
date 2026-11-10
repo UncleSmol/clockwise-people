@@ -66,9 +66,12 @@ export default function CompanyPayslipsWorkspace({
   isSuperAdmin,
   onNavigateToApprovals,
 }: CompanyPayslipsWorkspaceProps) {
-  // 1. Periods Generation
+  // 1. Periods Generation (strictly exclude future cycles)
   const availablePeriods = useMemo(() => {
-    return generatePayrollPeriods(payrollConfig);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return generatePayrollPeriods(payrollConfig, todayStr).filter(
+      (p) => p.startDate <= todayStr,
+    );
   }, [payrollConfig]);
 
   const defaultPeriod = useMemo(() => {
