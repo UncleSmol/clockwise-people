@@ -12,6 +12,12 @@ import {
 } from "lucide-react";
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import type { CompanyWorkRulesData } from "@/lib/work-rules/schema";
+import {
+  calculateLiveLeaveBalance,
+  isGenderAllowedForLeave,
+  isUnpaidLeave,
+  type ShiftTimeEntryInput,
+} from "@/lib/work-rules/realtime-accrual";
 
 export type LeaveHistoryItem = {
   id: string;
@@ -33,6 +39,7 @@ type CompanyAllAccrualsTableProps = {
   data: CompanyWorkRulesData;
   initialEmployeeId?: string | null;
   leaveHistory?: LeaveHistoryItem[];
+  timeEntries?: ShiftTimeEntryInput[];
 };
 
 function formatHours(hours: number | string | null | undefined): string {
@@ -201,6 +208,7 @@ export default function CompanyAllAccrualsTable({
   data,
   initialEmployeeId = null,
   leaveHistory = [],
+  timeEntries = [],
 }: CompanyAllAccrualsTableProps) {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(
     initialEmployeeId || "all",
@@ -208,15 +216,37 @@ export default function CompanyAllAccrualsTable({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [explainingItem, setExplainingItem] = useState<EnrichedBalance | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const activeShiftMap = useMemo(() => {
+    const map = new Map<string, ShiftTimeEntryInput>();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    for (const entry of timeEntries ?? []) {
+      const empId = (entry as Record<string, unknown>).employee_id as string | undefined;
+      if (!empId) continue;
+      if (Boolean(entry.clock_in) && !entry.clock_out) {
+        map.set(empId, entry);
+      } else if (entry.work_date === todayStr && !map.has(empId)) {
+        map.set(empId, entry);
+      }
+    }
+    return map;
+  }, [timeEntries]);
 
   // Map employee info
   const employeeMap = useMemo(() => {
-    const map = new Map<string, { full_name: string; employee_number: string }>();
+    const map = new Map<string, { full_name: string; employee_number: string; gender?: string | null }>();
     for (const emp of data.employees) {
       const match = emp.label.match(/^(.*?)(?:\s*\((.*?)\))?$/);
       map.set(emp.id, {
         full_name: match?.[1]?.trim() || emp.label,
         employee_number: match?.[2]?.trim() || "EMP",
+        gender: emp.gender,
       });
     }
     return map;
@@ -232,17 +262,30 @@ export default function CompanyAllAccrualsTable({
     const balances = data.leaveBalances ?? [];
     return balances
       .filter((b) => {
+        const leaveType = Array.isArray(b.leave_types)
+          ? b.leave_types[0]
+          : b.leave_types;
+        const name = leaveType?.name ?? "";
+        const category = leaveType?.category;
+
+        // Exclude unpaid leave from balance section
+        if (isUnpaidLeave(name, category)) return false;
+
         if (!data.toilEnabled) {
-          const leaveType = Array.isArray(b.leave_types)
-            ? b.leave_types[0]
-            : b.leave_types;
           if (
-            leaveType?.category === "toil_taken" ||
-            leaveType?.name?.toLowerCase().includes("toil")
+            category === "toil_taken" ||
+            name.toLowerCase().includes("toil")
           ) {
             return false;
           }
         }
+
+        // Gender check per employee
+        const emp = employeeMap.get(b.employee_id);
+        if (!isGenderAllowedForLeave(name, category, emp?.gender)) {
+          return false;
+        }
+
         return true;
       })
       .map((b) => {
@@ -558,140 +601,42 @@ export default function CompanyAllAccrualsTable({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {filteredBalances.map((item) => {
                   const meta = getCategoryMeta(item.leaveCategory);
-                  const isPositive = item.balanceHours > 0;
-                  const utilizationPercent =
-                    item.accruedHours > 0
-                      ? Math.min(
-                          100,
-                          Math.max(0, (item.takenHours / item.accruedHours) * 100),
-                        )
-                      : 0;
+                  const activeShift = activeShiftMap.get(item.employeeId);
+                  const live = calculateLiveLeaveBalance({
+                    baseBalanceHours: item.balanceHours,
+                    leaveCategory: item.leaveCategory,
+                    leaveTypeName: item.leaveTypeName,
+                    activeShiftEntry: activeShift,
+                    now,
+                    standardAnnualHours: data.standardAnnualHours,
+                    toilMultiplier: data.toilMultiplier,
+                  });
+
+                  const standardDayHours = 8;
+                  const daysNum = live.totalLiveHours / standardDayHours;
+                  const daysEquiv = daysNum % 1 === 0 ? daysNum.toFixed(0) : daysNum.toFixed(1);
 
                   return (
-                    <div
+                    <article
                       key={item.id}
-                      className={`relative flex flex-col justify-between rounded-xl border bg-gradient-to-b ${meta.cardBg} bg-surface p-4 shadow-2xs transition-all hover:shadow-xs`}
+                      className={`relative flex flex-col justify-between rounded-2xl border bg-gradient-to-b ${meta.cardBg} bg-surface p-4 sm:p-5 shadow-soft transition-all hover:shadow-md min-w-0`}
                     >
-                      {/* Top Badges */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h6 className="text-sm font-black text-foreground leading-snug tracking-tight">
-                            {item.leaveTypeName}
-                          </h6>
-                          <span className="text-[10px] font-bold text-muted uppercase">
-                            {meta.label}
-                          </span>
-                        </div>
+                      <p className="text-xs sm:text-sm font-extrabold text-foreground truncate tracking-tight">
+                        {item.leaveTypeName}
+                      </p>
 
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
-                            item.isPaid
-                              ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30"
-                              : "bg-slate-500/10 text-slate-700 border-slate-500/30"
-                          }`}
-                        >
-                          {item.isPaid ? "Paid" : "Unpaid"}
+                      <div className="mt-3 flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-foreground">
+                          {live.formattedTime}
+                        </span>
+                        <span className="text-xs font-bold text-muted font-mono">
+                          ({daysEquiv} {Number(daysEquiv) === 1 ? "day" : "days"})
                         </span>
                       </div>
-
-                      {/* Main Balance Display */}
-                      <div className="my-3 flex items-baseline justify-between border-y border-border/60 py-2.5">
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-muted">
-                              Remaining Balance
-                            </span>
-                            <span className="text-[11px] font-extrabold text-foreground">
-                              · {item.leaveTypeName}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex items-baseline gap-2">
-                            <span
-                              className={`text-2xl font-black font-mono tracking-tight ${
-                                isPositive
-                                  ? "text-foreground"
-                                  : "text-rose-600"
-                              }`}
-                            >
-                              {formatHours(item.balanceHours)}
-                            </span>
-                            <span className="text-xs font-bold text-muted">
-                              ({hoursToDays(item.balanceHours)})
-                            </span>
-                          </div>
-                        </div>
-
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                            isPositive
-                              ? "bg-emerald-500/15 text-emerald-700"
-                              : "bg-rose-500/15 text-rose-700"
-                          }`}
-                        >
-                          {isPositive ? "Active" : "Depleted"}
-                        </span>
-                      </div>
-
-                      {/* Progress Bar (Taken vs Accrued) */}
-                      <div className="space-y-1 mb-2">
-                        <div className="flex justify-between text-[10px] font-bold text-muted">
-                          <span>Utilization</span>
-                          <span>{utilizationPercent.toFixed(1)}% taken</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden border border-border/50">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              utilizationPercent > 80
-                                ? "bg-rose-500"
-                                : utilizationPercent > 50
-                                  ? "bg-amber-500"
-                                  : "bg-emerald-500"
-                            }`}
-                            style={{ width: `${utilizationPercent}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Breakdown Numbers */}
-                      <div className="grid grid-cols-2 gap-2 text-xs border-t border-border/50 pt-2 font-mono">
-                        <div>
-                          <span className="text-[10px] font-bold text-muted block">Accrued</span>
-                          <span className="font-extrabold text-emerald-600">
-                            +{formatHours(item.accruedHours)}
-                          </span>
-                          <span className="text-[10px] text-muted ml-1">
-                            ({hoursToDays(item.accruedHours)})
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] font-bold text-muted block">Taken</span>
-                          <span className="font-extrabold text-rose-600">
-                            {item.takenHours > 0 ? `-${formatHours(item.takenHours)}` : "0.00h"}
-                          </span>
-                          <span className="text-[10px] text-muted ml-1">
-                            ({hoursToDays(item.takenHours)})
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Statutory Note & Audit Button Footer */}
-                      <div className="mt-2.5 pt-2 border-t border-border/50 text-[10px] text-muted flex flex-wrap items-center justify-between gap-2 min-w-0">
-                        <span className="font-semibold text-foreground/80 break-words leading-tight flex-1 min-w-0" title={meta.statutoryNote}>
-                          {meta.statutoryNote}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setExplainingItem(item)}
-                          className="shrink-0 font-bold text-foreground bg-surface hover:bg-surface-muted px-2.5 py-1 rounded-md border border-border transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
-                          title="Open statutory legal audit and balance explanation"
-                        >
-                          Explain
-                        </button>
-                      </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>

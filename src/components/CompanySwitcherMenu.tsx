@@ -72,15 +72,14 @@ export default function CompanySwitcherMenu({
         try {
           await switchActiveCompanyAction(targetId);
           setOpen(false);
-          router.refresh();
+          window.location.href = "/dashboard";
         } catch (err) {
           console.error("Failed to switch company:", err);
-        } finally {
           setTargetSwitchingId(null);
         }
       });
     },
-    [companyId, isSwitching, router],
+    [companyId, isSwitching],
   );
 
   return (
@@ -100,7 +99,7 @@ export default function CompanySwitcherMenu({
       </button>
 
       {open ? (
-        <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-2xl border border-border/80 bg-surface p-0 shadow-soft sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[320px]">
+        <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom,0px))] overflow-hidden rounded-2xl border border-border/80 bg-surface p-0 shadow-soft sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[320px]">
           {/* Header */}
           <div className="border-b border-border/70 px-4 py-3">
             <div className="flex items-center justify-between gap-2">

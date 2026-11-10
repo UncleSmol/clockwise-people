@@ -47,22 +47,22 @@ function StepItem({
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className={`flex w-full items-start gap-3.5 px-4 py-4 text-left transition-[filter] duration-200 hover:brightness-105 sm:px-5 ${headerBgClass}`}
+        className={`flex w-full items-start gap-2.5 sm:gap-3.5 px-3.5 py-3 text-left transition-[filter] duration-200 hover:brightness-105 sm:px-5 sm:py-4 ${headerBgClass}`}
       >
         <span
-          className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-[#111827] shadow-sm"
+          className="mt-0.5 inline-flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-full bg-white text-xs sm:text-sm font-black text-[#111827] shadow-sm"
         >
           {step}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-base font-bold text-white break-words leading-tight">
+          <span className="block text-sm sm:text-base font-bold text-white break-words leading-tight">
             {title}
           </span>
-          <span className="mt-0.5 block text-xs leading-snug text-white/90">
+          <span className="mt-0.5 block text-[11px] sm:text-xs leading-snug text-white/90">
             {description}
           </span>
           {badge ? (
-            <div className="mt-2 inline-flex items-center">
+            <div className="mt-1.5 sm:mt-2 inline-flex items-center">
               {badge}
             </div>
           ) : null}
@@ -162,7 +162,7 @@ export default function EmployeeMyTimeHub({
       <StepItem
         step="2"
         title="Review and adjust"
-        description="Fix the times for this period, add past days, then submit when ready."
+        description="Review drafts, adjust recorded times, and submit when ready."
         badge={timesheetBadge}
         tone="warning"
         open={openSteps["2"]}

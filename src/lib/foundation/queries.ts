@@ -88,12 +88,6 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     throw new Error(userError.message);
   }
 
-  const companyIds = (appUsers ?? []).map((appUser) => appUser.company_id);
-
-  if (companyIds.length === 0) {
-    redirect("/login?message=Unable to access this workspace. Contact your administrator.");
-  }
-
   const appMeta = user.app_metadata as Record<string, unknown> | undefined;
   const userMeta = user.user_metadata as Record<string, unknown> | undefined;
 
@@ -129,13 +123,17 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
 
   const isFullSuperAdmin = isSuperAdmin && !isRestrictedSuperAdmin;
 
-  const targetAppUser =
-    appUsers?.find((u) => u.company_id === activeCompany.id) ??
-    (isSuperAdmin ? appUsers?.[0] : null) ??
-    appUsers?.[0] ??
-    null;
+  const companyIds = (appUsers ?? []).map((appUser) => appUser.company_id);
 
-  let activeEmployeeId = targetAppUser?.employee_id ?? null;
+  if (companyIds.length === 0 && !isSuperAdmin) {
+    redirect("/login?message=Unable to access this workspace. Contact your administrator.");
+  }
+
+  const companyAppUser = appUsers?.find((u) => u.company_id === activeCompany.id) ?? null;
+  const targetAppUser = companyAppUser ?? (isSuperAdmin ? appUsers?.[0] : null) ?? appUsers?.[0] ?? null;
+
+  // Active employee ID MUST belong to the activeCompany!
+  let activeEmployeeId = companyAppUser?.employee_id ?? null;
   if (!activeEmployeeId) {
     const { data: empRecord } = await supabase
       .from("employees")
@@ -143,7 +141,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
       .eq("company_id", activeCompany.id)
       .eq("employment_status", "active")
       .is("deleted_at", null)
-      .or(`user_id.eq.${targetAppUser?.id ?? ""},email.eq.${user.email ?? ""}`)
+      .or(`user_id.eq.${companyAppUser?.id ?? ""},email.eq.${user.email ?? ""}`)
       .limit(1)
       .maybeSingle();
 

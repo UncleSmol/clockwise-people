@@ -1,13 +1,20 @@
 "use client";
 
 /**
- * iPhone Notification Ping Sound Player
- * Synthesizes the iconic crisp Apple iOS notification chime / ping using Web Audio API
- * with fallback to pre-rendered high-definition WAV audio (/sounds/iphone-ping.wav).
+ * Primary Notification Sound Player
+ * Downloads and caches /sounds/ping-sound.mp3 locally on the user's device
+ * and plays it with low latency using the Web Audio API / HTML5 Audio.
  */
 
+const SOUND_URL = "/sounds/ping-sound.mp3";
+const SOUND_CACHE_NAME = "clockwise-sound-cache-v1";
+
 let sharedAudioContext: AudioContext | null = null;
+let cachedAudioBuffer: AudioBuffer | null = null;
+let localBlobUrl: string | null = null;
 let htmlAudioElement: HTMLAudioElement | null = null;
+let isDownloading = false;
+let isDownloaded = false;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -31,6 +38,83 @@ function getAudioContext(): AudioContext | null {
 }
 
 /**
+ * Downloads the primary notification sound and stores it locally in Cache Storage
+ * and in memory (AudioBuffer & local Blob URL) for instant offline playback.
+ */
+export async function downloadAndCacheNotificationSound(): Promise<void> {
+  if (typeof window === "undefined" || isDownloading || isDownloaded) return;
+  isDownloading = true;
+
+  try {
+    let response: Response | undefined;
+
+    // 1. Check local Cache Storage first
+    if ("caches" in window) {
+      try {
+        const cache = await caches.open(SOUND_CACHE_NAME);
+        const matched = await cache.match(SOUND_URL);
+        if (matched) {
+          response = matched;
+        } else {
+          // Download and persist in cache
+          await cache.add(SOUND_URL);
+          const newlyCached = await cache.match(SOUND_URL);
+          if (newlyCached) {
+            response = newlyCached;
+          }
+        }
+      } catch {
+        // Fallback to direct fetch
+      }
+    }
+
+    if (!response) {
+      response = await fetch(SOUND_URL);
+    }
+
+    const blob = await response.clone().blob();
+    if (!localBlobUrl) {
+      localBlobUrl = URL.createObjectURL(blob);
+    }
+
+    // Pre-decode audio buffer into Web Audio Context if available
+    const arrayBuffer = await response.arrayBuffer();
+    const ctx = getAudioContext();
+    if (ctx) {
+      try {
+        cachedAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      } catch {
+        // decode failed or unsupported codec in AudioContext
+      }
+    }
+
+    // Prepare HTMLAudioElement with local blob URL
+    if (!htmlAudioElement) {
+      htmlAudioElement = new Audio(localBlobUrl || SOUND_URL);
+      htmlAudioElement.volume = 0.85;
+      htmlAudioElement.load();
+    }
+
+    isDownloaded = true;
+  } catch (err) {
+    console.warn("Could not download notification sound locally:", err);
+  } finally {
+    isDownloading = false;
+  }
+}
+
+// Automatically trigger local download when script runs in the browser
+if (typeof window !== "undefined") {
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    downloadAndCacheNotificationSound().catch(() => {});
+  } else {
+    window.addEventListener("DOMContentLoaded", () => {
+      downloadAndCacheNotificationSound().catch(() => {});
+    });
+  }
+}
+
+/**
  * Prime and unlock audio on user gesture (e.g. clicking "Allow Notifications" or "Enable")
  */
 export function primeNotificationAudio(): void {
@@ -42,8 +126,10 @@ export function primeNotificationAudio(): void {
       ctx.resume().catch(() => {});
     }
 
+    downloadAndCacheNotificationSound().catch(() => {});
+
     if (!htmlAudioElement) {
-      htmlAudioElement = new Audio("/sounds/iphone-ping.wav");
+      htmlAudioElement = new Audio(localBlobUrl || SOUND_URL);
       htmlAudioElement.volume = 0.85;
       htmlAudioElement.load();
     }
@@ -53,65 +139,51 @@ export function primeNotificationAudio(): void {
 }
 
 /**
- * Play the iconic iPhone notification ping sound.
- * Plays crisp crystalline dual chime: G6 (1568Hz), C7 (2093Hz) + E7 (2637Hz) shimmer.
+ * Play the primary notification sound (/sounds/ping-sound.mp3)
+ * Plays from local memory / cache with low latency.
  */
 export function playNotificationPing(): void {
   if (typeof window === "undefined") return;
 
-  let playedViaWebAudio = false;
+  // Ensure download is scheduled if not started yet
+  if (!isDownloaded && !isDownloading) {
+    downloadAndCacheNotificationSound().catch(() => {});
+  }
 
+  let played = false;
+
+  // Attempt 1: Web Audio API with pre-decoded buffer (zero latency)
   try {
     const ctx = getAudioContext();
-    if (ctx && ctx.state !== "closed") {
+    if (ctx && cachedAudioBuffer && ctx.state !== "closed") {
       if (ctx.state === "suspended") {
         ctx.resume().catch(() => {});
       }
 
-      const now = ctx.currentTime;
-      const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(0.001, now);
-      masterGain.gain.linearRampToValueAtTime(0.75, now + 0.003);
-      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
-      masterGain.connect(ctx.destination);
+      const source = ctx.createBufferSource();
+      source.buffer = cachedAudioBuffer;
 
-      // Acoustic chime harmonic frequencies of iPhone Ping
-      const freqs = [
-        { freq: 1568, gain: 0.65 }, // G6 fundamental
-        { freq: 2093, gain: 0.55 }, // C7 prominent fifth
-        { freq: 2637, gain: 0.35 }, // E7 glassy ring
-        { freq: 4186, gain: 0.18 }, // Octave shimmer
-      ];
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0.85, ctx.currentTime);
 
-      freqs.forEach(({ freq, gain }) => {
-        const osc = ctx.createOscillator();
-        const oscGain = ctx.createGain();
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
 
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, now);
-
-        oscGain.gain.setValueAtTime(gain, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.001, now + (freq > 2500 ? 0.35 : 0.52));
-
-        osc.connect(oscGain);
-        oscGain.connect(masterGain);
-
-        osc.start(now);
-        osc.stop(now + 0.55);
-      });
-
-      playedViaWebAudio = true;
+      source.start(0);
+      played = true;
     }
   } catch {
-    playedViaWebAudio = false;
+    played = false;
   }
 
-  // Fallback to HTML5 audio if Web Audio is unavailable or blocked
-  if (!playedViaWebAudio) {
+  // Attempt 2: HTMLAudioElement with local blob or sound URL
+  if (!played) {
     try {
       if (!htmlAudioElement) {
-        htmlAudioElement = new Audio("/sounds/iphone-ping.wav");
+        htmlAudioElement = new Audio(localBlobUrl || SOUND_URL);
         htmlAudioElement.volume = 0.85;
+      } else if (localBlobUrl && htmlAudioElement.src !== localBlobUrl) {
+        htmlAudioElement.src = localBlobUrl;
       }
       htmlAudioElement.currentTime = 0;
       htmlAudioElement.play().catch(() => {});

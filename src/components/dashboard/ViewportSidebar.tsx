@@ -58,7 +58,7 @@ export default function ViewportSidebar({
   backdropClassName = "bg-slate-950/50 backdrop-blur-xs",
   panelStyle,
   gutter,
-  bodyClassName = "min-h-0 flex-1 overflow-y-auto",
+  bodyClassName = "min-h-0 flex-1 overflow-y-auto pb-16 sm:pb-8",
 }: ViewportSidebarProps) {
   const mounted = useSyncExternalStore(
     emptySubscribe,
@@ -90,7 +90,7 @@ export default function ViewportSidebar({
 
   return createPortal(
     <div
-      className={`fixed inset-x-0 top-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:inset-0 ${zIndex} flex justify-end ${backdropClassName}`}
+      className={`fixed inset-x-0 top-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:inset-0 ${zIndex} flex justify-end ${backdropClassName}`}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

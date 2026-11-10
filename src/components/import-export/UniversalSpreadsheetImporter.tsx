@@ -18,6 +18,8 @@ import {
   Sliders,
   Check,
   RotateCcw,
+  Download,
+  Layers,
 } from "lucide-react";
 import {
   ENTITY_FIELD_DEFINITIONS,
@@ -30,12 +32,13 @@ import {
   executeMappedImportAction,
   type ImportPreviewResult,
   type ExecuteImportResult,
+  type ConflictResolutionStrategy,
 } from "@/lib/import-export/universal-actions";
 
 import { provisionAllStandardLeaveTypesAction } from "@/lib/work-rules/actions";
 
 type Step = "select" | "map" | "preview" | "result";
-type TableFilter = "all" | "valid" | "warnings" | "errors";
+type TableFilter = "all" | "valid" | "warnings" | "errors" | "duplicates";
 
 export default function UniversalSpreadsheetImporter() {
   const router = useRouter();
@@ -51,8 +54,9 @@ export default function UniversalSpreadsheetImporter() {
   const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({});
 
   // Options
-  const [skipExisting, setSkipExisting] = useState(true);
+  const [skipExisting, setSkipExisting] = useState(false);
   const [autoCreateMissing, setAutoCreateMissing] = useState(true);
+  const [conflictResolution, setConflictResolution] = useState<ConflictResolutionStrategy>("overwrite");
 
   // Preview data state
   const [previewResult, setPreviewResult] = useState<ImportPreviewResult | null>(null);
@@ -177,8 +181,9 @@ export default function UniversalSpreadsheetImporter() {
 
     startExecuteTransition(async () => {
       const res = await executeMappedImportAction(targetEntity, previewResult.rows, {
-        skipExisting,
+        skipExisting: conflictResolution === "skip",
         autoCreateMissing,
+        conflictResolution,
       });
       setExecutionResult(res);
       if (res.ok) {
@@ -219,15 +224,27 @@ export default function UniversalSpreadsheetImporter() {
             </p>
           </div>
 
-          {step !== "select" && (
-            <button
-              onClick={handleReset}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-full transition-colors cursor-pointer shrink-0 shadow-soft"
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/api/timesheets/export"
+              download
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-full transition-colors cursor-pointer shrink-0 shadow-soft"
+              title="Export all imported historical entries plus newly created live data into ClockWise standard Excel"
             >
-              <RotateCcw className="size-3.5" />
-              Start New Import
-            </button>
-          )}
+              <Download className="size-3.5 text-emerald-600" />
+              <span>Export Live Data (XLSX)</span>
+            </a>
+
+            {step !== "select" && (
+              <button
+                onClick={handleReset}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-full transition-colors cursor-pointer shrink-0 shadow-soft"
+              >
+                <RotateCcw className="size-3.5" />
+                Start New Import
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Wizard Steps Bar */}
@@ -580,22 +597,134 @@ export default function UniversalSpreadsheetImporter() {
               Import Settings &amp; Conflict Handling
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-surface-muted/50 border border-border cursor-pointer hover:bg-surface-muted transition-colors shadow-soft">
-                <input
-                  type="checkbox"
-                  checked={skipExisting}
-                  onChange={(e) => setSkipExisting(e.target.checked)}
-                  className="size-4 rounded text-primary focus:ring-ring border-border bg-surface"
-                />
-                <div>
-                  <span className="text-xs font-bold text-foreground block">Skip Existing Records</span>
-                  <span className="text-[11px] text-muted block">
-                    If an employee, shift, or balance already exists, skip it instead of overwriting.
+            {/* Duplicate Detection Alert Banner */}
+            {previewResult.duplicateSummary && previewResult.duplicateSummary.totalDuplicates > 0 && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-xs text-amber-900 dark:text-amber-200 space-y-3 shadow-soft">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="size-5 text-amber-600 shrink-0" />
+                  <span className="text-sm font-extrabold">
+                    Duplicate Timesheet &amp; Record Conflicts Detected ({previewResult.duplicateSummary.totalDuplicates} found)
                   </span>
                 </div>
-              </label>
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  <span className="px-2.5 py-1 rounded-full bg-surface/80 border border-amber-500/30 font-semibold text-foreground">
+                    In Database: <strong className="text-amber-700 dark:text-amber-400">{previewResult.duplicateSummary.existingInDatabase}</strong>
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-surface/80 border border-amber-500/30 font-semibold text-foreground">
+                    In Uploaded File: <strong className="text-amber-700 dark:text-amber-400">{previewResult.duplicateSummary.duplicatesInFile}</strong>
+                  </span>
+                  {previewResult.duplicateSummary.affectedEmployees.length > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-surface/80 border border-amber-500/30 font-semibold text-foreground">
+                      Affected Staff: {previewResult.duplicateSummary.affectedEmployees.slice(0, 3).join(", ")}
+                      {previewResult.duplicateSummary.affectedEmployees.length > 3 ? ` +${previewResult.duplicateSummary.affectedEmployees.length - 3} more` : ""}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                  Select your conflict resolution strategy below. You can overwrite existing records, skip duplicates, or stack them additively.
+                </p>
+              </div>
+            )}
 
+            {/* Conflict Strategy Radios */}
+            <div>
+              <label className="block text-xs font-extrabold text-foreground uppercase tracking-wider mb-2">
+                Conflict Resolution Strategy:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label
+                  className={`flex flex-col p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    conflictResolution === "overwrite"
+                      ? "border-2 border-primary bg-primary/5 text-foreground shadow-soft"
+                      : "border-border/80 bg-surface hover:bg-surface-muted/30 text-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="conflictResolution"
+                        value="overwrite"
+                        checked={conflictResolution === "overwrite"}
+                        onChange={() => {
+                          setConflictResolution("overwrite");
+                          setSkipExisting(false);
+                        }}
+                        className="size-3.5 text-primary"
+                      />
+                      Overwrite Existing
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      Recommended
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted">
+                    Replaces existing record on that date with the newly imported timesheet/balance.
+                  </span>
+                </label>
+
+                <label
+                  className={`flex flex-col p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    conflictResolution === "skip"
+                      ? "border-2 border-primary bg-primary/5 text-foreground shadow-soft"
+                      : "border-border/80 bg-surface hover:bg-surface-muted/30 text-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="conflictResolution"
+                        value="skip"
+                        checked={conflictResolution === "skip"}
+                        onChange={() => {
+                          setConflictResolution("skip");
+                          setSkipExisting(true);
+                        }}
+                        className="size-3.5 text-primary"
+                      />
+                      Skip Duplicates
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted">
+                    Keeps existing database records safe and ignores duplicate rows from the file.
+                  </span>
+                </label>
+
+                <label
+                  className={`flex flex-col p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    conflictResolution === "stack"
+                      ? "border-2 border-amber-500 bg-amber-500/5 text-foreground shadow-soft"
+                      : "border-border/80 bg-surface hover:bg-surface-muted/30 text-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="conflictResolution"
+                        value="stack"
+                        checked={conflictResolution === "stack"}
+                        onChange={() => {
+                          setConflictResolution("stack");
+                          setSkipExisting(false);
+                        }}
+                        className="size-3.5 text-amber-600"
+                      />
+                      Add On Top (Additive)
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-500/15 px-2 py-0.5 rounded-full">
+                      Controlled
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted">
+                    Adds shift on top as an additional entry for that day, or accumulates leave balance.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div>
               <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-surface-muted/50 border border-border cursor-pointer hover:bg-surface-muted transition-colors shadow-soft">
                 <input
                   type="checkbox"
@@ -635,18 +764,30 @@ export default function UniversalSpreadsheetImporter() {
 
           {/* Table Filters & Execution Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-1 p-1 rounded-full bg-surface-muted border border-border shadow-soft">
-              {(["all", "valid", "warnings", "errors"] as TableFilter[]).map((tf) => (
+            <div className="flex items-center gap-1 p-1 rounded-full bg-surface-muted border border-border shadow-soft overflow-x-auto">
+              {(
+                [
+                  "all",
+                  "valid",
+                  "warnings",
+                  "errors",
+                  ...(previewResult.duplicateSummary && previewResult.duplicateSummary.totalDuplicates > 0
+                    ? ["duplicates"]
+                    : []),
+                ] as TableFilter[]
+              ).map((tf) => (
                 <button
                   key={tf}
                   onClick={() => setTableFilter(tf)}
-                  className={`px-4 py-1.5 text-xs font-bold rounded-full capitalize transition-colors cursor-pointer ${
+                  className={`px-4 py-1.5 text-xs font-bold rounded-full capitalize transition-colors cursor-pointer shrink-0 ${
                     tableFilter === tf
                       ? "bg-surface text-foreground shadow-soft border border-border"
                       : "text-muted hover:text-foreground"
                   }`}
                 >
-                  {tf}
+                  {tf === "duplicates"
+                    ? `Duplicates (${previewResult.duplicateSummary?.totalDuplicates})`
+                    : tf}
                 </button>
               ))}
             </div>
@@ -697,6 +838,7 @@ export default function UniversalSpreadsheetImporter() {
                       if (tableFilter === "valid") return r.status === "valid";
                       if (tableFilter === "warnings") return r.status === "warning";
                       if (tableFilter === "errors") return r.status === "error";
+                      if (tableFilter === "duplicates") return Boolean(r.isDuplicate);
                       return true;
                     })
                     .map((row) => (
@@ -742,6 +884,17 @@ export default function UniversalSpreadsheetImporter() {
                           </div>
                         </td>
                         <td className="px-4 py-3 space-y-1">
+                          {row.isDuplicate && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
+                              <AlertTriangle className="size-2.5" />
+                              {row.duplicateType === "database" ? "DB Duplicate" : "File Duplicate"}
+                            </span>
+                          )}
+                          {row.duplicateDetails && (
+                            <p className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
+                              {row.duplicateDetails}
+                            </p>
+                          )}
                           {row.errors.map((e, idx) => (
                             <p key={idx} className="text-[11px] font-semibold text-rose-700 flex items-center gap-1">
                               • {e}

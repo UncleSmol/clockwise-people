@@ -34,6 +34,9 @@ export type NormalizedImportEntry = {
   validationStatus: "valid" | "warning" | "error";
   validationErrors?: string[];
   rawIntervalCount?: number;
+  isDuplicate?: boolean;
+  duplicateType?: "database" | "file";
+  duplicateDetails?: string;
 };
 
 export type ImportDiagnostics = {

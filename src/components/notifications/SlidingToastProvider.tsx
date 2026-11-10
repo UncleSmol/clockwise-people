@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { CheckCircle2, AlertTriangle, AlertCircle, BellRing, Info, X } from "lucide-react";
+import { Check, AlertCircle, Bell, Info, X } from "lucide-react";
 import Link from "next/link";
 import { playNotificationPing } from "@/lib/audio/notification-sound";
 
@@ -35,6 +35,41 @@ interface ToastContextValue {
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+
+/**
+ * Formats messages into clean, minimal, punchy text without clutter
+ */
+function formatMinimalMessage(toast: ToastPayload): string {
+  const raw = (toast.title ? `${toast.title}: ${toast.message}` : toast.message) || "";
+
+  if (raw.toLowerCase().includes("unsubmitted draft") || raw.toLowerCase().includes("cannot clock in")) {
+    return "Submit last week's draft to clock in";
+  }
+  if (raw.toLowerCase().includes("clocked in successfully")) {
+    return "Clocked in";
+  }
+  if (raw.toLowerCase().includes("clocked out successfully")) {
+    return "Clocked out";
+  }
+  if (raw.toLowerCase().includes("lunch break started")) {
+    return "Lunch started";
+  }
+  if (raw.toLowerCase().includes("lunch break ended")) {
+    return "Lunch ended";
+  }
+  if (raw.toLowerCase().includes("timesheet submitted")) {
+    return "Timesheet submitted";
+  }
+  if (raw.toLowerCase().includes("leave application submitted")) {
+    return "Leave requested";
+  }
+  if (raw.toLowerCase().includes("timesheet updated")) {
+    return "Timesheet updated";
+  }
+
+  // Remove trailing period and keep it clean and minimal
+  return raw.replace(/\.$/, "").trim();
+}
 
 /**
  * Global helper to trigger a toast from anywhere (even outside React tree or inside callbacks)
@@ -76,10 +111,10 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
   const showToast = useCallback(
     (payload: ToastPayload) => {
       const id = payload.id || `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      const duration = payload.durationMs ?? (payload.type === "error" ? 5500 : 4500);
+      const duration = payload.durationMs ?? (payload.type === "error" ? 4500 : 3500);
 
-      // Play iPhone ping sound for incoming notifications or success alerts
-      if (payload.type === "notification") {
+      // Play audio ping
+      if (payload.type === "notification" || payload.type === "success") {
         playNotificationPing();
       }
 
@@ -90,11 +125,7 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
         createdAt: Date.now(),
       };
 
-      setToasts((prev) => {
-        // Keep at most 2 active toasts so they do not obstruct the screen
-        const existing = prev.filter((t) => t.id !== id);
-        return [...existing.slice(-1), newItem];
-      });
+      setToasts(() => [newItem]);
 
       // Auto dismiss after duration
       if (timersRef.current.has(id)) {
@@ -110,7 +141,6 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
     [dismissToast]
   );
 
-  // Listen to window custom event so any non-react action callback or background sync can dispatch
   useEffect(() => {
     function handleEvent(event: Event) {
       const custom = event as CustomEvent<ToastPayload>;
@@ -131,89 +161,58 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
     <ToastContext.Provider value={{ showToast, dismissToast }}>
       {children}
 
-      {/* Floating sliding popup container anchored at the bottom of the screen */}
+      {/* Floating sliding popup at the top of the screen — same vibrant emerald color as time picker */}
       <aside
         aria-live="polite"
         aria-label="Notifications"
-        className="fixed bottom-5 inset-x-0 mx-auto z-[99999] pointer-events-none flex flex-col items-center justify-end px-4 gap-2 w-full max-w-sm sm:max-w-md select-none"
+        className="fixed top-5 inset-x-0 mx-auto z-[99999] pointer-events-none flex flex-col items-center justify-start px-4 gap-2 w-fit max-w-[92vw] sm:max-w-md select-none"
       >
         {toasts.map((toast) => {
-          const isError = toast.type === "error";
-          const isSuccess = toast.type === "success";
-          const isNotification = toast.type === "notification";
+          const minimalText = formatMinimalMessage(toast);
 
           return (
             <div
               key={toast.id}
               role="alert"
-              className="pointer-events-auto w-full rounded-2xl border border-white/20 bg-slate-900/95 text-white backdrop-blur-2xl shadow-2xl p-3.5 sm:p-4 flex items-start gap-3 transition-all transform animate-in slide-in-from-bottom duration-300 ease-out"
-              style={{
-                boxShadow: isError
-                  ? "0 20px 45px -10px rgba(225, 29, 72, 0.35), 0 0 20px rgba(225, 29, 72, 0.2)"
-                  : isSuccess
-                  ? "0 20px 45px -10px rgba(16, 185, 129, 0.35), 0 0 20px rgba(16, 185, 129, 0.2)"
-                  : isNotification
-                  ? "0 20px 45px -10px rgba(59, 130, 246, 0.35), 0 0 20px rgba(59, 130, 246, 0.2)"
-                  : "0 20px 45px -10px rgba(15, 23, 42, 0.5)",
-              }}
+              className="pointer-events-auto rounded-full border border-white/25 bg-gradient-to-r from-[#2E9B5F] to-[#258550] text-white shadow-[0_12px_28px_-6px_rgba(46,155,95,0.45)] px-4 py-2 sm:py-2.5 flex items-center gap-2.5 transition-all transform animate-in slide-in-from-top-4 fade-in duration-300 ease-out"
             >
-              {/* Type Icon */}
-              <div
-                className={`size-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                  isError
-                    ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
-                    : isSuccess
-                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
-                    : isNotification
-                    ? "bg-blue-500/20 border-blue-500/40 text-blue-400"
-                    : "bg-slate-700/50 border-slate-600/50 text-slate-300"
-                }`}
-              >
-                {isError ? (
-                  <AlertCircle className="size-5" />
-                ) : isSuccess ? (
-                  <CheckCircle2 className="size-5" />
-                ) : isNotification ? (
-                  <BellRing className="size-5" />
+              {/* Type Icon in soft translucent circle */}
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
+                {toast.type === "error" ? (
+                  <AlertCircle className="size-3.5 stroke-[2.5]" />
+                ) : toast.type === "notification" ? (
+                  <Bell className="size-3.5 stroke-[2.5]" />
+                ) : toast.type === "info" ? (
+                  <Info className="size-3.5 stroke-[2.5]" />
                 ) : (
-                  <Info className="size-5" />
+                  <Check className="size-3.5 stroke-[2.5]" />
                 )}
               </div>
 
-              {/* Text Content */}
-              <div className="flex-1 min-w-0 pr-1">
-                {toast.title ? (
-                  <p className="text-xs sm:text-sm font-black tracking-tight text-white leading-snug">
-                    {toast.title}
-                  </p>
-                ) : null}
-                <p
-                  className={`text-xs font-semibold text-slate-200 leading-relaxed ${
-                    toast.title ? "mt-0.5" : ""
-                  }`}
+              {/* Minimal Text Message */}
+              <span className="text-xs sm:text-[13px] font-bold text-white tracking-tight truncate max-w-[240px] sm:max-w-xs">
+                {minimalText}
+              </span>
+
+              {/* Action Link (if targetHref provided) */}
+              {toast.targetHref ? (
+                <Link
+                  href={toast.targetHref}
+                  onClick={() => dismissToast(toast.id)}
+                  className="rounded-full bg-white text-[#258550] hover:bg-white/90 px-3 py-1 text-[11px] font-black shadow-xs hover:scale-105 active:scale-95 transition-all whitespace-nowrap cursor-pointer ml-1"
                 >
-                  {toast.message}
-                </p>
+                  Review
+                </Link>
+              ) : null}
 
-                {toast.targetHref ? (
-                  <Link
-                    href={toast.targetHref}
-                    onClick={() => dismissToast(toast.id)}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-400 hover:text-blue-300 underline mt-1.5 transition-colors"
-                  >
-                    View details &rarr;
-                  </Link>
-                ) : null}
-              </div>
-
-              {/* Close Button */}
+              {/* Quick Dismiss Button */}
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label="Dismiss notification"
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+                className="text-white/70 hover:text-white p-0.5 rounded-full hover:bg-white/15 transition-colors shrink-0 cursor-pointer ml-0.5"
               >
-                <X className="size-4" />
+                <X className="size-3.5 stroke-[2.2]" />
               </button>
             </div>
           );

@@ -7,6 +7,7 @@ import type { EventClickArg, EventContentArg, EventInput } from "@fullcalendar/c
 import type { DayCellMountArg } from "@fullcalendar/core";
 import {
   AlertTriangle,
+  Calendar,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -28,10 +29,11 @@ import EmployeeAvatar from "@/components/EmployeeAvatar";
 import ViewportSidebar from "@/components/dashboard/ViewportSidebar";
 import RecordStatusBadge from "./RecordStatusBadge";
 import {
+  adminDeleteCalendarLeave,
+  adminUpdateCalendarLeave,
   createManagedDraftTimeEntry,
   deleteManagedDraftTimeEntry,
   deleteTimeEntry,
-  loadManagedLeaveRequestsToTimesheets,
   reviewSubmittedTimesheets,
   updateManagedDraftTimeEntry,
 } from "@/lib/time-tracking/actions";
@@ -42,6 +44,7 @@ import type {
   CompanyPublicHoliday,
   CompanyTimesheetCalendarEntry,
 } from "@/lib/time-tracking/schema";
+import type { LeaveType } from "@/lib/work-rules/schema";
 import AnalogTimePicker from "@/components/time-tracking/AnalogTimePicker";
 
 type CompanyTimesheetCalendarProps = {
@@ -52,6 +55,7 @@ type CompanyTimesheetCalendarProps = {
   liveOverview?: CompanyLiveTimeOverview | null;
   isSysAdmin?: boolean;
   isSuperAdmin?: boolean;
+  leaveTypes?: LeaveType[];
 };
 
 const initialActionState = {
@@ -140,7 +144,8 @@ function isLeaveEntry(entry?: Partial<CompanyTimesheetCalendarEntry> | null): bo
     entry.leave_type_id != null ||
     entry.notes?.startsWith("Leave:") ||
     entry.notes?.startsWith("Leave (Pending):") ||
-    entry.notes?.startsWith("TOIL / Leave:")
+    entry.notes?.startsWith("TOIL / Leave:") ||
+    entry.notes?.startsWith("Approved leave:")
   );
 }
 
@@ -343,8 +348,33 @@ export default function CompanyTimesheetCalendar({
   liveOverview = null,
   isSysAdmin = false,
   isSuperAdmin = false,
+  leaveTypes = [],
 }: CompanyTimesheetCalendarProps) {
   const isRootSuperAdmin = Boolean(isSuperAdmin || isSysAdmin);
+
+  const availableLeaveTypes = useMemo(() => {
+    if (leaveTypes && leaveTypes.length > 0) return leaveTypes;
+    return [
+      { id: "562e93a9-bc0c-4b0d-aa09-dd1b2f37ea92", name: "Annual Leave", category: "annual" },
+      { id: "5f0b1611-e0d7-41f6-a1a4-8f31bee9d1f7", name: "Sick Leave", category: "sick" },
+      { id: "4918b7a1-5645-4f9d-9afa-76272ad69809", name: "Family Responsibility Leave", category: "family_responsibility" },
+      { id: "93582eed-fec0-47ea-80d1-db20b2ef50fc", name: "Study Leave", category: "other" },
+      { id: "1ba91471-12c6-413f-a116-f865730fc467", name: "Time Off In Lieu (TOIL)", category: "toil_taken" },
+      { id: "333a6417-7b27-4f70-9a4a-71444bc1de8f", name: "Maternity Leave", category: "maternity" },
+      { id: "c111dabc-62c7-4052-9ed9-7dff38471d69", name: "Parental Leave", category: "family_responsibility" },
+      { id: "9ea16c6d-0267-45cd-a39b-7c7f497eab00", name: "Unpaid Leave", category: "unpaid" },
+    ] as unknown as LeaveType[];
+  }, [leaveTypes]);
+
+  const [editedLeave, setEditedLeave] = useState<{
+    leaveTypeId: string;
+    hours: number;
+    notes: string;
+  }>({
+    leaveTypeId: "",
+    hours: 8,
+    notes: "",
+  });
 
   const activeColleagues = useMemo(() => {
     if (!liveOverview?.entries) return [];
@@ -488,10 +518,7 @@ export default function CompanyTimesheetCalendar({
     createManagedDraftTimeEntry,
     initialActionState,
   );
-  const [loadLeaveState, loadLeaveAction, loadLeavePending] = useActionState(
-    loadManagedLeaveRequestsToTimesheets,
-    initialActionState,
-  );
+
   const [updateState, updateAction, updatePending] = useActionState(
     updateManagedDraftTimeEntry,
     initialActionState,
@@ -506,6 +533,14 @@ export default function CompanyTimesheetCalendar({
   );
   const [approvalState, approvalAction, approvalPending] = useActionState(
     reviewSubmittedTimesheets,
+    initialActionState,
+  );
+  const [deleteLeaveState, deleteLeaveAction, deleteLeavePending] = useActionState(
+    adminDeleteCalendarLeave,
+    initialActionState,
+  );
+  const [updateLeaveState, updateLeaveAction, updateLeavePending] = useActionState(
+    adminUpdateCalendarLeave,
     initialActionState,
   );
   const [selectedApprovalIds, setSelectedApprovalIds] = useState<Set<string>>(
@@ -743,6 +778,7 @@ export default function CompanyTimesheetCalendar({
     setSelectedEntry(null);
     setEditing(false);
     setEditedTimes({});
+    setEditedLeave({ leaveTypeId: "", hours: 8, notes: "" });
     setSelectedApprovalIds(new Set());
     setIsReviewModalOpen(false);
   };
@@ -750,13 +786,35 @@ export default function CompanyTimesheetCalendar({
   const startEditing = () => {
     if (!selectedEntry) return;
     setEditing(true);
-    setEditedTimes({
-      clock_in: selectedEntry.clock_in ?? "",
-      lunch_start: selectedEntry.lunch_start ?? "",
-      lunch_end: selectedEntry.lunch_end ?? "",
-      clock_out: selectedEntry.clock_out ?? "",
-      notes: selectedEntry.notes ?? "",
-    });
+    if (isLeaveEntry(selectedEntry)) {
+      const currentTypeId =
+        selectedEntry.leave_type_id && selectedEntry.leave_type_id !== "leave"
+          ? selectedEntry.leave_type_id
+          : availableLeaveTypes.find((lt) =>
+              selectedEntry.notes?.toLowerCase().includes(lt.name.toLowerCase()),
+            )?.id ||
+            availableLeaveTypes[0]?.id ||
+            "";
+
+      setEditedLeave({
+        leaveTypeId: currentTypeId,
+        hours: Number(selectedEntry.paid_hours || selectedEntry.normal_hours || 8),
+        notes:
+          selectedEntry.notes
+            ?.replace(/^Approved leave:\s*/i, "")
+            ?.replace(/^Leave:\s*/i, "")
+            ?.replace(/^Leave \(Pending\):\s*/i, "")
+            ?.replace(/^TOIL \/ Leave:\s*/i, "") || "",
+      });
+    } else {
+      setEditedTimes({
+        clock_in: selectedEntry.clock_in ?? "",
+        lunch_start: selectedEntry.lunch_start ?? "",
+        lunch_end: selectedEntry.lunch_end ?? "",
+        clock_out: selectedEntry.clock_out ?? "",
+        notes: selectedEntry.notes ?? "",
+      });
+    }
   };
 
   const handleTimeChange = (name: string, value: string) => {
@@ -781,7 +839,6 @@ export default function CompanyTimesheetCalendar({
 
   const globalMessage =
     createState.message ||
-    loadLeaveState.message ||
     updateState.message ||
     deleteState.message ||
     forceDeleteState.message;
@@ -791,9 +848,7 @@ export default function CompanyTimesheetCalendar({
       ? deleteState.ok
       : forceDeleteState.message
         ? forceDeleteState.ok
-        : createState.message
-          ? createState.ok
-          : loadLeaveState.ok;
+        : createState.ok;
 
   return (
     <section className="flex min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
@@ -807,7 +862,7 @@ export default function CompanyTimesheetCalendar({
               Team Timesheets
             </h2>
             <p className="mt-0.5 hidden text-xs text-white/85 sm:block">
-              Click any date cell to create shifts or load approved leave. Click any employee avatar to view or edit.
+              Click any date cell to view or create shifts. Click any employee avatar to view details.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 lg:w-[23rem]">
@@ -1422,85 +1477,7 @@ export default function CompanyTimesheetCalendar({
           </div>
         </form>
 
-        <form action={loadLeaveAction} className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3">
-          <div>
-            <p className="font-semibold text-foreground">Load approved leave</p>
-            <p className="mt-1 text-xs text-muted">
-              Tick approved leave requests to load them into timesheet rows.
-            </p>
-          </div>
-          {leaveRequestsForDate.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-center text-xs text-muted">
-              {leaveRequests.length === 0
-                ? "No approved leave requests available."
-                : "No approved leave requests cover this date."}
-            </div>
-          ) : (
-            <>
-              <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-surface">
-                {leaveRequestsForDate.map((request) => (
-                  <label
-                    key={request.id}
-                    className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
-                  >
-                    <input
-                      className="mt-1 size-4 accent-current"
-                      name="leave_request_ids"
-                      type="checkbox"
-                      value={request.id}
-                    />
-                    <span className="min-w-0">
-                      <span className="block font-semibold text-foreground">
-                        {request.employeeName}
-                      </span>
-                      <span className="block text-xs text-muted">
-                        {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
-                        {formatHours(request.total_hours)}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {leaveRequests.length > leaveRequestsForDate.length ? (
-                <details className="text-xs text-muted">
-                  <summary className="cursor-pointer font-semibold">
-                    Show all {leaveRequests.length} requests
-                  </summary>
-                  <div className="mt-2 max-h-36 overflow-y-auto rounded-md border border-border bg-surface">
-                    {leaveRequests.map((request) => (
-                      <label
-                        key={request.id}
-                        className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0"
-                      >
-                        <input
-                          className="mt-1 size-4 accent-current"
-                          name="leave_request_ids"
-                          type="checkbox"
-                          value={request.id}
-                        />
-                        <span className="min-w-0">
-                          <span className="block font-semibold text-foreground">
-                            {request.employeeName}
-                          </span>
-                          <span className="block text-xs text-muted">
-                            {request.leaveTypeName} - {request.start_date} to {request.end_date} -{" "}
-                            {formatHours(request.total_hours)}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-              <button
-                disabled={loadLeavePending}
-                className="justify-self-end rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                {loadLeavePending ? "Loading..." : "Load selected leave"}
-              </button>
-            </>
-          )}
-        </form>
+        
       </ViewportSidebar>
 
       <ViewportSidebar
@@ -1515,13 +1492,13 @@ export default function CompanyTimesheetCalendar({
             : ""
         }
         actions={
-          selectedEntry && !isLeaveEntry(selectedEntry) && canEdit(selectedEntry.status, isRootSuperAdmin) && !editing ? (
+          selectedEntry && canEdit(selectedEntry.status, isRootSuperAdmin) && !editing ? (
             <button
               type="button"
               onClick={startEditing}
               className="grid size-8 place-items-center rounded border border-border bg-surface text-foreground hover:bg-surface-muted"
-              aria-label={selectedEntry.status === "approved" ? "Root Super Admin: Edit approved timesheet" : "Edit timesheet"}
-              title={selectedEntry.status === "approved" ? "Root Super Admin: Edit approved timesheet" : "Edit timesheet"}
+              aria-label={isLeaveEntry(selectedEntry) ? "Edit leave record" : selectedEntry.status === "approved" ? "Root Super Admin: Edit approved timesheet" : "Edit timesheet"}
+              title={isLeaveEntry(selectedEntry) ? "Edit leave record" : selectedEntry.status === "approved" ? "Root Super Admin: Edit approved timesheet" : "Edit timesheet"}
             >
               <Pencil className="size-4" />
             </button>
@@ -1585,19 +1562,147 @@ export default function CompanyTimesheetCalendar({
             ) : null}
 
             {editing ? (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {(["clock_in", "lunch_start", "lunch_end", "clock_out"] as const).map((field) => (
-                  <div key={field} className="min-w-0 rounded-lg border border-border bg-background p-2">
-                    <p className="leading-none text-[10px] font-bold uppercase text-muted">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_", " ")}</p>
-                    <AnalogTimePicker
-                      name={field}
-                      defaultValue={selectedEntry[field] ?? ""}
-                      onChange={(e) => handleTimeChange(field, e.target.value)}
-                      compact
-                      className="mt-1 flex h-7 w-full items-center justify-center gap-1 rounded border border-border bg-surface px-1 text-xs font-bold text-foreground outline-none hover:border-primary/50"
+              isLeaveEntry(selectedEntry) ? (
+                <div className="rounded-2xl border border-violet-400/40 bg-violet-950/10 dark:bg-violet-950/30 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/20 text-violet-600 dark:text-violet-300">
+                        <Pencil className="size-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-foreground">Edit Leave Record</h4>
+                        <p className="text-xs text-muted">Update category, allocated hours or reason</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[11px] font-bold text-violet-700 dark:text-violet-300">
+                      Admin Override
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted">Leave Type</label>
+                    <select
+                      value={editedLeave.leaveTypeId}
+                      onChange={(e) => setEditedLeave((prev) => ({ ...prev, leaveTypeId: e.target.value }))}
+                      className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm font-bold text-foreground outline-none focus:border-violet-500"
+                    >
+                      <option value="">Select leave type</option>
+                      {availableLeaveTypes.map((lt) => (
+                        <option key={lt.id} value={lt.id}>{lt.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted">Allocated Paid Hours</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Full Day (8h)", val: 8 },
+                        { label: "Half Day (4h)", val: 4 },
+                        { label: "Custom", val: null },
+                      ].map((btn) => {
+                        const isSelected = btn.val === null
+                          ? (editedLeave.hours !== 8 && editedLeave.hours !== 4)
+                          : editedLeave.hours === btn.val;
+                        return (
+                          <button
+                            key={btn.label}
+                            type="button"
+                            onClick={() => {
+                              if (btn.val !== null) {
+                                setEditedLeave((prev) => ({ ...prev, hours: btn.val }));
+                              }
+                            }}
+                            className={`rounded-xl border px-2.5 py-2 text-xs font-black transition-all cursor-pointer ${
+                              isSelected
+                                ? "border-violet-600 bg-violet-600 text-white shadow-soft"
+                                : "border-border bg-surface text-muted hover:border-violet-400"
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {editedLeave.hours !== 8 && editedLeave.hours !== 4 && (
+                      <div className="pt-1">
+                        <input
+                          type="number"
+                          min="0.5"
+                          max="24"
+                          step="0.5"
+                          value={editedLeave.hours}
+                          onChange={(e) => setEditedLeave((prev) => ({ ...prev, hours: Number(e.target.value) || 0 }))}
+                          className="w-full rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-mono font-bold text-foreground outline-none focus:border-violet-500"
+                          placeholder="Custom hours (e.g. 6.5)"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted">Reason / Notes</label>
+                    <input
+                      type="text"
+                      value={editedLeave.notes}
+                      onChange={(e) => setEditedLeave((prev) => ({ ...prev, notes: e.target.value }))}
+                      placeholder="e.g. Approved leave reason"
+                      className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground outline-none focus:border-violet-500"
                     />
                   </div>
-                ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {(["clock_in", "lunch_start", "lunch_end", "clock_out"] as const).map((field) => (
+                    <div key={field} className="min-w-0 rounded-lg border border-border bg-background p-2">
+                      <p className="leading-none text-[10px] font-bold uppercase text-muted">{field === "clock_in" ? "In" : field === "clock_out" ? "Out" : field.replace("_", " ")}</p>
+                      <AnalogTimePicker
+                        name={field}
+                        defaultValue={selectedEntry[field] ?? ""}
+                        onChange={(e) => handleTimeChange(field, e.target.value)}
+                        compact
+                        className="mt-1 flex h-7 w-full items-center justify-center gap-1 rounded border border-border bg-surface px-1 text-xs font-bold text-foreground outline-none hover:border-primary/50"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : isLeaveEntry(selectedEntry) ? (
+              <div className="rounded-2xl border border-violet-400/30 bg-violet-950/20 dark:bg-violet-950/40 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/20 text-violet-600 dark:text-violet-300 border border-violet-400/30">
+                      <Calendar className="size-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold text-foreground truncate">
+                        {selectedEntry.notes?.replace(/^Leave:\s*|^Approved leave:\s*/, "") || "Approved Leave"}
+                      </p>
+                      <p className="text-xs text-muted">
+                        Statutory Leave &middot; Authorized Time Off
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {canEdit(selectedEntry.status, isRootSuperAdmin) && (
+                      <button
+                        type="button"
+                        onClick={startEditing}
+                        className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-surface px-2.5 py-1 text-xs font-bold text-violet-700 dark:text-violet-300 hover:bg-violet-500/10 shadow-xs cursor-pointer"
+                      >
+                        <Pencil className="size-3" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+                    <span className="rounded-full bg-violet-500/20 border border-violet-400/30 px-2.5 py-0.5 text-xs font-black uppercase text-violet-700 dark:text-violet-300">
+                      Approved
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-surface-muted p-3 text-xs">
+                  <span className="font-bold text-muted">Allocated Paid Hours</span>
+                  <span className="font-mono font-black text-sm text-foreground">{formatHours(selectedEntry.paid_hours)}</span>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1620,7 +1725,7 @@ export default function CompanyTimesheetCalendar({
               </div>
             )}
 
-            {!editing && (
+            {!editing && !isLeaveEntry(selectedEntry) && (
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-lg border border-border bg-background p-2.5 text-center">
                   <p className="text-[10px] font-bold uppercase text-muted">Normal (NT)</p>
@@ -1744,6 +1849,32 @@ export default function CompanyTimesheetCalendar({
               </div>
             ) : null}
 
+            {!editing && isLeaveEntry(selectedEntry) && (isSysAdmin || isRootSuperAdmin) ? (
+              <div className="border-t border-border pt-3">
+                <form
+                  action={deleteLeaveAction}
+                  onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                  className="flex items-center justify-between"
+                >
+                  <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                  <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                  <input type="hidden" name="work_date" value={selectedEntry.work_date} />
+                  <button
+                    disabled={deleteLeavePending}
+                    className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft cursor-pointer hover:bg-danger/20"
+                  >
+                    <Trash2 className="size-3 shrink-0" />
+                    {deleteLeavePending ? "Deleting..." : "Delete Leave"}
+                  </button>
+                  {deleteLeaveState.message ? (
+                    <span className={`text-[11px] ${deleteLeaveState.ok ? "text-success" : "text-danger"}`}>
+                      {deleteLeaveState.message}
+                    </span>
+                  ) : null}
+                </form>
+              </div>
+            ) : null}
+
             {!editing && !isLeaveEntry(selectedEntry) ? (
               <div className="border-t border-border pt-3">
                 <form
@@ -1770,48 +1901,93 @@ export default function CompanyTimesheetCalendar({
             ) : null}
 
             {editing && canEdit(selectedEntry.status, isRootSuperAdmin) ? (
-              <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background p-2.5 shadow-soft">
-                <form
-                  action={selectedEntry.status === "approved" || isRootSuperAdmin ? forceDeleteAction : deleteAction}
-                  onSubmit={() => { setTimeout(closeEntryModal, 100); }}
-                >
-                  <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
-                  <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
-                  <button
-                    disabled={(isRootSuperAdmin || selectedEntry.status === "approved") ? forceDeletePending : deletePending}
-                    className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
+              isLeaveEntry(selectedEntry) ? (
+                <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background p-2.5 shadow-soft">
+                  <form
+                    action={deleteLeaveAction}
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
                   >
-                    <Trash2 className="size-3 shrink-0" />
-                    {((isRootSuperAdmin || selectedEntry.status === "approved") ? forceDeletePending : deletePending) ? "..." : "Delete"}
-                  </button>
-                </form>
-                <form
-                  action={updateAction}
-                  onSubmit={() => { setTimeout(closeEntryModal, 100); }}
-                  className="flex items-center gap-2"
-                >
-                  <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
-                  <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
-                  <input type="hidden" name="clock_in" value={editedTimes.clock_in ?? ""} />
-                  <input type="hidden" name="lunch_start" value={editedTimes.lunch_start ?? ""} />
-                  <input type="hidden" name="lunch_end" value={editedTimes.lunch_end ?? ""} />
-                  <input type="hidden" name="clock_out" value={editedTimes.clock_out ?? ""} />
-                  <input type="hidden" name="notes" value={editedTimes.notes ?? ""} />
-                  <button
-                    type="button"
-                    onClick={() => { setEditing(false); setEditedTimes({}); }}
-                    className="inline-flex min-h-10 items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <input type="hidden" name="work_date" value={selectedEntry.work_date} />
+                    <button
+                      disabled={deleteLeavePending}
+                      className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft cursor-pointer hover:bg-danger/20"
+                    >
+                      <Trash2 className="size-3 shrink-0" />
+                      {deleteLeavePending ? "..." : "Delete Leave"}
+                    </button>
+                  </form>
+                  <form
+                    action={updateLeaveAction}
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                    className="flex items-center gap-2"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={updatePending}
-                    className="inline-flex min-h-10 items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft hover:bg-primary-hover"
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <input type="hidden" name="work_date" value={selectedEntry.work_date} />
+                    <input type="hidden" name="leave_type_id" value={editedLeave.leaveTypeId} />
+                    <input type="hidden" name="hours" value={editedLeave.hours} />
+                    <input type="hidden" name="notes" value={editedLeave.notes} />
+                    <button
+                      type="button"
+                      onClick={() => { setEditing(false); setEditedLeave({ leaveTypeId: "", hours: 8, notes: "" }); }}
+                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={updateLeavePending}
+                      className="inline-flex min-h-10 items-center justify-center rounded-full bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft hover:bg-violet-700 cursor-pointer"
+                    >
+                      {updateLeavePending ? "Saving..." : "Save Leave"}
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-background p-2.5 shadow-soft">
+                  <form
+                    action={selectedEntry.status === "approved" || isRootSuperAdmin ? forceDeleteAction : deleteAction}
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
                   >
-                    {updatePending ? "..." : "Save"}
-                  </button>
-                </form>
-              </div>
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <button
+                      disabled={(isRootSuperAdmin || selectedEntry.status === "approved") ? forceDeletePending : deletePending}
+                      className="inline-flex min-h-10 items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-semibold text-danger disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
+                    >
+                      <Trash2 className="size-3 shrink-0" />
+                      {((isRootSuperAdmin || selectedEntry.status === "approved") ? forceDeletePending : deletePending) ? "..." : "Delete"}
+                    </button>
+                  </form>
+                  <form
+                    action={updateAction}
+                    onSubmit={() => { setTimeout(closeEntryModal, 100); }}
+                    className="flex items-center gap-2"
+                  >
+                    <input type="hidden" name="time_entry_id" value={selectedEntry.id} />
+                    <input type="hidden" name="employee_id" value={selectedEntry.employee_id} />
+                    <input type="hidden" name="clock_in" value={editedTimes.clock_in ?? ""} />
+                    <input type="hidden" name="lunch_start" value={editedTimes.lunch_start ?? ""} />
+                    <input type="hidden" name="lunch_end" value={editedTimes.lunch_end ?? ""} />
+                    <input type="hidden" name="clock_out" value={editedTimes.clock_out ?? ""} />
+                    <input type="hidden" name="notes" value={editedTimes.notes ?? ""} />
+                    <button
+                      type="button"
+                      onClick={() => { setEditing(false); setEditedTimes({}); }}
+                      className="inline-flex min-h-10 items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={updatePending}
+                      className="inline-flex min-h-10 items-center justify-center rounded-full bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50 sm:min-h-0 sm:px-3 sm:py-1 sm:text-[11px] shadow-soft hover:bg-primary-hover"
+                    >
+                      {updatePending ? "..." : "Save"}
+                    </button>
+                  </form>
+                </div>
+              )
             ) : null}
           </>
         ) : null}

@@ -32,7 +32,7 @@ function generateTemporaryPassword() {
   return password;
 }
 
-async function findAuthUserIdByEmail(
+export async function findAuthUserIdByEmail(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   email: string,
 ) {
@@ -531,5 +531,138 @@ export async function setEmployeePasswordBySuperAdminAction(
       email: employee.email,
       password: password,
     },
+  };
+}
+
+/**
+ * Super Admin action to directly change an employee's login email.
+ * Synchronizes the email across Supabase Auth, public.users, and public.employees.
+ */
+export async function setEmployeeEmailBySuperAdminAction(
+  employeeId: string,
+  newEmail: string,
+): Promise<{ ok: boolean; message?: string; error?: string; email?: string }> {
+  const access = await getCurrentUserAccess();
+  if (!access.isSuperAdmin) {
+    return {
+      ok: false,
+      error: "Unauthorized. Super Administrator access is required to change user emails.",
+    };
+  }
+
+  const trimmedEmail = newEmail.trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+    return { ok: false, error: "Please enter a valid email address." };
+  }
+
+  const { company } = await getActiveCompany();
+  const admin = createSupabaseAdminClient();
+
+  const { data: employee, error: empError } = await admin
+    .from("employees")
+    .select("id, company_id, full_name, email, user_id")
+    .eq("company_id", company.id)
+    .eq("id", employeeId)
+    .is("deleted_at", null)
+    .single();
+
+  if (empError || !employee) {
+    return { ok: false, error: "Employee record could not be found." };
+  }
+
+  if (employee.email?.trim().toLowerCase() === trimmedEmail) {
+    return { ok: false, error: "The new email is identical to the current email." };
+  }
+
+  // 1. Check if another employee in this company already uses this email
+  const { data: duplicateEmployee } = await admin
+    .from("employees")
+    .select("id, full_name")
+    .eq("company_id", company.id)
+    .ilike("email", trimmedEmail)
+    .neq("id", employeeId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (duplicateEmployee) {
+    return {
+      ok: false,
+      error: `This email is already assigned to employee ${duplicateEmployee.full_name} in this company.`,
+    };
+  }
+
+  // 2. Locate existing auth user id if any
+  let authUserId: string | null = null;
+  if (employee.user_id) {
+    const { data: userRow } = await admin
+      .from("users")
+      .select("id, auth_user_id, email")
+      .eq("id", employee.user_id)
+      .maybeSingle();
+
+    if (userRow?.auth_user_id) {
+      authUserId = userRow.auth_user_id;
+    }
+  }
+
+  if (!authUserId && employee.email) {
+    try {
+      authUserId = await findAuthUserIdByEmail(admin, employee.email);
+    } catch {
+      authUserId = null;
+    }
+  }
+
+  // 3. Check if new email is already used by another auth user
+  try {
+    const existingAuthId = await findAuthUserIdByEmail(admin, trimmedEmail);
+    if (existingAuthId && existingAuthId !== authUserId) {
+      return {
+        ok: false,
+        error: "This email address is already in use by another user account in the system.",
+      };
+    }
+  } catch {
+    // proceed
+  }
+
+  // 4. If employee has an Auth user, update Supabase Auth and public.users
+  if (authUserId) {
+    const { error: updateAuthError } = await admin.auth.admin.updateUserById(authUserId, {
+      email: trimmedEmail,
+      email_confirm: true,
+    });
+
+    if (updateAuthError) {
+      return { ok: false, error: `Failed to update Auth email: ${updateAuthError.message}` };
+    }
+
+    // Update public.users
+    await admin
+      .from("users")
+      .update({ email: trimmedEmail, updated_at: new Date().toISOString() })
+      .eq("auth_user_id", authUserId);
+  }
+
+  // 5. Update public.employees
+  const { error: updateEmpError } = await admin
+    .from("employees")
+    .update({ email: trimmedEmail, updated_at: new Date().toISOString() })
+    .eq("id", employee.id);
+
+  if (updateEmpError) {
+    return { ok: false, error: `Failed to update employee profile email: ${updateEmpError.message}` };
+  }
+
+  revalidatePath(`/dashboard/employees/${employee.id}`);
+  revalidatePath("/dashboard/employees");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/account");
+
+  return {
+    ok: true,
+    message: `Login email successfully changed to ${trimmedEmail} for ${employee.full_name}.`,
+    email: trimmedEmail,
   };
 }

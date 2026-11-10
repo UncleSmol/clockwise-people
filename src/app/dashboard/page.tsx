@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { getPastWeekDraftsInfo } from "@/lib/time-tracking/schema";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -54,6 +55,9 @@ function LoadingPanel({ label }: { label: string }) {
 
 const ChangePasswordForm = dynamic(() => import("@/components/account/ChangePasswordForm"), {
   loading: () => <LoadingPanel label="password tools" />,
+});
+const ChangeEmailForm = dynamic(() => import("@/components/account/ChangeEmailForm"), {
+  loading: () => <LoadingPanel label="email tools" />,
 });
 const PushNotificationSettings = dynamic(
   () => import("@/components/account/PushNotificationSettings"),
@@ -317,8 +321,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }).format(new Date());
 
   const todayEntry = employeeTimeState?.todayEntry ?? null;
-  const draftCount =
-    employeeTimeState?.recentEntries.filter((entry) => entry.status === "draft").length ?? 0;
+  const pastWeekInfo = getPastWeekDraftsInfo(
+    employeeTimeState?.currentWorkDate ?? "",
+    employeeTimeState?.recentEntries ?? [],
+    employeeTimeState?.publicHolidays ?? [],
+  );
+  const draftCount = pastWeekInfo.pastWeekDraftsCount;
   const submittedCount =
     employeeTimeState?.recentEntries.filter((entry) => entry.status === "submitted").length ?? 0;
   const pendingLeaveCount =
@@ -381,6 +389,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const currentWorkstationName =
     employeeTimeState?.workstations.find((w) => w.id === employeeTimeState.assignedWorkstationId)?.name ??
     undefined;
+  const currentJobTitle = accountProfile.employee?.jobTitle ?? undefined;
+  const canViewLocation = Boolean(
+    isManager ||
+    isAdmin ||
+    access.isHrAdmin ||
+    access.isPayrollViewer ||
+    access.isBranchManager ||
+    access.isOwner ||
+    access.isSuperAdmin ||
+    access.isSuperUser
+  );
 
   const panels: WorkspacePanel[] = [];
 
@@ -396,6 +415,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           employeeNumber={currentEmployeeNumber}
           departmentName={currentDepartmentName}
           workstationName={currentWorkstationName}
+          jobTitle={currentJobTitle}
+          canViewLocation={canViewLocation}
           entries={employeeTimeState.recentEntries}
           leaveRequests={leaveState?.requests ?? []}
           leaveBalances={leaveState?.balances ?? []}
@@ -404,6 +425,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           payrollConfig={payrollConfig}
           companyName={company.name}
           toilEnabled={Boolean(leaveState?.toilEnabled)}
+          employeeGender={leaveState?.employeeGender}
         />
       ),
     });
@@ -447,6 +469,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               data={workRulesData}
               initialEmployeeId={selectedEmployeeId ?? undefined}
               leaveHistory={calendarLeaveRequests}
+              timeEntries={calendarEntries}
             />
           ) : null}
         </div>
@@ -488,29 +511,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <div
                   key={selectedEmployee.id}
                   id="selected-employee-manage-pane"
-                  className="grid gap-6 rounded-2xl border-2 border-primary/20 bg-primary/5 p-4 sm:p-6 shadow-soft"
+                  className="space-y-4 sm:space-y-6 min-w-0"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 sm:p-4 shadow-2xs">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-bold text-white shadow-2xs">
                           Managing Record
                         </span>
-                        <h2 className="text-lg sm:text-xl font-bold text-foreground">
+                        <h2 className="text-base sm:text-xl font-bold text-foreground truncate">
                           {selectedEmployee.full_name || selectedEmployee.known_as}
                         </h2>
                       </div>
-                      <p className="mt-0.5 text-xs text-muted">
+                      <p className="mt-0.5 text-xs text-muted truncate">
                         {selectedEmployee.job_title ?? "Team Member"} · {selectedEmployee.email ?? "No email"}
                       </p>
                     </div>
 
                     <Link
                       href="/dashboard?panel=people"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-xs font-bold text-foreground shadow-2xs hover:bg-surface-muted transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-foreground shadow-2xs hover:bg-surface-muted transition-colors cursor-pointer shrink-0"
                     >
                       <X className="size-3.5" />
-                      Close Record
+                      <span>Close Record</span>
                     </Link>
                   </div>
 
@@ -530,10 +553,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
                   {manualInviteUrl ? <InviteLinkPanel inviteUrl={manualInviteUrl} /> : null}
 
-                  <section className="grid gap-4">
-                    <div>
-                      <h2 className="text-xl font-semibold text-foreground">Edit employee</h2>
-                      <p className="mt-1 text-sm text-muted">
+                  <section className="grid gap-4 rounded-2xl border border-border/80 bg-surface p-3.5 sm:p-6 shadow-soft">
+                    <div className="border-b border-border/80 pb-3">
+                      <h2 className="text-base sm:text-xl font-bold text-foreground">Edit employee</h2>
+                      <p className="mt-0.5 text-xs text-muted">
                         Updates are scoped by company and employee id on the backend.
                       </p>
                     </div>
@@ -659,7 +682,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface grid gap-6">
-                  <CompanyAllAccrualsTable data={workRulesData} />
+                  <CompanyAllAccrualsTable data={workRulesData} timeEntries={calendarEntries} />
                   <CompanyWorkRulesPanel data={workRulesData} />
                   <CompanyLeaveAccrualPanel data={workRulesData} />
                 </div>
@@ -847,13 +870,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <ProfileForm employee={accountProfile.employee} />
             </section>
           ) : null}
-          <section className="grid max-w-xl gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Change password</h2>
-              <p className="mt-1 text-sm text-muted">Use this after receiving temporary credentials.</p>
-            </div>
-            <ChangePasswordForm />
-          </section>
+          <div className="grid gap-6 md:grid-cols-2">
+            <section className="grid gap-4 rounded-2xl border border-border/80 bg-surface p-5 sm:p-6 shadow-soft">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Change login email</h2>
+                <p className="mt-1 text-xs text-muted">Update the email address used to sign in to ClockWise.</p>
+              </div>
+              <ChangeEmailForm currentEmail={accountProfile.account.email} />
+            </section>
+
+            <section className="grid gap-4 rounded-2xl border border-border/80 bg-surface p-5 sm:p-6 shadow-soft">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Change password</h2>
+                <p className="mt-1 text-xs text-muted">Use this after receiving temporary credentials.</p>
+              </div>
+              <ChangePasswordForm />
+            </section>
+          </div>
           {companySettings && canManageCompany ? <CompanyRulesForm settings={companySettings} /> : null}
         </div>
       ),
@@ -902,6 +935,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             defaultLunchMinutes={employeeTimeState?.defaultLunchMinutes}
             autoClockoutBasedOnSchedule={employeeTimeState?.autoClockoutBasedOnSchedule}
             autoClockoutGraceMinutes={employeeTimeState?.autoClockoutGraceMinutes}
+            hasUnsubmittedPastWeekDrafts={pastWeekInfo.hasUnsubmittedPastWeekDrafts}
+            pastWeekDraftsCount={pastWeekInfo.pastWeekDraftsCount}
+            pastWeekRange={{ start: pastWeekInfo.startOfPastWeek, end: pastWeekInfo.endOfPastWeek }}
           />
         }
       employeeCalendar={
@@ -980,6 +1016,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 employeeNumber={currentEmployeeNumber}
                 departmentName={currentDepartmentName}
                 workstationName={currentWorkstationName}
+                jobTitle={currentJobTitle}
+                canViewLocation={canViewLocation}
                 entries={employeeTimeState.recentEntries}
                 leaveRequests={leaveState?.requests ?? []}
                 leaveBalances={leaveState?.balances ?? []}
@@ -988,6 +1026,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 payrollConfig={payrollConfig}
                 companyName={company.name}
                 toilEnabled={Boolean(leaveState?.toilEnabled)}
+                employeeGender={leaveState?.employeeGender}
               />
             }
             reportBadge={
@@ -1014,6 +1053,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             liveOverview={liveTimeOverview}
             isSysAdmin={access.isSuperAdmin}
             isSuperAdmin={access.isSuperAdmin}
+            leaveTypes={leaveState?.leaveTypes ?? []}
           />
         ) : undefined
       }

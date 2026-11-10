@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompany, requireEmployeeAdmin } from "@/lib/foundation/queries";
 import { employeeFormSchema, type EmployeeFormInput } from "./schema";
 import {
   autoAssignCompanyPayrollIdentifiers,
   getOrGenerateNextPayrollId,
 } from "./payroll-id";
+import { deriveGenderFromSouthAfricanId } from "@/lib/work-rules/realtime-accrual";
 
 type ActionState = {
   ok: boolean;
@@ -100,6 +102,7 @@ export async function createEmployee(
       hourly_rate: hourlyRate,
       compensation_type: hourlyRate ? "hourly" : "monthly",
       id_number: blankToNull(values.id_number),
+      gender: blankToNull(values.gender) || deriveGenderFromSouthAfricanId(values.id_number),
       tax_number: blankToNull(values.tax_number),
       address: blankToNull(values.address),
       payment_frequency: values.payment_frequency ?? "monthly",
@@ -206,6 +209,7 @@ export async function updateEmployee(
       hourly_rate: hourlyRate,
       compensation_type: hourlyRate ? "hourly" : "monthly",
       id_number: blankToNull(values.id_number),
+      gender: blankToNull(values.gender) || deriveGenderFromSouthAfricanId(values.id_number),
       tax_number: blankToNull(values.tax_number),
       address: blankToNull(values.address),
       payment_frequency: values.payment_frequency ?? "monthly",
@@ -258,6 +262,42 @@ export async function updateEmployee(
 
   if (scheduleError && !isMissingAssignmentRpc(scheduleError)) {
     return { ok: false, message: scheduleError.message };
+  }
+
+  // If email was changed and employee has an active user account, sync users table and auth.users
+  const newEmail = blankToNull(values.email)?.toLowerCase();
+  if (newEmail) {
+    try {
+      const admin = createSupabaseAdminClient();
+      const { data: empRecord } = await admin
+        .from("employees")
+        .select("user_id")
+        .eq("id", employeeId)
+        .maybeSingle();
+
+      if (empRecord?.user_id) {
+        const { data: userRow } = await admin
+          .from("users")
+          .select("id, auth_user_id, email")
+          .eq("id", empRecord.user_id)
+          .maybeSingle();
+
+        if (userRow && userRow.email?.toLowerCase() !== newEmail) {
+          if (userRow.auth_user_id) {
+            await admin.auth.admin.updateUserById(userRow.auth_user_id, {
+              email: newEmail,
+              email_confirm: true,
+            });
+          }
+          await admin
+            .from("users")
+            .update({ email: newEmail, updated_at: new Date().toISOString() })
+            .eq("id", userRow.id);
+        }
+      }
+    } catch (syncErr) {
+      console.warn("Failed to synchronize auth email during employee update:", syncErr);
+    }
   }
 
   revalidatePath("/dashboard/employees");

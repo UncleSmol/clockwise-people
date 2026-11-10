@@ -230,3 +230,61 @@ export type CompanyCalendarLeaveRequest = {
   total_hours: number | string;
   status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked";
 };
+
+export function getWeekBounds(currentWorkDate: string) {
+  const [y = 2026, m = 1, d = 1] = currentWorkDate.split("-").map(Number);
+  const cur = new Date(y, m - 1, d);
+  const dayOfWeek = cur.getDay(); // 0 is Sun, 1 is Mon...
+  const diffToCurrentMonday = (dayOfWeek + 6) % 7;
+
+  const currentMonday = new Date(cur);
+  currentMonday.setDate(cur.getDate() - diffToCurrentMonday);
+
+  const pastMonday = new Date(currentMonday);
+  pastMonday.setDate(currentMonday.getDate() - 7);
+
+  const pastSunday = new Date(currentMonday);
+  pastSunday.setDate(currentMonday.getDate() - 1);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const format = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+
+  return {
+    startOfPastWeek: format(pastMonday),
+    endOfPastWeek: format(pastSunday),
+    startOfCurrentWeek: format(currentMonday),
+  };
+}
+
+export function getPastWeekDraftsInfo(
+  currentWorkDate: string,
+  entries: TimeEntryRecord[] = [],
+  holidayDates: (CompanyPublicHoliday | string)[] | Set<string> = [],
+) {
+  const bounds = getWeekBounds(currentWorkDate || new Date().toISOString().slice(0, 10));
+  const holidays = new Set(
+    Array.isArray(holidayDates)
+      ? holidayDates.map((h) => (typeof h === "string" ? h : h.holiday_date))
+      : holidayDates,
+  );
+
+  const pastWeekDrafts = entries.filter((entry) => {
+    if (entry.work_date < bounds.startOfPastWeek || entry.work_date > bounds.endOfPastWeek) {
+      return false;
+    }
+    if (entry.status !== "draft" && entry.status !== "rejected") {
+      return false;
+    }
+    if (holidays.has(entry.work_date) || entry.notes?.startsWith("Public holiday:")) {
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    ...bounds,
+    pastWeekDrafts,
+    pastWeekDraftsCount: pastWeekDrafts.length,
+    hasUnsubmittedPastWeekDrafts: pastWeekDrafts.length > 0,
+  };
+}

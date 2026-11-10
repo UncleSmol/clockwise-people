@@ -22,7 +22,7 @@ import {
 
 import UniversalSpreadsheetImporter from "@/components/import-export/UniversalSpreadsheetImporter";
 
-type FilterTab = "all" | "work" | "leave" | "warnings";
+type FilterTab = "all" | "work" | "leave" | "warnings" | "duplicates";
 type ImportMode = "universal" | "template";
 
 export default function TimesheetMigrationPanel() {
@@ -32,7 +32,8 @@ export default function TimesheetMigrationPanel() {
   const [previewData, setPreviewData] = useState<MigrationPreviewResponse | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [skipExisting, setSkipExisting] = useState(true);
+  const [skipExisting, setSkipExisting] = useState(false);
+  const [conflictResolution, setConflictResolution] = useState<"overwrite" | "skip" | "stack">("overwrite");
   const [updateLeaveBalances, setUpdateLeaveBalances] = useState(true);
   const [autoProvisionLeaveTypes, setAutoProvisionLeaveTypes] = useState(true);
 
@@ -88,9 +89,10 @@ export default function TimesheetMigrationPanel() {
     startExecuteTransition(async () => {
       const res = await executeTimesheetMigration({
         entries: previewData.entries!,
-        skipExisting,
+        skipExisting: conflictResolution === "skip",
         updateLeaveBalances,
         autoProvisionLeaveTypes,
+        conflictResolution,
       });
       setExecutionResult(res);
     });
@@ -105,6 +107,7 @@ export default function TimesheetMigrationPanel() {
     if (activeTab === "work" && entry.entryType !== "work") return false;
     if (activeTab === "leave" && entry.entryType !== "leave") return false;
     if (activeTab === "warnings" && entry.validationStatus === "valid") return false;
+    if (activeTab === "duplicates" && !entry.isDuplicate) return false;
 
     // Search query
     if (searchQuery.trim()) {
@@ -169,14 +172,25 @@ export default function TimesheetMigrationPanel() {
                 Import shifts using the pre-formatted ClockWise Excel template or QuickBooks export.
               </p>
             </div>
-            <a
-              href="/api/timesheet-template/download"
-              download="clockwise_timesheets_template.xlsx"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-xl shadow-2xs transition-colors shrink-0"
-            >
-              <Download className="size-4 text-emerald-600" />
-              Download Excel Template
-            </a>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="/api/timesheets/export"
+                download
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-2xs transition-colors shrink-0 cursor-pointer"
+                title="Export all imported timesheets and new live clock-ins"
+              >
+                <Download className="size-4" />
+                Export Live Timesheets (XLSX)
+              </a>
+              <a
+                href="/api/timesheet-template/download"
+                download="clockwise_timesheets_template.xlsx"
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-foreground bg-surface-muted hover:bg-border/40 border border-border rounded-xl shadow-2xs transition-colors shrink-0"
+              >
+                <Download className="size-4 text-emerald-600" />
+                Download Blank Template
+              </a>
+            </div>
           </div>
 
           {/* Upload Zone */}
@@ -296,6 +310,35 @@ export default function TimesheetMigrationPanel() {
             </button>
           </div>
 
+          {/* Duplicate Detection Alert Notice */}
+          {previewData.duplicateSummary && previewData.duplicateSummary.totalDuplicates > 0 && (
+            <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="size-4 shrink-0 text-amber-600" />
+                <span className="text-sm">
+                  Duplicate Timesheets Detected ({previewData.duplicateSummary.totalDuplicates} duplicate records)
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <span className="px-2.5 py-1 rounded-full bg-surface/80 border border-amber-500/30 font-semibold text-foreground">
+                  In Database: <strong className="text-amber-700 dark:text-amber-400">{previewData.duplicateSummary.existingInDatabase}</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-surface/80 border border-amber-500/30 font-semibold text-foreground">
+                  In Uploaded File: <strong className="text-amber-700 dark:text-amber-400">{previewData.duplicateSummary.duplicatesInFile}</strong>
+                </span>
+                {previewData.duplicateSummary.affectedEmployees.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-surface/80 border border-amber-500/30 font-semibold text-foreground">
+                    Affected Staff: {previewData.duplicateSummary.affectedEmployees.slice(0, 3).join(", ")}
+                    {previewData.duplicateSummary.affectedEmployees.length > 3 ? ` +${previewData.duplicateSummary.affectedEmployees.length - 3} more` : ""}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                A timesheet already exists for these employees on the given work dates. Review your conflict handling options below to choose whether to <strong>overwrite</strong>, <strong>skip</strong>, or <strong>add on top</strong>.
+              </p>
+            </div>
+          )}
+
           {/* Diagnostics warnings if any */}
           {(diagnostics.unmatchedEmployees.length > 0 ||
             diagnostics.unmatchedWorkstations.length > 0 ||
@@ -330,11 +373,11 @@ export default function TimesheetMigrationPanel() {
 
           {/* Table Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-1.5 p-1 bg-surface-muted rounded-xl border border-border">
+            <div className="flex items-center gap-1.5 p-1 bg-surface-muted rounded-xl border border-border overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab("all")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
                   activeTab === "all"
                     ? "bg-emerald-600 text-white"
                     : "text-muted hover:text-foreground"
@@ -345,7 +388,7 @@ export default function TimesheetMigrationPanel() {
               <button
                 type="button"
                 onClick={() => setActiveTab("work")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
                   activeTab === "work"
                     ? "bg-emerald-600 text-white"
                     : "text-muted hover:text-foreground"
@@ -356,7 +399,7 @@ export default function TimesheetMigrationPanel() {
               <button
                 type="button"
                 onClick={() => setActiveTab("leave")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
                   activeTab === "leave"
                     ? "bg-emerald-600 text-white"
                     : "text-muted hover:text-foreground"
@@ -367,7 +410,7 @@ export default function TimesheetMigrationPanel() {
               <button
                 type="button"
                 onClick={() => setActiveTab("warnings")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
                   activeTab === "warnings"
                     ? "bg-amber-600 text-white"
                     : "text-muted hover:text-foreground"
@@ -375,6 +418,19 @@ export default function TimesheetMigrationPanel() {
               >
                 Warnings ({diagnostics.warningEntriesCount + diagnostics.errorEntriesCount})
               </button>
+              {previewData.duplicateSummary && previewData.duplicateSummary.totalDuplicates > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("duplicates")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
+                    activeTab === "duplicates"
+                      ? "bg-amber-600 text-white"
+                      : "text-amber-800 dark:text-amber-300 hover:text-foreground"
+                  }`}
+                >
+                  Duplicates ({previewData.duplicateSummary.totalDuplicates})
+                </button>
+              )}
             </div>
 
             <div className="flex w-full sm:w-64 items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs text-foreground focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 transition-colors">
@@ -434,7 +490,15 @@ export default function TimesheetMigrationPanel() {
                         }`}
                       >
                         <td className="py-2 px-2 sm:py-2.5 sm:px-3 whitespace-nowrap">
-                          {entry.validationStatus === "valid" ? (
+                          {entry.isDuplicate ? (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-800 bg-amber-500/15 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/30"
+                              title={entry.duplicateDetails || "Duplicate record"}
+                            >
+                              <AlertTriangle className="size-3 sm:size-3.5" />
+                              {entry.duplicateType === "database" ? "DB Dup" : "File Dup"}
+                            </span>
+                          ) : entry.validationStatus === "valid" ? (
                             <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 rounded border border-emerald-500/20">
                               <CheckCircle2 className="size-3 sm:size-3.5" />
                               Valid
@@ -523,22 +587,107 @@ export default function TimesheetMigrationPanel() {
 
           {/* Migration Execution Controls */}
           <div className="rounded-xl border border-border bg-surface p-4 sm:p-6 space-y-4">
-            <h4 className="text-sm font-bold text-foreground">Import Preferences &amp; Conflict Resolution</h4>
-            
-            <div className="grid sm:grid-cols-3 gap-4 text-xs">
-              <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-lg border border-border hover:bg-surface-muted/50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={skipExisting}
-                  onChange={(e) => setSkipExisting(e.target.checked)}
-                  className="mt-0.5 size-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <span className="font-semibold text-foreground">Skip Existing Dates</span>
-                  <p className="text-muted mt-0.5">Do not overwrite shifts or leaves that already exist on that date.</p>
-                </div>
-              </label>
+            <h4 className="text-sm font-bold text-foreground">Conflict Handling &amp; Migration Preferences</h4>
 
+            {/* Conflict Strategy Radios */}
+            <div>
+              <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-2">
+                Timesheet Conflict Resolution Strategy:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label
+                  className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    conflictResolution === "overwrite"
+                      ? "border-2 border-emerald-500 bg-emerald-500/5 text-foreground"
+                      : "border-border bg-surface hover:bg-surface-muted/30 text-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="templateConflictResolution"
+                        value="overwrite"
+                        checked={conflictResolution === "overwrite"}
+                        onChange={() => {
+                          setConflictResolution("overwrite");
+                          setSkipExisting(false);
+                        }}
+                        className="size-3.5 text-emerald-600"
+                      />
+                      Overwrite Existing
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      Recommended
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted">
+                    Replaces existing shift/leave on that work date with the imported record.
+                  </span>
+                </label>
+
+                <label
+                  className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    conflictResolution === "skip"
+                      ? "border-2 border-emerald-500 bg-emerald-500/5 text-foreground"
+                      : "border-border bg-surface hover:bg-surface-muted/30 text-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="templateConflictResolution"
+                        value="skip"
+                        checked={conflictResolution === "skip"}
+                        onChange={() => {
+                          setConflictResolution("skip");
+                          setSkipExisting(true);
+                        }}
+                        className="size-3.5 text-emerald-600"
+                      />
+                      Skip Duplicates
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted">
+                    Preserves existing database entries safe and ignores duplicate records.
+                  </span>
+                </label>
+
+                <label
+                  className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    conflictResolution === "stack"
+                      ? "border-2 border-amber-500 bg-amber-500/5 text-foreground"
+                      : "border-border bg-surface hover:bg-surface-muted/30 text-muted"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="templateConflictResolution"
+                        value="stack"
+                        checked={conflictResolution === "stack"}
+                        onChange={() => {
+                          setConflictResolution("stack");
+                          setSkipExisting(false);
+                        }}
+                        className="size-3.5 text-amber-600"
+                      />
+                      Add On Top (Additive)
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-500/15 px-2 py-0.5 rounded-full">
+                      Controlled
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted">
+                    Inserts additional shift on the same date (controlled additive mode).
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 text-xs">
               <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-lg border border-border hover:bg-surface-muted/50 transition-colors">
                 <input
                   type="checkbox"

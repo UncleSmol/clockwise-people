@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Shield, Sparkles, UserCheck } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Mail, Shield, Sparkles, UserCheck } from "lucide-react";
 import {
   createEmployeeAccount,
   assignEmployeeRole,
   toggleEmployeeSuperAdminAction,
   setEmployeePasswordBySuperAdminAction,
+  setEmployeeEmailBySuperAdminAction,
   type EmployeeAccountRoleKey,
 } from "@/lib/employee-accounts/actions";
 import { sendEmployeeInvite, createEmployeeInviteLink } from "@/lib/invitations/actions";
@@ -77,7 +78,12 @@ export default function EmployeeAccountPanel({
   const [superAdminFeedback, setSuperAdminFeedback] = useState<{ ok: boolean; message: string } | null>(null);
   const [isSuperAdminPending, startSuperAdminTransition] = useTransition();
 
-  // Super Admin Password Management State
+  // Super Admin Email & Password Management State
+  const [currentEmployeeEmail, setCurrentEmployeeEmail] = useState(email ?? "");
+  const [targetEmail, setTargetEmail] = useState(email ?? "");
+  const [emailFeedback, setEmailFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [isEmailPending, startEmailTransition] = useTransition();
+
   const [targetPassword, setTargetPassword] = useState("");
   const [showTargetPassword, setShowTargetPassword] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState<{
@@ -181,6 +187,38 @@ export default function EmployeeAccountPanel({
     });
   }
 
+  function handleSetEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanEmail = targetEmail.trim().toLowerCase();
+    if (!cleanEmail) return;
+    setEmailFeedback(null);
+
+    startEmailTransition(async () => {
+      try {
+        const result = await setEmployeeEmailBySuperAdminAction(employeeId, cleanEmail);
+        if (result.ok) {
+          const finalEmail = result.email || cleanEmail;
+          setCurrentEmployeeEmail(finalEmail);
+          setTargetEmail(finalEmail);
+          setEmailFeedback({
+            ok: true,
+            message: result.message ?? "Login email updated successfully.",
+          });
+        } else {
+          setEmailFeedback({
+            ok: false,
+            message: result.error ?? "Failed to update email.",
+          });
+        }
+      } catch (err) {
+        setEmailFeedback({
+          ok: false,
+          message: err instanceof Error ? err.message : "Unexpected error updating email.",
+        });
+      }
+    });
+  }
+
   function handleGeneratePassword() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
     const array = new Uint8Array(14);
@@ -230,14 +268,14 @@ export default function EmployeeAccountPanel({
   }
 
   async function copyPasswordCredentials(creds: { email: string; password: string }) {
-    const text = `ClockWise People Credentials\nEmail: ${creds.email}\nPassword: ${creds.password}\n\nSign in at: ${typeof window !== "undefined" ? window.location.origin : ""}/login`;
+    const text = `ClockWise People Credentials\nEmail: ${creds.email || currentEmployeeEmail}\nPassword: ${creds.password}\n\nSign in at: ${typeof window !== "undefined" ? window.location.origin : ""}/login`;
     await navigator.clipboard.writeText(text);
     setCopiedPasswordCreds(true);
     window.setTimeout(() => setCopiedPasswordCreds(false), 2000);
   }
 
   return (
-    <section className="grid min-w-0 gap-5 rounded-2xl border border-border/80 bg-surface p-5 sm:p-6 shadow-soft">
+    <section className="grid min-w-0 gap-4 sm:gap-5 rounded-2xl border border-border/80 bg-surface p-3.5 sm:p-6 shadow-soft">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <div className="flex items-center gap-2">
@@ -325,8 +363,8 @@ export default function EmployeeAccountPanel({
 
       {/* Role Assignment Section for employees WITH an active account */}
       {hasAccount && canAssignRoles && (
-        <div className="rounded-2xl border border-border/80 bg-background/60 p-5 shadow-soft">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-xl sm:rounded-2xl border border-border/80 bg-background/60 p-3.5 sm:p-5 shadow-2xs">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
                 <UserCheck className="size-4 text-primary" />
@@ -337,13 +375,13 @@ export default function EmployeeAccountPanel({
               </p>
             </div>
 
-            <form onSubmit={handleAssignRoleSubmit} className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 rounded-full border border-border/80 bg-background px-4">
+            <form onSubmit={handleAssignRoleSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 rounded-full border border-border/80 bg-background px-3 sm:px-4">
                 <Shield className="size-4 shrink-0 text-muted" />
                 <select
                   value={assignRoleKey}
                   onChange={(e) => setAssignRoleKey(e.target.value as EmployeeAccountRoleKey)}
-                  className="h-11 min-w-[170px] bg-transparent text-sm text-foreground outline-none cursor-pointer"
+                  className="h-10 sm:h-11 min-w-0 flex-1 sm:min-w-[170px] bg-transparent text-xs sm:text-sm text-foreground outline-none cursor-pointer"
                   aria-label="Target employee role"
                 >
                   {roleOptions.map((option) => (
@@ -357,7 +395,7 @@ export default function EmployeeAccountPanel({
               <button
                 type="submit"
                 disabled={isAssignPending || assignRoleKey === currentRoleKey}
-                className="inline-flex min-h-[44px] h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-6 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                className="inline-flex min-h-[40px] sm:min-h-[44px] h-10 sm:h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-xs font-bold text-white shadow-soft hover:brightness-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shrink-0"
               >
                 {isAssignPending ? (
                   <>
@@ -392,8 +430,8 @@ export default function EmployeeAccountPanel({
 
       {/* Super Admin Universal Privilege Management */}
       {hasAccount && canAssignSuperAdmin && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 shadow-soft">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-xl sm:rounded-2xl border border-primary/30 bg-primary/[0.04] p-3.5 sm:p-5 shadow-2xs">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Shield className="size-4 text-primary" />
@@ -417,7 +455,7 @@ export default function EmployeeAccountPanel({
               type="button"
               disabled={isSuperAdminPending}
               onClick={handleToggleSuperAdmin}
-              className={`inline-flex min-h-[44px] h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-5 text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex min-h-[40px] sm:min-h-[44px] h-10 sm:h-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-5 text-xs font-bold transition-all cursor-pointer ${
                 isSuperAdminUser
                   ? "border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20"
                   : "bg-primary text-white shadow-soft hover:brightness-105"
@@ -454,10 +492,10 @@ export default function EmployeeAccountPanel({
         </div>
       )}
 
-      {/* Super Admin Direct Password Management */}
-      {isViewerSuperAdmin && email && (
-        <div id="password-panel" className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-5 sm:p-6 shadow-soft">
-          <div className="flex flex-col gap-4">
+      {/* Super Admin Direct Credentials Management (Email & Password) */}
+      {isViewerSuperAdmin && (
+        <div id="credentials-panel" className="rounded-xl sm:rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-3.5 sm:p-5 shadow-2xs space-y-3.5 sm:space-y-4">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -465,7 +503,7 @@ export default function EmployeeAccountPanel({
                     <KeyRound className="size-4" />
                   </div>
                   <h3 className="text-sm font-extrabold text-foreground">
-                    Super Admin Password Management
+                    Super Admin Credentials Management
                   </h3>
                   <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-700">
                     <Shield className="size-2.5" />
@@ -473,16 +511,84 @@ export default function EmployeeAccountPanel({
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-muted leading-relaxed">
-                  {hasAccount
-                    ? "Directly change and override this user's password in Supabase Auth. The new credentials take effect immediately without requiring email confirmation."
-                    : "Create this employee's account and set their initial password directly in Supabase Auth."}
+                  As Super Admin, you can directly override this user&apos;s login email address and password in Supabase Auth. All credential changes take effect immediately without requiring email verification links.
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* 1. Direct Email Change */}
+          <div className="pt-3 border-t border-amber-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-muted">
+                1. Change Login Email Address
+              </label>
+              <span className="text-[11px] text-muted font-mono">
+                Current: <strong className="text-foreground">{currentEmployeeEmail || "None"}</strong>
+              </span>
+            </div>
+
+            <form onSubmit={handleSetEmailSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="relative flex-1 min-w-0">
+                <input
+                  type="email"
+                  value={targetEmail}
+                  onChange={(e) => setTargetEmail(e.target.value)}
+                  placeholder="Enter new login email address"
+                  autoComplete="email"
+                  disabled={isEmailPending}
+                  style={{ paddingLeft: "2.75rem", paddingRight: "1rem" }}
+                  className="h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background !pl-11 !pr-4 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                />
+                <Mail className="size-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  isEmailPending ||
+                  !targetEmail.trim() ||
+                  targetEmail.trim().toLowerCase() === currentEmployeeEmail.toLowerCase()
+                }
+                className="inline-flex min-h-[40px] sm:min-h-[44px] h-10 sm:h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 text-xs font-bold shadow-soft hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                {isEmailPending ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Updating Email...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="size-3.5" />
+                    <span>Update Login Email</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {emailFeedback && (
+              <div
+                className={`rounded-xl border p-3 text-xs font-medium flex items-center gap-2 ${
+                  emailFeedback.ok
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
+                    : "border-rose-500/30 bg-rose-500/10 text-rose-950 dark:text-rose-200"
+                }`}
+              >
+                {emailFeedback.ok ? <Check className="size-3.5 text-emerald-600 shrink-0" /> : null}
+                <span>{emailFeedback.message}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Direct Password Change */}
+          <div className="pt-3 border-t border-amber-500/20 space-y-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-muted">
+              2. Change Password / Credentials
+            </label>
 
             <form onSubmit={handleSetPasswordSubmit} className="mt-1 flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <input
                     type={showTargetPassword ? "text" : "password"}
                     value={targetPassword}
@@ -490,7 +596,8 @@ export default function EmployeeAccountPanel({
                     placeholder="Enter new password (min. 8 characters)"
                     autoComplete="new-password"
                     disabled={isPasswordPending}
-                    className="h-11 w-full rounded-full border border-border/80 bg-background pl-4 pr-11 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
+                    style={{ paddingLeft: "1rem", paddingRight: "2.75rem" }}
+                    className="h-10 sm:h-11 w-full rounded-full border border-border/80 bg-background !pl-4 !pr-11 text-xs font-mono font-medium text-foreground outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-xs"
                   />
                   <button
                     type="button"
@@ -507,34 +614,36 @@ export default function EmployeeAccountPanel({
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleGeneratePassword}
-                  disabled={isPasswordPending}
-                  className="inline-flex min-h-[44px] h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-border/80 bg-background px-4 text-xs font-bold text-foreground hover:bg-surface-muted shadow-xs transition-colors cursor-pointer"
-                  title="Generate random secure password"
-                >
-                  <Sparkles className="size-3.5 text-amber-600" />
-                  <span>Generate Password</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    disabled={isPasswordPending}
+                    className="inline-flex min-h-[40px] sm:min-h-[44px] h-10 sm:h-11 flex-1 sm:flex-initial shrink-0 items-center justify-center gap-1.5 rounded-full border border-border/80 bg-background px-4 text-xs font-bold text-foreground hover:bg-surface-muted shadow-xs transition-colors cursor-pointer"
+                    title="Generate random secure password"
+                  >
+                    <Sparkles className="size-3.5 text-amber-600" />
+                    <span>Generate Password</span>
+                  </button>
 
-                <button
-                  type="submit"
-                  disabled={isPasswordPending || targetPassword.trim().length < 8}
-                  className="inline-flex min-h-[44px] h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-amber-600 px-6 text-xs font-bold text-white shadow-soft hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-                >
-                  {isPasswordPending ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      <span>Setting Password...</span>
-                    </>
-                  ) : (
-                    <>
-                      <KeyRound className="size-3.5" />
-                      <span>{hasAccount ? "Set New Password" : "Create with Password"}</span>
-                    </>
-                  )}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={isPasswordPending || targetPassword.trim().length < 8}
+                    className="inline-flex min-h-[40px] sm:min-h-[44px] h-10 sm:h-11 flex-1 sm:flex-initial shrink-0 items-center justify-center gap-1.5 rounded-full bg-amber-600 px-5 sm:px-6 text-xs font-bold text-white shadow-soft hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    {isPasswordPending ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>Setting Password...</span>
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="size-3.5" />
+                        <span>{hasAccount ? "Set New Password" : "Create with Password"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between text-[11px] text-muted">
@@ -566,7 +675,7 @@ export default function EmployeeAccountPanel({
                 {passwordFeedback.credentials && (
                   <div className="mt-3 rounded-xl border border-emerald-500/20 bg-background p-3.5 shadow-xs">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                      Active Credentials for {email}
+                      Active Credentials for {currentEmployeeEmail || email}
                     </p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       <div>
@@ -621,7 +730,7 @@ export default function EmployeeAccountPanel({
         </div>
       )}
 
-      {!email && (
+      {!currentEmployeeEmail && !email && (
         <div className="rounded-2xl border border-warning/20 bg-warning/10 px-5 py-3 text-sm font-semibold text-warning">
           Add an email address before creating an account or sending an invite.
         </div>

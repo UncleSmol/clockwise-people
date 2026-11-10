@@ -87,6 +87,7 @@ export const employeeFormSchema = z
     monthly_salary: optionalMoney,
     hourly_rate: optionalMoney,
     id_number: sanitizedOptionalText(30),
+    gender: sanitizedOptionalText(20),
     tax_number: sanitizedOptionalText(30),
     address: sanitizedOptionalText(250),
     payment_frequency: z.enum(paymentFrequencies).optional(),
@@ -154,6 +155,7 @@ export type EmployeeRecord = {
   role_name?: string | null;
   is_super_admin?: boolean;
   id_number?: string | null;
+  gender?: "male" | "female" | "other" | string | null;
   tax_number?: string | null;
   address?: string | null;
   payment_frequency?: string | null;

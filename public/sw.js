@@ -1,5 +1,11 @@
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches
+      .open("clockwise-sound-cache-v1")
+      .then((cache) => cache.add("/sounds/ping-sound.mp3"))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {

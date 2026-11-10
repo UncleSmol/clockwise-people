@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useTransition } from "react";
+import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from "react";
 import {
   Clock,
   Coffee,
@@ -32,6 +32,7 @@ import {
 } from "@/lib/time-tracking/actions";
 import { submitLeaveRequest } from "@/lib/work-rules/actions";
 import AnalogTimePicker from "@/components/time-tracking/AnalogTimePicker";
+import { calculateLiveLeaveBalance } from "@/lib/work-rules/realtime-accrual";
 import type {
   CompanyPublicHoliday,
   EmployeeScheduleInfo,
@@ -86,6 +87,16 @@ export default function ZenModeView({
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
   const [hasMounted, setHasMounted] = useState(false);
   const [actionCustomTime, setActionCustomTime] = useState<string>("");
+  const actionCustomTimeRef = useRef<string>("");
+
+  const updateActionCustomTime = useCallback((val: string) => {
+    setActionCustomTime(val);
+    actionCustomTimeRef.current = val;
+  }, []);
+
+  useEffect(() => {
+    actionCustomTimeRef.current = actionCustomTime;
+  }, [actionCustomTime]);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -383,7 +394,7 @@ export default function ZenModeView({
     if (effectiveWorkstationId) {
       formData.set("workstation_id", effectiveWorkstationId);
     }
-    const chosenTime = overrideTime || actionCustomTime;
+    const chosenTime = overrideTime || actionCustomTimeRef.current || actionCustomTime;
     if (chosenTime) {
       formData.set("requested_at", chosenTime);
     }
@@ -425,7 +436,7 @@ export default function ZenModeView({
         const res = await clockIn(formData ?? undefined);
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
-          setActionCustomTime("");
+          updateActionCustomTime("");
           showToast({ type: "success", message: "Clocked in successfully!" });
         } else {
           showToast({ type: "error", message: res.message || "Failed to clock in" });
@@ -443,7 +454,7 @@ export default function ZenModeView({
         const res = await clockOut(formData ?? undefined);
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
-          setActionCustomTime("");
+          updateActionCustomTime("");
           showToast({ type: "success", message: "Clocked out successfully!" });
         } else {
           showToast({ type: "error", message: res.message || "Failed to clock out" });
@@ -468,7 +479,7 @@ export default function ZenModeView({
         const res = await startLunch(formData ?? undefined);
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
-          setActionCustomTime("");
+          updateActionCustomTime("");
           showToast({ type: "success", message: "Lunch break started" });
         } else {
           showToast({ type: "error", message: res.message || "Failed to start lunch" });
@@ -486,7 +497,7 @@ export default function ZenModeView({
         const res = await endLunch(formData ?? undefined);
         if (res.ok && res.entry) {
           setTodayEntry(res.entry);
-          setActionCustomTime("");
+          updateActionCustomTime("");
           showToast({ type: "success", message: "Lunch break ended. Welcome back!" });
         } else {
           showToast({ type: "error", message: res.message || "Failed to end lunch" });
@@ -535,21 +546,21 @@ export default function ZenModeView({
         return {
           icon: <Clock className="size-8 sm:size-10 lg:size-11 text-white" />,
           label: "Clock In",
-          sublabel: "Start your work day",
+          sublabel: actionCustomTime ? `at ${actionCustomTime}` : "Start your work day",
           onClick: handleClockIn,
         };
       case "clocked_in":
         return {
           icon: <Clock className="size-8 sm:size-10 lg:size-11 text-white" />,
           label: "Clock Out",
-          sublabel: "End your work day",
+          sublabel: actionCustomTime ? `at ${actionCustomTime}` : "End your work day",
           onClick: handleClockOut,
         };
       case "on_lunch":
         return {
           icon: <Coffee className="size-8 sm:size-10 lg:size-11 text-white" />,
           label: "End Lunch",
-          sublabel: "Resume your day",
+          sublabel: actionCustomTime ? `at ${actionCustomTime}` : "Resume your day",
           onClick: handleEndLunch,
         };
       case "draft":
@@ -568,7 +579,7 @@ export default function ZenModeView({
           onClick: () => {},
         };
     }
-  }, [zenTab, timesheetState, todayEntry]);
+  }, [zenTab, timesheetState, todayEntry, actionCustomTime]);
 
   // Leave balances with fallback & statutory prioritization
   const leaveBalances = useMemo(() => {
@@ -721,7 +732,7 @@ export default function ZenModeView({
       >
         {/* Top: Headline Greeting & Subtitle with Clean Shift Timings (NO BADGES) */}
         <div className="flex flex-col items-center justify-center text-center space-y-1 sm:space-y-1.5 shrink-0 px-2">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-slate-900 leading-tight">
+          <h1 className="text-xl sm:text-2xl lg:text-4xl font-black tracking-tight text-slate-900 leading-tight">
             {greetingData.title}
           </h1>
           <p className="text-xs sm:text-sm lg:text-base text-slate-600 font-semibold max-w-md leading-relaxed">
@@ -747,7 +758,7 @@ export default function ZenModeView({
                 <div className="flex items-center justify-center">
                   <AnalogTimePicker
                     value={actionCustomTime || (hasMounted ? formattedLiveTime : "")}
-                    onValueChange={(val) => setActionCustomTime(val)}
+                    onValueChange={(val) => updateActionCustomTime(val)}
                     compact
                     className="text-xl sm:text-2xl font-black font-mono text-slate-900 tracking-tight leading-none px-1.5 py-0.5 rounded-lg hover:bg-slate-900/5 transition-colors cursor-pointer"
                     placeholder="--:--"
@@ -976,11 +987,23 @@ export default function ZenModeView({
           <div className="w-full max-w-md mx-auto my-auto py-2 shrink-0">
             <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
               {leaveBalances.slice(0, 3).map((balance) => {
-                const typeName = Array.isArray(balance.leave_types)
-                  ? balance.leave_types[0]?.name
-                  : (balance.leave_types as any)?.name ?? "Leave";
-                const totalHours = Number(balance.balance_hours ?? 0);
-                const displayDays = (totalHours / 8).toFixed(1);
+                const relation = Array.isArray(balance.leave_types)
+                  ? balance.leave_types[0]
+                  : balance.leave_types;
+                const typeName = relation?.name ?? "Leave";
+                const isToil = relation?.category === "toil_taken" || typeName.toLowerCase().includes("toil");
+
+                const live = calculateLiveLeaveBalance({
+                  baseBalanceHours: balance.balance_hours,
+                  leaveCategory: relation?.category ?? (isToil ? "toil_taken" : "annual"),
+                  leaveTypeName: typeName,
+                  accrualRules: (relation?.accrual_rules ?? {}) as Record<string, unknown>,
+                  activeShiftEntry: todayEntry,
+                  now: currentTime,
+                  toilMultiplier: 1.5,
+                });
+
+                const displayDays = (live.totalLiveHours / 8).toFixed(1);
 
                 return (
                   <div
@@ -988,13 +1011,13 @@ export default function ZenModeView({
                     className="relative rounded-2xl border border-white/85 bg-white/80 backdrop-blur-xl px-2 py-2 sm:px-3 sm:py-3 text-center shadow-xs flex flex-col items-center justify-center transition-all"
                   >
                     <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
-                      {displayDays}
+                      {displayDays}d
                     </p>
                     <p className="text-[10px] sm:text-xs font-black text-slate-600 uppercase tracking-wider mt-1">
                       {typeName}
                     </p>
                     <span className="text-[10px] text-slate-500 font-bold mt-0.5">
-                      {totalHours.toFixed(0)} hrs
+                      {live.formattedTime} ({displayDays} {Number(displayDays) === 1 ? "day" : "days"})
                     </span>
                   </div>
                 );
@@ -1049,7 +1072,7 @@ export default function ZenModeView({
             </div>
 
             {/* Primary Action Label */}
-            <h2 className="relative z-10 text-2xl sm:text-3xl lg:text-4xl font-black text-white mt-1.5 sm:mt-2 tracking-tight drop-shadow-md">
+            <h2 className="relative z-10 text-xl sm:text-2xl lg:text-4xl font-black text-white mt-1.5 sm:mt-2 tracking-tight drop-shadow-md">
               {domeButtonConfig.label}
             </h2>
 
@@ -1152,7 +1175,7 @@ function ZenLeaveModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full sm:max-w-md bg-white rounded-t-[36px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-250">
+      <div className="w-full sm:max-w-md bg-white rounded-t-[36px] sm:rounded-3xl p-4 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-250">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
           <div className="flex items-center gap-3">
             <div className="size-10 sm:size-11 rounded-full bg-purple-100 text-purple-700 grid place-items-center shrink-0">
@@ -1405,7 +1428,7 @@ function ZenEditOrAddTimesheetModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full sm:max-w-md bg-white rounded-t-[36px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-250">
+      <div className="w-full sm:max-w-md bg-white rounded-t-[36px] sm:rounded-3xl p-4 sm:p-7 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-250">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
           <div className="flex items-center gap-3">
             <div className="size-10 sm:size-11 rounded-full bg-blue-100 text-blue-700 grid place-items-center shrink-0">

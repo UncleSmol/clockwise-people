@@ -222,9 +222,9 @@ const comprehensivePolicies: PolicyItem[] = [
     categoryLabel: "Labour & Leave Accruals",
     title: "Statutory Leave Entitlements & Accrual Compliance Policy",
     subtitle:
-      "Automated accrual engine enforcing statutory Annual, Sick, Maternity, Parental, and Family Responsibility Leave.",
+      "Automated accrual engine enforcing statutory Annual, Sick, Maternity, and Family Responsibility Leave.",
     statutoryBasis:
-      "BCEA Chapter 3 (Sections 19–27), Labour Laws Amendment Act (Act 10 of 2018)",
+      "BCEA Chapter 3 (Sections 19–27)",
     authority: "Department of Employment and Labour & CCMA",
     authorityUrl: "https://www.labour.gov.za/",
     lastAudited: "August 2026",
@@ -249,10 +249,10 @@ const comprehensivePolicies: PolicyItem[] = [
         statutoryRef: "BCEA Section 23(1)",
       },
       {
-        heading: "Maternity & Parental Leave (Sections 25 & 25A)",
+        heading: "Maternity Leave (Section 25)",
         description:
-          "Guarantees at least four (4) consecutive months unpaid maternity leave, and ten (10) consecutive days parental leave for birth or adoption of a child, fully tracked in company rosters.",
-        statutoryRef: "BCEA Section 25 & Act 10 of 2018",
+          "Guarantees at least four (4) consecutive months unpaid maternity leave for birth of a child, fully tracked in company rosters.",
+        statutoryRef: "BCEA Section 25",
       },
       {
         heading: "Family Responsibility Leave (Section 27)",

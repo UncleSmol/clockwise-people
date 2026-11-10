@@ -21,7 +21,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import StorageUploadButton from "@/components/StorageUploadButton";
 import {
   autoSyncOwnLeaveAccruals,
@@ -29,6 +29,12 @@ import {
   convertOvertimeToToil,
   submitLeaveRequest,
 } from "@/lib/work-rules/actions";
+import {
+  calculateLiveLeaveBalance,
+  isGenderAllowedForLeave,
+  isUnpaidLeave,
+  normalizeLeaveTypeName,
+} from "@/lib/work-rules/realtime-accrual";
 import type {
   EmployeeLeaveState,
   LeaveAdvisor,
@@ -117,31 +123,68 @@ export default function EmployeeLeaveRequests({
   const [applicationMode, setApplicationMode] = useState<"leave" | "time_off">("leave");
   const [timeOffHours, setTimeOffHours] = useState<string>("4");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "submitted" | "approved" | "rejected">("all");
+  const [liveNow, setLiveNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setLiveNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const activeTodayEntry = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return (
+      entries.find((e) => Boolean(e.clock_in) && !e.clock_out) ??
+      entries.find((e) => e.work_date === todayStr) ??
+      null
+    );
+  }, [entries]);
+
+  // Check if TOIL Engine is enabled for company
+  const isToilEngineActive = Boolean(state.toilEnabled);
+
+  // Filter by employee gender and deduplicate by canonical name so dropdown & cards never duplicate
+  const availableLeaveTypes = useMemo(() => {
+    const raw = isToilEngineActive
+      ? state.leaveTypes
+      : state.leaveTypes.filter(
+          (lt) => lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil"),
+        );
+    const seen = new Map<string, (typeof raw)[0]>();
+    for (const lt of raw) {
+      if (!isGenderAllowedForLeave(lt.name, lt.category, state.employeeGender)) continue;
+      const key = normalizeLeaveTypeName(lt.name, lt.category);
+      if (!seen.has(key)) {
+        seen.set(key, lt);
+      }
+    }
+    return Array.from(seen.values());
+  }, [state.leaveTypes, isToilEngineActive, state.employeeGender]);
 
   const annualLeaveType = useMemo(
     () =>
-      state.leaveTypes.find(
+      availableLeaveTypes.find(
         (lt) => lt.category === "annual" || lt.name.toLowerCase().includes("annual"),
       ),
-    [state.leaveTypes],
+    [availableLeaveTypes],
   );
 
   const selectedLeaveType = useMemo(() => {
     const targetId = applicationMode === "time_off" && annualLeaveType ? annualLeaveType.id : leaveTypeId;
-    return state.leaveTypes.find((lt) => lt.id === targetId) ?? null;
-  }, [state.leaveTypes, applicationMode, annualLeaveType, leaveTypeId]);
+    return (
+      availableLeaveTypes.find((lt) => lt.id === targetId) ??
+      state.leaveTypes.find((lt) => lt.id === targetId) ??
+      null
+    );
+  }, [availableLeaveTypes, state.leaveTypes, applicationMode, annualLeaveType, leaveTypeId]);
 
   const selectedDateEntry = useMemo(() => {
     if (!startDate) return null;
     return entries.find((e) => e.work_date === startDate) ?? null;
   }, [entries, startDate]);
 
-  // Check if TOIL Engine is enabled for company
-  const isToilEngineActive = Boolean(state.toilEnabled);
-
   // Identify TOIL leave type and current employee balance (strictly when active)
   const toilLeaveType = isToilEngineActive
-    ? state.leaveTypes.find(
+    ? availableLeaveTypes.find(
         (lt) => lt.category === "toil_taken" || lt.name.toLowerCase().includes("toil"),
       )
     : undefined;
@@ -285,6 +328,85 @@ export default function EmployeeLeaveRequests({
   const calculation = calculationState.advisor;
   const holidayDays =
     calculation?.days.filter((day) => day.reason === "public_holiday") ?? [];
+
+  // Determine if supporting document / certificate is required:
+  // 1. Family Responsibility Leave (BCEA Section 27 - proof required)
+  // 2. Sick Leave spanning >= 3 days (BCEA Section 23 - medical certificate required for > 2 consecutive days)
+  // 3. Maternity or Parental Leave
+  // 4. Any custom leave type where admin explicitly flagged requires_attachment = true
+  const requestedDurationDays = useMemo(() => {
+    if (calculation?.working_days && calculation.working_days > 0) {
+      return calculation.working_days;
+    }
+    if (calculation?.days && calculation.days.length > 0) {
+      return calculation.days.length;
+    }
+    if (startDate && endDate) {
+      const s = new Date(`${startDate}T00:00:00`).getTime();
+      const e = new Date(`${endDate}T00:00:00`).getTime();
+      if (!isNaN(s) && !isNaN(e) && e >= s) {
+        return Math.round((e - s) / 86400000) + 1;
+      }
+    }
+    return 1;
+  }, [calculation?.working_days, calculation?.days, startDate, endDate]);
+
+  const documentRequirementInfo = useMemo(() => {
+    if (!selectedLeaveType) return { isRequired: false, reason: "" };
+    const cat = (selectedLeaveType.category ?? "").toLowerCase();
+    const name = (selectedLeaveType.name ?? "").toLowerCase();
+
+    // Family Responsibility Leave (FRL)
+    if (
+      cat === "family_responsibility" ||
+      name.includes("family") ||
+      name.includes("frl") ||
+      name.includes("compassionate")
+    ) {
+      return {
+        isRequired: true,
+        reason: "Supporting proof required (e.g. death / birth certificate)",
+      };
+    }
+
+    // Maternity or Parental
+    if (
+      cat === "maternity" ||
+      cat === "parental" ||
+      name.includes("matern") ||
+      name.includes("patern") ||
+      name.includes("parental")
+    ) {
+      return {
+        isRequired: true,
+        reason: "Medical or birth certificate required",
+      };
+    }
+
+    // Sick leave: ONLY when duration spans >= 3 days
+    if (cat === "sick" || name.includes("sick")) {
+      if (requestedDurationDays >= 3) {
+        return {
+          isRequired: true,
+          reason: `Medical certificate required (${requestedDurationDays} days spans over 2 days)`,
+        };
+      }
+      return {
+        isRequired: false,
+        reason: "No certificate required for 1-2 days",
+      };
+    }
+
+    // Explicit flag by company admin
+    if (selectedLeaveType.requires_attachment) {
+      return {
+        isRequired: true,
+        reason: "Supporting document required for this leave rule",
+      };
+    }
+
+    return { isRequired: false, reason: "" };
+  }, [selectedLeaveType, requestedDurationDays]);
   const timesheetDateSet = useMemo(
     () =>
       new Set(
@@ -576,7 +698,7 @@ export default function EmployeeLeaveRequests({
       : syncState.ok;
 
   return (
-    <section className="grid min-w-0 grid-cols-1 gap-5">
+    <section className="grid min-w-0 grid-cols-1 gap-5 pb-24 sm:pb-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -619,17 +741,35 @@ export default function EmployeeLeaveRequests({
         <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-surface p-3.5 sm:p-5 shadow-soft">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-foreground">Available balances</p>
-            <span className="text-[11px] font-medium text-muted">Paid hours</span>
+            <span className="text-[11px] font-medium text-muted">Hours &middot; Days</span>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(() => {
-              const displayBalances = isToilEngineActive
+              const rawBalances = isToilEngineActive
                 ? state.balances
                 : state.balances.filter((b) => {
                     const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
                     return rel?.category !== "toil_taken" && !rel?.name?.toLowerCase().includes("toil");
                   });
+
+              // Exclude unpaid leave, filter by gender, and deduplicate balances by canonical leave type name
+              const seenBalances = new Map<string, typeof rawBalances[0]>();
+              for (const b of rawBalances) {
+                const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+                const name = leaveTypeName(b);
+                const category = rel?.category;
+                if (isUnpaidLeave(name, category)) continue;
+                if (!isGenderAllowedForLeave(name, category, state.employeeGender)) continue;
+                const key = normalizeLeaveTypeName(name, category);
+                const existing = seenBalances.get(key);
+                if (!existing) {
+                  seenBalances.set(key, b);
+                } else if (Number(b.balance_hours ?? 0) > Number(existing.balance_hours ?? 0)) {
+                  seenBalances.set(key, b);
+                }
+              }
+              const displayBalances = Array.from(seenBalances.values());
 
               if (displayBalances.length === 0) {
                 return <p className="text-sm text-muted col-span-full">No balances assigned yet.</p>;
@@ -643,71 +783,47 @@ export default function EmployeeLeaveRequests({
                   relation?.category === "toil_taken" ||
                   relation?.id === toilLeaveType?.id ||
                   relation?.name?.toLowerCase().includes("toil");
-                const balHours = Number(balance.balance_hours ?? 0);
+                const typeName = leaveTypeName(balance);
+
+                const live = calculateLiveLeaveBalance({
+                  baseBalanceHours: balance.balance_hours,
+                  leaveCategory: relation?.category ?? (isToil ? "toil_taken" : "annual"),
+                  leaveTypeName: typeName,
+                  accrualRules: (relation?.accrual_rules ?? {}) as Record<string, unknown>,
+                  activeShiftEntry: activeTodayEntry,
+                  now: liveNow,
+                  toilMultiplier: state.toilMultiplier ?? 1.5,
+                });
+
+                const standardDayHours = state.standardDailyHours || 8;
+                const daysNum = live.totalLiveHours / standardDayHours;
+                const daysEquiv = daysNum % 1 === 0 ? daysNum.toFixed(0) : daysNum.toFixed(1);
 
                 return (
                   <article
                     key={balance.id}
-                    className={`flex flex-col justify-between gap-2.5 rounded-2xl p-3.5 text-white shadow-soft min-w-0 ${
+                    onClick={() => {
+                      if (relation?.id) {
+                        setLeaveTypeId(relation.id);
+                      }
+                    }}
+                    className={`flex flex-col justify-between rounded-2xl p-4 text-white shadow-soft min-w-0 transition-all hover:scale-[1.01] cursor-pointer ${
                       isToil
                         ? "card-gold"
                         : "card-hero-green"
                     }`}
                   >
-                    {/* Header: Monogram, Name & Badge */}
-                    <div className="flex items-start justify-between gap-2 min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <div className="relative flex size-7 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/20 text-[10px] font-black uppercase text-white">
-                          {leaveTypeName(balance).slice(0, 2)}
-                          <span
-                            className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ring-white/50 bg-white"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-extrabold text-white truncate">
-                            {leaveTypeName(balance)}
-                          </p>
-                          <p className="text-[10px] font-medium truncate text-white/80">
-                            {isToil ? "Accrued Overtime" : "Standard Benefit"}
-                          </p>
-                        </div>
-                      </div>
+                    <p className="text-xs sm:text-sm font-black tracking-tight text-white/95 truncate">
+                      {typeName}
+                    </p>
 
-                      <span
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-black/20 text-white border border-white/20"
-                      >
-                        {isToil ? "TOIL" : "Accrued"}
+                    <div className="mt-3 flex items-baseline gap-1.5 flex-wrap">
+                      <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white">
+                        {live.formattedTime}
                       </span>
-                    </div>
-
-                    {/* High-Contrast White Metrics Box */}
-                    <div className="rounded-xl bg-white/95 p-2 text-center text-slate-900 shadow-soft">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 leading-tight">Available Balance</p>
-                      <div className="flex items-baseline justify-center gap-1.5 mt-0.5">
-                        <span className={`text-base font-black font-mono leading-tight ${isToil ? "text-amber-800" : "text-emerald-800"}`}>
-                          {(balHours / 8).toFixed(1)} days
-                        </span>
-                        <span className="text-[11px] font-bold text-slate-500">
-                          ({balHours.toFixed(2)}h)
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Footer Pills */}
-                    <div className="flex items-center justify-between text-[10px] pt-0.5">
-                      <span className="rounded-full px-2 py-0.5 font-semibold bg-black/20 text-white">
-                        {isToil ? "Time-Off Bank" : "BCEA Accrual"}
+                      <span className="text-xs font-bold text-white/80 font-mono">
+                        ({daysEquiv} {Number(daysEquiv) === 1 ? "day" : "days"})
                       </span>
-
-                      {isToil && balHours > 0 ? (
-                        <button
-                          type="button"
-                          onClick={handleTakeTimeOffAsToil}
-                          className="rounded-full bg-white px-2.5 py-0.5 font-black text-amber-900 shadow-soft hover:bg-amber-50 cursor-pointer transition-colors"
-                        >
-                          Take leave &rarr;
-                        </button>
-                      ) : null}
                     </div>
                   </article>
                 );
@@ -878,16 +994,20 @@ export default function EmployeeLeaveRequests({
             name="is_time_off"
             value={applicationMode === "time_off" ? "true" : "false"}
           />
-          <input
-            type="hidden"
-            name="time_off_hours"
-            value={timeOffHours}
-          />
-          <input
-            type="hidden"
-            name="request_total_hours"
-            value={applicationMode === "time_off" ? timeOffHours : (calculation ? String(calculation.total_hours) : "")}
-          />
+          {applicationMode === "time_off" ? (
+            <>
+              <input
+                type="hidden"
+                name="time_off_hours"
+                value={timeOffHours}
+              />
+              <input
+                type="hidden"
+                name="request_total_hours"
+                value={timeOffHours}
+              />
+            </>
+          ) : null}
 
           <label className="grid w-full min-w-0 max-w-full gap-1">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
@@ -902,20 +1022,20 @@ export default function EmployeeLeaveRequests({
                 className="h-10 w-full min-w-0 max-w-full flex-1 truncate bg-transparent text-sm text-foreground outline-none"
               >
                 <option value="">Select leave type</option>
-                {(isToilEngineActive
-                  ? state.leaveTypes
-                  : state.leaveTypes.filter(
-                      (lt) => lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil"),
-                    )
-                ).map((lt) => {
+                {availableLeaveTypes.map((lt) => {
                   const isToil =
                     isToilEngineActive &&
                     (lt.category === "toil_taken" ||
                       lt.id === toilLeaveType?.id ||
                       lt.name.toLowerCase().includes("toil"));
+                  const key = normalizeLeaveTypeName(lt.name, lt.category);
                   const matchingBal = state.balances.find((b) => {
                     const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
-                    return rel?.id === lt.id || b.leave_type_id === lt.id;
+                    return (
+                      rel?.id === lt.id ||
+                      b.leave_type_id === lt.id ||
+                      normalizeLeaveTypeName(rel?.name ?? "", rel?.category) === key
+                    );
                   });
                   const bal = matchingBal ? Number(matchingBal.balance_hours ?? 0) : null;
                   const balDisplay = bal !== null ? ` (${(bal / 8).toFixed(1)} days / ${bal.toFixed(1)}h)` : "";
@@ -1396,10 +1516,10 @@ export default function EmployeeLeaveRequests({
                   <span className="block text-xs text-muted truncate">Supporting docs</span>
                   <span
                     className={`font-semibold truncate block ${
-                      calculation.requires_attachment ? "text-warning" : "text-success"
+                      documentRequirementInfo.isRequired ? "text-warning" : "text-success"
                     }`}
                   >
-                    {calculation.requires_attachment ? "Required" : "Not required"}
+                    {documentRequirementInfo.isRequired ? "Required" : "Not required"}
                   </span>
                 </span>
               </div>
@@ -1447,32 +1567,32 @@ export default function EmployeeLeaveRequests({
             </div>
           )}
 
-          {/* Supporting Document / Medical Certificate Dropzone */}
-          <div className="grid w-full min-w-0 max-w-full gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                Supporting Document / Medical Certificate
-              </span>
-              {selectedLeaveType?.requires_attachment ? (
-                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                  Proof required for this leave rule
+          {/* Supporting Document / Medical Certificate Dropzone - ONLY enabled when required */}
+          {documentRequirementInfo.isRequired ? (
+            <div className="grid w-full min-w-0 max-w-full gap-1.5 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                  Supporting Document / Medical Certificate
                 </span>
-              ) : (
-                <span className="text-[11px] text-muted">Images (JPG, PNG, WebP) or PDF</span>
-              )}
-            </div>
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                  {documentRequirementInfo.reason}
+                </span>
+              </div>
 
-            <StorageUploadButton
-              accept=".pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf"
-              folder="attachment"
-              variant="dropzone"
-              currentUrl={attachmentUrl}
-              onUploaded={(publicUrl) => setAttachmentUrl(publicUrl)}
-              onClear={() => setAttachmentUrl("")}
-              hint="Upload clear images or PDF certificates (up to 5 MB). Uploads are stored securely in Supabase storage."
-            />
-            <input type="hidden" name="attachment_url" value={attachmentUrl} />
-          </div>
+              <StorageUploadButton
+                accept=".pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf"
+                folder="attachment"
+                variant="dropzone"
+                currentUrl={attachmentUrl}
+                onUploaded={(publicUrl) => setAttachmentUrl(publicUrl)}
+                onClear={() => setAttachmentUrl("")}
+                hint="Upload clear images or PDF certificates (up to 5 MB). Uploads are stored securely in Supabase storage."
+              />
+              <input type="hidden" name="attachment_url" value={attachmentUrl} />
+            </div>
+          ) : (
+            <input type="hidden" name="attachment_url" value="" />
+          )}
 
 
           <label className="grid w-full min-w-0 max-w-full gap-1">

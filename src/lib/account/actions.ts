@@ -4,6 +4,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { getActiveCompany } from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/employee-accounts/actions";
 import {
   safeJsonParse,
   sanitizeString,
@@ -11,6 +13,11 @@ import {
 } from "@/lib/security/sanitizer";
 
 type ChangePasswordState = {
+  ok: boolean;
+  message: string;
+};
+
+export type ChangeEmailState = {
   ok: boolean;
   message: string;
 };
@@ -128,6 +135,107 @@ export async function changePassword(
   }
 
   return { ok: true, message: "Password updated." };
+}
+
+export async function changeOwnEmail(
+  _previousState: ChangeEmailState,
+  formData: FormData,
+): Promise<ChangeEmailState> {
+  const newEmail = String(formData.get("new_email") ?? "").trim().toLowerCase();
+  const currentPassword = String(formData.get("current_password") ?? "");
+
+  if (!newEmail) {
+    return { ok: false, message: "Enter a new email address." };
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newEmail)) {
+    return { ok: false, message: "Enter a valid email address." };
+  }
+
+  if (!currentPassword) {
+    return { ok: false, message: "Enter your current password to verify this change." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user?.email) {
+    return { ok: false, message: "Your session could not be verified." };
+  }
+
+  if (user.email.toLowerCase() === newEmail) {
+    return { ok: false, message: "The new email address must be different from your current email." };
+  }
+
+  // Verify current password
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+
+  if (signInError) {
+    return { ok: false, message: "Current password is incorrect." };
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  // Check if new email is already taken by another auth account
+  try {
+    const existingAuthId = await findAuthUserIdByEmail(admin, newEmail);
+    if (existingAuthId && existingAuthId !== user.id) {
+      return { ok: false, message: "This email address is already in use by another account." };
+    }
+  } catch {
+    // proceed
+  }
+
+  // Update Supabase Auth user
+  const { error: updateAuthError } = await admin.auth.admin.updateUserById(user.id, {
+    email: newEmail,
+    email_confirm: true,
+  });
+
+  if (updateAuthError) {
+    return { ok: false, message: `Failed to update email: ${updateAuthError.message}` };
+  }
+
+  // Update public.users
+  await admin
+    .from("users")
+    .update({ email: newEmail, updated_at: new Date().toISOString() })
+    .eq("auth_user_id", user.id);
+
+  // Update public.employees linked to this user
+  const { data: userRecord } = await admin
+    .from("users")
+    .select("id, employee_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (userRecord?.employee_id) {
+    await admin
+      .from("employees")
+      .update({ email: newEmail, updated_at: new Date().toISOString() })
+      .eq("id", userRecord.employee_id);
+  } else if (userRecord?.id) {
+    await admin
+      .from("employees")
+      .update({ email: newEmail, updated_at: new Date().toISOString() })
+      .eq("user_id", userRecord.id);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard/employees");
+
+  return {
+    ok: true,
+    message: "Login email successfully updated. Use your new email on your next sign in.",
+  };
 }
 
 export async function updateOwnProfile(

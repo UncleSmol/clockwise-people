@@ -52,15 +52,15 @@ const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
   ),
 });
 import {
-  createBulkDraftTimeEntriesAction,
   createPastDraftTimeEntry,
   deleteDraftTimeEntry,
   saveDraftTimeEntry,
   submitSelectedTimesheets,
   submitTimesheetCorrection,
 } from "@/lib/time-tracking/actions";
-import type {
-  CompanyLiveTimeOverview,
+import {
+  getWeekBounds,
+  type CompanyLiveTimeOverview,
   CompanyPublicHoliday,
   EmployeeScheduleInfo,
   TimeEntryRecord,
@@ -452,57 +452,6 @@ function getScheduleTemplate(
   };
 }
 
-function getPresetDates(preset: "this_week" | "last_week" | "last_14_days" | "this_month", currentWorkDate: string) {
-  const [y = 2026, m = 1, d = 1] = currentWorkDate.split("-").map(Number);
-  const cur = new Date(y, m - 1, d);
-  const dayOfWeek = cur.getDay(); // 0 is Sun, 1 is Mon...
-
-  const yesterday = new Date(cur);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const formatDateStr = (date: Date) => {
-    const yr = date.getFullYear();
-    const mo = String(date.getMonth() + 1).padStart(2, "0");
-    const da = String(date.getDate()).padStart(2, "0");
-    return `${yr}-${mo}-${da}`;
-  };
-
-  if (preset === "this_week") {
-    const diffToMon = (dayOfWeek + 6) % 7;
-    const mon = new Date(cur);
-    mon.setDate(cur.getDate() - diffToMon);
-    const fri = new Date(mon);
-    fri.setDate(mon.getDate() + 4);
-    const end = fri < yesterday ? fri : yesterday;
-    return {
-      start: formatDateStr(mon),
-      end: formatDateStr(end < mon ? mon : end),
-    };
-  } else if (preset === "last_week") {
-    const diffToMon = (dayOfWeek + 6) % 7;
-    const lastMon = new Date(cur);
-    lastMon.setDate(cur.getDate() - diffToMon - 7);
-    const lastFri = new Date(lastMon);
-    lastFri.setDate(lastMon.getDate() + 4);
-    return {
-      start: formatDateStr(lastMon),
-      end: formatDateStr(lastFri),
-    };
-  } else if (preset === "last_14_days") {
-    const start = new Date(yesterday);
-    start.setDate(yesterday.getDate() - 13);
-    return {
-      start: formatDateStr(start),
-      end: formatDateStr(yesterday),
-    };
-  } else {
-    const start = new Date(y, m - 1, 1);
-    return {
-      start: formatDateStr(start),
-      end: formatDateStr(yesterday < start ? start : yesterday),
-    };
-  }
-}
-
 export default function EmployeeTimesheetCorrections({
   collapsedCalendar = false,
   correctionRequests,
@@ -515,6 +464,13 @@ export default function EmployeeTimesheetCorrections({
   todaySchedule = null,
   defaultLunchMinutes = 60,
 }: EmployeeTimesheetCorrectionsProps) {
+  const { startOfPastWeek, endOfPastWeek, startOfCurrentWeek } = useMemo(
+    () => getWeekBounds(currentWorkDate),
+    [currentWorkDate],
+  );
+  const [isAddPastDayOpen, setIsAddPastDayOpen] = useState(false);
+  const [includeLunchInPastDraft, setIncludeLunchInPastDraft] = useState(true);
+
 
   const [attendanceFilter, setAttendanceFilter] = useState<"working" | "on_lunch" | "worked" | "not_started" | "all">("working");
 
@@ -652,46 +608,69 @@ export default function EmployeeTimesheetCorrections({
     createPastDraftTimeEntry,
     initialState,
   );
-  const [bulkState, bulkAction, bulkPending] = useActionState(
-    createBulkDraftTimeEntriesAction,
-    initialState,
-  );
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-
   const scheduleTemplate = useMemo(
     () => getScheduleTemplate(workSchedule, todaySchedule, defaultLunchMinutes),
     [workSchedule, todaySchedule, defaultLunchMinutes],
   );
 
-  const initialPreset = useMemo(
-    () => getPresetDates("last_week", currentWorkDate),
-    [currentWorkDate],
+  const entriesByDate = useMemo(
+    () => new Map(entries.map((entry) => [entry.work_date, entry])),
+    [entries],
   );
+  const yesterdayDate = useMemo(() => {
+    const [y, m, d] = currentWorkDate.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }, [currentWorkDate]);
 
-  const [bulkStartDate, setBulkStartDate] = useState(initialPreset.start);
-  const [bulkEndDate, setBulkEndDate] = useState(initialPreset.end);
-  const [bulkExcludeWeekends, setBulkExcludeWeekends] = useState(true);
-  const [bulkIncludeLunch, setBulkIncludeLunch] = useState(true);
-  const [bulkClockIn, setBulkClockIn] = useState(scheduleTemplate.clock_in);
-  const [bulkLunchStart, setBulkLunchStart] = useState(scheduleTemplate.lunch_start);
-  const [bulkLunchEnd, setBulkLunchEnd] = useState(scheduleTemplate.lunch_end);
-  const [bulkClockOut, setBulkClockOut] = useState(scheduleTemplate.clock_out);
-  const [bulkNotes, setBulkNotes] = useState("Bulk draft generated from work schedule template");
+  const missingPastWorkdays = useMemo(() => {
+    const missing: string[] = [];
+    const [y, m, d] = currentWorkDate.split("-").map(Number);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    for (let i = 1; i <= 14; i++) {
+      const dt = new Date(y, m - 1, d - i);
+      const dayOfWeek = dt.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+      const iso = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+      if (iso < startOfPastWeek) break;
+      if (!entriesByDate.has(iso) && !holidayDates.has(iso)) {
+        missing.push(iso);
+      }
+    }
+    return missing;
+  }, [currentWorkDate, startOfPastWeek, entriesByDate, holidayDates]);
+
+  const [targetPastDate, setTargetPastDate] = useState<string>(() => yesterdayDate);
+
+  useEffect(() => {
+    if (missingPastWorkdays.length > 0) {
+      setTargetPastDate(missingPastWorkdays[0]);
+    } else {
+      setTargetPastDate(yesterdayDate);
+    }
+  }, [isAddPastDayOpen, missingPastWorkdays, yesterdayDate]);
+
+  const targetSchedule = useMemo(() => {
+    if (!targetPastDate) return null;
+    return getScheduleTemplate(
+      workSchedule,
+      todaySchedule,
+      defaultLunchMinutes,
+      targetPastDate,
+      includeLunchInPastDraft,
+    );
+  }, [workSchedule, todaySchedule, defaultLunchMinutes, targetPastDate, includeLunchInPastDraft]);
+
+  useEffect(() => {
+    if (createState.ok && createState.message) {
+      setIsAddPastDayOpen(false);
+    }
+  }, [createState]);
+
   const [includeLunchInDraft, setIncludeLunchInDraft] = useState(true);
   const [inlineSubmissionNotes, setInlineSubmissionNotes] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    setBulkClockIn(scheduleTemplate.clock_in);
-    setBulkLunchStart(bulkIncludeLunch ? scheduleTemplate.lunch_start : "");
-    setBulkLunchEnd(bulkIncludeLunch ? scheduleTemplate.lunch_end : "");
-    setBulkClockOut(scheduleTemplate.clock_out);
-  }, [scheduleTemplate, bulkIncludeLunch]);
-
-  useEffect(() => {
-    if (bulkState.ok && bulkState.message) {
-      setIsBulkModalOpen(false);
-    }
-  }, [bulkState]);
 
   const [draftOverrides, setDraftOverrides] = useState<
     Map<string, { clock_in?: string; lunch_start?: string; lunch_end?: string; clock_out?: string }>
@@ -813,10 +792,6 @@ export default function EmployeeTimesheetCorrections({
       setSelectedCorrectionIds(new Set(eligibleCorrectionEntries.map((e) => e.id)));
     }
   };
-  const entriesByDate = useMemo(
-    () => new Map(entries.map((entry) => [entry.work_date, entry])),
-    [entries],
-  );
   const leaveByDate = useMemo(() => {
     const map = new Map<string, LeaveRequest>();
     for (const lr of leaveRequests ?? []) {
@@ -902,28 +877,70 @@ export default function EmployeeTimesheetCorrections({
 
     return [...holidayEvents, ...timesheetEvents, ...leaveRequestEvents];
   }, [entries, leaveRequests, publicHolidays, holidayDates, isEntryFixed]);
-  const editableEntries = entries.filter(
-    (entry) =>
-      (entry.status === "draft" || entry.status === "rejected") &&
-      !holidayDates.has(entry.work_date) &&
-      !entry.notes?.startsWith("Public holiday:"),
+  const pastWeekEntries = useMemo(
+    () => entries.filter((e) => e.work_date >= startOfPastWeek && e.work_date <= endOfPastWeek),
+    [entries, startOfPastWeek, endOfPastWeek],
   );
-  const submittedEntries = entries.filter(
-    (entry) =>
-      entry.status !== "draft" &&
-      entry.status !== "rejected" &&
-      !holidayDates.has(entry.work_date) &&
-      !entry.notes?.startsWith("Public holiday:"),
+
+  const currentWeekEntries = useMemo(
+    () => entries.filter((e) => e.work_date >= startOfCurrentWeek && e.work_date <= currentWorkDate),
+    [entries, startOfCurrentWeek, currentWorkDate],
   );
-  const filteredEntries = useMemo(
+
+  const unsubmittedPastWeekDrafts = useMemo(
+    () =>
+      pastWeekEntries.filter(
+        (e) =>
+          (e.status === "draft" || e.status === "rejected") &&
+          !holidayDates.has(e.work_date) &&
+          !e.notes?.startsWith("Public holiday:"),
+      ),
+    [pastWeekEntries, holidayDates],
+  );
+
+  const unsubmittedPastWeekDraftsCount = unsubmittedPastWeekDrafts.length;
+  const hasUnsubmittedPastWeekDrafts = unsubmittedPastWeekDraftsCount > 0;
+
+  // Automatic draft selection:
+  // If the user has drafts from last week that have not been submitted,
+  // the ONLY thing they see on the review component is those drafts that need attention!
+  const editableEntries = useMemo(() => {
+    if (hasUnsubmittedPastWeekDrafts) {
+      return unsubmittedPastWeekDrafts;
+    }
+    return currentWeekEntries.filter(
+      (entry) =>
+        (entry.status === "draft" || entry.status === "rejected") &&
+        entry.work_date >= startOfPastWeek &&
+        !holidayDates.has(entry.work_date) &&
+        !entry.notes?.startsWith("Public holiday:"),
+    );
+  }, [hasUnsubmittedPastWeekDrafts, unsubmittedPastWeekDrafts, currentWeekEntries, startOfPastWeek, holidayDates]);
+
+  const submittedEntries = useMemo(
     () =>
       entries.filter(
         (entry) =>
+          entry.status !== "draft" &&
+          entry.status !== "rejected" &&
+          entry.work_date >= startOfPastWeek &&
           !holidayDates.has(entry.work_date) &&
           !entry.notes?.startsWith("Public holiday:"),
       ),
-    [entries, holidayDates],
+    [entries, startOfPastWeek, holidayDates],
   );
+
+  const filteredEntries = useMemo(() => {
+    if (hasUnsubmittedPastWeekDrafts) {
+      return unsubmittedPastWeekDrafts;
+    }
+    return currentWeekEntries.filter(
+      (entry) =>
+        entry.work_date >= startOfPastWeek &&
+        !holidayDates.has(entry.work_date) &&
+        !entry.notes?.startsWith("Public holiday:"),
+    );
+  }, [hasUnsubmittedPastWeekDrafts, unsubmittedPastWeekDrafts, currentWeekEntries, startOfPastWeek, holidayDates]);
 
   const timesheetSectionRef = useRef<HTMLDivElement>(null);
 
@@ -1169,7 +1186,6 @@ export default function EmployeeTimesheetCorrections({
     selectedEntryIds.size === 0 ||
     (hasFlaggedSelected && !acknowledgedFlags);
   const rawMessage =
-    bulkState.message ||
     createState.message ||
     deleteState.message ||
     correctionState.message ||
@@ -1191,10 +1207,8 @@ export default function EmployeeTimesheetCorrections({
     }
     return msg;
   }, [rawMessage]);
-  const messageOk = bulkState.message
-    ? bulkState.ok
-    : createState.message
-      ? createState.ok
+  const messageOk = createState.message
+    ? createState.ok
       : deleteState.message
         ? deleteState.ok
         : correctionState.message
@@ -1240,6 +1254,7 @@ export default function EmployeeTimesheetCorrections({
   }, [calendarFocusDate]);
 
   const renderTimesheetEntry = (entry: TimeEntryRecord) => {
+    const isPulsating = pulsatingEntryId === entry.id;
     const isFixed = isEntryFixed(entry);
     const editable = entry.status === "draft" || entry.status === "rejected";
     const isDraft = entry.status === "draft" && !isFixed;
@@ -1260,7 +1275,114 @@ export default function EmployeeTimesheetCorrections({
     let footerLeftBg = "bg-slate-700/80 text-slate-200";
     let footerRightBg = "bg-slate-900/60 text-slate-300 border border-slate-700";
 
-    if (isApproved) {
+        const dayLeave = leaveByDate.get(entry.work_date);
+    const isLeaveDay = Boolean(
+      dayLeave ||
+      entry.leave_type_id != null ||
+      entry.notes?.startsWith("Leave:") ||
+      entry.notes?.startsWith("Leave (Pending):") ||
+      entry.notes?.startsWith("TOIL / Leave:") ||
+      entry.notes?.toLowerCase().includes("leave") ||
+      (entry.clock_in == null && entry.clock_out == null && Number(entry.paid_hours ?? 0) > 0)
+    );
+
+    if (isLeaveDay) {
+      const leaveName =
+        dayLeave?.leaveTypeName ||
+        (entry.notes?.startsWith("Leave: ") ? entry.notes.replace(/^Leave:\s*/, "") : null) ||
+        (entry.notes?.startsWith("Leave (Pending): ") ? entry.notes.replace(/^Leave \(Pending\):\s*/, "") : null) ||
+        "Annual Leave";
+      const leaveReason = dayLeave?.reason || (entry.notes && !entry.notes.startsWith("Leave:") ? entry.notes : "Authorized Paid Leave");
+      const leaveHours = Number(entry.paid_hours) > 0
+        ? Number(entry.paid_hours)
+        : dayLeave?.total_hours
+          ? Math.min(8, Number(dayLeave.total_hours))
+          : 8;
+      const isPending = dayLeave ? (dayLeave.status === "submitted" || dayLeave.status === "draft") : entry.status === "draft";
+
+      return (
+        <article
+          key={entry.id}
+          id={`timesheet-entry-${entry.id}`}
+          className={`group flex flex-col justify-between gap-3 rounded-2xl p-4 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md min-w-0 w-full max-w-full bg-gradient-to-br from-violet-900 via-indigo-900 to-purple-900 border border-violet-400/30 ${
+            isPulsating ? "cw-timesheet-pulsating ring-4 ring-emerald-400" : ""
+          }`}
+        >
+          {/* Top: Date Monogram Box, Date & Status Badge */}
+          <div className="flex items-start justify-between gap-2 min-w-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div className="relative shrink-0">
+                <div className="flex size-9 flex-col items-center justify-center rounded-xl border border-violet-400/40 bg-violet-950/80 shadow-xs leading-none select-none">
+                  <span className="text-[8px] font-bold uppercase tracking-wider text-violet-200">
+                    {dateParts.month}
+                  </span>
+                  <span className="text-xs font-black mt-0.5 text-white">
+                    {dateParts.day}
+                  </span>
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full ring-2 ring-violet-900 bg-violet-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-extrabold text-white break-words leading-tight">
+                  {formatDate(entry.work_date)}
+                </p>
+                <p className="text-[11px] font-medium text-violet-200 break-words leading-tight mt-0.5">
+                  {leaveName} &middot; {isPending ? "Pending Review" : "Approved Leave"}
+                </p>
+              </div>
+            </div>
+
+            <RecordStatusBadge
+              status={isApproved ? "verified" : entry.status}
+              isFixed={isFixed}
+            />
+          </div>
+
+          {/* Leave Card Dedicated Showcase (No IN, LUNCH, OUT, No Workstation) */}
+          <div className="rounded-xl border border-white/15 bg-white/10 backdrop-blur-md p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-violet-400/25 text-white border border-white/20 shadow-xs">
+                  <Calendar className="size-4.5 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-white truncate">
+                    {leaveName}
+                  </p>
+                  <p className="text-[11px] font-medium text-violet-200 truncate mt-0.5">
+                    {leaveReason}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full bg-white/20 border border-white/25 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                {isPending ? "Pending" : "Approved"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg bg-black/30 px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5 text-violet-200">
+                <span className="size-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[11px] font-bold">Paid Absence Allocation</span>
+              </div>
+              <span className="font-mono font-black text-sm text-emerald-300">
+                {formatHours(leaveHours)}
+              </span>
+            </div>
+          </div>
+
+          {/* Leave Card Clean Footer (No workstation, no clocking references) */}
+          <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-black/25 px-2.5 py-1 text-[10px] font-bold text-violet-200 border border-white/10">
+              <Calendar className="size-3 text-violet-300" />
+              <span>Statutory Leave &middot; No Clocking Required</span>
+            </span>
+            <span className="shrink-0 rounded-md px-3 py-1 text-[10px] font-black text-white bg-black/35 border border-white/15 shadow-xs">
+              {formatHours(leaveHours)} Paid
+            </span>
+          </div>
+        </article>
+      );
+    } else if (isApproved) {
       cardBg = "bg-emerald-700 text-white ring-1 ring-emerald-800/60";
       dateBoxBg = "bg-emerald-800/80 border-emerald-500/50 text-white";
       statusDotColor = "bg-emerald-300 ring-emerald-700";
@@ -1305,8 +1427,6 @@ export default function EmployeeTimesheetCorrections({
       footerLeftBg = "bg-black/20 text-white";
       footerRightBg = "bg-black/25 text-white border border-white/20";
     }
-
-    const isPulsating = pulsatingEntryId === entry.id;
 
     return (
       <article
@@ -1903,1014 +2023,134 @@ export default function EmployeeTimesheetCorrections({
     ) : null;
 
   return (
-    <section className="grid min-w-0 grid-cols-1 gap-4">
-      {/* Primary Section Heading */}
-      <div className="rounded-xl bg-primary text-primary-foreground p-4 sm:p-5 shadow-xs">
-        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-foreground/75">
-              Time Records &amp; Adjustments
-            </p>
-            <h2 className="mt-0.5 text-lg font-black sm:text-xl text-primary-foreground">Timesheets</h2>
-            <p className="mt-0.5 text-xs text-primary-foreground/85">
-              Use the calendar to add past days, fix drafts, then submit when ready.
-            </p>
-          </div>
-          <span className="w-max rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white shadow-2xs">
-            {entries.length} records
-          </span>
-        </div>
-      </div>
-
-      {/* Today's Attendance Section */}
-      {liveOverview && liveOverview.entries.length > 0 && (
-        <div className="rounded-xl border border-border bg-surface p-3.5 shadow-2xs">
-          {/* Header Row */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-2.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-600" />
-              </span>
-              <p className="text-xs font-black text-foreground">
-                Today&apos;s attendance
-              </p>
-              <span className="rounded bg-surface-muted px-2 py-0.5 text-[10px] font-bold text-muted">
-                {liveOverview.workDate}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => openPanel("attendance")}
-              className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline"
-            >
-              View full attendance &rarr;
-            </button>
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-b border-border/60 pb-2.5">
-            <button
-              type="button"
-              onClick={() => setAttendanceFilter("working")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "working"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "border border-emerald-300/80 bg-emerald-50/50 text-emerald-900 hover:bg-emerald-100"
-                }`}
-            >
-              Clocked in ({liveOverview.totals.activeEmployees})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAttendanceFilter("on_lunch")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "on_lunch"
-                ? "bg-amber-500 text-white shadow-xs"
-                : "border border-amber-300/80 bg-amber-50/50 text-amber-900 hover:bg-amber-100"
-                }`}
-            >
-              Lunch ({liveOverview.totals.onLunch})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAttendanceFilter("worked")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "worked"
-                ? "bg-slate-800 text-white shadow-xs"
-                : "border border-slate-300 bg-slate-100/60 text-slate-800 hover:bg-slate-200"
-                }`}
-            >
-              Shift done ({liveOverview.totals.workedToday})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAttendanceFilter("not_started")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "not_started"
-                ? "bg-zinc-700 text-white shadow-xs"
-                : "border border-border bg-background text-muted hover:bg-surface-muted"
-                }`}
-            >
-              Not started ({liveOverview.totals.notStarted})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAttendanceFilter("all")}
-              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all ${attendanceFilter === "all"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "border border-border bg-background text-muted hover:bg-surface-muted"
-                }`}
-            >
-              All ({liveOverview.totals.totalEmployees})
-            </button>
-          </div>
-
-          {/* Colleague List */}
-          <div className="mt-3">
-            {filteredAttendanceColleagues.length === 0 ? (
-              <p className="py-2 text-xs font-medium text-muted">
-                No colleagues matching this status right now.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredAttendanceColleagues.map((colleague) => {
-                  if (colleague.status === "worked") {
-                    return (
-                      <article
-                        key={colleague.employeeId}
-                        onClick={() => openPanel("attendance")}
-                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-slate-800 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-slate-900/60 min-w-0"
-                      >
-                        {/* Top: Avatar, Name & Solid Status Badge */}
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <div className="relative shrink-0">
-                              <EmployeeAvatar
-                                name={colleague.knownAs ?? colleague.fullName}
-                                src={colleague.avatarUrl}
-                                className="size-8.5 ring-2 ring-slate-600 shadow-xs"
-                              />
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">
-                                {colleague.knownAs ?? colleague.fullName}
-                              </p>
-                              <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">
-                                {colleague.jobTitle ?? "Team Member"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
-                            <CheckCircle2 className="size-2.5 text-emerald-400" />
-                            Shift Done
-                          </span>
-                        </div>
-
-                        {/* High-Contrast White Metrics Box */}
-                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockOut)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
-                            <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(colleague.paidHours)}</p>
-                          </div>
-                        </div>
-
-                        {/* Footer Pills */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
-                          <span
-                            className="inline-flex items-center rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px] break-words"
-                            title={colleague.workstationName ?? "Assigned workstation"}
-                          >
-                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-slate-400" />
-                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
-                          </span>
-                          <span className="shrink-0 rounded bg-slate-900/60 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700 whitespace-nowrap">
-                            {colleague.departmentName ?? "General"}
-                          </span>
-                        </div>
-                      </article>
-                    );
-                  }
-
-                  if (colleague.status === "working") {
-                    return (
-                      <article
-                        key={colleague.employeeId}
-                        onClick={() => openPanel("attendance")}
-                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-emerald-700 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-emerald-800/60 min-w-0"
-                      >
-                        {/* Top: Avatar, Name & Status Badge */}
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <div className="relative shrink-0">
-                              <EmployeeAvatar
-                                name={colleague.knownAs ?? colleague.fullName}
-                                src={colleague.avatarUrl}
-                                className="size-8.5 ring-2 ring-emerald-400 shadow-xs"
-                              />
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-300 ring-2 ring-emerald-700" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">
-                                {colleague.knownAs ?? colleague.fullName}
-                              </p>
-                              <p className="text-[11px] font-medium text-emerald-100 break-words leading-tight mt-0.5">
-                                {colleague.jobTitle ?? "Team Member"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-200 border border-emerald-400/30 whitespace-nowrap">
-                            <span className="relative flex size-1.5 shrink-0">
-                              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex size-1.5 rounded-full bg-emerald-400" />
-                            </span>
-                            Clocked In
-                          </span>
-                        </div>
-
-                        {/* High-Contrast White Metrics Box */}
-                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 break-words leading-tight">Status</p>
-                            <p className="font-extrabold text-emerald-600 text-xs break-words leading-tight">Active</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Duration</p>
-                            <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(colleague.paidHours)}</p>
-                          </div>
-                        </div>
-
-                        {/* Footer Pills */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
-                          <span
-                            className="inline-flex items-center rounded bg-emerald-800/80 px-2 py-0.5 font-semibold text-emerald-100 text-[10px] break-words"
-                            title={colleague.workstationName ?? "Assigned workstation"}
-                          >
-                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-emerald-200" />
-                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
-                          </span>
-                          <span className="shrink-0 rounded bg-emerald-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-emerald-400/20 whitespace-nowrap">
-                            {colleague.departmentName ?? "General"}
-                          </span>
-                        </div>
-                      </article>
-                    );
-                  }
-
-                  if (colleague.status === "on_lunch") {
-                    return (
-                      <article
-                        key={colleague.employeeId}
-                        onClick={() => openPanel("attendance")}
-                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-amber-600 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-amber-700/60 min-w-0"
-                      >
-                        {/* Top: Avatar, Name & Status Badge */}
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <div className="relative shrink-0">
-                              <EmployeeAvatar
-                                name={colleague.knownAs ?? colleague.fullName}
-                                src={colleague.avatarUrl}
-                                className="size-8.5 ring-2 ring-amber-400 shadow-xs"
-                              />
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-amber-300 ring-2 ring-amber-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">
-                                {colleague.knownAs ?? colleague.fullName}
-                              </p>
-                              <p className="text-[11px] font-medium text-amber-100 break-words leading-tight mt-0.5">
-                                {colleague.jobTitle ?? "Team Member"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-amber-300/30 whitespace-nowrap">
-                            <UtensilsCrossed className="size-2.5 text-amber-200" />
-                            On Lunch
-                          </span>
-                        </div>
-
-                        {/* High-Contrast White Metrics Box */}
-                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-amber-600 break-words leading-tight">Lunch</p>
-                            <p className="font-extrabold text-amber-600 text-xs break-words font-mono leading-tight">{shortTime(colleague.lunchStart)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-700 break-words leading-tight">Worked</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(colleague.paidHours)}</p>
-                          </div>
-                        </div>
-
-                        {/* Footer Pills */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
-                          <span
-                            className="inline-flex items-center rounded bg-amber-700/80 px-2 py-0.5 font-semibold text-amber-100 text-[10px] break-words"
-                            title={colleague.workstationName ?? "Assigned workstation"}
-                          >
-                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-amber-200" />
-                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
-                          </span>
-                          <span className="shrink-0 rounded bg-amber-950/40 px-2 py-0.5 text-[10px] font-bold text-white border border-amber-300/20 whitespace-nowrap">
-                            {colleague.departmentName ?? "General"}
-                          </span>
-                        </div>
-                      </article>
-                    );
-                  }
-
-                  if (colleague.status === "needs_review") {
-                    return (
-                      <article
-                        key={colleague.employeeId}
-                        onClick={() => openPanel("attendance")}
-                        className="group flex flex-col justify-between gap-2.5 rounded-xl bg-rose-700 p-3 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer ring-1 ring-rose-800/60 min-w-0"
-                      >
-                        {/* Top: Avatar, Name & Status Badge */}
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <div className="relative shrink-0">
-                              <EmployeeAvatar
-                                name={colleague.knownAs ?? colleague.fullName}
-                                src={colleague.avatarUrl}
-                                className="size-8.5 ring-2 ring-white shadow-xs"
-                              />
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-rose-300 ring-2 ring-rose-700" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">
-                                {colleague.knownAs ?? colleague.fullName}
-                              </p>
-                              <p className="text-[11px] font-medium text-rose-100 break-words leading-tight mt-0.5">
-                                {colleague.jobTitle ?? "Team Member"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-rose-950/50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-rose-400/30 whitespace-nowrap">
-                            <AlertTriangle className="size-2.5 text-rose-200" />
-                            Review
-                          </span>
-                        </div>
-
-                        {/* High-Contrast White Metrics Box */}
-                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockIn)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(colleague.clockOut)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-rose-700 break-words leading-tight">Flag</p>
-                            <p className="font-extrabold text-rose-600 text-xs break-words leading-tight">Review</p>
-                          </div>
-                        </div>
-
-                        {/* Footer Pills */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
-                          <span
-                            className="inline-flex items-center rounded bg-rose-800/80 px-2 py-0.5 font-semibold text-rose-100 text-[10px] break-words"
-                            title={colleague.workstationName ?? "Assigned workstation"}
-                          >
-                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-rose-200" />
-                            <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
-                          </span>
-                          <span className="shrink-0 rounded bg-rose-950/50 px-2 py-0.5 text-[10px] font-bold text-white border border-rose-400/20 whitespace-nowrap">
-                            {colleague.departmentName ?? "General"}
-                          </span>
-                        </div>
-                      </article>
-                    );
-                  }
-
-                  // Default: not_started (Sizwe card from screenshot)
-                  return (
-                    <article
-                      key={colleague.employeeId}
-                      onClick={() => openPanel("attendance")}
-                      className="group flex flex-col justify-between gap-2.5 rounded-xl border border-zinc-300/80 bg-zinc-100/90 p-3 text-zinc-800 shadow-xs transition-all hover:bg-zinc-100 hover:border-zinc-400 hover:shadow-sm cursor-pointer min-w-0"
-                    >
-                      {/* Top: Avatar, Name & Status Badge */}
-                      <div className="flex items-start justify-between gap-2 min-w-0">
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
-                          <div className="relative shrink-0">
-                            <EmployeeAvatar
-                              name={colleague.knownAs ?? colleague.fullName}
-                              src={colleague.avatarUrl}
-                              className="size-8.5 ring-2 ring-zinc-300 shadow-xs"
-                            />
-                            <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-zinc-400 ring-2 ring-zinc-100" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-extrabold text-zinc-900 break-words leading-tight">
-                              {colleague.knownAs ?? colleague.fullName}
-                            </p>
-                            <p className="text-[11px] font-medium text-zinc-500 break-words leading-tight mt-0.5">
-                              {colleague.jobTitle ?? "Team Member"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-zinc-700 border border-zinc-300 whitespace-nowrap">
-                          Not Started
-                        </span>
-                      </div>
-
-                      {/* High-Contrast White Metrics Box */}
-                      <div className="grid grid-cols-2 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 break-words leading-tight">Status</p>
-                          <p className="font-extrabold text-slate-600 text-xs break-words leading-tight">Not Started</p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 break-words leading-tight">Logged</p>
-                          <p className="font-extrabold text-zinc-500 text-xs break-words font-mono leading-tight">--:--</p>
-                        </div>
-                      </div>
-
-                      {/* Footer Pills */}
-                      <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0">
-                        <span
-                          className="inline-flex items-center rounded bg-zinc-200/80 px-2 py-0.5 font-semibold text-zinc-600 text-[10px] break-words"
-                          title={colleague.workstationName ?? "Assigned workstation"}
-                        >
-                          <MapPin className="mr-1 inline size-2.5 shrink-0 text-zinc-400" />
-                          <span className="break-words leading-tight">{colleague.workstationName ?? "Workstation"}</span>
-                        </span>
-                        <span className="shrink-0 rounded bg-zinc-200/80 px-2 py-0.5 text-[10px] font-bold text-zinc-600 border border-zinc-300 whitespace-nowrap">
-                          {colleague.departmentName ?? "General"}
-                        </span>
-                      </div>
-                    </article>
-                  );
-                })}
+    <section className="grid min-w-0 grid-cols-1 gap-4 pb-24 sm:pb-6">
+      {/* Step 2 Review and Adjust Action Hub */}
+      <div className="grid gap-4">
+        {/* Status Notification Banner when past-week drafts need attention */}
+        {hasUnsubmittedPastWeekDrafts ? (
+          <div className="rounded-2xl border border-amber-500/50 bg-amber-500/15 p-4 text-xs text-amber-950 dark:text-amber-200 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="size-4" />
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Calendar Section (Divided by clean line) */}
-      {section !== "records" ? (
-        <div className="grid gap-3 border-t border-border pt-4">
-          {collapsedCalendar ? (
-            <button
-              type="button"
-              onClick={() => setCalendarExpanded((prev) => !prev)}
-              aria-expanded={calendarExpanded}
-              className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface-muted/50 px-3.5 py-2.5 text-left transition-colors hover:bg-surface-muted shadow-2xs"
-            >
-              <span className="flex items-center gap-2 font-semibold text-foreground">
-                <CalendarDays className="size-4 text-accent" />
-                Detailed calendar
-              </span>
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
-                <span>{calendarExpanded ? "Collapse" : "Expand"}</span>
-                <ChevronDown
-                  className={`size-3.5 transition-transform duration-200 ${calendarExpanded ? "rotate-180" : ""
-                    }`}
-                />
-              </span>
-            </button>
-          ) : null}
-
-          {(!collapsedCalendar || calendarExpanded) && (
-            <div className="grid min-w-0 max-w-full gap-3">
-              {message && (
-                <div
-                  className={`rounded-md border px-3 py-2 text-sm font-semibold shadow-2xs ${messageOk
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                    : "border-rose-300 bg-rose-50 text-rose-950"
-                    }`}
-                >
-                  {message}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="inline-flex items-center gap-2 font-semibold text-foreground">
-                    <CalendarDays className="size-4 text-accent" />
-                    Calendar
-                  </p>
-                  <p className="mt-1 text-xs text-muted max-sm:hidden">
-                    Click any day or draft event on the calendar to view, edit, or create draft timesheets.
-                  </p>
-                </div>
-                <div className="hidden sm:flex sm:flex-wrap sm:gap-1.5">
-                  {([
-                    ["day", "Daily View"],
-                    ["week", "Weekly View"],
-                    ["payroll", "Payroll Period"],
-                    ["month", "Monthly View"],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setCalendarWindow(value)}
-                      className={`rounded-md px-3 py-1.5 text-xs ${viewButtonClass(calendarWindow === value)}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {calendarWindow === "payroll" ? (
-                <p className="rounded-md border border-slate-300 bg-slate-100/70 px-3 py-2 text-xs font-bold text-foreground">
-                  Payroll period anchored to the selected week: {payrollRangeLabel}
+              <div className="flex-1 space-y-1">
+                <p className="font-extrabold text-sm text-amber-950 dark:text-amber-100">
+                  Clock-in Locked: {unsubmittedPastWeekDraftsCount} Draft Timesheet{unsubmittedPastWeekDraftsCount === 1 ? "" : "s"} Needing Attention
                 </p>
-              ) : null}
+                <p className="text-xs text-amber-900/90 dark:text-amber-300/90 leading-relaxed">
+                  You have unsubmitted drafts from last week ({startOfPastWeek} to {endOfPastWeek}). Only these drafts are displayed below so you can review, adjust, and submit them to immediately unlock clock-in.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-surface/80 p-3 text-xs">
+            <span className="text-muted font-medium">All past week timesheets have been submitted. Showing current week.</span>
+            <span className="inline-flex items-center gap-1 font-bold text-emerald-800 dark:text-emerald-400">
+              <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Up to date</span>
+            </span>
+          </div>
+        )}
+
+
+        {/* Inline Draft Batch Selector Card */}
+        {quickSubmitForm}
+
+        {/* Tab Header & Action Bar */}
+        <div ref={timesheetSectionRef} className="grid gap-3 scroll-mt-20">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-background p-1 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => setShowLegend(!showLegend)}
-                className="flex items-center gap-1.5 text-xs font-bold text-muted sm:hidden"
+                onClick={() => handleTabChange("timesheets")}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                  activeTab === "timesheets"
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "text-foreground hover:bg-surface-muted"
+                }`}
               >
+                <span>Drafts</span>
                 <span
-                  className="inline-flex size-2 rounded-full"
-                  style={{
-                    background:
-                      "conic-gradient(var(--color-holiday),var(--color-warning),var(--color-primary),var(--color-success),var(--color-danger))",
-                  }}
-                />
-                Legend ({showLegend ? "hide" : "show"})
-              </button>
-
-              <div
-                className={`flex flex-wrap gap-1.5 text-xs font-bold ${showLegend ? "" : "hidden sm:flex"}`}
-              >
-                <span className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-100/70 px-2 py-0.5 text-[11px] text-emerald-900">
-                  <span className="size-1.5 rounded-full bg-emerald-600" />
-                  Approved / Working
-                </span>
-                <span className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white">
-                  <span className="size-1.5 rounded-full bg-emerald-400" />
-                  Shift Done / Submitted
-                </span>
-                <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100/70 px-2 py-0.5 text-[11px] text-amber-900">
-                  <span className="size-1.5 rounded-full bg-amber-600" />
-                  Draft / On Lunch
-                </span>
-                <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100/70 px-2 py-0.5 text-[11px] text-rose-900">
-                  <span className="size-1.5 rounded-full bg-rose-600" />
-                  Review Needed / Rejected
-                </span>
-                <span className="inline-flex items-center gap-1 rounded border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700">
-                  <span className="size-1.5 rounded-full bg-zinc-400" />
-                  Not Started
-                </span>
-              </div>
-              <div ref={calendarRef} className="cw-timesheet-calendar min-w-0 max-sm:hidden">
-                <FullCalendar
-                  key={`${calendarWindow}-${calendarFocusDate}`}
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialDate={calendarFocusDate}
-                  initialView={
-                    calendarWindow === "day"
-                      ? "dayGridDay"
-                      : calendarWindow === "week"
-                        ? "dayGridWeek"
-                        : calendarWindow === "payroll"
-                          ? "dayGridPayroll"
-                          : "dayGridMonth"
-                  }
-                  height="auto"
-                  firstDay={1}
-                  events={calendarEvents}
-                  dayMaxEventRows={3}
-                  dayMaxEvents={2}
-                  dateClick={handleDateClick}
-                  eventClick={handleEventClick}
-                  eventMouseEnter={(info) => {
-                    setDayTooltip(null);
-                    const rect = info.el.getBoundingClientRect();
-                    const calRect = calendarRef.current?.getBoundingClientRect();
-                    const entry = info.event.extendedProps.entry as TimeEntryRecord | undefined;
-                    if (entry) {
-                      const lines = [
-                        entry.status,
-                        `${formatTime(entry.clock_in)} \u2192 ${formatTime(entry.clock_out)}`,
-                        formatHours(entry.paid_hours),
-                        entry.missing_clocking ? "Missing clocking" : "",
-                        entry.late_arrival ? "Late arrival" : "",
-                        entry.early_departure ? "Early departure" : "",
-                        entry.warning_notes || entry.notes || "",
-                      ].filter(Boolean).join(" · ");
-                      let x = rect.left + rect.width / 2;
-                      let y = rect.top - 8;
-                      if (calRect) {
-                        x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
-                        y = Math.max(calRect.top + 4, y);
-                      }
-                      setTooltip({ content: lines, x, y });
-                    } else {
-                      let x = rect.left + rect.width / 2;
-                      let y = rect.top - 8;
-                      if (calRect) {
-                        x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
-                        y = Math.max(calRect.top + 4, y);
-                      }
-                      setTooltip({ content: info.event.title, x, y });
-                    }
-                  }}
-                  eventMouseLeave={() => setTooltip(null)}
-                  dayCellDidMount={(arg: DayCellMountArg) => {
-                    const dateStr = arg.dateStr;
-                    const eventsForDay = dayEventsMap.get(dateStr);
-                    if (!eventsForDay) return;
-                    arg.el.addEventListener("mouseenter", (e: MouseEvent) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest(".fc-event")) return;
-                      const calRect = calendarRef.current?.getBoundingClientRect();
-                      if (!calRect) return;
-                      const cellRect = arg.el.getBoundingClientRect();
-                      let x = cellRect.left + cellRect.width / 2;
-                      let y = cellRect.top - 4;
-                      x = Math.max(calRect.left + 4, Math.min(x, calRect.right - 4));
-                      y = Math.max(calRect.top + 4, y);
-                      setDayTooltip({
-                        content: eventsForDay.join(" · "),
-                        x,
-                        y,
-                      });
-                    });
-                    arg.el.addEventListener("mouseleave", () => {
-                      setDayTooltip(null);
-                    });
-                  }}
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "",
-                  }}
-                  moreLinkClick="popover"
-                  views={{
-                    dayGridPayroll: {
-                      buttonText: "Payroll",
-                      duration: { days: 14 },
-                      type: "dayGrid",
-                    },
-                  }}
-                />
-              </div>
-
-              <div className="hidden max-sm:block min-w-0 max-w-full">
-                <div className="flex items-center gap-3 min-w-0">
-                  <input
-                    type="date"
-                    value={calendarFocusDate}
-                    onChange={(e) => setCalendarFocusDate(e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setCalendarFocusDate(currentWorkDate)}
-                    className="shrink-0 rounded-lg border border-accent px-3 py-2 text-xs font-semibold text-accent"
-                  >
-                    Today
-                  </button>
-                </div>
-
-                <div className="mt-3 space-y-2 min-w-0 max-w-full">
-                  {publicHolidays
-                    .filter((h) => h.holiday_date === calendarFocusDate)
-                    .map((holiday) => (
-                      <div
-                        key={`holiday-${holiday.id}`}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-holiday/30 bg-holiday/10 px-3 py-2.5 min-w-0"
-                      >
-                        <span className="text-sm font-semibold text-holiday break-words leading-tight min-w-0">{holiday.name}</span>
-                        <span className="shrink-0 rounded-full border border-holiday/20 bg-holiday/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-holiday whitespace-nowrap">
-                          Holiday
-                        </span>
-                      </div>
-                    ))}
-                  {entries
-                    .filter(
-                      (e) =>
-                        e.work_date === calendarFocusDate &&
-                        !holidayDates.has(e.work_date) &&
-                        !e.notes?.startsWith("Public holiday:"),
-                    )
-                    .map((entry) => {
-                      const hasWarning = entry.missing_clocking || entry.late_arrival || entry.early_departure;
-                      return (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          onClick={() => {
-                            setCalendarFocusDate(entry.work_date);
-                            setDetailEntry(entry);
-                          }}
-                          className={`block w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-colors ${hasWarning
-                            ? "border-danger/30 bg-danger/[0.07]"
-                            : "border-border bg-background"
-                            }`}
-                        >
-                          <div className="flex items-center justify-between gap-2 min-w-0 w-full">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                              {entry.status === "draft" ? "Draft" : entry.status}
-                            </p>
-                            <span className="shrink-0 text-sm font-semibold text-foreground whitespace-nowrap">
-                              {formatHours(entry.paid_hours)}
-                              {Number(entry.overtime_hours ?? 0) > 0
-                                ? ` +${formatHours(entry.overtime_hours)}`
-                                : ""}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 break-words leading-tight text-xs text-muted">
-                            {formatTime(entry.clock_in)} &rarr; {formatTime(entry.clock_out)}
-                            {entry.lunch_start || entry.lunch_end
-                              ? ` \u00b7 Lunch ${formatTimeRange(entry.lunch_start, entry.lunch_end)}`
-                              : ""}
-                          </p>
-                          {entry.warning_notes || (entry.notes && !entry.notes.startsWith("Public holiday:")) ? (
-                            <p className="mt-1 text-xs text-muted break-words line-clamp-2">
-                              {entry.warning_notes || entry.notes}
-                            </p>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  {entries.filter((e) => e.work_date === calendarFocusDate).length === 0 &&
-                    publicHolidays.filter((h) => h.holiday_date === calendarFocusDate).length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
-                      No entries for this day
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {(tooltip ?? dayTooltip) ? createPortal(
-                <div
-                  className="pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-full rounded-md border border-border bg-surface px-3 py-2 text-xs text-foreground shadow-lg"
-                  style={{ left: (tooltip ?? dayTooltip)!.x, top: (tooltip ?? dayTooltip)!.y }}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    activeTab === "timesheets"
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-surface-muted text-muted"
+                  }`}
                 >
-                  {(tooltip ?? dayTooltip)!.content}
-                </div>,
-                document.body,
-              ) : null}
-
-              {/* Calendar Selected Day Inspector & Draft Editor */}
-              {(() => {
-                const focusedDate = selectedDate || calendarFocusDate;
-                const activeCalendarEntry = (focusedDate ? entriesByDate.get(focusedDate) : null) ?? detailEntry;
-                const activeHoliday = focusedDate
-                  ? publicHolidays.find((h) => h.holiday_date === focusedDate)
-                  : null;
-                const isPastFocusedDay = Boolean(focusedDate) && focusedDate < currentWorkDate && !activeCalendarEntry && !activeHoliday;
-
-                if (!focusedDate) return null;
-
-                return (
-                  <div className="grid gap-2.5 border-t border-border/80 pt-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="size-4 text-accent" />
-                        <p className="text-xs font-black uppercase tracking-wider text-muted">
-                          Selected Day · <span className="text-foreground">{formatDate(focusedDate)}</span>
-                        </p>
-                      </div>
-                      {(selectedDate || detailEntry) ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedDate("");
-                            setDetailEntry(null);
-                          }}
-                          className="text-[11px] font-bold text-muted hover:text-foreground underline decoration-dotted"
-                        >
-                          Clear selection
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {activeCalendarEntry ? (
-                      <div className="grid gap-2">
-                        {renderTimesheetEntry(activeCalendarEntry)}
-                      </div>
-                    ) : activeHoliday ? (
-                      <article className="group flex flex-col justify-between gap-2.5 rounded-xl bg-slate-800 p-3.5 text-white shadow-sm ring-1 ring-slate-900/60 min-w-0">
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <div className="relative shrink-0">
-                              <div className="flex size-8.5 flex-col items-center justify-center rounded-lg border border-slate-700 bg-slate-900/80 shadow-xs leading-none text-white">
-                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">{getDateBadgeParts(focusedDate).month}</span>
-                                <span className="text-xs font-black mt-0.5">{getDateBadgeParts(focusedDate).day}</span>
-                              </div>
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">{activeHoliday.name}</p>
-                              <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">Public Holiday · {formatDate(focusedDate)}</p>
-                            </div>
-                          </div>
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-slate-700 whitespace-nowrap">
-                            Holiday Paid
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                          <div>
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Type</p>
-                            <p className="font-extrabold text-slate-900 text-xs">Public Holiday</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Benefit</p>
-                            <p className="font-extrabold text-emerald-700 text-xs">Paid Day</p>
-                          </div>
-                          <div>
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Hours</p>
-                            <p className="font-extrabold text-emerald-700 text-xs">8.00h</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] pt-0.5">
-                          <span className="rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px]">BCEA Protected Holiday</span>
-                          <span className="rounded bg-slate-900/60 px-2 py-0.5 font-bold text-slate-300 text-[10px] border border-slate-700">Full Day Off</span>
-                        </div>
-                      </article>
-                    ) : isPastFocusedDay ? (
-                      <article className="group flex flex-col justify-between gap-2.5 rounded-xl bg-amber-700 p-3.5 text-white shadow-sm ring-1 ring-amber-800/80 min-w-0">
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <div className="relative shrink-0">
-                              <div className="flex size-8.5 flex-col items-center justify-center rounded-lg border border-amber-400/50 bg-amber-800/90 shadow-xs leading-none text-white">
-                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">{getDateBadgeParts(focusedDate).month}</span>
-                                <span className="text-xs font-black mt-0.5">{getDateBadgeParts(focusedDate).day}</span>
-                              </div>
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-amber-300 ring-2 ring-amber-700" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">No timesheet recorded</p>
-                              <p className="text-[11px] font-medium text-white/85 break-words leading-tight mt-0.5">Missing record for {formatDate(focusedDate)}</p>
-                            </div>
-                          </div>
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-black/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white border border-white/20 whitespace-nowrap">
-                            Unrecorded
-                          </span>
-                        </div>
-                        <div className="rounded-md bg-white p-2 text-center text-slate-900 shadow-xs">
-                          <p className="text-xs font-semibold text-slate-700">Create a past draft timesheet for this day to record your work hours.</p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
-                          <form action={createAction}>
-                            <input type="hidden" name="work_date" value={focusedDate} />
-                            <input type="hidden" name="use_template" value="true" />
-                            <input type="hidden" name="clock_in" value={scheduleTemplate.clock_in} />
-                            <input type="hidden" name="lunch_start" value={scheduleTemplate.lunch_start} />
-                            <input type="hidden" name="lunch_end" value={scheduleTemplate.lunch_end} />
-                            <input type="hidden" name="clock_out" value={scheduleTemplate.clock_out} />
-                            <button
-                              disabled={createPending}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-black text-amber-950 shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
-                              title={`Load schedule template: ${scheduleTemplate.scheduleName} (${scheduleTemplate.clock_in} - ${scheduleTemplate.clock_out})`}
-                            >
-                              <Sparkles className="size-3.5 text-amber-900" />
-                              {createPending ? "Loading..." : "Load Schedule Draft"}
-                            </button>
-                          </form>
-                          <form action={createAction}>
-                            <input type="hidden" name="work_date" value={focusedDate} />
-                            <button
-                              disabled={createPending}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 hover:bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
-                            >
-                              <Plus className="size-3.5" />
-                              Blank Draft
-                            </button>
-                          </form>
-                        </div>
-                      </article>
-                    ) : null}
-                  </div>
-                );
-              })()}
-
-              {section === "calendar" ? (
-                <div className="grid gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openPanel("leave")}
-                      className="inline-flex items-center justify-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
-                    >
-                      <CalendarPlus className="size-4" />
-                      Request leave
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsBulkModalOpen(true)}
-                      className="inline-flex items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/15"
-                    >
-                      <Layers className="size-4" />
-                      Bulk Drafts
-                    </button>
-                  </div>
-                  {quickSubmitForm}
-                </div>
-              ) : null}
+                  {filteredEntries.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange("requests")}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                  activeTab === "requests"
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "text-foreground hover:bg-surface-muted"
+                }`}
+              >
+                <span>Requests</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                    activeTab === "requests"
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-surface-muted text-muted"
+                  }`}
+                >
+                  {submittedEntries.length}
+                </span>
+              </button>
             </div>
-          )}
-        </div>
-      ) : null}
 
-      {/* Timesheet Records / Requests Section (Divided by clean line) */}
-      {section !== "calendar" ? (
-        <div ref={timesheetSectionRef} className="grid gap-3 border-t border-border pt-4 scroll-mt-20 sm:scroll-mt-24">
-          <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-background p-1">
-            <button
-              type="button"
-              onClick={() => handleTabChange("timesheets")}
-              className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${activeTab === "timesheets"
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground"
-                }`}
-            >
-              <span>Timesheets</span>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                activeTab === "timesheets"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-surface-muted text-muted"
-              }`}>
-                {filteredEntries.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange("requests")}
-              className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${activeTab === "requests"
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground"
-                }`}
-            >
-              <span>Requests</span>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                activeTab === "requests"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-surface-muted text-muted"
-              }`}>
-                {submittedEntries.length}
-              </span>
-            </button>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setIsAddPastDayOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition-colors shadow-2xs cursor-pointer"
+              >
+                <CalendarPlus className="size-3.5" />
+                <span>Add past day</span>
+              </button>
+            </div>
           </div>
 
           {message && (
             <div
-              className={`rounded-md border px-3 py-2 text-sm font-medium ${messageOk
-                ? "border-accent/30 bg-accent/10 text-foreground"
-                : "border-danger/30 bg-danger/10 text-danger"
-                }`}
+              className={`rounded-xl border px-3.5 py-2.5 text-xs font-medium ${
+                messageOk
+                  ? "border-accent/30 bg-accent/10 text-foreground"
+                  : "border-danger/30 bg-danger/10 text-danger"
+              }`}
             >
               {message}
             </div>
           )}
 
           {filteredEntries.length === 0 ? (
-            <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-              No time entries yet.
-            </p>
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-background/50 p-8 text-center">
+              <div className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <CalendarPlus className="size-5" />
+              </div>
+              <div>
+                <p className="font-bold text-foreground text-sm">No drafts for this period</p>
+                <p className="mt-1 text-xs text-muted max-w-sm">
+                  You don&apos;t have any drafts for this period. Add past days to record past work, then submit when ready.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddPastDayOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-2 text-xs font-bold shadow-soft transition-colors cursor-pointer"
+                >
+                  <CalendarPlus className="size-3.5" />
+                  <span>Add past day</span>
+                </button>
+              </div>
+            </div>
           ) : activeTab === "timesheets" ? (
             <div className="grid gap-3">
-              {/* Work Schedule Rule & Quick Bulk Draft Engine Banner */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/75 p-3.5 sm:p-4 backdrop-blur-xs shadow-soft">
-                <div className="flex items-start sm:items-center gap-3 min-w-0">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Sparkles className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-foreground">
-                        {workSchedule?.name ? `${workSchedule.name} Rule` : "Work Schedule Template"}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
-                        <Clock className="size-3" />
-                        {scheduleTemplate.clock_in} - {scheduleTemplate.clock_out}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted bg-surface-muted px-2 py-0.5 rounded-full">
-                        <UtensilsCrossed className="size-3" />
-                        Lunch: {scheduleTemplate.lunch_start} - {scheduleTemplate.lunch_end} (req.)
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted">
-                      Quickly draft timesheets aligned with your company rules and mandatory lunch policy.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setIsBulkModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition-colors shadow-2xs"
-                  >
-                    <Layers className="size-3.5" />
-                    <span>Bulk Draft Uploader</span>
-                  </button>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 items-start">
                 {paginatedEntries.map((entry) => (
                   <div key={entry.id} className="w-full min-w-0 max-w-full">
@@ -2953,79 +2193,41 @@ export default function EmployeeTimesheetCorrections({
                       <button
                         type="button"
                         onClick={() => handleTimesheetsPageChange(1)}
-                        disabled={timesheetsPage <= 1}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        disabled={timesheetsPage === 1}
+                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-muted hover:bg-surface-muted hover:text-foreground disabled:opacity-40 transition-colors cursor-pointer"
                         title="First page"
-                        aria-label="First page"
                       >
                         <ChevronsLeft className="size-3.5" />
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleTimesheetsPageChange(Math.max(1, timesheetsPage - 1))}
-                        disabled={timesheetsPage <= 1}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        onClick={() => handleTimesheetsPageChange(timesheetsPage - 1)}
+                        disabled={timesheetsPage === 1}
+                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-muted hover:bg-surface-muted hover:text-foreground disabled:opacity-40 transition-colors cursor-pointer"
                         title="Previous page"
-                        aria-label="Previous page"
                       >
                         <ChevronLeft className="size-3.5" />
                       </button>
 
-                      <div className="flex items-center gap-1 px-1">
-                        {Array.from({ length: totalTimesheetsPages }, (_, i) => i + 1)
-                          .filter((p) => {
-                            return (
-                              p === 1 ||
-                              p === totalTimesheetsPages ||
-                              Math.abs(p - timesheetsPage) <= 1
-                            );
-                          })
-                          .reduce<Array<number | string>>((acc, p, idx, arr) => {
-                            if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
-                              acc.push("...");
-                            }
-                            acc.push(p);
-                            return acc;
-                          }, [])
-                          .map((item, idx) =>
-                            typeof item === "string" ? (
-                              <span key={`ts-page-ellipsis-${idx}`} className="px-1 text-muted">
-                                ...
-                              </span>
-                            ) : (
-                              <button
-                                key={`ts-page-${item}`}
-                                type="button"
-                                onClick={() => handleTimesheetsPageChange(item)}
-                                className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                  item === timesheetsPage
-                                    ? "bg-primary text-primary-foreground shadow-2xs scale-105"
-                                    : "hover:bg-surface-muted text-muted hover:text-foreground"
-                                }`}
-                              >
-                                {item}
-                              </button>
-                            )
-                          )}
-                      </div>
+                      <span className="px-2 font-bold text-foreground">
+                        {timesheetsPage} / {totalTimesheetsPages}
+                      </span>
 
                       <button
                         type="button"
-                        onClick={() => handleTimesheetsPageChange(Math.min(totalTimesheetsPages, timesheetsPage + 1))}
-                        disabled={timesheetsPage >= totalTimesheetsPages}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        onClick={() => handleTimesheetsPageChange(timesheetsPage + 1)}
+                        disabled={timesheetsPage === totalTimesheetsPages}
+                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-muted hover:bg-surface-muted hover:text-foreground disabled:opacity-40 transition-colors cursor-pointer"
                         title="Next page"
-                        aria-label="Next page"
                       >
                         <ChevronRight className="size-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleTimesheetsPageChange(totalTimesheetsPages)}
-                        disabled={timesheetsPage >= totalTimesheetsPages}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                        disabled={timesheetsPage === totalTimesheetsPages}
+                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-muted hover:bg-surface-muted hover:text-foreground disabled:opacity-40 transition-colors cursor-pointer"
                         title="Last page"
-                        aria-label="Last page"
                       >
                         <ChevronsRight className="size-3.5" />
                       </button>
@@ -3033,1113 +2235,182 @@ export default function EmployeeTimesheetCorrections({
                   ) : null}
                 </div>
               ) : null}
-
-              {section === "full" ? quickSubmitForm : null}
             </div>
           ) : (
             <div className="grid gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted">
-                  Select past submitted timesheets to request time corrections from your manager in bulk.
-                </p>
-                {eligibleCorrectionEntries.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={toggleSelectAllCorrections}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface"
-                  >
-                    {allCorrectionsSelected ? (
-                      <>
-                        <Square className="size-3.5" />
-                        Deselect all
-                      </>
-                    ) : (
-                      <>
-                        <CheckSquare className="size-3.5" />
-                        Select all ({eligibleCorrectionEntries.length})
-                      </>
-                    )}
-                  </button>
-                ) : null}
-              </div>
-
-              {selectedCorrectionIds.size > 0 ? (
-                <form action={correctionAction} className="grid gap-3 rounded-lg border border-accent/40 bg-accent/5 p-4">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-foreground">
-                        Request correction for {selectedCorrectionIds.size} {selectedCorrectionIds.size === 1 ? "timesheet" : "timesheets"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted">
-                        Selected:{" "}
-                        {Array.from(selectedCorrectionIds)
-                          .map((id) => entries.find((e) => e.id === id)?.work_date)
-                          .filter(Boolean)
-                          .sort()
-                          .map((d) => formatDate(d!))
-                          .join(", ")}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCorrectionIds(new Set())}
-                      className="w-max text-xs font-semibold text-muted hover:text-foreground"
-                    >
-                      Clear selection
-                    </button>
-                  </div>
-
-                  {Array.from(selectedCorrectionIds).map((id) => (
-                    <input key={id} type="hidden" name="time_entry_ids" value={id} />
-                  ))}
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="grid gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock in</span>
-                      <AnalogTimePicker
-                        name="proposed_clock_in"
-                        placeholder="Select clock in"
-                      />
-                    </div>
-                    <div className="grid gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch start</span>
-                      <AnalogTimePicker
-                        name="proposed_lunch_start"
-                        placeholder="Select lunch start"
-                      />
-                    </div>
-                    <div className="grid gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed lunch end</span>
-                      <AnalogTimePicker
-                        name="proposed_lunch_end"
-                        placeholder="Select lunch end"
-                      />
-                    </div>
-                    <div className="grid gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Proposed clock out</span>
-                      <AnalogTimePicker
-                        name="proposed_clock_out"
-                        placeholder="Select clock out"
-                      />
-                    </div>
-                  </div>
-
-                  <label className="grid gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason for correction *</span>
-                    <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                      <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                      <textarea
-                        name="reason"
-                        required
-                        rows={2}
-                        className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none"
-                        placeholder="Explain what happened and why these times are correct for all selected days."
-                      />
-                    </span>
-                  </label>
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                    <button
-                      disabled={correctionPending}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:min-h-0"
-                    >
-                      <Send className="size-4" />
-                      {correctionPending
-                        ? "Sending..."
-                        : `Send ${selectedCorrectionIds.size} request${selectedCorrectionIds.size === 1 ? "" : "s"}`}
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-
-              {submittedEntries.length === 0 ? (
-                <p className="rounded-md border border-border bg-background p-3 text-sm text-muted">
-                  Submit a timesheet first. Then requests will appear here.
-                </p>
-              ) : null}
-
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 items-start">
-                {paginatedSubmittedEntries.map((entry) => {
-                  const correction = latestRequestByEntry.get(entry.id);
-                  const hasSubmittedCorrection = correction?.status === "submitted";
-                  const canRequestCorrection = entry.work_date < currentWorkDate;
-                  const isSelected = selectedCorrectionIds.has(entry.id);
-                  const dateParts = getDateBadgeParts(entry.work_date);
-
-                  return (
-                    <div key={entry.id} className="w-full min-w-0 max-w-full">
-                      <article
-                        className={`group flex flex-col justify-between gap-2.5 rounded-xl bg-slate-800 p-3 sm:p-3.5 text-white shadow-sm transition-all hover:scale-[1.01] hover:shadow-md min-w-0 w-full max-w-full scroll-mt-20 sm:scroll-mt-24 ${isSelected
-                          ? "ring-2 ring-emerald-400 bg-slate-850"
-                          : "ring-1 ring-slate-900/80"
-                          }`}
-                      >
-                        {/* Top: Checkbox, Date & Status Badge */}
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            {canRequestCorrection && !hasSubmittedCorrection ? (
-                              <label
-                                className={`grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg border transition-all ${
-                                  isSelected
-                                    ? "bg-emerald-500 border-emerald-400 text-white shadow-xs"
-                                    : "bg-slate-900/80 border-slate-700 text-transparent hover:border-slate-500 hover:bg-slate-900"
-                                }`}
-                                onClick={(e) => e.stopPropagation()}
-                                title={isSelected ? "Deselect timesheet" : "Select timesheet"}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleCorrectionSelect(entry.id)}
-                                  aria-label={`Select timesheet for ${formatDate(entry.work_date)}`}
-                                  className="sr-only"
-                                />
-                                <Check
-                                  className={`size-4 stroke-[3] transition-all ${
-                                    isSelected ? "scale-100 opacity-100" : "scale-75 opacity-0"
-                                  }`}
-                                />
-                              </label>
-                            ) : null}
-
-                            <div className="relative shrink-0">
-                              <div className="flex size-8.5 flex-col items-center justify-center rounded-lg border border-slate-700 bg-slate-900/80 shadow-xs leading-none text-white">
-                                <span className="text-[8px] font-bold uppercase tracking-wider opacity-80">{dateParts.month}</span>
-                                <span className="text-xs font-black mt-0.5">{dateParts.day}</span>
-                              </div>
-                              <span className="absolute -bottom-0.5 -right-0.5 block size-2 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-extrabold text-white break-words leading-tight">
-                                {formatDate(entry.work_date)}
-                              </p>
-                              <p className="text-[11px] font-medium text-slate-300 break-words leading-tight mt-0.5">
-                                {hasSubmittedCorrection ? "Correction Submitted" : "Submitted Timesheet"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <RecordStatusBadge
-                            status={hasSubmittedCorrection ? "submitted" : entry.status}
-                          />
-                        </div>
-
-                        {/* Middle: High-Contrast White Metrics Box */}
-                        <div className="grid grid-cols-4 gap-1 rounded-md bg-white p-1.5 text-center text-slate-900 shadow-xs min-w-0">
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">In</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clock_in)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortLunch(entry.lunch_start, entry.lunch_end)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Out</p>
-                            <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{shortTime(entry.clock_out)}</p>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total</p>
-                            <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(entry.paid_hours)}</p>
-                          </div>
-                        </div>
-
-                        {/* Footer Pills */}
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0 pt-0.5">
-                          <span
-                            className="inline-flex items-center rounded bg-slate-700/80 px-2 py-0.5 font-semibold text-slate-200 text-[10px] break-words"
-                            title={getEntryWorkstationName(entry) ?? "Assigned workstation"}
-                          >
-                            <MapPin className="mr-1 inline size-2.5 shrink-0 text-slate-400" />
-                            <span className="break-words leading-tight">{getEntryWorkstationName(entry) ?? "Workstation logged"}</span>
-                          </span>
-
-                          <span className="shrink-0 rounded bg-slate-900/60 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700 whitespace-nowrap">
-                            {entry.missing_clocking || entry.late_arrival || entry.early_departure ? "Review Needed" : "Compliant"}
-                          </span>
-                        </div>
-
-                        {correction ? (
-                          <div className="rounded-md border border-border bg-surface px-3 py-2">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="font-semibold text-foreground">
-                                  Correction request
-                                </p>
-                                <p className="mt-1 text-xs text-muted">
-                                  Submitted {new Date(correction.submitted_at).toLocaleString("en-ZA")}
-                                </p>
-                              </div>
-                              <span
-                                className={`w-max rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass(correction.status)}`}
-                              >
-                                {correction.status}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm text-muted">{correction.reason}</p>
-                            <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                                <p className="text-[10px] text-muted leading-none">In</p>
-                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_in)}</span>
-                              </div>
-                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                                <p className="text-[10px] text-muted leading-none">Lunch start</p>
-                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_start)}</span>
-                              </div>
-                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                                <p className="text-[10px] text-muted leading-none">Lunch end</p>
-                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_lunch_end)}</span>
-                              </div>
-                              <div className="min-w-0 rounded border border-border bg-background px-2 py-1.5">
-                                <p className="text-[10px] text-muted leading-none">Out</p>
-                                <span className="h-6 w-full bg-transparent text-xs text-foreground">{shortTime(correction.proposed_clock_out)}</span>
-                              </div>
-                            </div>
-                            {correction.review_notes ? (
-                              <p className="mt-2 text-sm font-medium text-foreground">
-                                Review note: {correction.review_notes}
-                              </p>
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        {canRequestCorrection && !hasSubmittedCorrection ? (
-                          <details className="rounded-lg border border-border bg-surface">
-                            <summary className="cursor-pointer px-3 py-2 font-semibold text-foreground">
-                              Request individual correction
-                            </summary>
-                            <form action={correctionAction} className="grid gap-3 border-t border-border p-3">
-                              <input type="hidden" name="time_entry_id" value={entry.id} />
-
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div className="grid gap-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock in</span>
-                                  <AnalogTimePicker name="proposed_clock_in" defaultValue={inputTime(entry.clock_in)} />
-                                </div>
-                                <div className="grid gap-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch start</span>
-                                  <AnalogTimePicker name="proposed_lunch_start" defaultValue={inputTime(entry.lunch_start)} />
-                                </div>
-                                <div className="grid gap-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Lunch end</span>
-                                  <AnalogTimePicker name="proposed_lunch_end" defaultValue={inputTime(entry.lunch_end)} />
-                                </div>
-                                <div className="grid gap-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Clock out</span>
-                                  <AnalogTimePicker name="proposed_clock_out" defaultValue={inputTime(entry.clock_out)} />
-                                </div>
-                              </div>
-
-                              <label className="grid gap-1">
-                                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Reason</span>
-                                <span className="flex items-start gap-2 rounded-lg border border-border bg-background px-3 pt-2.5">
-                                  <FileText className="size-4 shrink-0 text-muted mt-0.5" />
-                                  <textarea name="reason" required rows={3} className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none resize-none" placeholder="Explain what happened and why these times are correct." />
-                                </span>
-                              </label>
-
-                              <div className="flex flex-col gap-2">
-                                <p className="text-xs text-muted">
-                                  Submitted correction requests cannot be edited by employees.
-                                </p>
-                                <button
-                                  disabled={correctionPending}
-                                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                                >
-                                  <Send className="size-4" />
-                                  {correctionPending ? "Sending..." : "Send request"}
-                                </button>
-                              </div>
-                            </form>
-                          </details>
-                        ) : hasSubmittedCorrection ? (
-                          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
-                            A submitted correction is locked for this record until management reviews it.
-                          </p>
-                        ) : (
-                          <p className="rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-muted">
-                            Corrections become available after the work date has passed.
-                          </p>
-                        )}
-                      </article>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Requests Tab Pagination Controls */}
-              {totalRequests > 0 ? (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-soft">
-                  <div className="flex flex-wrap items-center gap-2 text-muted">
-                    <span>
-                      Showing <strong className="font-bold text-foreground">{requestStartIndex}</strong> to{" "}
-                      <strong className="font-bold text-foreground">{requestEndIndex}</strong> of{" "}
-                      <strong className="font-bold text-foreground">{totalRequests}</strong> requests
-                    </span>
-
-                    <div className="flex items-center gap-1.5 ml-2">
-                      <span className="text-[11px] font-semibold text-muted">Per page:</span>
-                      <select
-                        value={requestsPageSize}
-                        onChange={(e) => {
-                          setRequestsPageSize(Number(e.target.value));
-                          setRequestsPage(1);
-                        }}
-                        className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
-                      >
-                        {[6, 12, 24, 48].map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                {submittedEntries.map((entry) => (
+                  <div key={entry.id} className="w-full min-w-0 max-w-full">
+                    {renderTimesheetEntry(entry)}
                   </div>
-
-                  {totalRequestsPages > 1 ? (
-                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleRequestsPageChange(1)}
-                        disabled={requestsPage <= 1}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
-                        title="First page"
-                        aria-label="First page"
-                      >
-                        <ChevronsLeft className="size-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRequestsPageChange(Math.max(1, requestsPage - 1))}
-                        disabled={requestsPage <= 1}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
-                        title="Previous page"
-                        aria-label="Previous page"
-                      >
-                        <ChevronLeft className="size-3.5" />
-                      </button>
-
-                      <div className="flex items-center gap-1 px-1">
-                        {Array.from({ length: totalRequestsPages }, (_, i) => i + 1)
-                          .filter((p) => {
-                            return (
-                              p === 1 ||
-                              p === totalRequestsPages ||
-                              Math.abs(p - requestsPage) <= 1
-                            );
-                          })
-                          .reduce<Array<number | string>>((acc, p, idx, arr) => {
-                            if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
-                              acc.push("...");
-                            }
-                            acc.push(p);
-                            return acc;
-                          }, [])
-                          .map((item, idx) =>
-                            typeof item === "string" ? (
-                              <span key={`req-page-ellipsis-${idx}`} className="px-1 text-muted">
-                                ...
-                              </span>
-                            ) : (
-                              <button
-                                key={`req-page-${item}`}
-                                type="button"
-                                onClick={() => handleRequestsPageChange(item)}
-                                className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                  item === requestsPage
-                                    ? "bg-primary text-primary-foreground shadow-2xs scale-105"
-                                    : "hover:bg-surface-muted text-muted hover:text-foreground"
-                                }`}
-                              >
-                                {item}
-                              </button>
-                            )
-                          )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRequestsPageChange(Math.min(totalRequestsPages, requestsPage + 1))}
-                        disabled={requestsPage >= totalRequestsPages}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
-                        title="Next page"
-                        aria-label="Next page"
-                      >
-                        <ChevronRight className="size-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRequestsPageChange(totalRequestsPages)}
-                        disabled={requestsPage >= totalRequestsPages}
-                        className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
-                        title="Last page"
-                        aria-label="Last page"
-                      >
-                        <ChevronsRight className="size-3.5" />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+                ))}
+              </div>
             </div>
           )}
         </div>
-      ) : null}
+      </div>
 
-      <ViewportSidebar
-        open={Boolean(detailEntry)}
-        onClose={() => setDetailEntry(null)}
-        maxWidth="max-w-2xl"
-        eyebrow="Timesheet detail"
-        title={detailEntry ? formatDate(detailEntry.work_date) : ""}
-        description={detailEntry ? <span className="capitalize">{isEntryFixed(detailEntry) ? "Fixed timesheet breakdown" : `${detailEntry.status} shift breakdown`}</span> : ""}
-        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5"
-      >
-        {detailEntry ? (
-          <div className="grid gap-4">
-            {/* Solid Status Hero Card */}
-            <div
-              className={`flex items-center justify-between gap-3 rounded-2xl p-4 shadow-soft ${detailEntry.status === "approved"
-                ? "bg-emerald-600 text-white ring-1 ring-emerald-700/60"
-                : detailEntry.status === "submitted"
-                  ? "bg-slate-800 text-white ring-1 ring-slate-900/60"
-                  : isEntryFixed(detailEntry)
-                    ? "bg-emerald-700 text-white ring-1 ring-emerald-800/60"
-                    : detailEntry.status === "rejected"
-                      ? "bg-rose-600 text-white ring-1 ring-rose-700/60"
-                      : "border border-zinc-200 bg-surface text-foreground"
-                }`}
-            >
-              <div>
-                <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-muted" : "opacity-80"}`}>
-                  Timesheet Status
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <RecordStatusBadge
-                    status={detailEntry.status === "approved" ? "verified" : detailEntry.status}
-                    isFixed={isEntryFixed(detailEntry)}
-                    size={32}
-                  />
-                  <span className={`text-xs font-bold ${detailEntry.status === "draft" && !isEntryFixed(detailEntry) ? "text-muted" : "text-white/90"}`}>
-                    {formatDate(detailEntry.work_date)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-right">
-                <p className={`text-[10px] font-bold uppercase tracking-wider ${detailEntry.status === "draft" ? "text-muted" : "opacity-80"}`}>
-                  Paid duration
-                </p>
-                <p className="mt-0.5 text-2xl font-black">{formatHours(detailEntry.paid_hours)}</p>
-              </div>
-            </div>
-
-            {/* Time Grid Cards */}
-            <div className="grid gap-2 sm:grid-cols-4">
-              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock in</p>
-                <p className="mt-1 text-sm font-extrabold text-foreground">
-                  {formatTime(detailEntry.clock_in)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch</p>
-                <p className="mt-1 text-sm font-extrabold text-foreground">
-                  {formatTimeRange(detailEntry.lunch_start, detailEntry.lunch_end)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Clock out</p>
-                <p className="mt-1 text-sm font-extrabold text-foreground">
-                  {formatTime(detailEntry.clock_out)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Total Paid</p>
-                <p className="mt-1 text-sm font-black text-emerald-950">
-                  {formatHours(detailEntry.paid_hours)}
-                </p>
-              </div>
-            </div>
-
-            {/* Hours Calculation Details */}
-            <div className="grid gap-2 sm:grid-cols-4">
-              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Normal (NT)</p>
-                <p className="mt-1 text-sm font-extrabold text-foreground">
-                  {formatHours(detailEntry.normal_hours)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Overtime (OT)</p>
-                <p className="mt-1 text-sm font-black text-amber-950">
-                  {formatHours(detailEntry.overtime_hours)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-border/80 bg-surface p-3 text-center shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Lunch break</p>
-                <p className="mt-1 text-sm font-extrabold text-foreground">
-                  {formatHours(detailEntry.lunch_hours)}
-                </p>
-              </div>
-
-              <div
-                className={`rounded-2xl border p-3 text-center shadow-soft ${detailEntry.scheduleValidation?.isCompliant
-                  ? "border-emerald-200 bg-emerald-50/70 text-emerald-950"
-                  : "border-rose-200 bg-rose-50/70 text-rose-950"
-                  }`}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-wider">Schedule Check</p>
-                <p className="mt-1 text-xs font-black">
-                  {detailEntry.scheduleValidation?.isCompliant ? "Compliant" : "Needs review"}
-                </p>
-              </div>
-            </div>
-
-            {/* Schedule issues alert if any */}
-            {detailEntry.scheduleValidation && !detailEntry.scheduleValidation.isCompliant && (
-              <div className="rounded-2xl border border-rose-300 bg-rose-50 p-3.5 text-rose-950 shadow-soft">
-                <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-rose-800">
-                  <AlertTriangle className="size-4 text-rose-600" />
-                  Schedule Exceptions Detected
-                </p>
-                <ul className="mt-2 list-disc list-inside space-y-1 text-xs font-medium">
-                  {detailEntry.scheduleValidation.issues.map((issue, idx) => (
-                    <li key={idx}>{issue}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Notes */}
-            {detailEntry.notes ? (
-              <div className="rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Shift notes</p>
-                <p className="mt-1 text-xs font-medium text-foreground">{detailEntry.notes}</p>
-              </div>
-            ) : null}
-
-            {/* Calculation Warning notes */}
-            {detailEntry.warning_notes ? (
-              <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-amber-950 shadow-soft">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Calculation notice</p>
-                <p className="mt-1 text-xs font-medium text-amber-900">
-                  {detailEntry.warning_notes}
-                </p>
-              </div>
-            ) : null}
-
-            {/* Location events history & Visual Map */}
-            {detailEntry.locationEvents?.length ? (
-              <div className="rounded-2xl border border-border/80 bg-surface p-3.5 shadow-soft">
-                <div className="flex items-center justify-between gap-2 pb-2">
-                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <MapPin className="size-4 text-accent" />
-                    Location Audit History ({detailEntry.locationEvents.length})
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowDetailMap((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-primary-hover shadow-soft transition-colors"
-                  >
-                    <Footprints className="size-3 text-white" />
-                    {showDetailMap ? "Hide Route Map" : "View Route Map"}
-                  </button>
-                </div>
-
-                {showDetailMap && (
-                  <div className="mb-3 overflow-hidden rounded-lg border border-border">
-                    <TimesheetRouteMap
-                      employeeName="Shift Movement"
-                      workDate={detailEntry.work_date}
-                      locationEvents={detailEntry.locationEvents}
-                      onClose={() => setShowDetailMap(false)}
-                    />
-                  </div>
-                )}
-
-                <div className="mt-1 grid gap-2">
-                  {detailEntry.locationEvents.map((event) => {
-                    const isOutOfRange = event.geofence_status === "out_of_range";
-                    const eventLabel =
-                      event.event_type === "clock_in"
-                        ? "Clock In"
-                        : event.event_type === "lunch_start"
-                        ? "Take Lunch"
-                        : event.event_type === "lunch_end"
-                        ? "Return from Lunch"
-                        : event.event_type === "clock_out"
-                        ? "Clock Out"
-                        : event.event_type === "app_interaction"
-                        ? "App Interaction"
-                        : event.event_type.replaceAll("_", " ");
-
-                    return (
-                      <div
-                        key={event.id}
-                        className={`grid gap-1 rounded-md border border-border p-2.5 text-xs sm:grid-cols-[130px_1fr_auto] sm:items-center ${
-                          isOutOfRange ? "bg-rose-50/70 border-rose-300" : "bg-surface"
-                        }`}
-                      >
-                        <p className="font-bold capitalize text-foreground">
-                          {eventLabel}
-                        </p>
-                        <p className="text-muted">
-                          {event.latitude !== null && event.longitude !== null
-                            ? `${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`
-                            : isOutOfRange
-                            ? "Outside radius (Location hidden for privacy)"
-                            : "No coordinates"}
-                          {event.distance_meters !== null
-                            ? ` · ${Math.round(event.distance_meters)}m away`
-                            : ""}
-                        </p>
-                        <span
-                          className={`inline-flex w-max items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold ${geofenceClass(event.geofence_status)}`}
-                        >
-                          <LocateFixed className="size-3" />
-                          {geofenceLabel(event.geofence_status)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </ViewportSidebar>
-
-      <ViewportSidebar
-        open={Boolean(selectedDate) && !detailEntry}
-        onClose={() => setSelectedDate("")}
-        eyebrow="Date actions"
-        title={selectedDate ? formatDate(selectedDate) : ""}
-        description="Choose an action for this day without leaving the calendar."
-        bodyClassName="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4"
-      >
-        {selectedEntry ? (
-          <>
-            <p className="rounded-xl border border-border/80 bg-surface px-4 py-3 text-sm text-muted shadow-soft">
-              This day already has a <strong className="text-foreground">{selectedEntry.status}</strong> timesheet.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setDetailEntry(selectedEntry);
-                setSelectedDate("");
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary-hover transition-colors"
-            >
-              <Clock3 className="size-4" />
-              Open timesheet
-            </button>
-          </>
-        ) : selectedIsHoliday ? (
-          <p className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-foreground shadow-soft">
-            This day is a company public holiday and is handled automatically.
-          </p>
-        ) : selectedDate >= currentWorkDate ? (
-          <p className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning shadow-soft">
-            Employees can only add past timesheets from the calendar.
-          </p>
-        ) : (() => {
-          const dayScheduleWithLunch = getScheduleTemplate(
-            workSchedule,
-            todaySchedule,
-            defaultLunchMinutes,
-            selectedDate,
-            true,
-          );
-          const dayScheduleNoLunch = getScheduleTemplate(
-            workSchedule,
-            todaySchedule,
-            defaultLunchMinutes,
-            selectedDate,
-            false,
-          );
-          const activeSchedule = includeLunchInDraft ? dayScheduleWithLunch : dayScheduleNoLunch;
-
-          return (
-            <div className="grid gap-3">
-              <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 text-xs">
-                <div className="flex items-center justify-between gap-2 font-bold text-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="size-3.5 text-primary" />
-                    <span>{dayScheduleWithLunch.scheduleName}</span>
-                  </div>
-                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-foreground cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={includeLunchInDraft}
-                      onChange={(e) => setIncludeLunchInDraft(e.target.checked)}
-                      className="size-3.5 rounded border-border text-primary focus:ring-primary accent-primary"
-                    />
-                    <span>Include Lunch</span>
-                  </label>
-                </div>
-                <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
-                  <div className="rounded-lg bg-surface/80 p-2 border border-border/60">
-                    <span className="text-[10px] text-muted uppercase font-bold block">Shift Hours</span>
-                    <strong className="text-foreground">{activeSchedule.clock_in} - {activeSchedule.clock_out}</strong>
-                  </div>
-                  <div className="rounded-lg bg-surface/80 p-2 border border-border/60">
-                    <span className="text-[10px] text-muted uppercase font-bold block">
-                      Lunch Break
-                    </span>
-                    <strong className={includeLunchInDraft ? "text-foreground" : "text-muted"}>
-                      {includeLunchInDraft
-                        ? `${activeSchedule.lunch_start} - ${activeSchedule.lunch_end} (${dayScheduleWithLunch.lunch_minutes}m)`
-                        : "No Lunch (0m)"}
-                    </strong>
-                  </div>
-                </div>
-                <p className="mt-2 text-[11px] text-muted leading-relaxed">
-                  {includeLunchInDraft
-                    ? `Quick-load an editable draft pre-filled with shift hours and ${dayScheduleWithLunch.lunch_minutes}m lunch break.`
-                    : "Quick-load a draft without lunch. You can still add lunch anytime or submit with an explanatory note."}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <form action={createAction}>
-                  <input type="hidden" name="work_date" value={selectedDate} />
-                  <input type="hidden" name="use_template" value="true" />
-                  <input type="hidden" name="include_lunch" value={includeLunchInDraft ? "true" : "false"} />
-                  <input type="hidden" name="clock_in" value={activeSchedule.clock_in} />
-                  <input type="hidden" name="lunch_start" value={activeSchedule.lunch_start} />
-                  <input type="hidden" name="lunch_end" value={activeSchedule.lunch_end} />
-                  <input type="hidden" name="clock_out" value={activeSchedule.clock_out} />
-                  <button
-                    type="submit"
-                    disabled={!selectedCanAdd || createPending}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
-                  >
-                    <Sparkles className="size-4" />
-                    {createPending
-                      ? "Adding draft..."
-                      : includeLunchInDraft
-                        ? "Load Schedule Draft (With Lunch)"
-                        : "Load Schedule Draft (No Lunch)"}
-                  </button>
-                </form>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <form action={createAction}>
-                    <input type="hidden" name="work_date" value={selectedDate} />
-                    <input type="hidden" name="use_template" value="true" />
-                    <input type="hidden" name="include_lunch" value={includeLunchInDraft ? "false" : "true"} />
-                    <input type="hidden" name="clock_in" value={includeLunchInDraft ? dayScheduleNoLunch.clock_in : dayScheduleWithLunch.clock_in} />
-                    <input type="hidden" name="lunch_start" value={includeLunchInDraft ? dayScheduleNoLunch.lunch_start : dayScheduleWithLunch.lunch_start} />
-                    <input type="hidden" name="lunch_end" value={includeLunchInDraft ? dayScheduleNoLunch.lunch_end : dayScheduleWithLunch.lunch_end} />
-                    <input type="hidden" name="clock_out" value={includeLunchInDraft ? dayScheduleNoLunch.clock_out : dayScheduleWithLunch.clock_out} />
-                    <button
-                      type="submit"
-                      disabled={!selectedCanAdd || createPending}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:opacity-50 transition-colors cursor-pointer"
-                    >
-                      <UtensilsCrossed className="size-3 text-muted" />
-                      {includeLunchInDraft ? "Load No Lunch" : "Load With Lunch"}
-                    </button>
-                  </form>
-
-                  <form action={createAction}>
-                    <input type="hidden" name="work_date" value={selectedDate} />
-                    <button
-                      type="submit"
-                      disabled={!selectedCanAdd || createPending}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface disabled:opacity-50 transition-colors cursor-pointer"
-                    >
-                      <Plus className="size-3 text-muted" />
-                      Blank Draft
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-      </ViewportSidebar>
-
-      {/* Bulk Draft Uploader Modal */}
-      {typeof document !== "undefined" && isBulkModalOpen && createPortal(
+      {/* Add Past Day Modal */}
+      {typeof document !== "undefined" && isAddPastDayOpen && createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/65 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !bulkPending) setIsBulkModalOpen(false);
+            if (e.target === e.currentTarget && !createPending) setIsAddPastDayOpen(false);
           }}
         >
           <div
-            className="relative flex flex-col w-full max-w-lg max-h-[90vh] rounded-3xl border border-border/80 bg-surface shadow-2xl overflow-hidden"
+            className="flex max-h-[92vh] w-full max-w-md flex-col rounded-2xl border border-border/80 bg-surface shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
             role="dialog"
             aria-modal="true"
           >
             {/* Modal Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-4">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Layers className="size-5" />
+            <div className="flex items-center justify-between border-b border-border bg-surface-muted/40 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-2xs">
+                  <CalendarPlus className="size-4" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-base font-bold text-foreground truncate">
-                    Bulk Draft Uploader
-                  </h3>
-                  <p className="text-xs text-muted truncate">
-                    Create draft timesheets across date ranges using work rules.
-                  </p>
+                <div>
+                  <h3 className="text-sm font-extrabold text-foreground">Add Past Workday</h3>
+                  <p className="text-[11px] text-muted">Create a draft for a past day you worked</p>
                 </div>
               </div>
-
               <button
                 type="button"
-                onClick={() => setIsBulkModalOpen(false)}
-                disabled={bulkPending}
-                className="rounded-full p-1.5 text-muted hover:bg-surface-muted hover:text-foreground transition-colors disabled:opacity-50 cursor-pointer"
-                aria-label="Close modal"
+                onClick={() => setIsAddPastDayOpen(false)}
+                disabled={createPending}
+                className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-surface-muted hover:text-foreground transition-colors cursor-pointer"
               >
-                <X className="size-5" />
+                <X className="size-4" />
               </button>
             </div>
 
-            {/* Modal Body / Form */}
-            <form action={bulkAction} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5 sm:p-6 gap-4">
-              {/* Presets */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-muted">Quick Range Presets</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  {(
-                    [
-                      { id: "this_week", label: "This Week" },
-                      { id: "last_week", label: "Last Week" },
-                      { id: "last_14_days", label: "Last 14 Days" },
-                      { id: "this_month", label: "This Month" },
-                    ] as const
-                  ).map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => {
-                        const dates = getPresetDates(preset.id, currentWorkDate);
-                        setBulkStartDate(dates.start);
-                        setBulkEndDate(dates.end);
-                      }}
-                      className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-muted hover:border-primary/40 transition-colors cursor-pointer"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Date Range Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="grid gap-1 text-xs font-semibold text-foreground">
-                  <span>Start Date <span className="text-danger">*</span></span>
-                  <input
-                    type="date"
-                    name="start_date"
-                    required
-                    value={bulkStartDate}
-                    onChange={(e) => setBulkStartDate(e.target.value)}
-                    max={currentWorkDate}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                  />
+            {/* Modal Content */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {/* Date Selector */}
+              <div className="space-y-1.5">
+                <label htmlFor="past_work_date" className="text-xs font-bold text-foreground">
+                  Select Work Date
                 </label>
-
-                <label className="grid gap-1 text-xs font-semibold text-foreground">
-                  <span>End Date <span className="text-danger">*</span></span>
-                  <input
-                    type="date"
-                    name="end_date"
-                    required
-                    value={bulkEndDate}
-                    onChange={(e) => setBulkEndDate(e.target.value)}
-                    max={currentWorkDate}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* Exclude Weekends Checkbox */}
-                <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    name="exclude_weekends"
-                    value="true"
-                    checked={bulkExcludeWeekends}
-                    onChange={(e) => setBulkExcludeWeekends(e.target.checked)}
-                    className="rounded border-border text-primary focus:ring-primary size-4"
-                  />
-                  <span>Skip weekend days (Saturday & Sunday)</span>
-                </label>
-
-                {/* Include Lunch Checkbox */}
-                <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    name="include_lunch"
-                    value="true"
-                    checked={bulkIncludeLunch}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setBulkIncludeLunch(checked);
-                      if (!checked) {
-                        setBulkLunchStart("");
-                        setBulkLunchEnd("");
-                      } else {
-                        setBulkLunchStart(scheduleTemplate.lunch_start);
-                        setBulkLunchEnd(scheduleTemplate.lunch_end);
-                      }
-                    }}
-                    className="rounded border-border text-primary focus:ring-primary size-4 accent-primary"
-                  />
-                  <span>Include lunch break</span>
-                </label>
-              </div>
-
-              {/* Work Schedule Rule Hours */}
-              <div className="rounded-2xl border border-border/80 bg-surface-muted/50 p-4 grid gap-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="size-3.5 text-primary" />
-                    <span className="text-xs font-bold text-foreground">
-                      {scheduleTemplate.scheduleName}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBulkClockIn(scheduleTemplate.clock_in);
-                      setBulkLunchStart(bulkIncludeLunch ? scheduleTemplate.lunch_start : "");
-                      setBulkLunchEnd(bulkIncludeLunch ? scheduleTemplate.lunch_end : "");
-                      setBulkClockOut(scheduleTemplate.clock_out);
-                    }}
-                    className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-                  >
-                    Reset to Rule
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <label className="grid gap-1 text-[11px] font-semibold text-foreground">
-                    <span>Shift Start</span>
-                    <AnalogTimePicker
-                      name="clock_in"
-                      value={bulkClockIn}
-                      onValueChange={(val) => setBulkClockIn(val)}
-                      compact
-                      className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                    />
-                  </label>
-
-                  {bulkIncludeLunch ? (
-                    <>
-                      <label className="grid gap-1 text-[11px] font-bold text-primary">
-                        <span className="flex items-center gap-1">
-                          <UtensilsCrossed className="size-3" />
-                          Lunch Start
-                        </span>
-                        <AnalogTimePicker
-                          name="lunch_start"
-                          value={bulkLunchStart}
-                          onValueChange={(val) => setBulkLunchStart(val)}
-                          compact
-                          className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-[11px] font-bold text-primary">
-                        <span className="flex items-center gap-1">
-                          <UtensilsCrossed className="size-3" />
-                          Lunch End
-                        </span>
-                        <AnalogTimePicker
-                          name="lunch_end"
-                          value={bulkLunchEnd}
-                          onValueChange={(val) => setBulkLunchEnd(val)}
-                          compact
-                          className="rounded-lg border border-primary/40 bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <div className="col-span-2 flex items-center justify-center rounded-lg border border-dashed border-border bg-surface p-2 text-center text-[11px] text-muted">
-                      <span>No lunch break will be added for this batch.</span>
-                    </div>
-                  )}
-
-                  <label className="grid gap-1 text-[11px] font-semibold text-foreground">
-                    <span>Shift End</span>
-                    <AnalogTimePicker
-                      name="clock_out"
-                      value={bulkClockOut}
-                      onValueChange={(val) => setBulkClockOut(val)}
-                      compact
-                      className="rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:border-primary focus:outline-hidden"
-                    />
-                  </label>
-                </div>
-
-                {/* Flexible Lunch notice */}
-                <div className="flex items-center gap-1.5 text-[11px] text-muted">
-                  <UtensilsCrossed className="size-3.5 text-primary shrink-0" />
-                  <span>
-                    {bulkIncludeLunch
-                      ? "Lunch breaks are flexible. Employees can take lunch anytime for any duration."
-                      : "Batch will generate drafts with no lunch. Note: Submitting drafts with no lunch requires an explanatory note."}
-                  </span>
-                </div>
-              </div>
-
-              {/* Notes */}
-              <label className="grid gap-1 text-xs font-semibold text-foreground">
-                <span>Batch Notes (Optional)</span>
                 <input
-                  type="text"
-                  name="notes"
-                  value={bulkNotes}
-                  onChange={(e) => setBulkNotes(e.target.value)}
-                  placeholder="e.g. Bulk draft generated from work schedule template"
-                  className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-hidden"
+                  type="date"
+                  id="past_work_date"
+                  name="work_date"
+                  value={targetPastDate}
+                  onChange={(e) => setTargetPastDate(e.target.value)}
+                  min={startOfPastWeek}
+                  max={yesterdayDate}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-hidden"
                 />
-              </label>
 
-              {bulkState?.ok === false && bulkState.message && (
-                <div className="rounded-xl border border-danger/30 bg-danger/10 p-3 text-xs font-semibold text-danger">
-                  {bulkState.message}
+                {missingPastWorkdays.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[11px] font-semibold text-muted">Suggested missing workdays:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {missingPastWorkdays.slice(0, 5).map((day: string) => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => setTargetPastDate(day)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
+                            targetPastDate === day
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-surface-muted text-foreground border-border hover:bg-slate-200"
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Target Schedule Info */}
+              {targetSchedule && (
+                <div className="rounded-xl border border-border bg-surface-muted/30 p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <Clock className="size-3.5 text-primary" />
+                      Scheduled Shift
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeLunchInPastDraft}
+                        onChange={(e) => setIncludeLunchInPastDraft(e.target.checked)}
+                        className="rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>Include Lunch</span>
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="rounded-lg bg-background p-2 border border-border/60">
+                      <span className="text-muted block text-[10px] uppercase font-bold">Hours</span>
+                      <span className="font-bold text-foreground font-mono">
+                        {targetSchedule.clock_in} - {targetSchedule.clock_out}
+                      </span>
+                    </div>
+                    <div className="rounded-lg bg-background p-2 border border-border/60">
+                      <span className="text-muted block text-[10px] uppercase font-bold">Lunch Break</span>
+                      <span className="font-bold text-foreground font-mono">
+                        {includeLunchInPastDraft ? `${targetSchedule.lunch_start} - ${targetSchedule.lunch_end}` : "None"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Modal Footer Actions */}
-              <div className="mt-2 flex items-center justify-end gap-2.5 border-t border-border pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsBulkModalOpen(false)}
-                  disabled={bulkPending}
-                  className="rounded-full border border-border bg-background px-4 py-2 text-xs font-bold text-foreground hover:bg-surface disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={bulkPending}
-                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-xs font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  <Layers className="size-3.5" />
-                  {bulkPending ? "Generating Drafts..." : "Generate Draft Timesheets"}
-                </button>
+              {/* Action Buttons */}
+              <div className="pt-2 space-y-2">
+                <form action={createAction}>
+                  <input type="hidden" name="work_date" value={targetPastDate} />
+                  <input type="hidden" name="clock_in" value={targetSchedule?.clock_in ?? "08:00"} />
+                  <input
+                    type="hidden"
+                    name="lunch_start"
+                    value={includeLunchInPastDraft ? (targetSchedule?.lunch_start ?? "13:00") : ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="lunch_end"
+                    value={includeLunchInPastDraft ? (targetSchedule?.lunch_end ?? "14:00") : ""}
+                  />
+                  <input type="hidden" name="clock_out" value={targetSchedule?.clock_out ?? "17:00"} />
+                  <input
+                    type="hidden"
+                    name="notes"
+                    value={
+                      includeLunchInPastDraft
+                        ? "Created via schedule template"
+                        : "Created via schedule template (no lunch)"
+                    }
+                  />
+                  <button
+                    type="submit"
+                    disabled={!targetPastDate || entriesByDate.has(targetPastDate) || holidayDates.has(targetPastDate) || createPending}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-soft hover:bg-primary-hover disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    <Plus className="size-4" />
+                    <span>{createPending ? "Adding draft..." : "Add with Scheduled Hours"}</span>
+                  </button>
+                </form>
+
+                <form action={createAction}>
+                  <input type="hidden" name="work_date" value={targetPastDate} />
+                  <button
+                    type="submit"
+                    disabled={!targetPastDate || entriesByDate.has(targetPastDate) || holidayDates.has(targetPastDate) || createPending}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background hover:bg-surface-muted px-4 py-2 text-xs font-bold text-foreground disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    <Plus className="size-3.5 text-muted" />
+                    <span>Add Blank Draft</span>
+                  </button>
+                </form>
               </div>
-            </form>
+            </div>
           </div>
         </div>,
-        document.body,
+        document.body
       )}
     </section>
   );

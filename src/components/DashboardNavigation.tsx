@@ -270,7 +270,7 @@ export default function DashboardNavigation({
           </button>
 
           {open ? (
-            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-2xl border border-border shadow-soft sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-surface p-0">
+            <div className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[65] max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom,0px))] overflow-hidden rounded-2xl border border-border shadow-soft sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-72 bg-surface p-0">
               {profileName ? (
                 <div className="border-b border-border/80 bg-surface/90 backdrop-blur-xs px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-muted">
@@ -703,7 +703,7 @@ export default function DashboardNavigation({
       {mounted && mobileDrawerOpen
         ? createPortal(
             <div
-              className="sm:hidden md:hidden lg:hidden mobile-drawer-modal fixed inset-x-0 top-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-[70] flex items-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
+              className="sm:hidden md:hidden lg:hidden mobile-drawer-modal fixed inset-x-0 top-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-[70] flex items-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200"
               onClick={() => setMobileDrawerOpen(false)}
             >
               <div
@@ -838,7 +838,7 @@ export default function DashboardNavigation({
                   </div>
 
                   {/* Sign Out Action */}
-                  <div className="pt-1 pb-4">
+                  <div className="pt-1 pb-8">
                     <form action={signOut}>
                       <button
                         type="submit"

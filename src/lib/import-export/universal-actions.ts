@@ -36,6 +36,16 @@ export type MappedPreviewRow = {
   matchedEmployeeName?: string | null;
   matchedWorkstationId?: string | null;
   matchedLeaveTypeId?: string | null;
+  isDuplicate?: boolean;
+  duplicateType?: "database" | "file";
+  duplicateDetails?: string;
+};
+
+export type DuplicateSummary = {
+  totalDuplicates: number;
+  existingInDatabase: number;
+  duplicatesInFile: number;
+  affectedEmployees: string[];
 };
 
 export type ImportPreviewResult = {
@@ -49,12 +59,16 @@ export type ImportPreviewResult = {
   unmatchedEmployees: string[];
   unmatchedWorkstations: string[];
   unmatchedLeaveTypes: string[];
+  duplicateSummary?: DuplicateSummary;
   rows: MappedPreviewRow[];
 };
+
+export type ConflictResolutionStrategy = "overwrite" | "skip" | "stack";
 
 export type ExecuteImportOptions = {
   skipExisting: boolean;
   autoCreateMissing: boolean; // Auto create missing workstations or leave types
+  conflictResolution?: ConflictResolutionStrategy; // "overwrite" | "skip" | "stack"
 };
 
 export type ExecuteImportResult = {
@@ -195,8 +209,8 @@ export async function previewMappedImportAction(
       };
     }
 
-    // Load active company lookup context
-    const [empRes, wsRes, ltRes] = await Promise.all([
+    // Load active company lookup context and existing data for duplicate detection
+    const [empRes, wsRes, ltRes, existingEntriesRes, existingBalancesRes] = await Promise.all([
       supabase
         .from("employees")
         .select("id, email, employee_number, full_name, known_as, workstation_id")
@@ -214,11 +228,54 @@ export async function previewMappedImportAction(
         .eq("company_id", company.id)
         .eq("is_active", true)
         .is("deleted_at", null),
+      targetEntity === "timesheets"
+        ? supabase
+            .from("time_entries")
+            .select("id, employee_id, work_date, clock_in, clock_out, paid_hours, entry_type, status")
+            .eq("company_id", company.id)
+            .is("deleted_at", null)
+        : Promise.resolve({ data: [] }),
+      targetEntity === "leave_balances"
+        ? supabase
+            .from("leave_balances")
+            .select("id, employee_id, leave_type_id, balance_hours, accrued_hours, taken_hours")
+            .eq("company_id", company.id)
+        : Promise.resolve({ data: [] }),
     ]);
 
     const employees = empRes.data || [];
     const workstations = wsRes.data || [];
     const leaveTypes = ltRes.data || [];
+
+    // Maps for duplicate detection
+    const existingTimesheetsMap = new Map<string, { id: string; status: string; paid_hours: number | null }>();
+    if (existingEntriesRes.data) {
+      for (const e of existingEntriesRes.data) {
+        existingTimesheetsMap.set(`${e.employee_id}__${e.work_date}`, {
+          id: e.id,
+          status: e.status,
+          paid_hours: e.paid_hours,
+        });
+      }
+    }
+
+    const existingBalancesMap = new Map<string, { id: string; balance_hours: number }>();
+    if (existingBalancesRes.data) {
+      for (const b of existingBalancesRes.data) {
+        existingBalancesMap.set(`${b.employee_id}__${b.leave_type_id}`, {
+          id: b.id,
+          balance_hours: Number(b.balance_hours ?? 0),
+        });
+      }
+    }
+
+    const seenTimesheetFileKeys = new Set<string>();
+    const seenBalanceFileKeys = new Set<string>();
+    const seenEmployeeFileKeys = new Set<string>();
+
+    let existingInDbCount = 0;
+    let duplicatesInFileCount = 0;
+    const affectedEmpsSet = new Set<string>();
 
     // Parse spreadsheet raw grid
     const arrayBuffer = await file.arrayBuffer();
@@ -418,6 +475,31 @@ export async function previewMappedImportAction(
             unmatchedLtSet.add(ltName);
           }
 
+          let isDuplicate = false;
+          let duplicateType: "database" | "file" | undefined;
+          let duplicateDetails: string | undefined;
+
+          if (matchedEmployeeId && colLtId) {
+            const balKey = `${matchedEmployeeId}__${colLtId}`;
+            if (existingBalancesMap.has(balKey)) {
+              const ex = existingBalancesMap.get(balKey)!;
+              isDuplicate = true;
+              duplicateType = "database";
+              duplicateDetails = `Existing balance in ClockWise: ${ex.balance_hours}h`;
+              existingInDbCount++;
+              affectedEmpsSet.add(matchedEmployeeName || matchedEmployeeId);
+              rowWarnings.push(`Duplicate: Existing balance record found (${ex.balance_hours}h). Choose whether to overwrite or skip.`);
+            } else if (seenBalanceFileKeys.has(balKey)) {
+              isDuplicate = true;
+              duplicateType = "file";
+              duplicateDetails = `Multiple balance entries for ${ltName} in this spreadsheet`;
+              duplicatesInFileCount++;
+              affectedEmpsSet.add(matchedEmployeeName || matchedEmployeeId);
+              rowWarnings.push(`File Duplicate: Multiple rows for ${ltName} in file.`);
+            }
+            seenBalanceFileKeys.add(balKey);
+          }
+
           let rowStatus: MappedRowStatus = "valid";
           if (rowErrors.length > 0) {
             rowStatus = "error";
@@ -451,6 +533,9 @@ export async function previewMappedImportAction(
             matchedEmployeeName,
             matchedWorkstationId,
             matchedLeaveTypeId: colLtId,
+            isDuplicate,
+            duplicateType,
+            duplicateDetails,
           });
         }
       } else {
@@ -466,6 +551,76 @@ export async function previewMappedImportAction(
             warnings.push(`Leave type "${ltName}" does not exist in system (Will auto-create if enabled)`);
             unmatchedLtSet.add(ltName);
           }
+        }
+
+        let isDuplicate = false;
+        let duplicateType: "database" | "file" | undefined;
+        let duplicateDetails: string | undefined;
+
+        if (targetEntity === "timesheets" && matchedEmployeeId && resolvedData["work_date"]) {
+          const wDate = resolvedData["work_date"] as string;
+          const pairKey = `${matchedEmployeeId}__${wDate}`;
+
+          if (existingTimesheetsMap.has(pairKey)) {
+            const ex = existingTimesheetsMap.get(pairKey)!;
+            isDuplicate = true;
+            duplicateType = "database";
+            duplicateDetails = `Existing ${ex.status.toUpperCase()} entry in ClockWise (${ex.paid_hours ?? 0}h)`;
+            existingInDbCount++;
+            affectedEmpsSet.add(matchedEmployeeName || matchedEmployeeId);
+            warnings.push(`Duplicate: An entry for ${wDate} already exists in ClockWise (${ex.status} · ${ex.paid_hours ?? 0}h).`);
+          } else if (seenTimesheetFileKeys.has(pairKey)) {
+            isDuplicate = true;
+            duplicateType = "file";
+            duplicateDetails = `Duplicate date row within the same file for ${wDate}`;
+            duplicatesInFileCount++;
+            affectedEmpsSet.add(matchedEmployeeName || matchedEmployeeId);
+            warnings.push(`File Duplicate: Multiple entries for this employee on ${wDate} in this file.`);
+          }
+          seenTimesheetFileKeys.add(pairKey);
+        } else if (targetEntity === "leave_balances" && matchedEmployeeId && matchedLeaveTypeId) {
+          const balKey = `${matchedEmployeeId}__${matchedLeaveTypeId}`;
+          if (existingBalancesMap.has(balKey)) {
+            const ex = existingBalancesMap.get(balKey)!;
+            isDuplicate = true;
+            duplicateType = "database";
+            duplicateDetails = `Existing balance in ClockWise: ${ex.balance_hours}h`;
+            existingInDbCount++;
+            affectedEmpsSet.add(matchedEmployeeName || matchedEmployeeId);
+            warnings.push(`Duplicate: Existing balance record found (${ex.balance_hours}h).`);
+          } else if (seenBalanceFileKeys.has(balKey)) {
+            isDuplicate = true;
+            duplicateType = "file";
+            duplicateDetails = `Multiple balance rows for this leave type in file`;
+            duplicatesInFileCount++;
+            affectedEmpsSet.add(matchedEmployeeName || matchedEmployeeId);
+            warnings.push(`File Duplicate: Multiple rows for this leave type in file.`);
+          }
+          seenBalanceFileKeys.add(balKey);
+        } else if (targetEntity === "employees") {
+          const empEmail = mappedData["email"]?.trim().toLowerCase();
+          const empNum = mappedData["employee_number"]?.trim().toLowerCase();
+
+          const existingEmp = employees.find(
+            (e) => (empEmail && e.email?.toLowerCase() === empEmail) ||
+                   (empNum && e.employee_number?.toLowerCase() === empNum)
+          );
+
+          if (existingEmp) {
+            isDuplicate = true;
+            duplicateType = "database";
+            duplicateDetails = `Employee already registered (${existingEmp.full_name} · ${existingEmp.employee_number || existingEmp.email})`;
+            existingInDbCount++;
+            affectedEmpsSet.add(existingEmp.full_name || existingEmp.id);
+            warnings.push(`Duplicate: An employee with this email/number already exists in ClockWise.`);
+          } else if (empEmail && seenEmployeeFileKeys.has(empEmail)) {
+            isDuplicate = true;
+            duplicateType = "file";
+            duplicateDetails = `Duplicate employee email within file`;
+            duplicatesInFileCount++;
+            warnings.push(`File Duplicate: Multiple rows for ${empEmail} in file.`);
+          }
+          if (empEmail) seenEmployeeFileKeys.add(empEmail);
         }
 
         let status: MappedRowStatus = "valid";
@@ -491,9 +646,20 @@ export async function previewMappedImportAction(
           matchedEmployeeName,
           matchedWorkstationId,
           matchedLeaveTypeId,
+          isDuplicate,
+          duplicateType,
+          duplicateDetails,
         });
       }
     }
+
+    const totalDuplicates = existingInDbCount + duplicatesInFileCount;
+    const duplicateSummary: DuplicateSummary = {
+      totalDuplicates,
+      existingInDatabase: existingInDbCount,
+      duplicatesInFile: duplicatesInFileCount,
+      affectedEmployees: Array.from(affectedEmpsSet),
+    };
 
     return {
       ok: true,
@@ -505,6 +671,7 @@ export async function previewMappedImportAction(
       unmatchedEmployees: Array.from(unmatchedEmpsSet),
       unmatchedWorkstations: Array.from(unmatchedWsSet),
       unmatchedLeaveTypes: Array.from(unmatchedLtSet),
+      duplicateSummary,
       rows: previewRows,
     };
   } catch (error) {
@@ -675,6 +842,9 @@ export async function executeMappedImportAction(
       }
     }
 
+    const conflictStrategy: ConflictResolutionStrategy =
+      options.conflictResolution || (options.skipExisting ? "skip" : "overwrite");
+
     // Execute entity-specific import
     if (targetEntity === "employees") {
       // Get default workstation if employee doesn't specify one
@@ -715,7 +885,6 @@ export async function executeMappedImportAction(
             (wsName ? createdWsMap.get(wsName.toLowerCase()) : null) ||
             fallbackWsId;
 
-
           if (!wsId) {
             errorCount++;
             continue; // Employee must have a workstation
@@ -746,7 +915,7 @@ export async function executeMappedImportAction(
           }
 
           if (existingEmpId) {
-            if (options.skipExisting) {
+            if (conflictStrategy === "skip") {
               skippedCount++;
               continue;
             }
@@ -858,12 +1027,16 @@ export async function executeMappedImportAction(
             .is("deleted_at", null)
             .maybeSingle();
 
+          let isOverwriting = false;
           if (existingEntry) {
-            if (options.skipExisting) {
+            if (conflictStrategy === "skip") {
               skippedCount++;
               continue;
+            } else if (conflictStrategy === "overwrite") {
+              await supabase.from("time_entries").delete().eq("id", existingEntry.id);
+              isOverwriting = true;
             }
-            await supabase.from("time_entries").delete().eq("id", existingEntry.id);
+            // If "stack", we do not delete existingEntry, allowing additive shift entry
           }
 
           const clockIn = (row.resolvedData["clock_in"] as string) || null;
@@ -875,21 +1048,41 @@ export async function executeMappedImportAction(
             : null;
           const entryType = row.mappedData["entry_type"]?.trim() === "leave" ? "leave" : "work";
 
+          const { data: insertedEntry, error: insertErr } = await supabase
+            .from("time_entries")
+            .insert({
+              company_id: company.id,
+              timesheet_id: timesheetId,
+              employee_id: empId,
+              work_date: workDate,
+              entry_type: entryType,
+              clock_in: clockIn,
+              clock_out: clockOut,
+              lunch_start: lunchStart,
+              lunch_end: lunchEnd,
+              notes: notes,
+              status: "approved",
+            })
+            .select("id")
+            .single();
 
-          await supabase.from("time_entries").insert({
-            company_id: company.id,
-            timesheet_id: timesheetId,
-            employee_id: empId,
-            work_date: workDate,
-            entry_type: entryType,
-            clock_in: clockIn,
-            clock_out: clockOut,
-            lunch_start: lunchStart,
-            lunch_end: lunchEnd,
-            notes: notes,
-            status: "approved",
-          });
-          insertedCount++;
+          if (insertErr || !insertedEntry) {
+            console.error("Failed to insert timesheet row:", insertErr);
+            errorCount++;
+            continue;
+          }
+
+          if (clockIn && clockOut) {
+            await supabase.rpc("refresh_time_entry_calculations", {
+              target_time_entry_id: insertedEntry.id,
+            });
+          }
+
+          if (isOverwriting) {
+            updatedCount++;
+          } else {
+            insertedCount++;
+          }
         } catch (err) {
           console.error("Failed to import timesheet row:", err);
           errorCount++;
@@ -917,23 +1110,37 @@ export async function executeMappedImportAction(
           // Upsert leave_balances
           const { data: existingBal } = await supabase
             .from("leave_balances")
-            .select("id")
+            .select("id, accrued_hours, balance_hours, taken_hours")
             .eq("company_id", company.id)
             .eq("employee_id", empId)
             .eq("leave_type_id", ltId)
             .maybeSingle();
 
           if (existingBal) {
-            if (options.skipExisting) {
+            if (conflictStrategy === "skip") {
               skippedCount++;
               continue;
             }
+
+            const finalAccrued =
+              conflictStrategy === "stack"
+                ? (Number(existingBal.accrued_hours) || 0) + accruedHours
+                : accruedHours;
+            const finalTaken =
+              conflictStrategy === "stack"
+                ? (Number(existingBal.taken_hours) || 0) + takenHours
+                : takenHours;
+            const finalBalance =
+              conflictStrategy === "stack"
+                ? (Number(existingBal.balance_hours) || 0) + balanceHours
+                : balanceHours;
+
             await supabase
               .from("leave_balances")
               .update({
-                accrued_hours: accruedHours,
-                balance_hours: balanceHours,
-                taken_hours: takenHours,
+                accrued_hours: finalAccrued,
+                balance_hours: finalBalance,
+                taken_hours: finalTaken,
                 as_of_date: today,
                 updated_at: new Date().toISOString(),
               })

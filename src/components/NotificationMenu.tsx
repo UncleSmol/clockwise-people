@@ -347,13 +347,13 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
       <button
         aria-expanded={open}
         aria-label="Open notifications"
-        className="relative grid size-8 place-items-center sm:size-9 rounded-full border border-border bg-surface text-foreground transition-all hover:bg-surface-muted active:scale-95 cursor-pointer shadow-2xs"
+        className="relative grid size-8 place-items-center sm:size-9 rounded-full border border-emerald-500/20 bg-surface text-foreground transition-all hover:bg-emerald-500/10 active:scale-95 cursor-pointer shadow-2xs"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
         <Bell className="size-4" />
         {liveNotifications.length > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-black leading-4 sm:min-w-5 sm:px-1 sm:text-[10px] sm:leading-5 text-white shadow-xs">
+          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-gradient-to-r from-[#2E9B5F] to-[#258550] px-1 text-[9px] font-black leading-4 sm:min-w-5 sm:px-1 sm:text-[10px] sm:leading-5 text-white shadow-xs">
             {liveNotifications.length > 9 ? "9+" : liveNotifications.length}
           </span>
         ) : null}
@@ -361,7 +361,7 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
 
       {open ? (
         <div
-          className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[75] max-h-[calc(100dvh-5rem)] overflow-hidden rounded-2xl border border-border bg-white dark:bg-slate-900 p-0 shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[410px]"
+          className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[75] max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom,0px))] overflow-hidden rounded-2xl border border-emerald-500/25 bg-white dark:bg-slate-900 p-0 shadow-[0_20px_50px_-10px_rgba(46,155,95,0.22)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[400px]"
           style={{ backgroundColor: "#ffffff" }}
         >
           {/* Header (Fully Opaque) */}

@@ -474,11 +474,11 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .select("id, full_name, known_as, avatar_url, job_title, work_schedule_id")
       .eq("id", access.employeeId)
       .is("deleted_at", null)
-      .single(),
+      .maybeSingle(),
     supabase
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id",
       )
       .eq("employee_id", access.employeeId)
       .eq("work_date", today)
@@ -489,7 +489,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     supabase
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id",
       )
       .eq("employee_id", access.employeeId)
       .is("deleted_at", null)
@@ -545,8 +545,8 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .maybeSingle(),
   ]);
 
-  if (employeeResult.error) {
-    throw new Error(employeeResult.error.message);
+  if (employeeResult.error && employeeResult.error.code !== "PGRST116") {
+    console.warn("Could not load employee details:", employeeResult.error.message);
   }
 
   if (todayEntryResult.error) {
@@ -875,7 +875,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     adminClient
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id",
       )
       .eq("company_id", company.id)
       .eq("work_date", workDate)

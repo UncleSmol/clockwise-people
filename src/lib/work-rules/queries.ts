@@ -22,6 +22,14 @@ import {
   type PayrollPeriodConfig,
 } from "@/lib/reports/payroll-periods";
 import { ensureCompanyToilLeaveType, ensureEmployeeToilBalance } from "./actions";
+import {
+  deriveGenderFromSouthAfricanId,
+  isGenderAllowedForLeave,
+  isMaternalLeave,
+  isPaternalLeave,
+  isUnpaidLeave,
+  normalizeLeaveTypeName,
+} from "./realtime-accrual";
 
 type LeaveRequestRow = LeaveRequest & {
   employees?: {
@@ -72,7 +80,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         .order("name"),
       supabase
         .from("employees")
-        .select("id, full_name, employee_number")
+        .select("id, full_name, employee_number, gender, id_number")
         .eq("company_id", company.id)
         .eq("employment_status", "active")
         .is("deleted_at", null)
@@ -169,19 +177,64 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
   const standardAnnualHours = Number(settingsResult.data?.standard_monthly_hours ?? 173.33) * 12;
 
   const rawLeaveTypes = (leaveTypesResult.data ?? []) as LeaveType[];
-  const leaveTypes = toilEnabled
-    ? rawLeaveTypes
-    : rawLeaveTypes.filter((lt) => lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil"));
+  const filteredLeaveTypes = rawLeaveTypes
+    .filter((lt) => toilEnabled || (lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil")));
 
-  const rawLeaveBalances = ((balancesResult.data ?? []) as unknown as CompanyWorkRulesData["leaveBalances"]).filter(
-    (balance) => (employeesResult.data ?? []).some((emp) => emp.id === balance.employee_id),
-  );
-  const leaveBalances = toilEnabled
-    ? rawLeaveBalances
-    : rawLeaveBalances.filter((b) => {
-        const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
-        return rel?.category !== "toil_taken" && !rel?.name?.toLowerCase().includes("toil");
+  // Deduplicate leave types by normalized name
+  const dedupedCompanyTypesMap = new Map<string, LeaveType>();
+  for (const lt of filteredLeaveTypes) {
+    const key = normalizeLeaveTypeName(lt.name, lt.category);
+    if (!dedupedCompanyTypesMap.has(key)) {
+      dedupedCompanyTypesMap.set(key, lt);
+    }
+  }
+  const leaveTypes = Array.from(dedupedCompanyTypesMap.values());
+
+  const employeeGenderMap = new Map<string, string | null>();
+  for (const emp of employeesResult.data ?? []) {
+    const resolved = (emp.gender?.trim() || deriveGenderFromSouthAfricanId(emp.id_number) || null)?.toLowerCase() ?? null;
+    employeeGenderMap.set(emp.id, resolved);
+  }
+
+  const rawLeaveBalances = ((balancesResult.data ?? []) as unknown as CompanyWorkRulesData["leaveBalances"])
+    .filter((balance) => (employeesResult.data ?? []).some((emp) => emp.id === balance.employee_id))
+    .filter((b) => {
+      const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+      const name = rel?.name || "";
+      const category = rel?.category;
+      if (isUnpaidLeave(name, category)) return false;
+      const lower = name.toLowerCase();
+      if (!toilEnabled && (category === "toil_taken" || lower.includes("toil"))) return false;
+      const empGender = employeeGenderMap.get(b.employee_id);
+      if (!isGenderAllowedForLeave(name, category, empGender)) return false;
+      return true;
+    });
+
+  // Deduplicate leave balances per employee & canonical leave type
+  const dedupedCompanyBalancesMap = new Map<string, CompanyWorkRulesData["leaveBalances"][0]>();
+  for (const b of rawLeaveBalances) {
+    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+    const key = `${b.employee_id}_${normalizeLeaveTypeName(rel?.name || "", rel?.category)}`;
+    const canonicalLt = dedupedCompanyTypesMap.get(normalizeLeaveTypeName(rel?.name || "", rel?.category)) || rel;
+    if (!dedupedCompanyBalancesMap.has(key)) {
+      dedupedCompanyBalancesMap.set(key, {
+        ...b,
+        leave_type_id: canonicalLt?.id || b.leave_type_id,
+        leave_types: canonicalLt,
       });
+    } else {
+      const existing = dedupedCompanyBalancesMap.get(key)!;
+      // Prefer the row matching the active canonical leave type, rather than additive stacking
+      if (canonicalLt && b.leave_type_id === canonicalLt.id) {
+        dedupedCompanyBalancesMap.set(key, {
+          ...b,
+          leave_type_id: canonicalLt.id,
+          leave_types: canonicalLt,
+        });
+      }
+    }
+  }
+  const leaveBalances = Array.from(dedupedCompanyBalancesMap.values());
 
   return {
     autoEndLunchOnLapse,
@@ -199,7 +252,10 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
     standardDailyHours,
     employees: (employeesResult.data ?? []).map((employee) => ({
       id: employee.id,
-      label: employee.full_name,
+      label: employee.employee_number
+        ? `${employee.full_name} (${employee.employee_number})`
+        : employee.full_name,
+      gender: (employee.gender?.trim() || deriveGenderFromSouthAfricanId(employee.id_number) || null)?.toLowerCase(),
     })),
     leaveBalances,
     leaveTypes,
@@ -232,7 +288,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     };
   }
 
-  const [leaveTypesResult, balancesResult, requestsResult, settingsResult] = await Promise.all([
+  const [leaveTypesResult, balancesResult, requestsResult, settingsResult, employeeResult] = await Promise.all([
     supabase
       .from("leave_types")
       .select("id, name, category, is_paid, requires_attachment, accrual_rules")
@@ -258,12 +314,21 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
       .select("standard_daily_hours, standard_monthly_hours, leave_rules, toil_rules")
       .eq("company_id", company.id)
       .maybeSingle(),
+    supabase
+      .from("employees")
+      .select("id, gender, id_number")
+      .eq("id", access.employeeId)
+      .maybeSingle(),
   ]);
 
   if (leaveTypesResult.error) throw new Error(leaveTypesResult.error.message);
   if (balancesResult.error) throw new Error(balancesResult.error.message);
   if (requestsResult.error) throw new Error(requestsResult.error.message);
   if (settingsResult.error) throw new Error(settingsResult.error.message);
+
+  const rawGender = employeeResult?.data?.gender;
+  const rawIdNumber = employeeResult?.data?.id_number;
+  const employeeGender = (rawGender?.trim() || deriveGenderFromSouthAfricanId(rawIdNumber) || null)?.toLowerCase() as "male" | "female" | "other" | null;
 
   const leaveRules = (settingsResult.data?.leave_rules ?? {}) as Record<string, unknown>;
   const toilRules = (settingsResult.data?.toil_rules ?? {}) as Record<string, unknown>;
@@ -367,15 +432,73 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     leaveTypes = defaultStatutory;
   }
 
-  // Ensure every active leave type has a corresponding balance row for the employee
-  const existingLeaveTypeIds = new Set(
+  // 1. Filter leave types and balances based on employee gender:
+  // Male: sees Paternal Leave, cannot see Maternal Leave
+  // Female: sees Maternal Leave, cannot see Paternal Leave
+  // No gender: sees neither!
+  leaveTypes = leaveTypes.filter((lt) => isGenderAllowedForLeave(lt.name, lt.category, employeeGender));
+  balances = balances.filter((b) => {
+    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+    const name = rel?.name || "";
+    const category = rel?.category;
+    if (isUnpaidLeave(name, category)) return false;
+    return isGenderAllowedForLeave(name, category, employeeGender);
+  });
+
+  // 2. Deduplicate leave types by canonical name so employee never gets duplicate options
+  const dedupedEmployeeTypesMap = new Map<string, LeaveType>();
+  for (const lt of leaveTypes) {
+    const key = normalizeLeaveTypeName(lt.name, lt.category);
+    if (!dedupedEmployeeTypesMap.has(key)) {
+      dedupedEmployeeTypesMap.set(key, lt);
+    } else {
+      const existing = dedupedEmployeeTypesMap.get(key)!;
+      // Prefer the one with accrual rules or cleaner name
+      if (!existing.accrual_rules && lt.accrual_rules) {
+        dedupedEmployeeTypesMap.set(key, lt);
+      }
+    }
+  }
+  leaveTypes = Array.from(dedupedEmployeeTypesMap.values());
+
+  // 3. Deduplicate balances by canonical normalized key
+  const dedupedEmployeeBalancesMap = new Map<string, LeaveBalance>();
+  for (const b of balances) {
+    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+    const key = normalizeLeaveTypeName(rel?.name || "", rel?.category);
+    const canonicalLt = dedupedEmployeeTypesMap.get(key) || rel;
+    if (!dedupedEmployeeBalancesMap.has(key)) {
+      dedupedEmployeeBalancesMap.set(key, {
+        ...b,
+        leave_type_id: canonicalLt?.id || b.leave_type_id,
+        leave_types: canonicalLt,
+      } as LeaveBalance);
+    } else {
+      // Prefer the row matching the active canonical leave type, rather than additive stacking
+      if (canonicalLt && b.leave_type_id === canonicalLt.id) {
+        dedupedEmployeeBalancesMap.set(key, {
+          ...b,
+          leave_type_id: canonicalLt.id,
+          leave_types: canonicalLt,
+        } as LeaveBalance);
+      }
+    }
+  }
+  balances = Array.from(dedupedEmployeeBalancesMap.values());
+
+  // 4. Ensure every active canonical leave type has a corresponding balance row for the employee
+  const existingCanonicalKeys = new Set(
     balances.map((b) => {
       const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
-      return b.leave_type_id || rel?.id;
-    }).filter(Boolean)
+      return normalizeLeaveTypeName(rel?.name || "", rel?.category);
+    }),
   );
 
-  const missingTypes = leaveTypes.filter((lt) => !existingLeaveTypeIds.has(lt.id));
+  const missingTypes = leaveTypes.filter(
+    (lt) =>
+      !isUnpaidLeave(lt.name, lt.category) &&
+      !existingCanonicalKeys.has(normalizeLeaveTypeName(lt.name, lt.category)),
+  );
 
   if (missingTypes.length > 0 && access.employeeId) {
     const today = new Date().toISOString().split("T")[0];
@@ -458,6 +581,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     standardDailyHours: Number(settingsResult.data?.standard_daily_hours ?? 8),
     toilMultiplier,
     toilEnabled,
+    employeeGender,
   };
 });
 

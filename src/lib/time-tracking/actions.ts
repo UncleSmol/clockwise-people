@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getActiveCompany } from "@/lib/foundation/queries";
+import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
 import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
-import type { ClockEventType, TimeClockLocationEvent, TimeEntryRecord } from "./schema";
+import { getWeekBounds, type ClockEventType, type TimeClockLocationEvent, type TimeEntryRecord } from "./schema";
 
 type ClockActionState = {
   entry?: TimeEntryRecord;
@@ -56,6 +56,35 @@ export async function recordClockEvent(
       ok: false,
       message: "Location is required for clocking. Enable location permission and try again.",
     };
+  }
+
+  if (eventType === "clock_in") {
+    const access = await getCurrentUserAccess();
+    if (access.employeeId) {
+      const effectiveTimezone = company.timezone || "Africa/Johannesburg";
+      const today = currentDateInTimezone(effectiveTimezone);
+      const bounds = getWeekBounds(today);
+
+      const { data: pastWeekDrafts } = await supabase
+        .from("time_entries")
+        .select("id, work_date, notes, status")
+        .eq("employee_id", access.employeeId)
+        .gte("work_date", bounds.startOfPastWeek)
+        .lte("work_date", bounds.endOfPastWeek)
+        .in("status", ["draft", "rejected"])
+        .is("deleted_at", null);
+
+      const unsubmittedDrafts = (pastWeekDrafts ?? []).filter(
+        (entry) => !entry.notes?.startsWith("Public holiday:"),
+      );
+
+      if (unsubmittedDrafts.length > 0) {
+        return {
+          ok: false,
+          message: `Cannot clock in: You have ${unsubmittedDrafts.length} unsubmitted draft timesheet${unsubmittedDrafts.length === 1 ? "" : "s"} from last week (${bounds.startOfPastWeek} to ${bounds.endOfPastWeek}) that must be reviewed, adjusted, and submitted first.`,
+        };
+      }
+    }
   }
 
   const { data, error } = await supabase.rpc("record_employee_time_event", {
@@ -135,7 +164,17 @@ export async function recordClockEvent(
     },
   ];
 
+  if (eventType === "clock_out" || eventType === "clock_in") {
+    try {
+      await syncEmployeeAccruals();
+    } catch {
+      // Non-blocking background sync
+    }
+  }
+
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/time-tracking");
   return {
     entry: { ...(entry as TimeEntryRecord), locationEvents },
     ok: true,
@@ -781,6 +820,251 @@ export async function deleteTimeEntry(
   revalidatePath("/dashboard/time");
   revalidatePath("/dashboard");
   return { ok: true, message: "Time entry deleted." };
+}
+
+export async function adminDeleteCalendarLeave(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const access = await getCurrentUserAccess();
+  const canManage = access.isSuperAdmin || access.isOwner || access.isHrAdmin || access.isBranchManager || access.canManageEmployees;
+  if (!canManage) {
+    return { ok: false, message: "Unauthorized: Admin or manager permission required." };
+  }
+  const { company } = await getActiveCompany();
+  if (!company) {
+    return { ok: false, message: "No active company found." };
+  }
+
+  const employeeId = String(formData.get("employee_id") ?? "").trim();
+  const workDate = String(formData.get("work_date") ?? "").trim();
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+
+  if (!employeeId || !workDate) {
+    return { ok: false, message: "Missing employee or date." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // 1. Soft-delete time entry
+  if (timeEntryId && uuidRegex.test(timeEntryId)) {
+    await supabase
+      .from("time_entries")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", timeEntryId)
+      .eq("company_id", company.id);
+  } else {
+    await supabase
+      .from("time_entries")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId)
+      .eq("work_date", workDate)
+      .not("leave_type_id", "is", null);
+  }
+
+  // 2. Adjust or delete matching leave_requests covering this date
+  const { data: matchingRequests } = await supabase
+    .from("leave_requests")
+    .select("id, start_date, end_date, total_hours")
+    .eq("company_id", company.id)
+    .eq("employee_id", employeeId)
+    .lte("start_date", workDate)
+    .gte("end_date", workDate)
+    .is("deleted_at", null);
+
+  for (const req of matchingRequests ?? []) {
+    if (req.start_date === req.end_date) {
+      await supabase
+        .from("leave_requests")
+        .update({ deleted_at: new Date().toISOString(), status: "cancelled" })
+        .eq("id", req.id);
+    } else if (req.start_date === workDate) {
+      const nextDate = new Date(workDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextDateStr = nextDate.toISOString().slice(0, 10);
+      await supabase
+        .from("leave_requests")
+        .update({
+          start_date: nextDateStr,
+          total_hours: Math.max(0, Number(req.total_hours) - 8),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", req.id);
+    } else if (req.end_date === workDate) {
+      const prevDate = new Date(workDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().slice(0, 10);
+      await supabase
+        .from("leave_requests")
+        .update({
+          end_date: prevDateStr,
+          total_hours: Math.max(0, Number(req.total_hours) - 8),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", req.id);
+    } else {
+      await supabase
+        .from("leave_requests")
+        .update({ deleted_at: new Date().toISOString(), status: "cancelled" })
+        .eq("id", req.id);
+    }
+  }
+
+  // 3. Sync employee accruals and balances
+  try {
+    await syncEmployeeAccruals(employeeId, company.id);
+  } catch (err) {
+    console.error("Error syncing accruals after leave delete:", err);
+  }
+
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Leave record deleted successfully." };
+}
+
+export async function adminUpdateCalendarLeave(
+  _previousState: TimeEntryActionState,
+  formData: FormData,
+): Promise<TimeEntryActionState> {
+  const access = await getCurrentUserAccess();
+  const canManage = access.isSuperAdmin || access.isOwner || access.isHrAdmin || access.isBranchManager || access.canManageEmployees;
+  if (!canManage) {
+    return { ok: false, message: "Unauthorized: Admin or manager permission required." };
+  }
+  const { company } = await getActiveCompany();
+  if (!company) {
+    return { ok: false, message: "No active company found." };
+  }
+
+  const employeeId = String(formData.get("employee_id") ?? "").trim();
+  const workDate = String(formData.get("work_date") ?? "").trim();
+  const timeEntryId = String(formData.get("time_entry_id") ?? "").trim();
+  const leaveTypeId = String(formData.get("leave_type_id") ?? "").trim();
+  const hours = Math.max(0.5, Math.min(24, Number(formData.get("hours") ?? 8)));
+  const notes = sanitizeMultilineText(formData.get("notes"), 1000) || "";
+
+  if (!employeeId || !workDate || !leaveTypeId) {
+    return { ok: false, message: "Please select a leave type." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: lt } = await supabase
+    .from("leave_types")
+    .select("id, name")
+    .eq("id", leaveTypeId)
+    .single();
+
+  const leaveName = lt?.name ?? "Leave";
+  const entryNotes = notes ? `Approved leave: ${leaveName} - ${notes}` : `Approved leave: ${leaveName}`;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  let updatedEntry = false;
+  if (timeEntryId && uuidRegex.test(timeEntryId)) {
+    const { error: updErr } = await supabase
+      .from("time_entries")
+      .update({
+        leave_type_id: leaveTypeId,
+        normal_hours: hours,
+        paid_hours: hours,
+        clock_in: null,
+        clock_out: null,
+        notes: entryNotes,
+        status: "approved",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", timeEntryId)
+      .eq("company_id", company.id);
+    if (!updErr) updatedEntry = true;
+  }
+
+  if (!updatedEntry) {
+    const { data: existing } = await supabase
+      .from("time_entries")
+      .select("id")
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId)
+      .eq("work_date", workDate)
+      .is("deleted_at", null)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from("time_entries")
+        .update({
+          leave_type_id: leaveTypeId,
+          normal_hours: hours,
+          paid_hours: hours,
+          clock_in: null,
+          clock_out: null,
+          notes: entryNotes,
+          status: "approved",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing[0].id);
+    } else {
+      const { data: ts } = await supabase
+        .from("timesheets")
+        .select("id")
+        .eq("company_id", company.id)
+        .eq("employee_id", employeeId)
+        .lte("period_start", workDate)
+        .gte("period_end", workDate)
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+
+      await supabase
+        .from("time_entries")
+        .insert({
+          company_id: company.id,
+          employee_id: employeeId,
+          work_date: workDate,
+          leave_type_id: leaveTypeId,
+          normal_hours: hours,
+          paid_hours: hours,
+          clock_in: null,
+          clock_out: null,
+          notes: entryNotes,
+          status: "approved",
+          timesheet_id: ts?.id ?? null,
+        });
+    }
+  }
+
+  // Update matching leave requests if any exist
+  const { data: matchingRequests } = await supabase
+    .from("leave_requests")
+    .select("id")
+    .eq("company_id", company.id)
+    .eq("employee_id", employeeId)
+    .lte("start_date", workDate)
+    .gte("end_date", workDate)
+    .is("deleted_at", null);
+
+  for (const req of matchingRequests ?? []) {
+    await supabase
+      .from("leave_requests")
+      .update({
+        leave_type_id: leaveTypeId,
+        total_hours: hours,
+        reason: notes || `Admin updated on calendar`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", req.id);
+  }
+
+  try {
+    await syncEmployeeAccruals(employeeId, company.id);
+  } catch (err) {
+    console.error("Error syncing accruals after leave update:", err);
+  }
+
+  revalidatePath("/dashboard/time");
+  revalidatePath("/dashboard");
+  return { ok: true, message: `Leave updated to ${leaveName} (${hours}h).` };
 }
 
 export async function deleteDraftTimeEntry(

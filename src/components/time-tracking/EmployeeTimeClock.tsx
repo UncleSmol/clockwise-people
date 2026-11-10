@@ -1,8 +1,9 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { Clock, LocateFixed, MapPin } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Clock, LocateFixed, MapPin, X } from "lucide-react";
 import {
   clockIn,
   clockOut,
@@ -11,6 +12,7 @@ import {
   switchWorkstation,
 } from "@/lib/time-tracking/actions";
 import type { TimeEntryRecord } from "@/lib/time-tracking/schema";
+import { playNotificationPing } from "@/lib/audio/notification-sound";
 import { useRealtimeEvent } from "@/components/realtime/RealtimeSyncProvider";
 import LiveLocationTracker from "./LiveLocationTracker";
 import AnalogTimePicker from "./AnalogTimePicker";
@@ -40,6 +42,9 @@ type EmployeeTimeClockProps = {
   defaultLunchMinutes?: number;
   autoClockoutBasedOnSchedule?: boolean;
   autoClockoutGraceMinutes?: number;
+  hasUnsubmittedPastWeekDrafts?: boolean;
+  pastWeekDraftsCount?: number;
+  pastWeekRange?: { start: string; end: string } | null;
 };
 
 type ClockActionState = {
@@ -312,7 +317,26 @@ export default function EmployeeTimeClock({
   defaultLunchMinutes = 60,
   autoClockoutBasedOnSchedule = false,
   autoClockoutGraceMinutes = 0,
+  hasUnsubmittedPastWeekDrafts = false,
+  pastWeekDraftsCount = 0,
+  pastWeekRange = null,
 }: EmployeeTimeClockProps) {
+  const [showLockedClockInPopup, setShowLockedClockInPopup] = useState(false);
+  const popupTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerLockedPopup = useCallback(() => {
+    if (popupTimerRef.current) clearTimeout(popupTimerRef.current);
+    setShowLockedClockInPopup(true);
+    try {
+      playNotificationPing();
+    } catch {
+      // Audio autoplay policy fallback
+    }
+    popupTimerRef.current = setTimeout(() => {
+      setShowLockedClockInPopup(false);
+    }, 4500);
+  }, []);
+
   const isAutoEndLunchActive = autoEndLunchOnLapse || autoClockoutAfterLunch;
   const [optimistic, setOptimistic] = useState<TimeEntryRecord | null>(null);
   const [locationMessage, setLocationMessage] = useState("");
@@ -931,17 +955,31 @@ export default function EmployeeTimeClock({
               type="submit"
               name="clock_action"
               value="Clock in"
-              onClick={() => {
+              onClick={(e) => {
+                if (hasUnsubmittedPastWeekDrafts && canClockInAction) {
+                  e.preventDefault();
+                  triggerLockedPopup();
+                  return;
+                }
                 pendingActionRef.current = "Clock in";
               }}
-              disabled={clockInDisabled}
+              disabled={clockInDisabled && !hasUnsubmittedPastWeekDrafts}
               className={`btn rounded-full px-3 py-2.5 text-xs font-bold whitespace-nowrap justify-center text-center sm:px-5 sm:text-sm ${
-                canClockInAction
-                  ? "btn-primary shadow-primary"
-                  : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
+                hasUnsubmittedPastWeekDrafts
+                  ? "border border-amber-500/50 bg-amber-500/15 text-amber-950 dark:text-amber-200 hover:bg-amber-500/25 cursor-pointer shadow-2xs font-black"
+                  : canClockInAction
+                    ? "btn-primary shadow-primary"
+                    : "border border-border bg-surface-muted text-muted opacity-40 cursor-not-allowed"
               }`}
             >
-              {clockInLabel}
+              {hasUnsubmittedPastWeekDrafts ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Clock in (Locked)</span>
+                </span>
+              ) : (
+                clockInLabel
+              )}
             </button>
 
             <button
@@ -1030,7 +1068,7 @@ export default function EmployeeTimeClock({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">
             Today&apos;s shift
           </p>
-          <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{status}</h2>
+          <h2 className="mt-1 text-xl sm:text-2xl lg:text-3xl font-semibold">{status}</h2>
           <p className="mt-1 text-xs opacity-80">
             {displayEntry?.work_date ?? "No time record started yet"}
           </p>
@@ -1086,21 +1124,96 @@ export default function EmployeeTimeClock({
                   {pending ? "Saving..." : locating ? "Locating..." : "Switch workstation"}
                 </button>
               ) : null}
-              {availableActions.map((action) => (
-                <button
-                  key={action.label}
-                  type="submit"
-                  name="clock_action"
-                  value={action.label}
-                  onClick={() => {
-                    pendingActionRef.current = action.label;
-                  }}
-                  disabled={pending || locating}
-                  className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${toneButtonClass(action.tone)}`}
-                >
-                  {pending ? "Saving..." : locating ? "Locating..." : action.label}
-                </button>
-              ))}
+      
+      {/* Top Slide-Down Pop-Up Notifier when Clock-in is locked — clean, minimal, same emerald color as time picker */}
+      {typeof document !== "undefined" && showLockedClockInPopup && createPortal(
+        <aside
+          role="alert"
+          aria-live="assertive"
+          className="fixed top-5 inset-x-0 mx-auto z-[99999] flex w-fit max-w-[92vw] sm:max-w-md items-center gap-2.5 rounded-full border border-white/25 bg-gradient-to-r from-[#2E9B5F] to-[#258550] text-white px-4 py-2 sm:py-2.5 shadow-[0_12px_28px_-6px_rgba(46,155,95,0.45)] backdrop-blur-xl animate-in slide-in-from-top-4 fade-in duration-300 ease-out select-none"
+        >
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
+            <Clock className="size-3.5 stroke-[2.5]" />
+          </div>
+          <p className="text-xs sm:text-[13px] font-bold text-white tracking-tight whitespace-nowrap">
+            Submit last week&apos;s draft to clock in
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setShowLockedClockInPopup(false);
+              window.dispatchEvent(
+                new CustomEvent("clockwise:notification-nav", { detail: { tab: "review" } }),
+              );
+            }}
+            className="rounded-full bg-white text-[#258550] hover:bg-white/90 px-3 py-1 text-[11px] font-black shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap ml-1"
+          >
+            Review
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLockedClockInPopup(false)}
+            className="text-white/70 hover:text-white transition-colors shrink-0 p-0.5 rounded-full hover:bg-white/15 cursor-pointer ml-0.5"
+            aria-label="Dismiss notification"
+          >
+            <X className="size-3.5 stroke-[2.2]" />
+          </button>
+        </aside>,
+        document.body,
+      )}
+
+        {hasUnsubmittedPastWeekDrafts && canClockIn ? (
+          <div className="w-full mb-3 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-50/80 dark:bg-emerald-950/25 backdrop-blur-xs px-3.5 py-2.5 shadow-2xs text-emerald-950 dark:text-emerald-100">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#2E9B5F] text-white shadow-2xs">
+                <Clock className="size-3.5 stroke-[2.5]" />
+              </div>
+              <p className="text-xs font-bold truncate">
+                Submit last week&apos;s draft to clock in
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("clockwise:notification-nav", { detail: { tab: "review" } }),
+                );
+              }}
+              className="shrink-0 rounded-full bg-gradient-to-r from-[#2E9B5F] to-[#258550] px-3 py-1 text-[11px] font-extrabold text-white shadow-xs hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+            >
+              Review
+            </button>
+          </div>
+        ) : null}
+              {availableActions.map((action) => {
+                const isClockInLocked = action.label === "Clock in" && hasUnsubmittedPastWeekDrafts;
+                return (
+                  <button
+                    key={action.label}
+                    type="submit"
+                    name="clock_action"
+                    value={action.label}
+                    onClick={() => {
+                      pendingActionRef.current = action.label;
+                    }}
+                    disabled={pending || locating || isClockInLocked}
+                    title={isClockInLocked ? "Clock in is locked until last week's drafts are submitted" : undefined}
+                    className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${
+                      isClockInLocked
+                        ? "bg-slate-400 text-white cursor-not-allowed opacity-60"
+                        : toneButtonClass(action.tone)
+                    }`}
+                  >
+                    {pending
+                      ? "Saving..."
+                      : locating
+                        ? "Locating..."
+                        : isClockInLocked
+                          ? "Clock-in locked"
+                          : action.label}
+                  </button>
+                );
+              })}
             </div>
           </form>
         ) : (

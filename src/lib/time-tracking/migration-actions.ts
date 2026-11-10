@@ -10,6 +10,13 @@ import {
   type NormalizedImportEntry,
 } from "./timesheet-importer";
 
+export type MigrationDuplicateSummary = {
+  totalDuplicates: number;
+  existingInDatabase: number;
+  duplicatesInFile: number;
+  affectedEmployees: string[];
+};
+
 export type MigrationPreviewResponse = {
   ok: boolean;
   message?: string;
@@ -17,6 +24,7 @@ export type MigrationPreviewResponse = {
   formatDescription?: string;
   entries?: NormalizedImportEntry[];
   diagnostics?: ImportDiagnostics;
+  duplicateSummary?: MigrationDuplicateSummary;
 };
 
 export type ExecuteMigrationPayload = {
@@ -24,6 +32,7 @@ export type ExecuteMigrationPayload = {
   skipExisting: boolean;
   updateLeaveBalances: boolean;
   autoProvisionLeaveTypes: boolean;
+  conflictResolution?: "overwrite" | "skip" | "stack";
 };
 
 export type ExecuteMigrationResponse = {
@@ -61,8 +70,8 @@ export async function previewTimesheetMigration(
       };
     }
 
-    // Query company context: employees, workstations, leave types
-    const [empRes, wsRes, ltRes] = await Promise.all([
+    // Query company context: employees, workstations, leave types, and existing time entries for duplicate detection
+    const [empRes, wsRes, ltRes, existingEntriesRes] = await Promise.all([
       supabase
         .from("employees")
         .select("id, email, employee_number, full_name, known_as, workstation_id")
@@ -79,6 +88,11 @@ export async function previewTimesheetMigration(
         .select("id, name, category, is_paid")
         .eq("company_id", company.id)
         .eq("is_active", true)
+        .is("deleted_at", null),
+      supabase
+        .from("time_entries")
+        .select("id, employee_id, work_date")
+        .eq("company_id", company.id)
         .is("deleted_at", null),
     ]);
 
@@ -98,12 +112,68 @@ export async function previewTimesheetMigration(
       },
     );
 
+    // Duplicate detection against database and within uploaded file
+    const dbTimesheetKeySet = new Set<string>();
+    for (const te of existingEntriesRes.data || []) {
+      if (te.employee_id && te.work_date) {
+        dbTimesheetKeySet.add(`${te.employee_id}_${te.work_date}`);
+      }
+    }
+
+    const seenFileKeys = new Set<string>();
+    let existingInDbCount = 0;
+    let fileDuplicateCount = 0;
+    const affectedEmployeesSet = new Set<string>();
+
+    for (const entry of entries) {
+      if (entry.matchedEmployeeId && entry.workDate) {
+        const key = `${entry.matchedEmployeeId}_${entry.workDate}`;
+        const empLabel = entry.matchedEmployeeName || entry.employeeName || entry.employeeIdentifier;
+
+        if (seenFileKeys.has(key)) {
+          entry.isDuplicate = true;
+          entry.duplicateType = "file";
+          entry.duplicateDetails = `Multiple entries found in file for ${empLabel} on ${entry.workDate}`;
+          fileDuplicateCount++;
+          affectedEmployeesSet.add(empLabel);
+          if (entry.validationStatus === "valid") {
+            entry.validationStatus = "warning";
+          }
+          if (!entry.warningFlags) entry.warningFlags = [];
+          entry.warningFlags.push("File duplicate");
+        } else if (dbTimesheetKeySet.has(key)) {
+          entry.isDuplicate = true;
+          entry.duplicateType = "database";
+          entry.duplicateDetails = `A timesheet entry already exists in database for ${empLabel} on ${entry.workDate}`;
+          existingInDbCount++;
+          affectedEmployeesSet.add(empLabel);
+          if (entry.validationStatus === "valid") {
+            entry.validationStatus = "warning";
+          }
+          if (!entry.warningFlags) entry.warningFlags = [];
+          entry.warningFlags.push("Existing in DB");
+        }
+        seenFileKeys.add(key);
+      }
+    }
+
+    const duplicateSummary: MigrationDuplicateSummary | undefined =
+      existingInDbCount > 0 || fileDuplicateCount > 0
+        ? {
+            totalDuplicates: existingInDbCount + fileDuplicateCount,
+            existingInDatabase: existingInDbCount,
+            duplicatesInFile: fileDuplicateCount,
+            affectedEmployees: Array.from(affectedEmployeesSet),
+          }
+        : undefined;
+
     return {
       ok: true,
       format,
       formatDescription: diagnostics.formatDescription,
       entries,
       diagnostics,
+      duplicateSummary,
     };
   } catch (error) {
     console.error("Failed to preview timesheet migration:", error);
@@ -124,8 +194,10 @@ export async function executeTimesheetMigration(
   payload: ExecuteMigrationPayload,
 ): Promise<ExecuteMigrationResponse> {
   try {
-    const { entries, skipExisting, updateLeaveBalances, autoProvisionLeaveTypes } =
+    const { entries, skipExisting, updateLeaveBalances, autoProvisionLeaveTypes, conflictResolution } =
       payload;
+    const conflictStrategy: "overwrite" | "skip" | "stack" =
+      conflictResolution || (skipExisting ? "skip" : "overwrite");
 
     if (!entries || entries.length === 0) {
       return { ok: false, message: "No entries provided for migration." };
@@ -278,15 +350,17 @@ export async function executeTimesheetMigration(
         const existingEntryId = existingDatesMap.get(entry.workDate);
 
         if (existingEntryId) {
-          if (skipExisting) {
+          if (conflictStrategy === "skip") {
             skippedCount++;
             continue;
+          } else if (conflictStrategy === "overwrite") {
+            // Overwrite: delete existing entry for that date first
+            await supabase
+              .from("time_entries")
+              .delete()
+              .eq("id", existingEntryId);
           }
-          // Overwrite: delete existing entry for that date first
-          await supabase
-            .from("time_entries")
-            .delete()
-            .eq("id", existingEntryId);
+          // If "stack", keep the existing entry and additively insert this entry
         }
 
         if (entry.entryType === "work") {

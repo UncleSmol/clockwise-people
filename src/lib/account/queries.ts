@@ -69,7 +69,7 @@ export const getAccountProfile = cache(async function getAccountProfile() {
           )
           .eq("id", access.employeeId)
           .is("deleted_at", null)
-          .single(),
+          .maybeSingle(),
         supabase
           .from("time_entries")
           .select("paid_hours, overtime_hours, missing_clocking, late_arrival, early_departure")
@@ -80,12 +80,12 @@ export const getAccountProfile = cache(async function getAccountProfile() {
       ])
     : [null, null];
 
-  if (employeeResult?.error) {
-    throw new Error(employeeResult.error.message);
+  if (employeeResult?.error && employeeResult.error.code !== "PGRST116") {
+    console.warn("Could not load account profile employee:", employeeResult.error.message);
   }
 
   if (timeResult?.error) {
-    throw new Error(timeResult.error.message);
+    console.warn("Could not load account profile time entries:", timeResult.error.message);
   }
 
   const employee = employeeResult?.data as unknown as EmployeeAccountRow | null;

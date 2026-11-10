@@ -10,6 +10,7 @@ export const leaveCategories = [
   "sick",
   "family_responsibility",
   "maternity",
+  "parental",
   "unpaid",
   "toil_taken",
   "other",
@@ -227,7 +228,7 @@ export type CompanyWorkRulesData = {
   accrualBaselineDate?: string | null;
   preventAdditiveImportStacking?: boolean;
   standardDailyHours?: number;
-  employees: { id: string; label: string }[];
+  employees: { id: string; label: string; gender?: string | null }[];
   leaveBalances: Array<LeaveBalance & { employee_id: string; leave_type_id: string }>;
   leaveTypes: LeaveType[];
   publicHolidays: PublicHoliday[];
@@ -249,4 +250,5 @@ export type EmployeeLeaveState = {
   standardDailyHours: number;
   toilMultiplier?: number;
   toilEnabled?: boolean;
+  employeeGender?: "male" | "female" | "other" | string | null;
 };

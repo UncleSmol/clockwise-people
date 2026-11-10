@@ -20,6 +20,12 @@ import {
 import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
 import { calculateSimpleLeaveAccrual } from "./engine/accrual-engine";
+import {
+  deriveGenderFromSouthAfricanId,
+  isGenderAllowedForLeave,
+  isUnpaidLeave,
+  normalizeLeaveTypeName,
+} from "./realtime-accrual";
 
 type ActionState = {
   calculation?: LeaveCalculation;
@@ -491,9 +497,11 @@ export async function submitLeaveRequest(
   let requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
 
   const isTimeOff = formData.get("is_time_off") === "true";
-  const rawHours = formData.get("time_off_hours") || formData.get("request_total_hours");
+  const rawHours = isTimeOff ? (formData.get("time_off_hours") || formData.get("request_total_hours")) : null;
   const parsedTimeOffHours = rawHours ? parseFloat(String(rawHours)) : null;
-  const timeOffHours = parsedTimeOffHours && !isNaN(parsedTimeOffHours) && parsedTimeOffHours > 0 ? parsedTimeOffHours : null;
+  const timeOffHours = isTimeOff && parsedTimeOffHours && !isNaN(parsedTimeOffHours) && parsedTimeOffHours > 0
+    ? parsedTimeOffHours
+    : null;
 
   if (isTimeOff && (!timeOffHours || timeOffHours <= 0)) {
     return { ok: false, message: "Please specify the time off hours requested (e.g. 2.5h)." };
@@ -585,7 +593,7 @@ export async function submitLeaveRequest(
     request_end_date: parsed.data.end_date,
     request_reason: finalReason,
     request_start_date: parsed.data.start_date,
-    request_total_hours: timeOffHours,
+    request_total_hours: isTimeOff ? timeOffHours : null,
     request_use_toil_first: requestUseToilFirst,
     target_leave_type_id: parsed.data.leave_type_id,
   });
@@ -1002,7 +1010,17 @@ export async function reviewLeaveRequest(
     return { ok: false, message: reviewError.message };
   }
 
+  if (decision === "approve") {
+    try {
+      await syncEmployeeAccruals();
+    } catch {
+      // Non-blocking background sync
+    }
+  }
+
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/company");
+  revalidatePath("/dashboard/time-tracking");
   return {
     ok: true,
     message: `Leave request ${decision === "approve" ? "approved" : "rejected"}.`,
@@ -1133,38 +1151,53 @@ export async function syncEmployeeAccruals(
     companyId = company.id;
   }
 
-  // 1. Fetch company settings
-  const { data: settingsData } = await supabase
-    .from("company_settings")
-    .select("standard_monthly_hours, standard_daily_hours, leave_rules, toil_rules")
-    .eq("company_id", companyId)
-    .maybeSingle();
+  // 1. Fetch company info & settings
+  const [compResult, settingsResult] = await Promise.all([
+    supabase.from("companies").select("id, name").eq("id", companyId).maybeSingle(),
+    supabase
+      .from("company_settings")
+      .select("standard_monthly_hours, standard_daily_hours, leave_rules, toil_rules")
+      .eq("company_id", companyId)
+      .maybeSingle(),
+  ]);
 
+  const companyName = (compResult.data?.name || "").toLowerCase();
+  const isTalane = companyName.includes("talane");
+  const isKemistry = companyName.includes("kemistry");
+  const isAlora = companyName.includes("alora");
+
+  const companyDefaultAnnualDays = isTalane ? 21 : (isKemistry || isAlora ? 17 : 15);
+
+  const settingsData = settingsResult.data;
   const standardMonthlyHours = Number(settingsData?.standard_monthly_hours ?? 173.33);
   const standardDailyHours = Number(settingsData?.standard_daily_hours ?? 8);
-  const standardAnnualHours = Math.max(1, standardMonthlyHours * 12);
   const leaveRules = (settingsData?.leave_rules ?? {}) as Record<string, unknown>;
+  const preventAdditiveImportStacking = Boolean(
+    leaveRules.prevent_additive_import_stacking ?? true,
+  );
   const toilRules = (settingsData?.toil_rules ?? {}) as Record<string, unknown>;
 
   const toilMultiplier = Number(toilRules.accrual_multiplier ?? 1.5);
   const isToilEnabled = Boolean(toilRules.enabled);
 
   // 2. Fetch active leave types
-  const { data: leaveTypes, error: leaveTypesError } = await supabase
+  const { data: rawLeaveTypes, error: leaveTypesError } = await supabase
     .from("leave_types")
     .select("id, name, category, is_paid, accrual_rules")
     .eq("company_id", companyId)
     .eq("is_active", true)
     .is("deleted_at", null);
 
-  if (leaveTypesError || !leaveTypes || leaveTypes.length === 0) {
+  const leaveTypes = rawLeaveTypes ?? [];
+
+  if (leaveTypesError || leaveTypes.length === 0) {
     return { ok: false, message: leaveTypesError?.message ?? "No active leave types found." };
   }
 
   // 3. Fetch target employees and company work rules
   let employeeQuery = supabase
     .from("employees")
-    .select("id, full_name, employee_number, employment_status, start_date, work_schedule_id")
+    .select("id, full_name, employee_number, employment_status, start_date, work_schedule_id, gender, id_number")
     .eq("company_id", companyId)
     .is("deleted_at", null);
 
@@ -1196,6 +1229,8 @@ export async function syncEmployeeAccruals(
     status: string;
     work_date: string;
     clock_in?: string | null;
+    leave_type_id?: string | null;
+    notes?: string | null;
   }> = [];
 
   let page = 0;
@@ -1203,7 +1238,7 @@ export async function syncEmployeeAccruals(
   while (true) {
     const { data: chunk, error: timeError } = await supabase
       .from("time_entries")
-      .select("employee_id, normal_hours, paid_hours, overtime_hours, status, work_date, clock_in")
+      .select("employee_id, normal_hours, paid_hours, overtime_hours, status, work_date, clock_in, leave_type_id, notes")
       .eq("company_id", companyId)
       .in("employee_id", employeeIds)
       .is("deleted_at", null)
@@ -1225,7 +1260,7 @@ export async function syncEmployeeAccruals(
   // 5. Fetch all approved leave requests to compute taken hours
   const { data: leaveRequests, error: reqError } = await supabase
     .from("leave_requests")
-    .select("employee_id, leave_type_id, total_hours, status")
+    .select("employee_id, leave_type_id, total_hours, status, leave_types(name, category)")
     .eq("company_id", companyId)
     .in("employee_id", employeeIds)
     .eq("status", "approved")
@@ -1261,25 +1296,35 @@ export async function syncEmployeeAccruals(
   for (const emp of employees) {
     const empEntries = (timeEntries ?? []).filter((e) => e.employee_id === emp.id);
 
-    // Count distinct shifts clocked in / days worked
+    // Count distinct shifts clocked in / days worked (ONLY approved non-leave regular shifts)
     const shiftDateSet = new Set<string>();
     let totalNormalHours = 0;
     let totalPaidHours = 0;
     let totalOvertimeHours = 0;
 
     for (const e of empEntries) {
-      const paid = Number(e.paid_hours ?? e.normal_hours ?? 0);
-      const ot = Number(e.overtime_hours ?? 0);
-      if (paid > 0 || Boolean(e.clock_in)) {
-        shiftDateSet.add(e.work_date);
-        totalNormalHours += Number(e.normal_hours ?? 0);
-        totalPaidHours += paid;
-        totalOvertimeHours += ot;
+      const isLeaveEntry = Boolean(
+        e.leave_type_id ||
+        e.notes?.startsWith("Leave:") ||
+        e.notes?.startsWith("Leave (Pending):")
+      );
+      const isApproved = e.status === "approved";
+
+      if (!isLeaveEntry && isApproved) {
+        const paid = Number(e.paid_hours ?? e.normal_hours ?? 0);
+        const ot = Number(e.overtime_hours ?? 0);
+        if (paid > 0 || Boolean(e.clock_in)) {
+          shiftDateSet.add(e.work_date);
+          totalNormalHours += Number(e.normal_hours ?? 0);
+          totalPaidHours += paid;
+          totalOvertimeHours += ot;
+        }
       }
     }
 
     const shiftsWorked = shiftDateSet.size;
     const totalWorkedHours = totalPaidHours > 0 ? totalPaidHours : totalNormalHours;
+    const totalMinutesWorked = Math.round(totalWorkedHours * 60);
 
     // Calculate months employed
     const startDate = new Date(emp.start_date || "2026-01-01");
@@ -1291,56 +1336,106 @@ export async function syncEmployeeAccruals(
     // Resolve employee specific work schedule
     const empSchedule = (companySchedules || []).find((s) => s.id === emp.work_schedule_id);
     const empDailyHours = Number(empSchedule?.standard_daily_hours ?? standardDailyHours);
-    const empWeeklyHours = empDailyHours * 5;
-    const empAnnualHours = empWeeklyHours * 52;
+
+    const empRecord = emp as Record<string, unknown>;
+    const empGender =
+      (typeof empRecord.gender === "string" ? empRecord.gender : null) ||
+      deriveGenderFromSouthAfricanId(typeof empRecord.id_number === "string" ? empRecord.id_number : null);
 
     for (const lt of leaveTypes) {
-      // Calculate taken hours from approved leave requests
-      const empLeaveReqs = (leaveRequests ?? []).filter(
-        (r) => r.employee_id === emp.id && r.leave_type_id === lt.id,
-      );
-      const takenHours = Number(
-        empLeaveReqs.reduce((sum, r) => sum + Number(r.total_hours ?? 0), 0).toFixed(2),
-      );
+      // Skip unpaid leave and leave types not allowed for employee's gender
+      if (isUnpaidLeave(lt.name, lt.category)) continue;
+      if (!isGenderAllowedForLeave(lt.name, lt.category, empGender)) continue;
 
-      // Find existing balance
+      const canonicalKey = normalizeLeaveTypeName(lt.name, lt.category);
+      const rules = (lt.accrual_rules as Record<string, unknown>) ?? {};
+      const rawDays = Number(rules.entitlement_days ?? rules.yearly_days ?? 0);
+      const yearlyHours = Number(rules.yearly_hours ?? 0);
+
+      // 1. Calculate taken hours accurately from approved leave requests and approved leave time entries
+      const matchingReqs = (leaveRequests ?? []).filter((r) => {
+        if (r.employee_id !== emp.id) return false;
+        if (r.leave_type_id === lt.id) return true;
+        const rel = Array.isArray(r.leave_types) ? r.leave_types[0] : r.leave_types;
+        return normalizeLeaveTypeName(rel?.name ?? "", rel?.category) === canonicalKey;
+      });
+      const reqHours = matchingReqs.reduce((sum, r) => sum + Number(r.total_hours ?? 0), 0);
+
+      const matchingTimeEntries = empEntries.filter((e) => {
+        if (e.status !== "approved") return false;
+        if (e.leave_type_id === lt.id) return true;
+        if (e.notes?.startsWith("Leave:")) {
+          const typeInNote = e.notes.replace(/^Leave:\s*/, "").trim();
+          return normalizeLeaveTypeName(typeInNote, "") === canonicalKey;
+        }
+        return false;
+      });
+      const teHours = matchingTimeEntries.reduce((sum, e) => sum + Number(e.paid_hours ?? 0), 0);
+
+      // Max prevents double counting between leave requests and their auto-generated time entries
+      const takenHours = Number(Math.max(reqHours, teHours).toFixed(2));
+
+      // 2. Find existing balance to preserve any manual adjustments
       const existingBal = (existingBalances ?? []).find(
         (b) => b.employee_id === emp.id && b.leave_type_id === lt.id,
       );
       const adjustedHours = Number(existingBal?.adjusted_hours ?? 0);
 
-      // Evaluate statutory & company accrual conforming to work rule and BCEA
-      const { accruedHours } = calculateSimpleLeaveAccrual({
-        shiftsWorked,
-        hoursWorked: totalWorkedHours,
-        overtimeHours: totalOvertimeHours,
-        leaveType: lt,
-        monthsEmployed,
-        standardDailyHours: empDailyHours,
-        workingDaysPerWeek: 5,
-        standardAnnualHours: empAnnualHours,
-        toilMultiplier,
-        toilEnabled: isToilEnabled,
-      });
-
+      // 3. Evaluate exact statutory & company accrual down to the minute
+      let accruedHours = 0;
       if (lt.category === "annual") {
+        const entitlementDays = rawDays > 0
+          ? rawDays
+          : yearlyHours > 0
+            ? Number((yearlyHours / empDailyHours).toFixed(2))
+            : companyDefaultAnnualDays;
+        const entitlementHours = yearlyHours > 0 ? yearlyHours : entitlementDays * empDailyHours;
+
+        // Effective rate: standard annual rate (e.g. 168/2080 for 21d, 136/2080 for 17d)
+        // BCEA Section 20 floor is protected (1h per 17h worked)
+        const rate = Math.max(entitlementHours / 2080.0, 1 / 17.0);
+        const accruedMinutes = Math.floor(totalMinutesWorked * rate);
+        accruedHours = Number((accruedMinutes / 60).toFixed(2));
+        if (entitlementHours > 0 && accruedHours > entitlementHours) {
+          accruedHours = entitlementHours;
+        }
         empAnnualAccrued = accruedHours;
-      } else if (lt.category === "toil_taken") {
+      } else if (lt.category === "sick") {
+        // BCEA Section 22: 1 hour for every 26 hours worked (2.308m per 1h worked)
+        const sickRate = 1 / 26.0;
+        const accruedMinutes = Math.floor(totalMinutesWorked * sickRate);
+        const sickCap = yearlyHours > 0 ? yearlyHours : Number((10 * empDailyHours).toFixed(2));
+        accruedHours = Math.min(sickCap, Number((accruedMinutes / 60).toFixed(2)));
+      } else if (lt.category === "family_responsibility") {
+        // BCEA Section 27: 3 days (24h) for employees with >= 4 months of service or >= 16 shifts
+        const frlDays = rawDays > 0 ? rawDays : 3;
+        const frlHours = yearlyHours > 0 ? yearlyHours : frlDays * empDailyHours;
+        accruedHours = (monthsEmployed >= 4 || shiftsWorked >= 16) ? frlHours : 0;
+      } else if (lt.category === "toil_taken" || lt.name.toLowerCase().includes("toil")) {
+        if (isToilEnabled && totalOvertimeHours > 0) {
+          accruedHours = Number((totalOvertimeHours * toilMultiplier).toFixed(2));
+        } else {
+          accruedHours = 0;
+        }
         empToilAccrued = accruedHours;
       }
 
-      // Check annual leave cap (e.g. 144 hours for Formalize)
+      // Check annual leave cap if configured
       const annualCapHours = lt.category === "annual"
-        ? Number(
-            (lt.accrual_rules as Record<string, unknown>)?.annual_cap_hours ??
-            (lt.accrual_rules as Record<string, unknown>)?.cap_hours ??
-            leaveRules.annual_leave_cap_hours ??
-            0
-          )
+        ? Number(rules.annual_cap_hours ?? rules.cap_hours ?? leaveRules.annual_leave_cap_hours ?? 0)
         : 0;
 
-      // Net available balance = max(0, accrued + adjusted - taken)
-      let balanceHours = Math.max(0, Number((accruedHours + adjustedHours - takenHours).toFixed(2)));
+      // Net available balance:
+      // When preventAdditiveImportStacking is true (default), if accruedHours has been calculated from full time tracking,
+      // adjustedHours (opening balance baseline) must not be stacked on top of accruedHours.
+      let effectiveBaseHours = accruedHours;
+      if (!preventAdditiveImportStacking && adjustedHours > 0) {
+        effectiveBaseHours += adjustedHours;
+      } else if (accruedHours === 0 && adjustedHours > 0) {
+        effectiveBaseHours = adjustedHours;
+      }
+
+      let balanceHours = Math.max(0, Number((effectiveBaseHours - takenHours).toFixed(2)));
       if (annualCapHours > 0 && balanceHours > annualCapHours) {
         balanceHours = annualCapHours;
       }
@@ -1391,10 +1486,8 @@ export async function syncEmployeeAccruals(
   return {
     ok: true,
     affectedCount: totalUpdated,
-    message: `Leave accruals synchronized for ${employees.length} employee${
-      employees.length === 1 ? "" : "s"
-    } (${totalUpdated} balance records updated).`,
     details,
+    message: `Synced leave accruals for ${employees.length} employee(s) across ${totalUpdated} leave balance(s).`,
   };
 }
 
@@ -1655,7 +1748,7 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
       { name: "Family Responsibility Leave", category: "family_responsibility", is_paid: true, requires_attachment: false },
       { name: "Study Leave", category: "other", is_paid: true, requires_attachment: false },
       { name: "Maternity Leave", category: "maternity", is_paid: true, requires_attachment: true },
-      { name: "Parental Leave", category: "family_responsibility", is_paid: true, requires_attachment: false },
+      { name: "Paternal Leave", category: "parental", is_paid: true, requires_attachment: true },
       ...(isToilEnabled ? [{ name: "TOIL / Overtime Comp Leave", category: "toil_taken", is_paid: true, requires_attachment: false }] : []),
       { name: "Unpaid Leave", category: "unpaid", is_paid: false, requires_attachment: false },
     ];

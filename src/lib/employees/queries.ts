@@ -7,6 +7,7 @@ import { getActiveCompany, requireUser, getCurrentUserAccess } from "@/lib/found
 import type { AppRole } from "@/lib/foundation/schema";
 import type { EmployeeRecord, SelectOption } from "./schema";
 import { autoAssignCompanyPayrollIdentifiers } from "./payroll-id";
+import { deriveGenderFromSouthAfricanId } from "@/lib/work-rules/realtime-accrual";
 
 export type EmployeePageData = {
   isConfigured: boolean;
@@ -57,6 +58,7 @@ function normalizeEmployee(row: EmployeeRow): EmployeeRecord {
     ...employee,
     end_date: employee.end_date ?? null,
     id_number: employee.id_number ?? null,
+    gender: (employee.gender?.trim() || deriveGenderFromSouthAfricanId(employee.id_number) || null)?.toLowerCase(),
     tax_number: employee.tax_number ?? null,
     address: employee.address ?? null,
     payment_frequency: employee.payment_frequency ?? "monthly",
@@ -152,7 +154,7 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     supabase
       .from("employees")
       .select(
-        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
+        "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, gender, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
       )
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -351,7 +353,7 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
     supabase
     .from("employees")
     .select(
-      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
+      "id, company_id, employee_number, full_name, known_as, email, phone_number, avatar_url, workstation_id, department_id, job_title, employment_type, employment_status, start_date, end_date, work_schedule_id, manager_employee_id, user_id, payroll_identifier, monthly_salary, hourly_rate, compensation_type, id_number, gender, tax_number, address, payment_frequency, bank_name, bank_account_number, bank_account_type, payment_mode, deleted_at, company_workstations(name), departments(name)",
     )
     .eq("company_id", company.id)
     .eq("id", employeeId)

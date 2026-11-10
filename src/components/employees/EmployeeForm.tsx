@@ -58,6 +58,7 @@ function getEmployeeFormDefaultValues(employee?: EmployeeRecord): EmployeeFormIn
     monthly_salary: fieldValue(employee?.monthly_salary),
     hourly_rate: fieldValue(employee?.hourly_rate),
     id_number: employee?.id_number ?? "",
+    gender: employee?.gender ?? "",
     tax_number: employee?.tax_number ?? "",
     address: employee?.address ?? "",
     payment_frequency: (employee?.payment_frequency ?? "monthly") as EmployeeFormValues["payment_frequency"],
@@ -382,6 +383,19 @@ export default function EmployeeForm({
               className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
               {...register("id_number")}
             />
+          </label>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Gender</span>
+            <select
+              className="h-11 sm:h-12 w-full rounded-full border border-border/80 bg-background px-4 text-sm text-foreground outline-none capitalize focus:border-primary focus:ring-1 focus:ring-primary shadow-xs"
+              {...register("gender")}
+            >
+              <option value="">Auto-derive from SA ID / Unspecified</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
           </label>
 
           <label className="grid gap-1.5">
