@@ -360,47 +360,72 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
       </button>
 
       {open ? (
-        <div
-          className="fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[75] max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom,0px))] overflow-hidden rounded-2xl border border-emerald-500/25 bg-white dark:bg-slate-900 p-0 shadow-[0_20px_50px_-10px_rgba(46,155,95,0.22)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[400px]"
-          style={{ backgroundColor: "#ffffff" }}
-        >
-          {/* Header (Fully Opaque) */}
-          <div className="border-b border-border bg-white dark:bg-slate-900 px-4 py-3.5 select-none">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-base font-extrabold text-foreground tracking-tight">Notifications</p>
-                <p className="text-xs font-semibold text-muted">
-                  {liveNotifications.length === 0
-                    ? "No unread notifications"
-                    : `${liveNotifications.length} unread alert${liveNotifications.length === 1 ? "" : "s"}`}
-                </p>
+        <>
+          {/* Mobile Frosted Backdrop */}
+          <div
+            className="fixed inset-0 z-[74] bg-slate-950/45 backdrop-blur-md sm:hidden transition-opacity"
+            onClick={() => setOpen(false)}
+          />
+
+          <div
+            className="notification-harmonized-popover fixed inset-x-3 top-[calc(3.5rem+0.5rem)] z-[75] max-h-[calc(100dvh-7rem-env(safe-area-inset-bottom,0px))] overflow-hidden rounded-[26px] sm:rounded-[30px] p-4 sm:p-5 shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-[410px] animate-in zoom-in-95 duration-200"
+          >
+            {/* Header (Harmonized with Time Picker Header) */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/60 dark:border-slate-800 select-none">
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-xl flex items-center justify-center border border-primary/20 bg-primary/10 shadow-2xs">
+                  <Bell className="size-4 text-primary stroke-[2.4]" />
+                </div>
+                <div>
+                  <span className="text-xs font-black tracking-[0.16em] uppercase text-foreground block">
+                    Notifications
+                  </span>
+                  <span className="text-[10px] font-semibold text-muted">
+                    {liveNotifications.length === 0
+                      ? "All caught up"
+                      : `${liveNotifications.length} unread alert${liveNotifications.length === 1 ? "" : "s"}`}
+                  </span>
+                </div>
               </div>
-              {liveNotifications.length > 0 ? (
-                <form action={clearAction}>
-                  <button
-                    disabled={clearPending}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1 text-xs font-bold text-foreground hover:bg-surface-muted disabled:opacity-50 transition-colors shadow-2xs cursor-pointer"
-                    type="submit"
-                  >
-                    <Trash2 className="size-3.5 text-muted" />
-                    Clear all
-                  </button>
-                </form>
-              ) : null}
+
+              <div className="flex items-center gap-2">
+                {liveNotifications.length > 0 ? (
+                  <form action={clearAction}>
+                    <button
+                      disabled={clearPending}
+                      className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                      type="submit"
+                      title="Clear all notifications"
+                    >
+                      <Trash2 className="size-3 text-muted" />
+                      <span className="text-[11px]">Clear</span>
+                    </button>
+                  </form>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="size-8 rounded-full flex items-center justify-center border border-slate-200 bg-white/80 hover:bg-white dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white shadow-2xs transition-colors cursor-pointer"
+                  aria-label="Close notifications"
+                >
+                  <X className="size-4 stroke-[2.5]" />
+                </button>
+              </div>
             </div>
 
-            {/* Device Native Notification Banner (PWA Mobile & Desktop Alert Hook) */}
+            {/* Device Native Notification Banner (PWA Mobile & Desktop Alert Hook - Digital Well Style) */}
             {permission !== "granted" ? (
-              <div className="mt-3 flex items-center justify-between gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
-                    <BellRing className="size-3" />
+              <div className="digital-well rounded-2xl p-3 my-3 flex items-center justify-between gap-2.5 shadow-soft">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary border border-primary/20">
+                    <BellRing className="size-3.5 stroke-[2.3]" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-black text-emerald-950 dark:text-emerald-200 truncate">
-                      Enable Native Device Alerts
+                    <p className="text-[11px] font-black text-foreground truncate">
+                      Enable Device Alerts
                     </p>
-                    <p className="text-[10px] text-emerald-800/80 dark:text-emerald-300/80 truncate">
+                    <p className="text-[10px] text-muted truncate">
                       Vibrate phone &amp; desktop popups
                     </p>
                   </div>
@@ -409,120 +434,122 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
                   type="button"
                   disabled={requestingPerm}
                   onClick={requestPermission}
-                  className="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black text-white hover:bg-emerald-700 shadow-2xs cursor-pointer transition-colors"
+                  className="btn-aurora-done shrink-0 rounded-xl px-3.5 py-1.5 text-[10px] font-extrabold text-white shadow-xs cursor-pointer transition-all"
                 >
                   {requestingPerm ? "Enabling..." : "Enable"}
                 </button>
               </div>
             ) : (
-              <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
-                <Radio className="size-2.5 text-emerald-600 animate-pulse" />
-                <span>Device Alerts: Active (Mobile &amp; Desktop Popups)</span>
+              <div className="my-2.5 flex items-center justify-between px-1 text-[10px] font-bold text-primary">
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex size-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                    <span className="relative inline-flex size-2 rounded-full bg-primary shadow-[0_0_8px_rgba(46,155,95,0.8)]" />
+                  </span>
+                  <span>Device Alerts: Active</span>
+                </div>
+                <span className="text-[9px] text-muted uppercase font-extrabold tracking-wider">Live Sync</span>
               </div>
             )}
-          </div>
 
-          {/* Notification List (Solid Background - Zero Transparency) */}
-          <div
-            className="max-h-[calc(100dvh-12rem)] divide-y divide-border overflow-y-auto sm:max-h-[380px] bg-white dark:bg-slate-900"
-            style={{ backgroundColor: "#ffffff" }}
-          >
-            {liveNotifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-4 py-10 text-center bg-white dark:bg-slate-900">
-                <span className="grid size-12 place-items-center rounded-full bg-emerald-500/10 text-emerald-600 mb-2">
-                  <CheckCircle2 className="size-6" />
-                </span>
-                <p className="text-sm font-black text-foreground">You are all caught up!</p>
-                <p className="mt-0.5 text-xs text-muted max-w-xs">
-                  New timesheet approvals, rejections, and time-off updates will appear here and ping your device.
-                </p>
-              </div>
-            ) : (
-              liveNotifications.map((notification) => {
-                const { icon, iconBg, badgeText, badgeClass } = getNotificationIconAndBadge(
-                  notification.category,
-                  notification.title,
-                );
-                const isRejected = notification.category.toLowerCase().includes("rejected");
-                const isApproved = notification.category.toLowerCase().includes("approved");
+            {/* Notification List (Harmonized Cards) */}
+            <div className="max-h-[calc(100dvh-13rem)] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 pt-1">
+              {liveNotifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+                  <div className="size-12 rounded-2xl flex items-center justify-center border border-primary/20 bg-primary/10 text-primary shadow-soft mb-2.5">
+                    <CheckCircle2 className="size-6 stroke-[2.2]" />
+                  </div>
+                  <p className="text-sm font-black text-foreground tracking-tight">You are all caught up!</p>
+                  <p className="mt-1 text-xs text-muted max-w-xs leading-relaxed">
+                    New timesheet approvals, rejections, and time-off updates will appear here and ping your device.
+                  </p>
+                </div>
+              ) : (
+                liveNotifications.map((notification) => {
+                  const { icon, iconBg, badgeText, badgeClass } = getNotificationIconAndBadge(
+                    notification.category,
+                    notification.title,
+                  );
+                  const isRejected = notification.category.toLowerCase().includes("rejected");
+                  const isApproved = notification.category.toLowerCase().includes("approved");
 
-                return (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleNotificationClick(notification);
-                      }
-                    }}
-                    className="group relative flex flex-col gap-2 p-3.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer bg-white dark:bg-slate-900"
-                    style={{ backgroundColor: "#ffffff" }}
-                  >
-                    <div className="flex items-start justify-between gap-3 min-w-0">
-                      <div className="flex items-start gap-3 min-w-0 flex-1">
-                        <span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border ${iconBg} shadow-2xs`}>
-                          {icon}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${badgeClass}`}>
-                              {badgeText}
-                            </span>
-                            <span className="text-[10px] text-muted">
-                              {new Intl.DateTimeFormat("en-ZA", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                day: "numeric",
-                                month: "short",
-                              }).format(new Date(notification.createdAt))}
-                            </span>
+                  return (
+                    <div
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleNotificationClick(notification);
+                        }
+                      }}
+                      className="group relative flex flex-col gap-2 rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-900 p-3.5 transition-all hover:border-primary/50 shadow-2xs hover:shadow-soft cursor-pointer"
+                    >
+                      <div className="flex items-start justify-between gap-3 min-w-0">
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border ${iconBg} shadow-2xs`}>
+                            {icon}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${badgeClass} shadow-2xs`}>
+                                {badgeText}
+                              </span>
+                              <span className="text-[10px] text-muted font-medium">
+                                {new Intl.DateTimeFormat("en-ZA", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  day: "numeric",
+                                  month: "short",
+                                }).format(new Date(notification.createdAt))}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs font-black text-foreground leading-snug break-words">
+                              {notification.title}
+                            </p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-muted break-words">
+                              {notification.body}
+                            </p>
                           </div>
-                          <p className="mt-1 text-xs font-bold text-foreground leading-snug break-words">
-                            {notification.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] leading-relaxed text-muted break-words">
-                            {notification.body}
-                          </p>
                         </div>
+
+                        {/* Individual Dismiss Button */}
+                        <button
+                          type="button"
+                          title="Dismiss notification"
+                          onClick={(e) => handleDismissSingle(e, notification)}
+                          className="size-6 rounded-full flex items-center justify-center border border-slate-200/80 bg-white/70 hover:bg-white dark:bg-slate-800 dark:border-slate-700 text-slate-400 hover:text-danger shadow-2xs transition-colors shrink-0 cursor-pointer"
+                        >
+                          <X className="size-3.5 stroke-[2.2]" />
+                        </button>
                       </div>
 
-                      {/* Individual Dismiss Button */}
-                      <button
-                        type="button"
-                        title="Dismiss notification"
-                        onClick={(e) => handleDismissSingle(e, notification)}
-                        className="opacity-60 hover:opacity-100 hover:text-danger p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer"
-                      >
-                        <X className="size-3.5" />
-                      </button>
+                      {/* Action prompt footer on card */}
+                      <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2 text-[10px] font-extrabold text-muted group-hover:text-primary transition-colors">
+                        <span className="truncate">
+                          {isRejected
+                            ? "👉 Tap to open timesheet ready to edit"
+                            : isApproved
+                              ? "👉 Tap to view verified timesheet"
+                              : "👉 Tap to view details"}
+                        </span>
+                        <ExternalLink className="size-3 shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
+                      </div>
                     </div>
+                  );
+                })
+              )}
+            </div>
 
-                    {/* Action prompt footer on card */}
-                    <div className="flex items-center justify-between border-t border-border/50 pt-1.5 text-[10px] font-bold text-muted group-hover:text-primary transition-colors">
-                      <span className="truncate">
-                        {isRejected
-                          ? "👉 Tap to open timesheet ready to edit"
-                          : isApproved
-                            ? "👉 Tap to view verified timesheet"
-                            : "👉 Tap to view details"}
-                      </span>
-                      <ExternalLink className="size-3 shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            {clearState.message && !clearPending ? (
+              <p className={`mt-2 rounded-xl border border-border p-2 text-center text-xs font-semibold ${clearState.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+                {clearState.message}
+              </p>
+            ) : null}
           </div>
-
-          {clearState.message && !clearPending ? (
-            <p className={`border-t border-border px-4 py-2 text-xs font-medium bg-white dark:bg-slate-900 ${clearState.ok ? "text-success" : "text-danger"}`}>
-              {clearState.message}
-            </p>
-          ) : null}
-        </div>
+        </>
       ) : null}
     </div>
   );

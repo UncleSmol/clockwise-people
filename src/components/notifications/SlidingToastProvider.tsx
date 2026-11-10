@@ -161,36 +161,64 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
     <ToastContext.Provider value={{ showToast, dismissToast }}>
       {children}
 
-      {/* Floating sliding popup at the top of the screen — same vibrant emerald color as time picker */}
+      {/* Floating sliding popup at the top of the screen — harmonized with the Time Picker card design */}
       <aside
         aria-live="polite"
         aria-label="Notifications"
-        className="fixed top-5 inset-x-0 mx-auto z-[99999] pointer-events-none flex flex-col items-center justify-start px-4 gap-2 w-fit max-w-[92vw] sm:max-w-md select-none"
+        className="fixed top-5 inset-x-0 mx-auto z-[99999] pointer-events-none flex flex-col items-center justify-start px-4 gap-2.5 w-fit max-w-[94vw] sm:max-w-md select-none"
       >
         {toasts.map((toast) => {
           const minimalText = formatMinimalMessage(toast);
+          const isError = toast.type === "error";
+          const isInfo = toast.type === "info";
 
           return (
             <div
               key={toast.id}
               role="alert"
-              className="pointer-events-auto rounded-full border border-white/25 bg-gradient-to-r from-[#2E9B5F] to-[#258550] text-white shadow-[0_12px_28px_-6px_rgba(46,155,95,0.45)] px-4 py-2 sm:py-2.5 flex items-center gap-2.5 transition-all transform animate-in slide-in-from-top-4 fade-in duration-300 ease-out"
+              className={`toast-harmonized-capsule ${isError ? "toast-error" : isInfo ? "toast-info" : ""} pointer-events-auto rounded-full sm:rounded-2xl px-3.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2.5 sm:gap-3 transition-all transform animate-in slide-in-from-top-4 fade-in duration-300 ease-out`}
             >
-              {/* Type Icon in soft translucent circle */}
-              <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
-                {toast.type === "error" ? (
-                  <AlertCircle className="size-3.5 stroke-[2.5]" />
+              {/* Glowing Pivot Pulse Cap (matching Time Picker dial pivot) */}
+              <span className="relative flex size-2 shrink-0">
+                <span
+                  className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
+                    isError ? "bg-rose-500" : isInfo ? "bg-blue-500" : "bg-primary"
+                  }`}
+                />
+                <span
+                  className={`relative inline-flex size-2 rounded-full ${
+                    isError
+                      ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]"
+                      : isInfo
+                        ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.7)]"
+                        : "bg-primary shadow-[0_0_8px_rgba(46,155,95,0.7)]"
+                  }`}
+                />
+              </span>
+
+              {/* Type Icon in rounded badge matching Time Picker header */}
+              <div
+                className={`flex size-7 shrink-0 items-center justify-center rounded-xl border shadow-2xs ${
+                  isError
+                    ? "border-rose-500/25 bg-rose-500/10 text-rose-600"
+                    : isInfo
+                      ? "border-blue-500/25 bg-blue-500/10 text-blue-600"
+                      : "border-primary/25 bg-primary/10 text-primary"
+                }`}
+              >
+                {isError ? (
+                  <AlertCircle className="size-4 stroke-[2.4]" />
                 ) : toast.type === "notification" ? (
-                  <Bell className="size-3.5 stroke-[2.5]" />
-                ) : toast.type === "info" ? (
-                  <Info className="size-3.5 stroke-[2.5]" />
+                  <Bell className="size-4 stroke-[2.4]" />
+                ) : isInfo ? (
+                  <Info className="size-4 stroke-[2.4]" />
                 ) : (
-                  <Check className="size-3.5 stroke-[2.5]" />
+                  <Check className="size-4 stroke-[2.5]" />
                 )}
               </div>
 
               {/* Minimal Text Message */}
-              <span className="text-xs sm:text-[13px] font-bold text-white tracking-tight truncate max-w-[240px] sm:max-w-xs">
+              <span className="text-xs sm:text-[13px] font-black text-foreground tracking-tight truncate max-w-[220px] sm:max-w-xs">
                 {minimalText}
               </span>
 
@@ -199,18 +227,18 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
                 <Link
                   href={toast.targetHref}
                   onClick={() => dismissToast(toast.id)}
-                  className="rounded-full bg-white text-[#258550] hover:bg-white/90 px-3 py-1 text-[11px] font-black shadow-xs hover:scale-105 active:scale-95 transition-all whitespace-nowrap cursor-pointer ml-1"
+                  className="btn-aurora-done rounded-full px-3.5 py-1 text-[11px] font-extrabold text-white shadow-xs hover:scale-105 active:scale-95 transition-all whitespace-nowrap cursor-pointer ml-1"
                 >
                   Review
                 </Link>
               ) : null}
 
-              {/* Quick Dismiss Button */}
+              {/* Quick Dismiss Button (matching Time Picker close button) */}
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 aria-label="Dismiss notification"
-                className="text-white/70 hover:text-white p-0.5 rounded-full hover:bg-white/15 transition-colors shrink-0 cursor-pointer ml-0.5"
+                className="size-6 rounded-full flex items-center justify-center border border-slate-200/80 bg-white/70 hover:bg-white text-slate-500 hover:text-slate-900 shadow-2xs transition-colors shrink-0 cursor-pointer ml-0.5"
               >
                 <X className="size-3.5 stroke-[2.2]" />
               </button>

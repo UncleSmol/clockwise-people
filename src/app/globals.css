@@ -1477,6 +1477,48 @@ body.zen-mode .hide-when-zen {
 }
 
 /* =========================================================================
+   Harmonized Notification & Popup Toast Styles (Time Picker Inspired)
+   ========================================================================= */
+
+.toast-harmonized-capsule {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1.5px solid rgba(46, 155, 95, 0.35);
+  box-shadow: 
+    0 20px 48px -8px rgba(17, 24, 39, 0.16),
+    0 10px 24px -6px rgba(46, 155, 95, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 1);
+}
+
+.toast-harmonized-capsule.toast-error {
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 
+    0 20px 48px -8px rgba(17, 24, 39, 0.16),
+    0 10px 24px -6px rgba(239, 68, 68, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 1);
+}
+
+.toast-harmonized-capsule.toast-info {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 
+    0 20px 48px -8px rgba(17, 24, 39, 0.16),
+    0 10px 24px -6px rgba(59, 130, 246, 0.25),
+    inset 0 1px 2px rgba(255, 255, 255, 1);
+}
+
+.notification-harmonized-popover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1.5px solid rgba(46, 155, 95, 0.25);
+  box-shadow: 
+    0 24px 60px -12px rgba(17, 24, 39, 0.16),
+    0 12px 28px -8px rgba(46, 155, 95, 0.18),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95);
+}
+
+/* =========================================================================
    Zen Mode True Circle & Animated Sliding Up Overlay
    ========================================================================= */
 
@@ -1575,4 +1617,4 @@ body.zen-mode .hide-when-zen {
     display: none !important;
   }
 }
-
+
