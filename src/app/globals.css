@@ -301,21 +301,32 @@ button:disabled {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   select,
   textarea {
+    box-sizing: border-box;
     background: var(--color-surface);
     border: 1.5px solid var(--color-border);
     border-radius: 0.75rem;
     color: var(--color-foreground);
     font-family: inherit;
-    font-size: 0.875rem;
+    /* 16px on mobile prevents iOS Safari from automatically zooming into the page */
+    font-size: 16px;
     line-height: 1.4;
     outline: none;
-    padding: 0.5rem 0.875rem;
-    min-height: 2.5rem;
+    padding: 0.625rem 1.125rem;
+    min-height: 2.75rem;
     transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
   }
 
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
     border-radius: 9999px;
+    padding-left: 1.125rem;
+    padding-right: 1.125rem;
+  }
+
+  textarea {
+    border-radius: 1rem !important;
+    padding: 0.75rem 1rem !important;
+    min-height: 4.5rem;
+    line-height: 1.5;
   }
 
   input[type="checkbox"],
@@ -332,8 +343,12 @@ button:disabled {
     textarea {
       font-size: 0.875rem;
       min-height: 2.75rem;
-      padding: 0.625rem 1rem;
-      border-radius: 1rem;
+      padding: 0.625rem 1.25rem;
+    }
+
+    textarea {
+      border-radius: 1rem !important;
+      padding: 0.75rem 1.125rem !important;
     }
   }
 
@@ -359,7 +374,27 @@ select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 1rem center;
-  padding-right: 2.75rem;
+  background-size: 14px 14px;
+  padding-right: 2.75rem !important;
+  border-radius: 9999px;
+}
+
+/* Automatic prefix & suffix icon padding guarantees */
+.relative > svg:first-child + input,
+.relative > div:first-child:has(svg) + input,
+.relative > svg.absolute.left-3 + input,
+.relative > svg.absolute.left-3\.5 + input,
+.relative > svg.absolute.left-4 + input,
+input.has-icon-left {
+  padding-left: 2.75rem !important;
+}
+
+.relative > input:has(+ button),
+.relative > input:has(+ svg.absolute.right-3),
+.relative > input:has(+ svg.absolute.right-3\.5),
+.relative > input:has(+ svg.absolute.right-4),
+input.has-icon-right {
+  padding-right: 2.75rem !important;
 }
 
 .card {

@@ -142,13 +142,16 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   // Active employee ID MUST belong to the activeCompany!
   let activeEmployeeId = companyAppUser?.employee_id ?? null;
   if (!activeEmployeeId) {
+    const fallbackFilter = companyAppUser?.id
+      ? `user_id.eq.${companyAppUser.id},email.eq.${user.email ?? ""}`
+      : `email.eq.${user.email ?? ""}`;
     const { data: empRecord } = await supabase
       .from("employees")
       .select("id")
       .eq("company_id", activeCompany.id)
       .eq("employment_status", "active")
       .is("deleted_at", null)
-      .or(`user_id.eq.${companyAppUser?.id ?? ""},email.eq.${user.email ?? ""}`)
+      .or(fallbackFilter)
       .limit(1)
       .maybeSingle();
 
@@ -184,8 +187,9 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     Boolean(userMeta?.role === "superuser" || userMeta?.role === "super_user") ||
     roleKeys.has("owner");
 
+  const adminClient = createSupabaseAdminClient();
   const directReportsResult = activeEmployeeId
-    ? await supabase
+    ? await adminClient
         .from("employees")
         .select("id", { count: "exact", head: true })
         .eq("company_id", activeCompany.id)

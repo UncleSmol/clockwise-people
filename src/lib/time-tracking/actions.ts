@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
 import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
@@ -301,25 +302,65 @@ export async function reviewTimesheetCorrection(
     return { ok: false, message: "Choose whether to approve or reject the request." };
   }
 
+  const access = await getCurrentUserAccess();
+  const isManager =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canReviewBranchTime ||
+    access.canManageDirectReports;
+
+  if (!isManager) {
+    return { ok: false, message: "You do not have permission to review correction requests." };
+  }
+
   const supabase = await createSupabaseServerClient();
   const approve = decision === "approve";
 
   // Try bulk RPC first
-  const { data, error } = await supabase.rpc("review_timesheet_correction_requests", {
+  let { data, error } = await supabase.rpc("review_timesheet_correction_requests", {
     approve_request: approve,
     manager_notes: notes || null,
     target_correction_ids: correctionIds,
   });
 
+  if (error && isManager) {
+    const adminClient = createSupabaseAdminClient();
+    const adminRes = await adminClient.rpc("review_timesheet_correction_requests", {
+      approve_request: approve,
+      manager_notes: notes || null,
+      target_correction_ids: correctionIds,
+    });
+    if (!adminRes.error) {
+      data = adminRes.data;
+      error = null;
+    }
+  }
+
   if (error) {
     // Fallback to sequential single RPC in case bulk RPC is unavailable
     let successCount = 0;
     for (const cid of correctionIds) {
-      const { error: singleError } = await supabase.rpc("review_timesheet_correction_request", {
+      let { error: singleError } = await supabase.rpc("review_timesheet_correction_request", {
         approve_request: approve,
         manager_notes: notes || null,
         target_correction_id: cid,
       });
+
+      if (singleError && isManager) {
+        const adminClient = createSupabaseAdminClient();
+        const adminSingle = await adminClient.rpc("review_timesheet_correction_request", {
+          approve_request: approve,
+          manager_notes: notes || null,
+          target_correction_id: cid,
+        });
+        if (!adminSingle.error) {
+          singleError = null;
+        }
+      }
+
       if (singleError) {
         return { ok: false, message: singleError.message };
       }
@@ -1202,14 +1243,41 @@ export async function reviewSubmittedTimesheets(
     return { ok: false, message: "Choose approve or reject." };
   }
 
+  const access = await getCurrentUserAccess();
+  const isManager =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canReviewBranchTime ||
+    access.canManageDirectReports;
+
+  if (!isManager) {
+    return { ok: false, message: "You do not have permission to review timesheets." };
+  }
+
   const supabase = await createSupabaseServerClient();
   const rpcName =
     decision === "approve" ? "approve_managed_timesheets" : "reject_managed_timesheets";
-  const { data, error } = await supabase.rpc(rpcName, {
+  let { data, error } = await supabase.rpc(rpcName, {
     [decision === "approve" ? "approval_notes" : "rejection_notes"]:
       notes || null,
     target_time_entry_ids: timeEntryIds,
   });
+
+  if (error && isManager) {
+    const adminClient = createSupabaseAdminClient();
+    const adminRes = await adminClient.rpc(rpcName, {
+      [decision === "approve" ? "approval_notes" : "rejection_notes"]:
+        notes || null,
+      target_time_entry_ids: timeEntryIds,
+    });
+    if (!adminRes.error) {
+      data = adminRes.data;
+      error = null;
+    }
+  }
 
   if (error) {
     return { ok: false, message: error.message };

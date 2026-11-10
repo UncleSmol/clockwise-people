@@ -15,8 +15,8 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           {...props}
           ref={ref}
           type={showPassword ? "text" : "password"}
-          style={{ ...style, paddingRight: "2.75rem" }}
-          className={`h-11 sm:h-12 w-full rounded-full border border-border bg-surface px-4 !pr-11 text-sm text-foreground placeholder-muted outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 ${className}`}
+          style={{ ...style, paddingRight: "2.875rem", paddingLeft: "1.125rem" }}
+          className={`h-11 sm:h-12 w-full rounded-full border border-border bg-surface px-4.5 !pr-11 text-base sm:text-sm text-foreground placeholder-muted outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 ${className}`}
         />
         <button
           type="button"
