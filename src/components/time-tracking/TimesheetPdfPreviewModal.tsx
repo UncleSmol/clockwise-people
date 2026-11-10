@@ -244,7 +244,7 @@ export default function TimesheetPdfPreviewModal({
               <div className="rounded-xl sm:rounded-2xl border border-border bg-surface shadow-soft overflow-hidden min-w-0 max-w-full">
                 <div className="border-b border-border px-3 py-2 bg-surface-muted/50 flex items-center justify-between min-w-0">
                   <span className="text-xs font-bold text-foreground truncate">
-                    Daily Shift Timesheet ({options.dailyRows.length} Days)
+                    Daily Shift Timesheet ({options.dailyRows.length} Recorded Days)
                   </span>
                   <span className="text-[10px] text-muted font-medium shrink-0">
                     Cycle Breakdown
@@ -253,7 +253,12 @@ export default function TimesheetPdfPreviewModal({
 
                 {/* 1. Mobile Compact List: ZERO horizontal scrolling on mobile */}
                 <div className="sm:hidden divide-y divide-border min-w-0 max-w-full">
-                  {options.dailyRows.map((row) => {
+                  {options.dailyRows.length === 0 ? (
+                    <div className="p-6 text-center text-muted text-xs font-semibold">
+                      No worked shifts or authorized leave records found for this period.
+                    </div>
+                  ) : (
+                    options.dailyRows.map((row) => {
                     const statusLower = row.status.toLowerCase();
                     let badgeTone = "bg-slate-100 text-slate-700 border border-slate-200";
                     if (statusLower === "approved") {
@@ -338,7 +343,8 @@ export default function TimesheetPdfPreviewModal({
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                  )}
 
                   {/* Mobile Totals Footer Banner */}
                   <div className="bg-slate-900 text-white p-2.5 flex items-center justify-between font-mono text-xs">
@@ -379,7 +385,14 @@ export default function TimesheetPdfPreviewModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {options.dailyRows.map((row) => {
+                      {options.dailyRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="px-4 py-8 text-center text-muted font-medium text-xs">
+                            No worked shifts or authorized leave records found for this period.
+                          </td>
+                        </tr>
+                      ) : (
+                        options.dailyRows.map((row) => {
                         const statusLower = row.status.toLowerCase();
                         let badgeTone = "bg-surface-muted text-muted";
                         if (statusLower === "approved") {
@@ -388,6 +401,8 @@ export default function TimesheetPdfPreviewModal({
                           badgeTone = "bg-amber-500/15 text-amber-700 border border-amber-500/25";
                         } else if (statusLower.includes("leave")) {
                           badgeTone = "bg-purple-500/15 text-purple-700 border border-purple-500/25";
+                        } else if (statusLower.includes("holiday")) {
+                          badgeTone = "bg-indigo-500/15 text-indigo-700 border border-indigo-500/25";
                         } else if (statusLower.includes("holiday")) {
                           badgeTone = "bg-indigo-500/15 text-indigo-700 border border-indigo-500/25";
                         } else if (statusLower === "rejected") {
@@ -436,7 +451,8 @@ export default function TimesheetPdfPreviewModal({
                             </td>
                           </tr>
                         );
-                      })}
+                      })
+                      )}
                       {/* Period Totals Row */}
                       <tr className="bg-slate-900 text-white font-bold text-xs">
                         <td colSpan={5} className="px-3 py-2.5 text-right uppercase tracking-wider text-[11px]">
@@ -452,7 +468,7 @@ export default function TimesheetPdfPreviewModal({
                           {totalPaid.toFixed(2)}h
                         </td>
                         <td colSpan={2} className="px-3 py-2.5 text-slate-300 text-[10px]">
-                          {options.dailyRows.length} Days Complete
+                          {options.dailyRows.length} Shifts &amp; Leave Days
                         </td>
                       </tr>
                     </tbody>
@@ -544,27 +560,35 @@ export default function TimesheetPdfPreviewModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {options.dailyRows.map((r) => (
-                        <tr key={r.date} className="text-[9.5px] sm:text-[11px]">
-                          <td className="p-1 sm:p-1.5 font-semibold">{r.date}</td>
-                          <td className="p-1 sm:p-1.5 text-slate-600">{r.dayOfWeek}</td>
-                          <td className="p-1 sm:p-1.5 font-mono">{r.clockIn || "--:--"}</td>
-                          <td className="p-1 sm:p-1.5 font-mono">{r.lunch || "--:--"}</td>
-                          <td className="p-1 sm:p-1.5 font-mono">{r.clockOut || "--:--"}</td>
-                          <td className="p-1 sm:p-1.5 text-right font-mono">
-                            {Number(r.normalHours).toFixed(1)}h
-                          </td>
-                          <td className="p-1 sm:p-1.5 text-right font-mono">
-                            {Number(r.overtimeHours).toFixed(1)}h
-                          </td>
-                          <td className="p-1 sm:p-1.5 text-right font-mono font-bold text-emerald-800">
-                            {Number(r.paidHours).toFixed(1)}h
-                          </td>
-                          <td className="p-1 sm:p-1.5 text-center text-[9px] sm:text-[10px] font-bold uppercase">
-                            {r.status}
+                      {options.dailyRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="p-4 text-center text-slate-500 text-xs">
+                            No worked shifts or authorized leave records found for this period.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        options.dailyRows.map((r) => (
+                          <tr key={r.date} className="text-[9.5px] sm:text-[11px]">
+                            <td className="p-1 sm:p-1.5 font-semibold">{r.date}</td>
+                            <td className="p-1 sm:p-1.5 text-slate-600">{r.dayOfWeek}</td>
+                            <td className="p-1 sm:p-1.5 font-mono">{r.clockIn || "--:--"}</td>
+                            <td className="p-1 sm:p-1.5 font-mono">{r.lunch || "--:--"}</td>
+                            <td className="p-1 sm:p-1.5 font-mono">{r.clockOut || "--:--"}</td>
+                            <td className="p-1 sm:p-1.5 text-right font-mono">
+                              {Number(r.normalHours).toFixed(1)}h
+                            </td>
+                            <td className="p-1 sm:p-1.5 text-right font-mono">
+                              {Number(r.overtimeHours).toFixed(1)}h
+                            </td>
+                            <td className="p-1 sm:p-1.5 text-right font-mono font-bold text-emerald-800">
+                              {Number(r.paidHours).toFixed(1)}h
+                            </td>
+                            <td className="p-1 sm:p-1.5 text-center text-[9px] sm:text-[10px] font-bold uppercase">
+                              {r.status}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                       <tr className="bg-slate-900 text-white font-bold text-[9.5px] sm:text-xs">
                         <td colSpan={5} className="p-1.5 sm:p-2 text-right uppercase text-[9px] sm:text-[10px]">
                           Cycle Totals:

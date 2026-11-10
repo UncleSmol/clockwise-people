@@ -565,7 +565,29 @@ export default function EmployeeMiniReportingPanel({
 
   // Timesheet PDF Export payload
   const timesheetPdfOptions = useMemo<TimesheetPdfOptions>(() => {
-    const dailyRows: TimesheetPdfDailyRow[] = cycleDays.map((d) => {
+    // Only include days where employee was at work or had authorized leave / paid holiday.
+    // Days where employees were not at work and had no leave whatsoever are excluded from the timesheet statement.
+    const relevantDays = cycleDays.filter((d) => {
+      const isWorked = Boolean(
+        d.clockIn ||
+        d.clockOut ||
+        d.paidHours > 0 ||
+        d.normalHours > 0 ||
+        d.overtimeHours > 0 ||
+        d.type === "worked" ||
+        ((d.status === "approved" || d.status === "submitted") && d.type !== "draft" && d.type !== "rest"),
+      );
+      const isLeave = Boolean(
+        d.type === "leave" ||
+        d.leave ||
+        d.status.toLowerCase().includes("leave"),
+      );
+      const isPaidHoliday = d.type === "holiday" && d.paidHours > 0;
+
+      return isWorked || isLeave || isPaidHoliday;
+    });
+
+    const dailyRows: TimesheetPdfDailyRow[] = relevantDays.map((d) => {
       let displayStatus = d.status.toUpperCase();
       if (d.type === "leave") displayStatus = "LEAVE";
       else if (d.type === "holiday") displayStatus = "HOLIDAY";
@@ -603,7 +625,7 @@ export default function EmployeeMiniReportingPanel({
         jobTitle,
       },
       metrics: {
-        totalDaysInPeriod: cycleDays.length,
+        totalDaysInPeriod: relevantDays.length,
         daysWorked: metrics.daysWorked,
         totalPaidHours: metrics.totalPaid,
         normalHours: metrics.workedHours,

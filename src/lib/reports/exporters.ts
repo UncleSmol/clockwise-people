@@ -313,11 +313,37 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
     timeStyle: "short",
   }).format(new Date());
 
-  const totalNormal = dailyRows.reduce((acc, r) => acc + (Number(r.normalHours) || 0), 0);
-  const totalOt = dailyRows.reduce((acc, r) => acc + (Number(r.overtimeHours) || 0), 0);
-  const totalPaid = dailyRows.reduce((acc, r) => acc + (Number(r.paidHours) || 0), 0);
+  // Strictly filter out days where employees were not at work and had no leave whatsoever
+  const activeDailyRows = dailyRows.filter((r) => {
+    const statusLower = (r.status || "").toLowerCase();
+    const isWorked = Boolean(
+      r.clockIn ||
+      r.clockOut ||
+      (Number(r.paidHours) || 0) > 0 ||
+      (Number(r.normalHours) || 0) > 0 ||
+      (Number(r.overtimeHours) || 0) > 0 ||
+      statusLower === "approved" ||
+      statusLower === "submitted",
+    );
+    const isLeave = statusLower.includes("leave");
+    const isPaidHoliday = statusLower.includes("holiday") && (Number(r.paidHours) || 0) > 0;
+    const isRestOrDraftWithoutHours =
+      (statusLower.includes("rest") || statusLower.includes("weekend") || statusLower === "draft") &&
+      !r.clockIn &&
+      !r.clockOut &&
+      (Number(r.paidHours) || 0) === 0;
 
-  const rowsHtml = dailyRows
+    if (isRestOrDraftWithoutHours) return false;
+    return isWorked || isLeave || isPaidHoliday;
+  });
+
+  const totalNormal = activeDailyRows.reduce((acc, r) => acc + (Number(r.normalHours) || 0), 0);
+  const totalOt = activeDailyRows.reduce((acc, r) => acc + (Number(r.overtimeHours) || 0), 0);
+  const totalPaid = activeDailyRows.reduce((acc, r) => acc + (Number(r.paidHours) || 0), 0);
+
+  const rowsHtml = activeDailyRows.length === 0
+    ? `<tr><td colspan="11" style="padding: 16px; text-align: center; color: #64748b; font-size: 8.5px;">No worked shifts or authorized leave recorded for this period.</td></tr>`
+    : activeDailyRows
     .map((r, idx) => {
       const isAlt = idx % 2 === 1;
       const bg = isAlt ? "#f8fafc" : "#ffffff";
@@ -658,7 +684,7 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
               <td style="text-align: right;">${totalNormal.toFixed(2)}h</td>
               <td style="text-align: right;">${totalOt.toFixed(2)}h</td>
               <td style="text-align: right; color: #4ade80 !important;">${totalPaid.toFixed(2)}h</td>
-              <td colspan="3" style="text-align: left; font-size: 7.5px; font-weight: normal; color: #cbd5e1;">${dailyRows.length} Cycle Days Accounted For</td>
+              <td colspan="3" style="text-align: left; font-size: 7.5px; font-weight: normal; color: #cbd5e1;">${activeDailyRows.length} Shifts &amp; Leave Days</td>
             </tr>
           </tbody>
         </table>
