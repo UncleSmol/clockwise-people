@@ -32,7 +32,10 @@ import {
 } from "@/lib/time-tracking/actions";
 import { submitLeaveRequest } from "@/lib/work-rules/actions";
 import AnalogTimePicker from "@/components/time-tracking/AnalogTimePicker";
-import { calculateLiveLeaveBalance } from "@/lib/work-rules/realtime-accrual";
+import {
+  calculateLiveLeaveBalance,
+  isBalanceEligibleLeaveType,
+} from "@/lib/work-rules/realtime-accrual";
 import type {
   CompanyPublicHoliday,
   EmployeeScheduleInfo,
@@ -583,6 +586,7 @@ export default function ZenModeView({
 
   // Leave balances with fallback & statutory prioritization
   const leaveBalances = useMemo(() => {
+    const isToilActive = Boolean(leaveState?.toilEnabled);
     const raw = leaveState?.balances ?? [];
     let list: LeaveBalance[] = raw;
     if (list.length === 0 && leaveState?.leaveTypes && leaveState.leaveTypes.length > 0) {
@@ -599,6 +603,10 @@ export default function ZenModeView({
         leave_types: lt,
       } as unknown as LeaveBalance));
     }
+    list = list.filter((b) => {
+      const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+      return isBalanceEligibleLeaveType(rel?.name, rel?.category, isToilActive);
+    });
     if (list.length === 0) {
       list = [
         {

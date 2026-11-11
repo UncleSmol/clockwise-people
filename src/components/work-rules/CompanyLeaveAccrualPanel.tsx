@@ -3,6 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { useActionState, useState } from "react";
 import { autoSyncCompanyLeaveAccruals, loadLeaveAccruals, previewLeaveAccruals } from "@/lib/work-rules/actions";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 import type { CompanyWorkRulesData } from "@/lib/work-rules/schema";
 
 type CompanyLeaveAccrualPanelProps = {
@@ -92,7 +93,13 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
 
             <p className="mt-1 text-xs text-muted leading-relaxed">
               Calculates dynamic leave accumulation from actual shifts and hours worked according to each employee&apos;s assigned work rule.
-              Conforms strictly to South African statutory standards (15, 17, or 21 days annual entitlement), protecting employees with the statutory 1h per 17h worked floor (BCEA Section 20) and <strong>{data.toilMultiplier ?? 1.5}&times;</strong> approved overtime hours as TOIL leave.
+              Conforms strictly to South African statutory standards (15, 17, or 21 days annual entitlement), protecting employees with the statutory 1h per 17h worked floor (BCEA Section 20)
+              {data.toilEnabled ? (
+                <>
+                  {" "}and <strong>{data.toilMultiplier ?? 1.5}&times;</strong> approved overtime hours as TOIL leave
+                </>
+              ) : null}
+              .
             </p>
           </div>
 
@@ -142,15 +149,23 @@ export default function CompanyLeaveAccrualPanel({ data }: CompanyLeaveAccrualPa
                 className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               >
                 <option value="">Select leave rule</option>
-                {data.leaveTypes.map((leaveType) => {
-                  const yearly = leaveType.accrual_rules?.yearly_hours;
-                  return (
-                    <option key={leaveType.id} value={leaveType.id}>
-                      {leaveType.name}
-                      {typeof yearly === "number" && yearly > 0 ? ` (${yearly}h/yr)` : ""}
-                    </option>
-                  );
-                })}
+                {data.leaveTypes
+                  .filter((leaveType) =>
+                    isBalanceEligibleLeaveType(
+                      leaveType.name,
+                      leaveType.category,
+                      Boolean(data.toilEnabled),
+                    ),
+                  )
+                  .map((leaveType) => {
+                    const yearly = leaveType.accrual_rules?.yearly_hours;
+                    return (
+                      <option key={leaveType.id} value={leaveType.id}>
+                        {leaveType.name}
+                        {typeof yearly === "number" && yearly > 0 ? ` (${yearly}h/yr)` : ""}
+                      </option>
+                    );
+                  })}
               </select>
             </label>
             <div className="flex items-end">

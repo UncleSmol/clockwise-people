@@ -18,6 +18,7 @@ import {
   sanitizeString,
   sanitizeMultilineText,
 } from "@/lib/security/sanitizer";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 
 
 export type MappedRowStatus = "valid" | "warning" | "error";
@@ -1137,6 +1138,22 @@ export async function executeMappedImportAction(
       revalidatePath("/dashboard");
     } else if (targetEntity === "leave_balances") {
       const today = new Date().toISOString().split("T")[0];
+      const [{ data: companyLeaveTypes }, { data: companySettings }] = await Promise.all([
+        supabase
+          .from("leave_types")
+          .select("id, name, category")
+          .eq("company_id", company.id)
+          .is("deleted_at", null),
+        supabase
+          .from("company_settings")
+          .select("toil_rules")
+          .eq("company_id", company.id)
+          .maybeSingle(),
+      ]);
+      const ltMetaById = new Map((companyLeaveTypes || []).map((lt) => [lt.id, lt]));
+      const toilEnabled = Boolean(
+        (companySettings?.toil_rules as Record<string, unknown> | undefined)?.enabled,
+      );
 
       for (const row of validRows) {
         try {
@@ -1148,6 +1165,12 @@ export async function executeMappedImportAction(
           const takenHours = (row.resolvedData["taken_hours"] as number) ?? 0;
 
           if (!empId || !ltId) {
+            skippedCount++;
+            continue;
+          }
+
+          const ltMeta = ltMetaById.get(ltId);
+          if (!isBalanceEligibleLeaveType(ltMeta?.name ?? ltName, ltMeta?.category, toilEnabled)) {
             skippedCount++;
             continue;
           }

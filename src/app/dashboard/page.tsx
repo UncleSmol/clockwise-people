@@ -851,6 +851,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           leaveTypes={workRulesData?.leaveTypes ?? []}
           leaveAssignments={(workRulesData?.leaveBalances ?? []).filter((lb) => activeEmployeeIdSet.has(lb.employee_id))}
           employeeSchedules={employeeScheduleDaysRecord}
+          toilEnabled={Boolean(workRulesData?.toilEnabled)}
           publicHolidays={calendarHolidays}
           payrollConfig={payrollConfig}
         />

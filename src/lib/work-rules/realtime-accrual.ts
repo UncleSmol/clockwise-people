@@ -69,6 +69,53 @@ export function isUnpaidLeave(
 }
 
 /**
+ * Checks if a leave name or category represents a Public Holiday / Holiday entry
+ * (which does not carry a leave balance).
+ */
+export function isHolidayLeave(
+  name?: string | null,
+  category?: string | null,
+): boolean {
+  const n = (name || "").toLowerCase().trim();
+  const c = (category || "").toLowerCase().trim();
+  return c === "holiday" || c === "public_holiday" || n.includes("holiday");
+}
+
+/**
+ * Checks if a leave name or category represents TOIL (Time Off In Lieu).
+ */
+export function isToilLeave(
+  name?: string | null,
+  category?: string | null,
+): boolean {
+  const n = (name || "").toLowerCase().trim();
+  const c = (category || "").toLowerCase().trim();
+  return (
+    c === "toil_taken" ||
+    n.includes("toil") ||
+    n.includes("time off in lieu") ||
+    n.includes("overtime comp")
+  );
+}
+
+/**
+ * Returns true when a leave type should have a tracked/visible balance row:
+ * - Unpaid leave never carries a balance.
+ * - Holiday / Public Holiday never carries a balance.
+ * - TOIL carries a balance only when enabled in the company's rules.
+ */
+export function isBalanceEligibleLeaveType(
+  name?: string | null,
+  category?: string | null,
+  toilEnabled?: boolean,
+): boolean {
+  if (isUnpaidLeave(name, category)) return false;
+  if (isHolidayLeave(name, category)) return false;
+  if (!toilEnabled && isToilLeave(name, category)) return false;
+  return true;
+}
+
+/**
  * Determines whether a leave type is visible/allowed based on employee gender:
  * - Male: Sees Paternal Leave, does NOT see Maternal Leave
  * - Female: Sees Maternal Leave, does NOT see Paternal Leave
@@ -124,6 +171,9 @@ export function normalizeLeaveTypeName(name: string, category?: string): string 
   }
   if (cat === "unpaid" || lower.includes("unpaid")) {
     return "unpaid";
+  }
+  if (cat === "holiday" || cat === "public_holiday" || lower.includes("holiday")) {
+    return "holiday";
   }
   return lower;
 }

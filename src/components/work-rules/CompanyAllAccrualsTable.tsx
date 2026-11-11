@@ -18,8 +18,8 @@ import EmployeeAvatar from "@/components/EmployeeAvatar";
 import type { CompanyWorkRulesData } from "@/lib/work-rules/schema";
 import {
   calculateLiveLeaveBalance,
+  isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
-  isUnpaidLeave,
   type ShiftTimeEntryInput,
 } from "@/lib/work-rules/realtime-accrual";
 
@@ -274,16 +274,9 @@ export default function CompanyAllAccrualsTable({
         const name = leaveType?.name ?? "";
         const category = leaveType?.category;
 
-        // Exclude unpaid leave from balance section
-        if (isUnpaidLeave(name, category)) return false;
-
-        if (!data.toilEnabled) {
-          if (
-            category === "toil_taken" ||
-            name.toLowerCase().includes("toil")
-          ) {
-            return false;
-          }
+        // Exclude unpaid leave, holiday balances, and TOIL when disabled in company rules
+        if (!isBalanceEligibleLeaveType(name, category, Boolean(data.toilEnabled))) {
+          return false;
         }
 
         // Gender check per employee
@@ -315,7 +308,7 @@ export default function CompanyAllAccrualsTable({
         balanceHours: Number(b.balance_hours ?? 0),
       };
     });
-  }, [data.leaveBalances, employeeMap]);
+  }, [data.leaveBalances, data.toilEnabled, employeeMap]);
 
   // Unique categories/types for filter
   const leaveTypesList = useMemo(() => {

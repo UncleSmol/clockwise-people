@@ -21,6 +21,7 @@ import {
   resolveScheduleDayForDate,
   type ScheduleDayLike,
 } from "@/lib/time-tracking/schedule-compliance";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 
 function resolveEmployeeScheduleDays(
   employeeSchedules: AggregatorInput["employeeSchedules"],
@@ -142,6 +143,7 @@ type AggregatorInput = {
   }>;
   publicHolidays: CompanyPublicHoliday[];
   employeeSchedules?: Record<string, ScheduleDayLike[]> | Map<string, ScheduleDayLike[]>;
+  toilEnabled?: boolean;
 };
 
 export function buildTimesheetPayrollReport(input: AggregatorInput): TimesheetPayrollRow[] {
@@ -337,6 +339,7 @@ export function buildAccrualReport(input: AggregatorInput): AccrualReportRow[] {
     const emp = employeeMap.get(assign.employee_id);
     const lt = leaveTypeMap.get(assign.leave_type_id);
     if (!emp || !lt) continue;
+    if (!isBalanceEligibleLeaveType(lt.name, lt.category, Boolean(input.toilEnabled))) continue;
 
     const currentBalance = Number(assign.balance_hours ?? 0);
     const key = `${assign.employee_id}-${lt.name.toLowerCase()}`;

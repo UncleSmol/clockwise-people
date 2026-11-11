@@ -88,6 +88,7 @@ type CompanyReportsWorkspaceProps = {
   publicHolidays: CompanyPublicHoliday[];
   payrollConfig?: PayrollPeriodConfig;
   employeeSchedules?: Record<string, ScheduleDayLike[]>;
+  toilEnabled?: boolean;
 };
 
 type ReportTab =
@@ -120,6 +121,7 @@ export default function CompanyReportsWorkspace({
   publicHolidays,
   payrollConfig = defaultPayrollConfig,
   employeeSchedules,
+  toilEnabled = false,
 }: CompanyReportsWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ReportTab>("analytics");
 
@@ -221,6 +223,7 @@ export default function CompanyReportsWorkspace({
       leaveAssignments: filteredLeaveAssignmentsInput,
       publicHolidays,
       employeeSchedules,
+      toilEnabled,
     }),
     [
       effectiveStartDate,
@@ -232,6 +235,7 @@ export default function CompanyReportsWorkspace({
       filteredLeaveAssignmentsInput,
       publicHolidays,
       employeeSchedules,
+      toilEnabled,
     ],
   );
 

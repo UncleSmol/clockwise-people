@@ -31,8 +31,8 @@ import {
 } from "@/lib/work-rules/actions";
 import {
   calculateLiveLeaveBalance,
+  isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
-  isUnpaidLeave,
   normalizeLeaveTypeName,
 } from "@/lib/work-rules/realtime-accrual";
 import type {
@@ -754,20 +754,13 @@ export default function EmployeeLeaveRequests({
 
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(() => {
-              const rawBalances = isToilEngineActive
-                ? state.balances
-                : state.balances.filter((b) => {
-                    const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
-                    return rel?.category !== "toil_taken" && !rel?.name?.toLowerCase().includes("toil");
-                  });
-
-              // Exclude unpaid leave, filter by gender, and deduplicate balances by canonical leave type name
-              const seenBalances = new Map<string, typeof rawBalances[0]>();
-              for (const b of rawBalances) {
+              // Exclude unpaid leave, holiday balances, conditional TOIL, filter by gender, and deduplicate by canonical name
+              const seenBalances = new Map<string, typeof state.balances[0]>();
+              for (const b of state.balances) {
                 const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
                 const name = leaveTypeName(b);
                 const category = rel?.category;
-                if (isUnpaidLeave(name, category)) continue;
+                if (!isBalanceEligibleLeaveType(name, category, isToilEngineActive)) continue;
                 if (!isGenderAllowedForLeave(name, category, state.employeeGender)) continue;
                 const key = normalizeLeaveTypeName(name, category);
                 const existing = seenBalances.get(key);

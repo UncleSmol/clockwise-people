@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUserAccess } from "@/lib/foundation/queries";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 import * as XLSX from "xlsx";
 import fs from "node:fs";
 import path from "node:path";
@@ -746,7 +747,7 @@ export async function getCompanyAccrualContextAction(
         .eq("company_id", companyId),
       admin
         .from("company_settings")
-        .select("standard_daily_hours")
+        .select("standard_daily_hours, toil_rules")
         .eq("company_id", companyId)
         .maybeSingle(),
     ]);
@@ -755,22 +756,32 @@ export async function getCompanyAccrualContextAction(
     if (ltRes.error) throw new Error(ltRes.error.message);
     if (balRes.error) throw new Error(balRes.error.message);
 
+    const toilEnabled = Boolean(
+      (settingsRes.data?.toil_rules as Record<string, unknown> | undefined)?.enabled,
+    );
+    const eligibleLeaveTypes = (ltRes.data || []).filter((lt) =>
+      isBalanceEligibleLeaveType(lt.name, lt.category, toilEnabled),
+    );
+    const eligibleLeaveTypeIds = new Set(eligibleLeaveTypes.map((lt) => lt.id));
+
     return {
       ok: true,
       message: "Accrual context loaded.",
       data: {
         employees: (empRes.data || []) as CompanyAccrualEmployee[],
-        leaveTypes: (ltRes.data || []) as CompanyAccrualLeaveType[],
-        balances: (balRes.data || []).map((b) => ({
-          id: String(b.id),
-          employee_id: String(b.employee_id),
-          leave_type_id: String(b.leave_type_id),
-          balance_hours: Number(b.balance_hours ?? 0),
-          accrued_hours: Number(b.accrued_hours ?? 0),
-          taken_hours: Number(b.taken_hours ?? 0),
-          adjusted_hours: Number(b.adjusted_hours ?? 0),
-          as_of_date: String(b.as_of_date || ""),
-        })),
+        leaveTypes: eligibleLeaveTypes as CompanyAccrualLeaveType[],
+        balances: (balRes.data || [])
+          .filter((b) => eligibleLeaveTypeIds.has(String(b.leave_type_id)))
+          .map((b) => ({
+            id: String(b.id),
+            employee_id: String(b.employee_id),
+            leave_type_id: String(b.leave_type_id),
+            balance_hours: Number(b.balance_hours ?? 0),
+            accrued_hours: Number(b.accrued_hours ?? 0),
+            taken_hours: Number(b.taken_hours ?? 0),
+            adjusted_hours: Number(b.adjusted_hours ?? 0),
+            as_of_date: String(b.as_of_date || ""),
+          })),
         standardDailyHours: Number(settingsRes.data?.standard_daily_hours ?? 8) || 8,
       },
     };
@@ -834,17 +845,34 @@ export async function maintainEmployeeAccrualsAction(params: {
   const admin = createSupabaseAdminClient();
 
   try {
-    // 1. Validate leave type belongs to company
-    const { data: leaveType, error: ltErr } = await admin
-      .from("leave_types")
-      .select("id, name")
-      .eq("id", leaveTypeId)
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .maybeSingle();
+    // 1. Validate leave type belongs to company & supports balance tracking
+    const [{ data: leaveType, error: ltErr }, { data: settingsRow }] = await Promise.all([
+      admin
+        .from("leave_types")
+        .select("id, name, category")
+        .eq("id", leaveTypeId)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .maybeSingle(),
+      admin
+        .from("company_settings")
+        .select("toil_rules")
+        .eq("company_id", companyId)
+        .maybeSingle(),
+    ]);
 
     if (ltErr || !leaveType) {
       return { ok: false, message: "Selected leave type was not found for this company." };
+    }
+
+    const toilEnabled = Boolean(
+      (settingsRow?.toil_rules as Record<string, unknown> | undefined)?.enabled,
+    );
+    if (!isBalanceEligibleLeaveType(leaveType.name, leaveType.category, toilEnabled)) {
+      return {
+        ok: false,
+        message: `Leave balances are not tracked for "${leaveType.name}" (unpaid leave, public holidays, or disabled TOIL).`,
+      };
     }
 
     // 2. Resolve target employee IDs

@@ -22,8 +22,9 @@ import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer"
 import { calculateSimpleLeaveAccrual } from "./engine/accrual-engine";
 import {
   deriveGenderFromSouthAfricanId,
+  isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
-  isUnpaidLeave,
+  isToilLeave,
   normalizeLeaveTypeName,
 } from "./realtime-accrual";
 import {
@@ -580,8 +581,7 @@ export async function submitLeaveRequest(
       .maybeSingle();
 
     if (
-      selectedLeaveType?.category === "toil_taken" ||
-      selectedLeaveType?.name?.toLowerCase().includes("toil")
+      isToilLeave(selectedLeaveType?.name, selectedLeaveType?.category)
     ) {
       return {
         ok: false,
@@ -1200,6 +1200,18 @@ export async function syncEmployeeAccruals(
     return { ok: false, message: leaveTypesError?.message ?? "No active leave types found." };
   }
 
+  // Clean up any stale unpaid/holiday balance rows (and disabled TOIL rows when TOIL is off)
+  const ineligibleLeaveTypeIds = leaveTypes
+    .filter((lt) => !isBalanceEligibleLeaveType(lt.name, lt.category, isToilEnabled))
+    .map((lt) => lt.id);
+  if (ineligibleLeaveTypeIds.length > 0 && !targetEmployeeId) {
+    await supabase
+      .from("leave_balances")
+      .delete()
+      .eq("company_id", companyId)
+      .in("leave_type_id", ineligibleLeaveTypeIds);
+  }
+
   // 3. Fetch target employees and company work rules
   let employeeQuery = supabase
     .from("employees")
@@ -1390,8 +1402,8 @@ export async function syncEmployeeAccruals(
       deriveGenderFromSouthAfricanId(typeof empRecord.id_number === "string" ? empRecord.id_number : null);
 
     for (const lt of leaveTypes) {
-      // Skip unpaid leave and leave types not allowed for employee's gender
-      if (isUnpaidLeave(lt.name, lt.category)) continue;
+      // Skip unpaid, holiday, disabled TOIL, and leave types not allowed for employee's gender
+      if (!isBalanceEligibleLeaveType(lt.name, lt.category, isToilEnabled)) continue;
       if (!isGenderAllowedForLeave(lt.name, lt.category, empGender)) continue;
 
       const canonicalKey = normalizeLeaveTypeName(lt.name, lt.category);
@@ -1835,10 +1847,14 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
     // Get all active leave types for company (including newly created ones)
     const { data: allLt } = await supabase
       .from("leave_types")
-      .select("id")
+      .select("id, name, category")
       .eq("company_id", company.id)
       .eq("is_active", true)
       .is("deleted_at", null);
+
+    const eligibleLeaveTypes = (allLt ?? []).filter((lt) =>
+      isBalanceEligibleLeaveType(lt.name, lt.category, isToilEnabled),
+    );
 
     // Get all active employees
     const { data: employees } = await supabase
@@ -1850,10 +1866,10 @@ export async function provisionAllStandardLeaveTypesAction(): Promise<{ ok: bool
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Ensure leave_balances row exists for each employee x leave_type
-    if (allLt && allLt.length > 0 && employees && employees.length > 0) {
+    // Ensure leave_balances row exists for each employee x balance-eligible leave_type
+    if (eligibleLeaveTypes.length > 0 && employees && employees.length > 0) {
       for (const emp of employees) {
-        for (const lt of allLt) {
+        for (const lt of eligibleLeaveTypes) {
           const { data: existingBal } = await supabase
             .from("leave_balances")
             .select("id")

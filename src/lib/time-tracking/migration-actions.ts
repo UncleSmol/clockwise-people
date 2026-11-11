@@ -9,6 +9,7 @@ import {
   type ImportDiagnostics,
   type NormalizedImportEntry,
 } from "./timesheet-importer";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 
 export type MigrationDuplicateSummary = {
   totalDuplicates: number;
@@ -459,6 +460,23 @@ export async function executeTimesheetMigration(
 
     // Aggregate and reconcile leave balances if requested
     if (updateLeaveBalances) {
+      const [{ data: companyLeaveTypes }, { data: companySettings }] = await Promise.all([
+        supabase
+          .from("leave_types")
+          .select("id, name, category")
+          .eq("company_id", company.id)
+          .is("deleted_at", null),
+        supabase
+          .from("company_settings")
+          .select("toil_rules")
+          .eq("company_id", company.id)
+          .maybeSingle(),
+      ]);
+      const ltMetaById = new Map((companyLeaveTypes || []).map((lt) => [lt.id, lt]));
+      const toilEnabled = Boolean(
+        (companySettings?.toil_rules as Record<string, unknown> | undefined)?.enabled,
+      );
+
       const leaveHoursByEmpAndType = new Map<
         string,
         { employeeId: string; leaveTypeId: string; totalHours: number; latestDate: string }
@@ -466,6 +484,10 @@ export async function executeTimesheetMigration(
 
       for (const entry of entries) {
         if (entry.entryType === "leave" && entry.matchedEmployeeId && entry.matchedLeaveTypeId) {
+          const ltMeta = ltMetaById.get(entry.matchedLeaveTypeId);
+          if (!isBalanceEligibleLeaveType(ltMeta?.name, ltMeta?.category, toilEnabled)) {
+            continue;
+          }
           const key = `${entry.matchedEmployeeId}__${entry.matchedLeaveTypeId}`;
           const current = leaveHoursByEmpAndType.get(key) || {
             employeeId: entry.matchedEmployeeId,

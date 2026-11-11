@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 
 export async function GET(request: Request) {
   try {
@@ -32,8 +33,8 @@ export async function GET(request: Request) {
 
     const empMap = new Map((employees || []).map((e) => [e.id, e]));
 
-    // 2. Fetch workstations & leave types for label lookups
-    const [wsRes, ltRes, deptRes] = await Promise.all([
+    // 2. Fetch workstations, leave types, departments & company TOIL settings
+    const [wsRes, ltRes, deptRes, settingsRes] = await Promise.all([
       supabase
         .from("company_workstations")
         .select("id, name")
@@ -49,7 +50,16 @@ export async function GET(request: Request) {
         .select("id, name")
         .eq("company_id", company.id)
         .is("deleted_at", null),
+      supabase
+        .from("company_settings")
+        .select("toil_rules")
+        .eq("company_id", company.id)
+        .maybeSingle(),
     ]);
+
+    const toilEnabled = Boolean(
+      (settingsRes.data?.toil_rules as Record<string, unknown> | undefined)?.enabled,
+    );
 
     const wsMap = new Map((wsRes.data || []).map((w) => [w.id, w.name]));
     const ltMap = new Map((ltRes.data || []).map((l) => [l.id, l]));
@@ -125,21 +135,26 @@ export async function GET(request: Request) {
       .select("id, employee_id, leave_type_id, balance_hours, accrued_hours, taken_hours, as_of_date")
       .eq("company_id", company.id);
 
-    const balanceRows = (leaveBalances || []).map((b) => {
-      const emp = empMap.get(b.employee_id);
-      const lt = ltMap.get(b.leave_type_id);
-      return {
-        employee_email: emp?.email || "",
-        employee_number: emp?.employee_number || "",
-        employee_name: emp?.full_name || "",
-        leave_type: lt?.name || "Leave",
-        category: lt?.category || "general",
-        accrued_hours: Number(b.accrued_hours || 0),
-        taken_hours: Number(b.taken_hours || 0),
-        balance_hours: Number(b.balance_hours || 0),
-        as_of_date: b.as_of_date || "",
-      };
-    });
+    const balanceRows = (leaveBalances || [])
+      .filter((b) => {
+        const lt = ltMap.get(b.leave_type_id);
+        return isBalanceEligibleLeaveType(lt?.name, lt?.category, toilEnabled);
+      })
+      .map((b) => {
+        const emp = empMap.get(b.employee_id);
+        const lt = ltMap.get(b.leave_type_id);
+        return {
+          employee_email: emp?.email || "",
+          employee_number: emp?.employee_number || "",
+          employee_name: emp?.full_name || "",
+          leave_type: lt?.name || "Leave",
+          category: lt?.category || "general",
+          accrued_hours: Number(b.accrued_hours || 0),
+          taken_hours: Number(b.taken_hours || 0),
+          balance_hours: Number(b.balance_hours || 0),
+          as_of_date: b.as_of_date || "",
+        };
+      });
 
     // 6. Build Employees Sheet
     const employeeRows = (employees || []).map((e) => ({

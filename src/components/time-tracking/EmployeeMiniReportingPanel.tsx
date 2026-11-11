@@ -48,8 +48,8 @@ import {
   defaultPayrollConfig,
 } from "@/lib/reports/payroll-periods";
 import {
+  isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
-  isUnpaidLeave,
 } from "@/lib/work-rules/realtime-accrual";
 import type {
   TimesheetPdfOptions,
@@ -293,15 +293,8 @@ export default function EmployeeMiniReportingPanel({
         const name = rel?.name ?? "Leave";
         const category = rel?.category ?? "general";
 
-        if (isUnpaidLeave(name, category)) return false;
-
-        if (toilEnabled === false) {
-          if (
-            rel?.category === "toil_taken" ||
-            rel?.name?.toLowerCase().includes("toil")
-          ) {
-            return false;
-          }
+        if (!isBalanceEligibleLeaveType(name, category, Boolean(toilEnabled))) {
+          return false;
         }
 
         if (!isGenderAllowedForLeave(name, category, employeeGender)) {

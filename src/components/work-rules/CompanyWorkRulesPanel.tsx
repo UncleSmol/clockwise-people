@@ -21,6 +21,7 @@ import {
   type CompanyWorkRulesData,
   type WorkSchedule,
 } from "@/lib/work-rules/schema";
+import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
 import CompanyPayrollRulesSection from "./CompanyPayrollRulesSection";
 import AnalogTimePicker from "@/components/AnalogTimePicker";
 
@@ -525,11 +526,15 @@ export default function CompanyWorkRulesPanel({ data }: CompanyWorkRulesPanelPro
                   className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
                 >
                   <option value="">Select leave rule</option>
-                  {data.leaveTypes.map((leaveType) => (
-                    <option key={leaveType.id} value={leaveType.id}>
-                      {leaveType.name}
-                    </option>
-                  ))}
+                  {data.leaveTypes
+                    .filter((leaveType) =>
+                      isBalanceEligibleLeaveType(leaveType.name, leaveType.category, toilEnabled),
+                    )
+                    .map((leaveType) => (
+                      <option key={leaveType.id} value={leaveType.id}>
+                        {leaveType.name}
+                      </option>
+                    ))}
                 </select>
               </label>
               <label className="grid gap-1">

@@ -24,10 +24,11 @@ import {
 import { ensureCompanyToilLeaveType, ensureEmployeeToilBalance } from "./actions";
 import {
   deriveGenderFromSouthAfricanId,
+  isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
   isMaternalLeave,
   isPaternalLeave,
-  isUnpaidLeave,
+  isToilLeave,
   normalizeLeaveTypeName,
 } from "./realtime-accrual";
 
@@ -178,7 +179,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
 
   const rawLeaveTypes = (leaveTypesResult.data ?? []) as LeaveType[];
   const filteredLeaveTypes = rawLeaveTypes
-    .filter((lt) => toilEnabled || (lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil")));
+    .filter((lt) => toilEnabled || !isToilLeave(lt.name, lt.category));
 
   // Deduplicate leave types by normalized name
   const dedupedCompanyTypesMap = new Map<string, LeaveType>();
@@ -202,9 +203,7 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
       const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
       const name = rel?.name || "";
       const category = rel?.category;
-      if (isUnpaidLeave(name, category)) return false;
-      const lower = name.toLowerCase();
-      if (!toilEnabled && (category === "toil_taken" || lower.includes("toil"))) return false;
+      if (!isBalanceEligibleLeaveType(name, category, toilEnabled)) return false;
       const empGender = employeeGenderMap.get(b.employee_id);
       if (!isGenderAllowedForLeave(name, category, empGender)) return false;
       return true;
@@ -392,12 +391,10 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     }
   } else {
     // When TOIL is disabled (off by default), strip all TOIL leave types and balances completely
-    leaveTypes = leaveTypes.filter(
-      (lt) => lt.category !== "toil_taken" && !lt.name.toLowerCase().includes("toil")
-    );
+    leaveTypes = leaveTypes.filter((lt) => !isToilLeave(lt.name, lt.category));
     balances = balances.filter((b) => {
       const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
-      return rel?.category !== "toil_taken" && !rel?.name?.toLowerCase().includes("toil");
+      return !isToilLeave(rel?.name, rel?.category);
     });
   }
 
@@ -441,7 +438,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
     const name = rel?.name || "";
     const category = rel?.category;
-    if (isUnpaidLeave(name, category)) return false;
+    if (!isBalanceEligibleLeaveType(name, category, toilEnabled)) return false;
     return isGenderAllowedForLeave(name, category, employeeGender);
   });
 
@@ -496,7 +493,7 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
 
   const missingTypes = leaveTypes.filter(
     (lt) =>
-      !isUnpaidLeave(lt.name, lt.category) &&
+      isBalanceEligibleLeaveType(lt.name, lt.category, toilEnabled) &&
       !existingCanonicalKeys.has(normalizeLeaveTypeName(lt.name, lt.category)),
   );
 
