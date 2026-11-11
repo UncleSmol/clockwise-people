@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Scale,
   Search,
   ShieldAlert,
@@ -215,6 +219,8 @@ export default function CompanyAllAccrualsTable({
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [explainingItem, setExplainingItem] = useState<EnrichedBalance | null>(null);
   const [now, setNow] = useState(() => new Date());
 
@@ -367,6 +373,15 @@ export default function CompanyAllAccrualsTable({
     });
   }, [employeeBalances, searchQuery, selectedType]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredBalances.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedBalances = useMemo(() => {
+    const startIndex = (safePage - 1) * pageSize;
+    return filteredBalances.slice(startIndex, startIndex + pageSize);
+  }, [filteredBalances, safePage, pageSize]);
+  const startRecord = filteredBalances.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endRecord = Math.min(safePage * pageSize, filteredBalances.length);
+
   // Summary Totals
   const totals = useMemo(() => {
     let totalAccrued = 0;
@@ -425,6 +440,7 @@ export default function CompanyAllAccrualsTable({
                 setSelectedEmployeeId("all");
                 setSelectedType("all");
                 setSearchQuery("");
+                setPage(1);
               }}
               className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors shadow-2xs cursor-pointer"
             >
@@ -450,6 +466,7 @@ export default function CompanyAllAccrualsTable({
               onChange={(e) => {
                 setSelectedEmployeeId(e.target.value);
                 setSelectedType("all");
+                setPage(1);
               }}
               className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-border bg-surface py-2 pl-3 pr-8 text-base sm:text-xs font-bold text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer shadow-2xs leading-normal"
             >
@@ -469,7 +486,10 @@ export default function CompanyAllAccrualsTable({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder={
               isIndividualMode
                 ? "Filter employee leave types..."
@@ -483,7 +503,10 @@ export default function CompanyAllAccrualsTable({
         <div className="sm:col-span-12 lg:col-span-3">
           <select
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
+            onChange={(e) => {
+              setSelectedType(e.target.value);
+              setPage(1);
+            }}
             className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-border bg-surface py-2 px-3 text-base sm:text-xs font-bold text-foreground focus:border-primary focus:outline-none cursor-pointer shadow-2xs leading-normal"
           >
             <option value="all">All Leave Types ({leaveTypesList.length})</option>
@@ -775,7 +798,7 @@ export default function CompanyAllAccrualsTable({
               No leave accrual records found. Try adjusting your search query or leave type filter.
             </div>
           ) : (
-            filteredBalances.map((item) => {
+            paginatedBalances.map((item) => {
               const isPositive = item.balanceHours > 0;
               const meta = getCategoryMeta(item.leaveCategory);
               const isSelected = item.employeeId === selectedEmployeeId;
@@ -884,7 +907,7 @@ export default function CompanyAllAccrualsTable({
                     </td>
                   </tr>
                 ) : (
-                  filteredBalances.map((item) => {
+                  paginatedBalances.map((item) => {
                     const isPositive = item.balanceHours > 0;
                     const meta = getCategoryMeta(item.leaveCategory);
                     const isSelected = item.employeeId === selectedEmployeeId;
@@ -993,6 +1016,120 @@ export default function CompanyAllAccrualsTable({
             </table>
           </div>
         </div>
+
+        {filteredBalances.length > 0 ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2 text-muted">
+              <span>
+                Showing <strong className="font-bold text-foreground">{startRecord}</strong> to{" "}
+                <strong className="font-bold text-foreground">{endRecord}</strong> of{" "}
+                <strong className="font-bold text-foreground">{filteredBalances.length}</strong> records
+              </span>
+
+              <div className="flex items-center gap-1.5 ml-2">
+                <span className="text-[11px] font-semibold text-muted">Per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
+                >
+                  {[12, 24, 48, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 ? (
+              <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  disabled={safePage <= 1}
+                  className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                  title="First page"
+                  aria-label="First page"
+                >
+                  <ChevronsLeft className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.max(1, safePage - 1))}
+                  disabled={safePage <= 1}
+                  className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                  title="Previous page"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="size-3.5" />
+                </button>
+
+                <div className="flex items-center gap-1 px-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1,
+                    )
+                    .reduce<Array<number | string>>((acc, p, idx, arr) => {
+                      if (
+                        idx > 0 &&
+                        typeof arr[idx - 1] === "number" &&
+                        p - (arr[idx - 1] as number) > 1
+                      ) {
+                        acc.push("...");
+                      }
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      typeof item === "string" ? (
+                        <span key={`balance-page-ellipsis-${idx}`} className="px-1 text-muted">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={`balance-page-${item}`}
+                          type="button"
+                          onClick={() => setPage(item)}
+                          className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            item === safePage
+                              ? "bg-primary text-primary-foreground shadow-2xs scale-105"
+                              : "hover:bg-surface-muted text-muted hover:text-foreground"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      ),
+                    )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage >= totalPages}
+                  className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                  title="Next page"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(totalPages)}
+                  disabled={safePage >= totalPages}
+                  className="grid size-8 place-items-center rounded-full border border-border/80 bg-surface hover:bg-surface-muted disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs text-foreground cursor-pointer"
+                  title="Last page"
+                  aria-label="Last page"
+                >
+                  <ChevronsRight className="size-3.5" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* Statutory Legal & Leave Audit Explanation Modal */}

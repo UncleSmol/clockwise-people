@@ -24,6 +24,7 @@ import type {
   TimeEntryRecord,
   TimesheetCorrectionRequest,
 } from "./schema";
+import { evaluateEntryScheduleCompliance } from "./schedule-compliance";
 
 type WorkScheduleDay = {
   day_of_week: number;
@@ -220,16 +221,50 @@ async function getEmployeeSchedules(
 ): Promise<Map<string, WorkScheduleDay[]>> {
   if (employeeIds.length === 0) return new Map();
 
-  const { data: employees } = await supabase
-    .from("employees")
-    .select("id, work_schedule_id")
-    .eq("company_id", companyId)
-    .in("id", employeeIds)
-    .is("deleted_at", null);
+  const [{ data: employees }, { data: assignments }] = await Promise.all([
+    supabase
+      .from("employees")
+      .select("id, work_schedule_id")
+      .eq("company_id", companyId)
+      .in("id", employeeIds)
+      .is("deleted_at", null),
+    supabase
+      .from("employee_work_schedule_assignments")
+      .select("employee_id, work_schedule_id, priority, effective_from")
+      .eq("company_id", companyId)
+      .in("employee_id", employeeIds)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("priority", { ascending: true })
+      .order("effective_from", { ascending: false }),
+  ]);
 
   if (!employees || employees.length === 0) return new Map();
 
-  const scheduleIds = [...new Set(employees.map((e) => e.work_schedule_id).filter(Boolean))] as string[];
+  const orderedScheduleIdsByEmp = new Map<string, string[]>();
+  const allScheduleIdSet = new Set<string>();
+
+  for (const row of assignments ?? []) {
+    if (!row.work_schedule_id) continue;
+    const list = orderedScheduleIdsByEmp.get(row.employee_id) ?? [];
+    if (!list.includes(row.work_schedule_id)) {
+      list.push(row.work_schedule_id);
+      orderedScheduleIdsByEmp.set(row.employee_id, list);
+    }
+    allScheduleIdSet.add(row.work_schedule_id);
+  }
+
+  for (const emp of employees) {
+    if (!emp.work_schedule_id) continue;
+    const list = orderedScheduleIdsByEmp.get(emp.id) ?? [];
+    if (!list.includes(emp.work_schedule_id)) {
+      list.push(emp.work_schedule_id);
+      orderedScheduleIdsByEmp.set(emp.id, list);
+    }
+    allScheduleIdSet.add(emp.work_schedule_id);
+  }
+
+  const scheduleIds = [...allScheduleIdSet];
   if (scheduleIds.length === 0) return new Map();
 
   const { data: scheduleDays } = await supabase
@@ -237,9 +272,7 @@ async function getEmployeeSchedules(
     .select("work_schedule_id, day_of_week, start_time, end_time, lunch_minutes, paid_hours, is_working_day")
     .in("work_schedule_id", scheduleIds);
 
-  const scheduleByEmployee = new Map<string, WorkScheduleDay[]>();
   const scheduleMap = new Map<string, WorkScheduleDay[]>();
-  
   (scheduleDays ?? []).forEach((day) => {
     const existing = scheduleMap.get(day.work_schedule_id) ?? [];
     existing.push({
@@ -253,64 +286,29 @@ async function getEmployeeSchedules(
     scheduleMap.set(day.work_schedule_id, existing);
   });
 
-  employees.forEach((emp) => {
-    if (emp.work_schedule_id && scheduleMap.has(emp.work_schedule_id)) {
-      scheduleByEmployee.set(emp.id, scheduleMap.get(emp.work_schedule_id)!);
+  const scheduleByEmployee = new Map<string, WorkScheduleDay[]>();
+  for (const emp of employees) {
+    const empScheduleIds = orderedScheduleIdsByEmp.get(emp.id) ?? [];
+    if (empScheduleIds.length === 0) continue;
+
+    // Merge days across assigned rules so secondary day-specific rules (e.g. Saturday 09:00-13:00)
+    // combine cleanly with Mon-Fri primary rules.
+    const mergedByDow = new Map<number, WorkScheduleDay>();
+    for (const schedId of empScheduleIds) {
+      for (const day of scheduleMap.get(schedId) ?? []) {
+        const existing = mergedByDow.get(day.day_of_week);
+        if (!existing || (!existing.is_working_day && day.is_working_day)) {
+          mergedByDow.set(day.day_of_week, day);
+        }
+      }
     }
-  });
+
+    if (mergedByDow.size > 0) {
+      scheduleByEmployee.set(emp.id, [...mergedByDow.values()]);
+    }
+  }
 
   return scheduleByEmployee;
-}
-
-function validateTimesAgainstSchedule(
-  entry: TimeEntryRecord,
-  scheduleDays: WorkScheduleDay[] | undefined,
-): { isCompliant: boolean; issues: string[] } {
-  const issues: string[] = [];
-
-  if (!scheduleDays || scheduleDays.length === 0) {
-    return { isCompliant: true, issues: [] };
-  }
-
-  const workDate = new Date(entry.work_date);
-  const dayOfWeek = workDate.getDay();
-  const scheduleDay = scheduleDays.find((d) => d.day_of_week === dayOfWeek);
-
-  if (!scheduleDay) {
-    return { isCompliant: true, issues: [] };
-  }
-
-  if (!scheduleDay.is_working_day) {
-    if (entry.clock_in || entry.clock_out) {
-      issues.push("Work recorded on non-working day");
-    }
-    return { isCompliant: issues.length === 0, issues };
-  }
-
-  if (entry.missing_clocking) {
-    issues.push("Missing clock in/out");
-  }
-
-  if (entry.late_arrival && scheduleDay.start_time) {
-    issues.push(`Late arrival (after ${scheduleDay.start_time})`);
-  }
-
-  if (entry.early_departure && scheduleDay.end_time) {
-    issues.push(`Early departure (before ${scheduleDay.end_time})`);
-  }
-
-  if (entry.paid_hours > 0 && scheduleDay.paid_hours > 0) {
-    const tolerance = 0.25;
-    if (Math.abs(entry.paid_hours - scheduleDay.paid_hours) > tolerance) {
-      issues.push(`Hours mismatch: worked ${entry.paid_hours.toFixed(2)}h, expected ${scheduleDay.paid_hours.toFixed(2)}h`);
-    }
-  }
-
-  if (!entry.clock_in && !entry.clock_out && entry.gross_hours > 0) {
-    issues.push("Has hours but no clock times recorded");
-  }
-
-  return { isCompliant: issues.length === 0, issues };
 }
 
 function isMissingGeofenceSchema(error: { code?: string; message?: string } | null) {
@@ -631,11 +629,20 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, [access.employeeId]);
   const employeeScheduleDays = scheduleByEmployee.get(access.employeeId);
 
-  const recentEntries = rawRecentEntries.map((entry) => ({
-    ...entry,
-    locationEvents: locationEventsByEntry.get(entry.id) ?? [],
-    scheduleValidation: validateTimesAgainstSchedule(entry, employeeScheduleDays),
-  }));
+  const recentEntries = rawRecentEntries.map((entry) => {
+    const compliance = evaluateEntryScheduleCompliance(entry, employeeScheduleDays);
+    return {
+      ...entry,
+      missing_clocking: compliance.isMissing,
+      late_arrival: compliance.isLate,
+      early_departure: compliance.isEarly,
+      locationEvents: locationEventsByEntry.get(entry.id) ?? [],
+      scheduleValidation: {
+        isCompliant: compliance.isCompliant,
+        issues: compliance.issues,
+      },
+    };
+  });
 
   const workstations = ((workstationsResult.data ?? []) as {
     id: string;
@@ -705,11 +712,23 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
         is_working_day: boolean | null;
       }[];
 
+      const resolvedDays =
+        employeeScheduleDays && employeeScheduleDays.length > 0
+          ? employeeScheduleDays
+          : sDays.map((d) => ({
+              day_of_week: Number(d.day_of_week),
+              start_time: d.start_time ?? null,
+              end_time: d.end_time ?? null,
+              lunch_minutes: Number(d.lunch_minutes ?? defaultLunchMinutes ?? 60),
+              paid_hours: Number(d.paid_hours ?? 0),
+              is_working_day: Boolean(d.is_working_day),
+            }));
+
       workSchedule = {
         id: scheduleData.id,
         name: scheduleData.name,
         standard_daily_hours: scheduleData.standard_daily_hours != null ? Number(scheduleData.standard_daily_hours) : null,
-        days: sDays.map((d) => ({
+        days: resolvedDays.map((d) => ({
           day_of_week: Number(d.day_of_week),
           start_time: d.start_time ? String(d.start_time).slice(0, 5) : null,
           end_time: d.end_time ? String(d.end_time).slice(0, 5) : null,
@@ -1237,7 +1256,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
@@ -1268,10 +1287,13 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     void employees;
 
     const scheduleDays = scheduleByEmployee.get(entry.employee_id);
-    const validation = validateTimesAgainstSchedule(timeEntry, scheduleDays);
+    const compliance = evaluateEntryScheduleCompliance(timeEntry, scheduleDays);
 
     return {
       ...timeEntry,
+      missing_clocking: compliance.isMissing,
+      late_arrival: compliance.isLate,
+      early_departure: compliance.isEarly,
       workstationName: relationName(employee?.company_workstations),
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
@@ -1279,7 +1301,10 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
       avatarUrl: employee?.avatar_url ?? null,
       locationEvents: locationEventsByEntry.get(entry.id) ?? [],
       paidTimeOffHours: paidTimeOffHours(timeEntry),
-      scheduleValidation: validation,
+      scheduleValidation: {
+        isCompliant: compliance.isCompliant,
+        issues: compliance.issues,
+      },
     };
   });
 });
@@ -1345,10 +1370,13 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     void employees;
 
     const scheduleDays = scheduleByEmployee.get(entry.employee_id);
-    const validation = validateTimesAgainstSchedule(timeEntry, scheduleDays);
+    const compliance = evaluateEntryScheduleCompliance(timeEntry, scheduleDays);
 
     return {
       ...timeEntry,
+      missing_clocking: compliance.isMissing,
+      late_arrival: compliance.isLate,
+      early_departure: compliance.isEarly,
       workstationName: relationName(employee?.company_workstations),
       employeeNumber: employee?.employee_number ?? "",
       fullName: employee?.full_name ?? "Unknown employee",
@@ -1356,7 +1384,10 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
       avatarUrl: employee?.avatar_url ?? null,
       locationEvents: locationEventsByEntry.get(entry.id) ?? [],
       paidTimeOffHours: paidTimeOffHours(timeEntry),
-      scheduleValidation: validation,
+      scheduleValidation: {
+        isCompliant: compliance.isCompliant,
+        issues: compliance.issues,
+      },
     };
   });
 });

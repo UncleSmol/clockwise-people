@@ -233,10 +233,18 @@ export function resolveLeaveAccrualRate(
   accrualRules?: Record<string, unknown> | null,
   standardAnnualHours: number = 2080,
   toilMultiplier: number = 1.5,
+  employeeDailyHours: number = 8,
 ): AccrualRateInfo {
   const cat = (category || "").toLowerCase();
   const name = (leaveTypeName || "").toLowerCase();
   const rules = accrualRules ?? {};
+  const safeDailyHours = employeeDailyHours > 0 ? employeeDailyHours : 8;
+  const effectiveAnnualHours =
+    standardAnnualHours === 2080 && safeDailyHours !== 8
+      ? Number((safeDailyHours * 260).toFixed(2))
+      : standardAnnualHours > 0
+        ? standardAnnualHours
+        : Number((safeDailyHours * 260).toFixed(2));
 
   if (cat === "annual" || name.includes("annual")) {
     const yearlyHours = Number(rules.yearly_hours ?? 0);
@@ -250,12 +258,12 @@ export function resolveLeaveAccrualRate(
       : yearlyHours > 0
         ? Number((yearlyHours / 8).toFixed(2))
         : 15.0; // Statutory BCEA minimum for 5-day week
-    const entitlementHours = yearlyHours > 0 ? yearlyHours : entitlementDays * 8;
+    const entitlementHours = Number((entitlementDays * safeDailyHours).toFixed(2));
 
     // Hours worked required to accumulate 1 hour of annual leave:
     // Statutory BCEA Section 20 floor is 1h per 17h worked.
     const ruleHoursPerLeaveHour = entitlementHours > 0
-      ? Number((standardAnnualHours / entitlementHours).toFixed(2))
+      ? Number((effectiveAnnualHours / entitlementHours).toFixed(2))
       : 17.0;
     const hoursWorkedPerLeaveHour = Math.min(17.0, ruleHoursPerLeaveHour);
 
@@ -297,7 +305,7 @@ export function resolveLeaveAccrualRate(
       minutesWorkedPerLeaveMinute: 26.0,
       hoursWorkedPerLeaveHour: 26.0,
       entitlementDays: 10,
-      entitlementHours: 80,
+      entitlementHours: Number((10 * safeDailyHours).toFixed(2)),
       isDynamic: true,
     };
   }
@@ -325,6 +333,7 @@ export function calculateLiveLeaveBalance(options: {
   now?: Date;
   standardAnnualHours?: number;
   toilMultiplier?: number;
+  employeeDailyHours?: number;
 }): LiveLeaveBalanceResult {
   const {
     baseBalanceHours,
@@ -335,6 +344,7 @@ export function calculateLiveLeaveBalance(options: {
     now = new Date(),
     standardAnnualHours = 2080,
     toilMultiplier = 1.5,
+    employeeDailyHours = 8,
   } = options;
 
   const baseHours = Math.max(0, Number(baseBalanceHours ?? 0));
@@ -346,6 +356,7 @@ export function calculateLiveLeaveBalance(options: {
     accrualRules,
     standardAnnualHours,
     toilMultiplier,
+    employeeDailyHours,
   );
 
   let liveWorkedMinutesToday = 0;

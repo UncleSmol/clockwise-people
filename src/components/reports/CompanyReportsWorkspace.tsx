@@ -48,6 +48,7 @@ import {
   exportReportToPdf,
   exportCompleteAuditPackExcel,
 } from "@/lib/reports/exporters";
+import type { ScheduleDayLike } from "@/lib/time-tracking/schedule-compliance";
 import type {
   CompanyTimesheetCalendarEntry,
   CompanyPublicHoliday,
@@ -86,6 +87,7 @@ type CompanyReportsWorkspaceProps = {
   }>;
   publicHolidays: CompanyPublicHoliday[];
   payrollConfig?: PayrollPeriodConfig;
+  employeeSchedules?: Record<string, ScheduleDayLike[]>;
 };
 
 type ReportTab =
@@ -117,6 +119,7 @@ export default function CompanyReportsWorkspace({
   leaveAssignments,
   publicHolidays,
   payrollConfig = defaultPayrollConfig,
+  employeeSchedules,
 }: CompanyReportsWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<ReportTab>("analytics");
 
@@ -217,6 +220,7 @@ export default function CompanyReportsWorkspace({
       leaveTypes,
       leaveAssignments: filteredLeaveAssignmentsInput,
       publicHolidays,
+      employeeSchedules,
     }),
     [
       effectiveStartDate,
@@ -227,6 +231,7 @@ export default function CompanyReportsWorkspace({
       leaveTypes,
       filteredLeaveAssignmentsInput,
       publicHolidays,
+      employeeSchedules,
     ],
   );
 
@@ -734,6 +739,7 @@ export default function CompanyReportsWorkspace({
         "OT 2.0x",
         "Total (h)",
         "Status",
+        "Notes",
       ];
       const rows = filteredTimesheets.map((r) => [
         r.employeeName,
@@ -746,6 +752,7 @@ export default function CompanyReportsWorkspace({
         formatHours(r.overtimeHours20),
         formatHours(r.totalPaidHours),
         r.status.toUpperCase(),
+        r.complianceNotes ?? "--",
       ]);
       await exportReportToPdf(
         "Timesheet Payroll Audit",

@@ -14,6 +14,108 @@ import type {
 import type { CompanyTimesheetCalendarEntry, CompanyPublicHoliday } from "@/lib/time-tracking/schema";
 import type { CompanyCalendarLeaveRequest } from "@/lib/time-tracking/schema";
 import type { LeaveType } from "@/lib/work-rules/schema";
+import {
+  calculateScheduleDayHours,
+  evaluateEntryScheduleCompliance,
+  getScheduleWeeklyHours,
+  resolveScheduleDayForDate,
+  type ScheduleDayLike,
+} from "@/lib/time-tracking/schedule-compliance";
+
+function resolveEmployeeScheduleDays(
+  employeeSchedules: AggregatorInput["employeeSchedules"],
+  employeeId: string,
+): ScheduleDayLike[] | undefined {
+  if (!employeeSchedules) return undefined;
+  return employeeSchedules instanceof Map
+    ? employeeSchedules.get(employeeId)
+    : employeeSchedules[employeeId];
+}
+
+function countScheduledDaysInRange(
+  startDate: string,
+  endDate: string,
+  scheduleDays: ScheduleDayLike[] | undefined,
+): number {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+
+  const workingDows =
+    scheduleDays && scheduleDays.some((d) => d.is_working_day)
+      ? new Set(scheduleDays.filter((d) => d.is_working_day).map((d) => Number(d.day_of_week)))
+      : new Set([1, 2, 3, 4, 5]);
+
+  let count = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    if (workingDows.has(cursor.getDay())) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+function computeLeaveHoursForOverlap(
+  overlapStart: string,
+  overlapEnd: string,
+  scheduleDays: ScheduleDayLike[] | undefined,
+  fallbackDailyHours: number,
+  holidayDateSet: Set<string>,
+  reqTotalHours?: number | string | null,
+  reqStartDate?: string,
+  reqEndDate?: string,
+): { days: number; hours: number } {
+  const start = new Date(`${overlapStart}T00:00:00`);
+  const end = new Date(`${overlapEnd}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return { days: 0, hours: 0 };
+  }
+
+  // Exact match to full leave request when total_hours was computed by DB work-rule engine
+  if (
+    reqStartDate === overlapStart &&
+    reqEndDate === overlapEnd &&
+    reqTotalHours != null &&
+    Number(reqTotalHours) > 0
+  ) {
+    const exactHours = Number(reqTotalHours);
+    const workingCount = countScheduledDaysInRange(overlapStart, overlapEnd, scheduleDays);
+    const days = workingCount > 0
+      ? workingCount
+      : Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+    return { days, hours: Number(exactHours.toFixed(2)) };
+  }
+
+  let days = 0;
+  let hours = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, "0");
+    const d = String(cursor.getDate()).padStart(2, "0");
+    const iso = `${y}-${m}-${d}`;
+    const isHoliday = holidayDateSet.has(iso);
+
+    if (!isHoliday) {
+      if (scheduleDays && scheduleDays.length > 0) {
+        const sDay = resolveScheduleDayForDate(scheduleDays, iso);
+        if (sDay?.is_working_day) {
+          days += 1;
+          hours += calculateScheduleDayHours(sDay) || fallbackDailyHours;
+        }
+      } else {
+        const dow = cursor.getDay();
+        if (dow !== 0 && dow !== 6) {
+          days += 1;
+          hours += fallbackDailyHours;
+        }
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return { days, hours: Number(hours.toFixed(2)) };
+}
 
 type AggregatorInput = {
   startDate: string;
@@ -39,6 +141,7 @@ type AggregatorInput = {
     taken_hours?: number | string;
   }>;
   publicHolidays: CompanyPublicHoliday[];
+  employeeSchedules?: Record<string, ScheduleDayLike[]> | Map<string, ScheduleDayLike[]>;
 };
 
 export function buildTimesheetPayrollReport(input: AggregatorInput): TimesheetPayrollRow[] {
@@ -75,19 +178,21 @@ export function buildTimesheetPayrollReport(input: AggregatorInput): TimesheetPa
       ot15 = ot;
     }
 
-    const hasFlag = Boolean(
-      entry.missing_clocking || entry.late_arrival || entry.early_departure || entry.status === "rejected",
-    );
+    const empScheduleDays = resolveEmployeeScheduleDays(input.employeeSchedules, emp.id);
+    const compliance = evaluateEntryScheduleCompliance(entry, empScheduleDays, {
+      fallbackDailyHours: emp.daily_hours ?? 8,
+      isHoliday,
+    });
 
-    const complianceNotes = [
-      entry.missing_clocking ? "Missing clocking" : null,
-      entry.late_arrival ? "Late arrival" : null,
-      entry.early_departure ? "Early departure" : null,
-      entry.warning_notes ? entry.warning_notes : null,
-      entry.notes ? entry.notes : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const hasFlag = !compliance.isCompliant || entry.status === "rejected";
+    const complianceNotes =
+      entry.status === "rejected"
+        ? compliance.dynamicNote !== "--"
+          ? `${compliance.dynamicNote} · Rejected`
+          : "Rejected"
+        : compliance.dynamicNote !== "--"
+          ? compliance.dynamicNote
+          : "";
 
     rows.push({
       id: entry.id,
@@ -143,6 +248,10 @@ export function buildAttendanceReport(input: AggregatorInput): AttendanceReportR
 
   for (const emp of employees) {
     const list = empEntries.get(emp.id) ?? [];
+    const empScheduleDays = resolveEmployeeScheduleDays(input.employeeSchedules, emp.id);
+    const scheduledDaysCount = empScheduleDays
+      ? countScheduledDaysInRange(startDate, endDate, empScheduleDays)
+      : approxWorkDays;
     let totalHours = 0;
     let otHours = 0;
     let lateCount = 0;
@@ -154,9 +263,12 @@ export function buildAttendanceReport(input: AggregatorInput): AttendanceReportR
     for (const e of list) {
       totalHours += Number(e.paid_hours ?? 0);
       otHours += Number(e.overtime_hours ?? 0);
-      if (e.late_arrival) lateCount++;
-      if (e.early_departure) earlyCount++;
-      if (e.missing_clocking) missingCount++;
+      const compliance = evaluateEntryScheduleCompliance(e, empScheduleDays, {
+        fallbackDailyHours: emp.daily_hours ?? 8,
+      });
+      if (compliance.isLate) lateCount++;
+      if (compliance.isEarly) earlyCount++;
+      if (compliance.isMissing) missingCount++;
       for (const loc of e.locationEvents ?? []) {
         if (loc.geofence_status) {
           locationTrackedCount++;
@@ -181,7 +293,7 @@ export function buildAttendanceReport(input: AggregatorInput): AttendanceReportR
       department: emp.department_name ?? "General",
       workstation: emp.workstation_name ?? "Assigned",
       jobTitle: emp.job_title ?? "Team Member",
-      scheduledDays: approxWorkDays,
+      scheduledDays: scheduledDaysCount,
       daysWorked,
       totalHoursWorked: Number(totalHours.toFixed(2)),
       normalHours: Number(normalHours.toFixed(2)),
@@ -230,12 +342,17 @@ export function buildAccrualReport(input: AggregatorInput): AccrualReportRow[] {
     const key = `${assign.employee_id}-${lt.name.toLowerCase()}`;
     const takenPeriod = takenInPeriodMap.get(key) ?? 0;
 
-    // Yearly accrual calculation
-    const yearly = (lt.accrual_rules?.yearly_hours as number | undefined) ?? 120;
+    // Yearly accrual calculation scaled proportionally to employee work rules
+    const empDailyHours = emp.daily_hours && emp.daily_hours > 0 ? emp.daily_hours : 8;
+    const empScheduleDays = resolveEmployeeScheduleDays(input.employeeSchedules, emp.id);
+    const empWeeklyHours = getScheduleWeeklyHours(empScheduleDays, empDailyHours * 5);
+    const scheduleScale = empWeeklyHours > 0 ? empWeeklyHours / 40 : 1;
+    const baseYearly = (lt.accrual_rules?.yearly_hours as number | undefined) ?? 120;
+    const yearly = Number((baseYearly * scheduleScale).toFixed(2));
     const monthlyAccrual = yearly > 0 ? Number((yearly / 12).toFixed(2)) : 0;
     const openingBalance = Number((currentBalance + takenPeriod - monthlyAccrual).toFixed(2));
     const closingBalance = Number(currentBalance.toFixed(2));
-    const closingDays = Number((closingBalance / (emp.daily_hours ?? 8)).toFixed(1));
+    const closingDays = Number((closingBalance / empDailyHours).toFixed(1));
     const projectedYearEnd = Number((closingBalance + monthlyAccrual * 4).toFixed(2));
 
     rows.push({
@@ -266,6 +383,7 @@ export function buildAbsenceReport(input: AggregatorInput): AbsenceReportRow[] {
   const employeeMap = new Map(employees.map((e) => [e.id, e]));
   const leaveTypeByName = new Map(leaveTypes.map((t) => [t.name.toLowerCase(), t]));
 
+  const holidayDateSet = new Set(input.publicHolidays.map((h) => h.holiday_date));
   const rows: AbsenceReportRow[] = [];
 
   for (const req of leaveRequests) {
@@ -273,11 +391,21 @@ export function buildAbsenceReport(input: AggregatorInput): AbsenceReportRow[] {
     const emp = employeeMap.get(req.employee_id);
     if (!emp) continue;
     const lt = leaveTypeByName.get(req.leaveTypeName.toLowerCase());
+    const empScheduleDays = resolveEmployeeScheduleDays(input.employeeSchedules, emp.id);
+    const empDailyHours = emp.daily_hours && emp.daily_hours > 0 ? emp.daily_hours : 8;
 
-    const start = new Date(req.start_date);
-    const end = new Date(req.end_date);
-    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-    const hours = Number(req.total_hours ?? days * 8);
+    const computed = computeLeaveHoursForOverlap(
+      req.start_date,
+      req.end_date,
+      empScheduleDays,
+      empDailyHours,
+      holidayDateSet,
+      req.total_hours,
+      req.start_date,
+      req.end_date,
+    );
+    const days = computed.days > 0 ? computed.days : 1;
+    const hours = Number(req.total_hours ?? computed.hours);
 
     rows.push({
       id: req.id,
@@ -605,17 +733,25 @@ export function buildEmployeeHoursSummaryReport(
 
     let leaveHours = 0;
     let leaveDays = 0;
-    const standardDailyHours = emp.daily_hours ?? 8;
+    const standardDailyHours = emp.daily_hours && emp.daily_hours > 0 ? emp.daily_hours : 8;
+    const empScheduleDays = resolveEmployeeScheduleDays(input.employeeSchedules, emp.id);
 
     for (const req of leaves) {
       const overlapStart = req.start_date < startDate ? startDate : req.start_date;
       const overlapEnd = req.end_date > endDate ? endDate : req.end_date;
       if (overlapStart <= overlapEnd) {
-        const s = new Date(`${overlapStart}T00:00:00`);
-        const e = new Date(`${overlapEnd}T00:00:00`);
-        const days = Math.max(1, Math.round((e.getTime() - s.getTime()) / 86400000) + 1);
-        leaveDays += days;
-        leaveHours += days * standardDailyHours;
+        const computed = computeLeaveHoursForOverlap(
+          overlapStart,
+          overlapEnd,
+          empScheduleDays,
+          standardDailyHours,
+          holidayDateSet,
+          req.total_hours,
+          req.start_date,
+          req.end_date,
+        );
+        leaveDays += computed.days;
+        leaveHours += computed.hours;
       }
     }
 

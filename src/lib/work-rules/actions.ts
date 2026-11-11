@@ -26,6 +26,12 @@ import {
   isUnpaidLeave,
   normalizeLeaveTypeName,
 } from "./realtime-accrual";
+import {
+  getScheduleAverageDailyHours,
+  getScheduleWeeklyHours,
+  mergeEmployeeScheduleDays,
+  type ScheduleDayLike,
+} from "@/lib/time-tracking/schedule-compliance";
 
 type ActionState = {
   calculation?: LeaveCalculation;
@@ -1212,13 +1218,42 @@ export async function syncEmployeeAccruals(
     return { ok: false, message: empError?.message ?? "No active employees found." };
   }
 
-  const { data: companySchedules } = await supabase
-    .from("work_schedules")
-    .select("id, name, standard_daily_hours")
-    .eq("company_id", companyId)
-    .is("deleted_at", null);
-
   const employeeIds = employees.map((e) => e.id);
+
+  const [{ data: companySchedules }, { data: scheduleAssignments }] = await Promise.all([
+    supabase
+      .from("work_schedules")
+      .select("id, name, standard_daily_hours, schedule_days(day_of_week, start_time, end_time, lunch_minutes, paid_hours, is_working_day)")
+      .eq("company_id", companyId)
+      .is("deleted_at", null),
+    supabase
+      .from("employee_work_schedule_assignments")
+      .select("employee_id, work_schedule_id, priority, effective_from")
+      .eq("company_id", companyId)
+      .in("employee_id", employeeIds)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("priority", { ascending: true })
+      .order("effective_from", { ascending: false }),
+  ]);
+
+  const scheduleDaysById = new Map<string, ScheduleDayLike[]>();
+  for (const sched of companySchedules ?? []) {
+    const rawDays = (sched as unknown as { schedule_days?: ScheduleDayLike[] }).schedule_days ?? [];
+    if (rawDays.length > 0) {
+      scheduleDaysById.set(sched.id, rawDays);
+    }
+  }
+
+  const orderedSchedulesByEmp = new Map<string, string[]>();
+  for (const a of scheduleAssignments ?? []) {
+    if (!a.work_schedule_id) continue;
+    const list = orderedSchedulesByEmp.get(a.employee_id) ?? [];
+    if (!list.includes(a.work_schedule_id)) {
+      list.push(a.work_schedule_id);
+      orderedSchedulesByEmp.set(a.employee_id, list);
+    }
+  }
 
   // 4. Fetch time entries for these employees (with pagination to guarantee all rows fetched)
   let timeEntries: Array<{
@@ -1333,9 +1368,21 @@ export async function syncEmployeeAccruals(
     let empAnnualAccrued = 0;
     let empToilAccrued = 0;
 
-    // Resolve employee specific work schedule
-    const empSchedule = (companySchedules || []).find((s) => s.id === emp.work_schedule_id);
-    const empDailyHours = Number(empSchedule?.standard_daily_hours ?? standardDailyHours);
+    // Resolve employee specific work schedules (assignments + primary work_schedule_id)
+    const empScheduleIds = [...(orderedSchedulesByEmp.get(emp.id) ?? [])];
+    if (emp.work_schedule_id && !empScheduleIds.includes(emp.work_schedule_id)) {
+      empScheduleIds.push(emp.work_schedule_id);
+    }
+    const empSchedule = (companySchedules || []).find(
+      (s) => s.id === (empScheduleIds[0] ?? emp.work_schedule_id),
+    );
+    const mergedDays = mergeEmployeeScheduleDays(empScheduleIds, scheduleDaysById);
+    const fallbackDaily = Number(empSchedule?.standard_daily_hours ?? standardDailyHours);
+    const empDailyHours = getScheduleAverageDailyHours(mergedDays, fallbackDaily > 0 ? fallbackDaily : 8);
+    const empWeeklyHours = getScheduleWeeklyHours(mergedDays, empDailyHours * 5);
+    const empAnnualHours = empWeeklyHours > 0 ? empWeeklyHours * 52 : 2080;
+    const companyRefDaily = standardDailyHours > 0 ? standardDailyHours : 8;
+    const scheduleScale = empWeeklyHours > 0 ? empWeeklyHours / (5 * companyRefDaily) : 1;
 
     const empRecord = emp as Record<string, unknown>;
     const empGender =
@@ -1381,35 +1428,40 @@ export async function syncEmployeeAccruals(
       );
       const adjustedHours = Number(existingBal?.adjusted_hours ?? 0);
 
-      // 3. Evaluate exact statutory & company accrual down to the minute
+      // 3. Evaluate exact statutory & company accrual down to the minute, scaled by employee work rule
       let accruedHours = 0;
       if (lt.category === "annual") {
         const entitlementDays = rawDays > 0
           ? rawDays
           : yearlyHours > 0
-            ? Number((yearlyHours / empDailyHours).toFixed(2))
+            ? Number((yearlyHours / companyRefDaily).toFixed(2))
             : companyDefaultAnnualDays;
-        const entitlementHours = yearlyHours > 0 ? yearlyHours : entitlementDays * empDailyHours;
+        const baseEntitlementHours = yearlyHours > 0 ? yearlyHours : entitlementDays * companyRefDaily;
+        const scaledEntitlementHours = Number((baseEntitlementHours * scheduleScale).toFixed(2));
 
-        // Effective rate: standard annual rate (e.g. 168/2080 for 21d, 136/2080 for 17d)
-        // BCEA Section 20 floor is protected (1h per 17h worked)
-        const rate = Math.max(entitlementHours / 2080.0, 1 / 17.0);
+        // Effective rate scaled to employee's scheduled annual hours while protecting BCEA 1h/17h floor
+        const rate = Math.max(
+          empAnnualHours > 0 ? scaledEntitlementHours / empAnnualHours : 1 / 17.0,
+          1 / 17.0,
+        );
         const accruedMinutes = Math.floor(totalMinutesWorked * rate);
         accruedHours = Number((accruedMinutes / 60).toFixed(2));
-        if (entitlementHours > 0 && accruedHours > entitlementHours) {
-          accruedHours = entitlementHours;
+        if (scaledEntitlementHours > 0 && accruedHours > scaledEntitlementHours) {
+          accruedHours = scaledEntitlementHours;
         }
         empAnnualAccrued = accruedHours;
       } else if (lt.category === "sick") {
-        // BCEA Section 22: 1 hour for every 26 hours worked (2.308m per 1h worked)
+        // BCEA Section 22: 1 hour for every 26 hours worked, capped proportionally to work rule
         const sickRate = 1 / 26.0;
         const accruedMinutes = Math.floor(totalMinutesWorked * sickRate);
-        const sickCap = yearlyHours > 0 ? yearlyHours : Number((10 * empDailyHours).toFixed(2));
+        const baseSickCap = yearlyHours > 0 ? yearlyHours : Number((10 * companyRefDaily).toFixed(2));
+        const sickCap = Number((baseSickCap * scheduleScale).toFixed(2));
         accruedHours = Math.min(sickCap, Number((accruedMinutes / 60).toFixed(2)));
       } else if (lt.category === "family_responsibility") {
-        // BCEA Section 27: 3 days (24h) for employees with >= 4 months of service or >= 16 shifts
+        // BCEA Section 27: 3 days scaled by employee work rule for >= 4 months service or >= 16 shifts
         const frlDays = rawDays > 0 ? rawDays : 3;
-        const frlHours = yearlyHours > 0 ? yearlyHours : frlDays * empDailyHours;
+        const baseFrlHours = yearlyHours > 0 ? yearlyHours : frlDays * companyRefDaily;
+        const frlHours = Number((baseFrlHours * scheduleScale).toFixed(2));
         accruedHours = (monthsEmployed >= 4 || shiftsWorked >= 16) ? frlHours : 0;
       } else if (lt.category === "toil_taken" || lt.name.toLowerCase().includes("toil")) {
         if (isToilEnabled && totalOvertimeHours > 0) {
@@ -1420,9 +1472,12 @@ export async function syncEmployeeAccruals(
         empToilAccrued = accruedHours;
       }
 
-      // Check annual leave cap if configured
-      const annualCapHours = lt.category === "annual"
+      // Check annual leave cap if configured (scaled to employee work rule)
+      const baseAnnualCapHours = lt.category === "annual"
         ? Number(rules.annual_cap_hours ?? rules.cap_hours ?? leaveRules.annual_leave_cap_hours ?? 0)
+        : 0;
+      const annualCapHours = baseAnnualCapHours > 0
+        ? Number((baseAnnualCapHours * scheduleScale).toFixed(2))
         : 0;
 
       // Net available balance:

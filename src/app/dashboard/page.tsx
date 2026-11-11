@@ -26,6 +26,11 @@ import {
   getCompanyWorkRulesData,
   getEmployeeLeaveState,
 } from "@/lib/work-rules/queries";
+import {
+  getScheduleAverageDailyHours,
+  mergeEmployeeScheduleDays,
+  type ScheduleDayLike,
+} from "@/lib/time-tracking/schedule-compliance";
 
 type DashboardPageProps = {
   searchParams?: Promise<{
@@ -430,6 +435,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           companyName={company.name}
           toilEnabled={Boolean(leaveState?.toilEnabled)}
           employeeGender={leaveState?.employeeGender}
+          workSchedule={employeeTimeState.workSchedule ?? null}
         />
       ),
     });
@@ -766,17 +772,49 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         : calendarEmployees.map((e) => e.id),
     );
 
-    const reportEmployees = activeEmployees.map((e) => ({
-      id: e.id,
-      full_name: e.full_name,
-      known_as: e.known_as ?? null,
-      avatar_url: e.avatar_url ?? null,
-      employee_number: e.employee_number ?? e.id.slice(0, 8),
-      department_name: e.department_name ?? null,
-      workstation_name: e.workstation_name ?? null,
-      job_title: e.job_title ?? null,
-      daily_hours: 8,
-    }));
+    const scheduleDaysById = new Map<string, ScheduleDayLike[]>(
+      (workRulesData?.schedules ?? [])
+        .filter((s) => s.schedule_days && s.schedule_days.length > 0)
+        .map((s) => [s.id, s.schedule_days as ScheduleDayLike[]]),
+    );
+    const scheduleInfoById = new Map(
+      (workRulesData?.schedules ?? []).map((s) => [s.id, s]),
+    );
+    const companyFallbackDaily = workRulesData?.standardDailyHours ?? 8;
+    const employeeScheduleDaysRecord: Record<string, ScheduleDayLike[]> = {};
+
+    const reportEmployees = activeEmployees.map((e) => {
+      const assignedIds = [
+        ...(e.work_schedule_ids ?? []),
+        ...(e.work_schedule_id && !(e.work_schedule_ids ?? []).includes(e.work_schedule_id)
+          ? [e.work_schedule_id]
+          : []),
+      ];
+      const mergedDays = mergeEmployeeScheduleDays(assignedIds, scheduleDaysById);
+      if (mergedDays.length > 0) {
+        employeeScheduleDaysRecord[e.id] = mergedDays;
+      }
+      const primarySched = assignedIds[0] ? scheduleInfoById.get(assignedIds[0]) : undefined;
+      const schedDaily = primarySched?.standard_daily_hours != null
+        ? Number(primarySched.standard_daily_hours)
+        : companyFallbackDaily;
+      const empDailyHours = getScheduleAverageDailyHours(
+        mergedDays,
+        schedDaily > 0 ? schedDaily : companyFallbackDaily,
+      );
+
+      return {
+        id: e.id,
+        full_name: e.full_name,
+        known_as: e.known_as ?? null,
+        avatar_url: e.avatar_url ?? null,
+        employee_number: e.employee_number ?? e.id.slice(0, 8),
+        department_name: e.department_name ?? null,
+        workstation_name: e.workstation_name ?? null,
+        job_title: e.job_title ?? null,
+        daily_hours: empDailyHours,
+      };
+    });
 
     const finalReportEmployees =
       reportEmployees.length > 0
@@ -790,7 +828,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             department_name: null,
             workstation_name: null,
             job_title: null,
-            daily_hours: 8,
+            daily_hours: companyFallbackDaily,
           }));
 
     panels.push({
@@ -812,6 +850,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           leaveRequests={calendarLeaveRequests.filter((lr) => activeEmployeeIdSet.has(lr.employee_id))}
           leaveTypes={workRulesData?.leaveTypes ?? []}
           leaveAssignments={(workRulesData?.leaveBalances ?? []).filter((lb) => activeEmployeeIdSet.has(lb.employee_id))}
+          employeeSchedules={employeeScheduleDaysRecord}
           publicHolidays={calendarHolidays}
           payrollConfig={payrollConfig}
         />
@@ -1030,6 +1069,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 companyName={company.name}
                 toilEnabled={Boolean(leaveState?.toilEnabled)}
                 employeeGender={leaveState?.employeeGender}
+                workSchedule={employeeTimeState.workSchedule ?? null}
               />
             }
             reportBadge={

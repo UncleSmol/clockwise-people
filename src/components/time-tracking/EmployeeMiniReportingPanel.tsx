@@ -28,7 +28,14 @@ import type {
   TimeEntryRecord,
   CompanyPublicHoliday,
   TimeClockLocationEvent,
+  EmployeeTimeState,
 } from "@/lib/time-tracking/schema";
+import {
+  calculateScheduleDayHours,
+  evaluateEntryScheduleCompliance,
+  getScheduleAverageDailyHours,
+  resolveScheduleDayForDate,
+} from "@/lib/time-tracking/schedule-compliance";
 import type {
   LeaveRequest,
   LeaveBalance,
@@ -81,6 +88,7 @@ type EmployeeMiniReportingPanelProps = {
   companyName?: string;
   toilEnabled?: boolean;
   employeeGender?: "male" | "female" | "other" | string | null;
+  workSchedule?: EmployeeTimeState["workSchedule"];
 };
 
 type RecordFilterType = "all" | "worked" | "drafts" | "leave" | "balances";
@@ -102,6 +110,10 @@ export type DailyTimesheetItem = {
   notes: string | null;
   warningNotes?: string | null;
   hasWarning?: boolean;
+  isLate?: boolean;
+  isEarly?: boolean;
+  isMissing?: boolean;
+  scheduledDayHours?: number;
   entry?: TimeEntryRecord;
   leave?: LeaveRequest;
   leaveCategory?: string | null;
@@ -207,6 +219,7 @@ export default function EmployeeMiniReportingPanel({
   companyName = "ClockWise People",
   toilEnabled,
   employeeGender,
+  workSchedule = null,
 }: EmployeeMiniReportingPanelProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -379,14 +392,27 @@ export default function EmployeeMiniReportingPanel({
     return map;
   }, [leaveTypes, leaveBalances]);
 
+  // Resolved daily hours baseline from employee's work rules
+  const avgDailyHours = useMemo(
+    () => getScheduleAverageDailyHours(workSchedule?.days, workSchedule?.standard_daily_hours ?? 8),
+    [workSchedule],
+  );
+
   // Generate ALL days in the payroll cycle (worked days, unclocked drafts, leave, holidays, rest days)
   const cycleDays = useMemo<DailyTimesheetItem[]>(() => {
     const dates = enumerateDates(effectiveStartDate, effectiveEndDate);
+    const scheduleDays = workSchedule?.days;
 
     return dates.map((date) => {
       const dayOfWeek = formatDayOfWeek(date);
       const dayOfWeekNum = new Date(`${date}T00:00:00`).getDay();
-      const isWeekend = dayOfWeekNum === 0 || dayOfWeekNum === 6;
+      const schedDay = resolveScheduleDayForDate(scheduleDays, date);
+      const isWeekend = schedDay ? !schedDay.is_working_day : dayOfWeekNum === 0 || dayOfWeekNum === 6;
+      const scheduledDayHours = schedDay
+        ? calculateScheduleDayHours(schedDay)
+        : isWeekend
+          ? 0
+          : avgDailyHours;
       const entry = entriesByDate.get(date);
 
       // Check if day is covered by leave
@@ -405,15 +431,13 @@ export default function EmployeeMiniReportingPanel({
           entry.lunch_start && entry.lunch_end
             ? `${formatTime(entry.lunch_start)} - ${formatTime(entry.lunch_end)}`
             : null;
-        const hasWarning = Boolean(
-          entry.missing_clocking || entry.late_arrival || entry.early_departure,
-        );
-
-        let warningText: string | null = null;
-        if (entry.missing_clocking) warningText = "Missing clock event";
-        else if (entry.late_arrival && entry.early_departure) warningText = "Late in & early out";
-        else if (entry.late_arrival) warningText = "Late arrival";
-        else if (entry.early_departure) warningText = "Early departure";
+        const compliance = evaluateEntryScheduleCompliance(entry, scheduleDays, {
+          fallbackDailyHours: scheduledDayHours > 0 ? scheduledDayHours : avgDailyHours,
+          isHoliday: Boolean(holiday),
+          holidayName: holiday?.name,
+        });
+        const hasWarning = !compliance.isCompliant;
+        const warningText = compliance.issues.length > 0 ? compliance.issues.join(" · ") : null;
 
         const hasClockings = Boolean(entry.clock_in || entry.clock_out);
         const entryLeaveMeta = entry.leave_type_id
@@ -434,7 +458,7 @@ export default function EmployeeMiniReportingPanel({
           !hasClockings &&
           (Boolean(entry.leave_type_id) ||
             looksLikeLeaveNote ||
-            (Boolean(matchingLeave) && paid <= 8));
+            (Boolean(matchingLeave) && paid <= Math.max(8, avgDailyHours)));
 
         if (isLeaveEntry) {
           const reqLeaveMeta = matchingLeave?.leave_type_id
@@ -457,7 +481,8 @@ export default function EmployeeMiniReportingPanel({
           const isApproved = effectiveStatus === "approved" || effectiveStatus === "locked";
           const isPaidType =
             entryLeaveMeta?.is_paid ?? reqLeaveMeta?.is_paid ?? leaveCategory !== "unpaid";
-          const leavePaid = paid > 0 ? paid : isApproved && isPaidType ? 8 : 0;
+          const expectedLeaveHours = scheduledDayHours > 0 ? scheduledDayHours : avgDailyHours;
+          const leavePaid = paid > 0 ? paid : isApproved && isPaidType ? expectedLeaveHours : 0;
 
           return {
             date,
@@ -472,7 +497,8 @@ export default function EmployeeMiniReportingPanel({
             normalHours: 0,
             overtimeHours: 0,
             paidHours: leavePaid,
-            notes: entry.notes || leaveTypeName,
+            scheduledDayHours: expectedLeaveHours,
+            notes: entry.notes || `${leaveTypeName} (${expectedLeaveHours.toFixed(2)}h rule)`,
             warningNotes: null,
             hasWarning: false,
             entry,
@@ -485,6 +511,8 @@ export default function EmployeeMiniReportingPanel({
         }
 
         const isWorked = Boolean(hasClockings || paid > 0);
+        const dynamicNotes =
+          compliance.dynamicNote !== "--" ? compliance.dynamicNote : entry.notes || null;
 
         return {
           date,
@@ -499,9 +527,13 @@ export default function EmployeeMiniReportingPanel({
           normalHours: normal,
           overtimeHours: ot,
           paidHours: paid,
-          notes: entry.notes || null,
+          scheduledDayHours,
+          notes: dynamicNotes,
           warningNotes: warningText,
           hasWarning,
+          isLate: compliance.isLate,
+          isEarly: compliance.isEarly,
+          isMissing: compliance.isMissing,
           entry,
           locationEvents: entry.locationEvents ?? [],
           workstationName: workstationName ?? null,
@@ -522,6 +554,7 @@ export default function EmployeeMiniReportingPanel({
           matchingLeave.leaveTypeName || reqLeaveMeta?.name,
         );
         const isPaidType = reqLeaveMeta?.is_paid ?? leaveCategory !== "unpaid";
+        const expectedLeaveHours = scheduledDayHours > 0 ? scheduledDayHours : avgDailyHours;
 
         return {
           date,
@@ -535,10 +568,11 @@ export default function EmployeeMiniReportingPanel({
           lunch: null,
           normalHours: 0,
           overtimeHours: 0,
-          paidHours: isApproved && isPaidType ? 8 : 0,
+          paidHours: isApproved && isPaidType ? expectedLeaveHours : 0,
+          scheduledDayHours: expectedLeaveHours,
           notes: matchingLeave.reason
             ? `${leaveTypeName}: ${matchingLeave.reason}`
-            : leaveTypeName,
+            : `${leaveTypeName} (${expectedLeaveHours.toFixed(2)}h rule)`,
           leave: matchingLeave,
           leaveCategory,
           leaveTypeName,
@@ -547,6 +581,11 @@ export default function EmployeeMiniReportingPanel({
       }
 
       if (holiday) {
+        const expectedHolidayHours = !isWeekend
+          ? scheduledDayHours > 0
+            ? scheduledDayHours
+            : avgDailyHours
+          : 0;
         return {
           date,
           dayOfWeek,
@@ -559,7 +598,8 @@ export default function EmployeeMiniReportingPanel({
           lunch: null,
           normalHours: 0,
           overtimeHours: 0,
-          paidHours: holiday.is_paid ? 8 : 0,
+          paidHours: holiday.is_paid ? expectedHolidayHours : 0,
+          scheduledDayHours: expectedHolidayHours,
           notes: holiday.name,
           holidayName: holiday.name,
           locationEvents: [],
@@ -611,6 +651,8 @@ export default function EmployeeMiniReportingPanel({
     holidayMap,
     workstationName,
     leaveTypeById,
+    workSchedule,
+    avgDailyHours,
   ]);
 
   // Aggregated hours and period metrics
@@ -670,9 +712,9 @@ export default function EmployeeMiniReportingPanel({
           nonMaternityActiveCount += 1;
         }
 
-        if (d.entry?.missing_clocking) missingClockings += 1;
-        if (d.entry?.late_arrival) lateArrivals += 1;
-        if (d.entry?.early_departure) earlyDepartures += 1;
+        if (d.isMissing ?? d.entry?.missing_clocking) missingClockings += 1;
+        if (d.isLate ?? d.entry?.late_arrival) lateArrivals += 1;
+        if (d.isEarly ?? d.entry?.early_departure) earlyDepartures += 1;
       } else if (d.type === "leave") {
         const rawStatus: LeaveAuditStatus =
           d.status === "approved" || d.status === "locked"
@@ -685,13 +727,19 @@ export default function EmployeeMiniReportingPanel({
 
         const category = d.leaveCategory || "other";
         const label = d.leaveTypeName || getLeaveCategoryLabel(category);
+        const dayBaseline =
+          d.scheduledDayHours && d.scheduledDayHours > 0
+            ? d.scheduledDayHours
+            : avgDailyHours > 0
+              ? avgDailyHours
+              : 8;
         const expectedHours =
           d.paidHours > 0
             ? d.paidHours
             : Number(d.entry?.paid_hours ?? 0) > 0
               ? Number(d.entry?.paid_hours ?? 0)
-              : 8;
-        const dayFraction = Number((expectedHours / 8).toFixed(2));
+              : dayBaseline;
+        const dayFraction = Number((expectedHours / dayBaseline).toFixed(2));
 
         if (rawStatus === "approved") {
           leaveDays += 1;
@@ -826,7 +874,7 @@ export default function EmployeeMiniReportingPanel({
       earlyDepartures,
       leaveAudit,
     };
-  }, [cycleDays, holidayMap, periodLeaves, leaveTypeById]);
+  }, [cycleDays, holidayMap, periodLeaves, leaveTypeById, avgDailyHours]);
 
   // Filtered cycle days based on tab selection, search term, and status filter
   const filteredDays = useMemo(() => {
