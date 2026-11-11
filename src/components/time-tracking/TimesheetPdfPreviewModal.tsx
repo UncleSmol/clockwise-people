@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import {
   exportTimesheetPdf,
+  type LeaveAuditStatus,
+  type TimesheetLeaveAuditSummary,
+  type TimesheetPdfDailyRow,
   type TimesheetPdfOptions,
 } from "@/lib/reports/exporters";
 
@@ -22,6 +25,35 @@ type TimesheetPdfPreviewModalProps = {
   onClose: () => void;
   onExportExcel?: () => void;
 };
+
+function LeaveStatusBadge({ status }: { status: LeaveAuditStatus }) {
+  const tone =
+    status === "approved"
+      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+      : status === "submitted"
+        ? "bg-amber-100 text-amber-800 border-amber-200"
+        : status === "rejected"
+          ? "bg-rose-100 text-rose-800 border-rose-200"
+          : "bg-slate-200 text-slate-700 border-slate-300";
+  const label =
+    status === "approved"
+      ? "Approved"
+      : status === "submitted"
+        ? "Pending Approval"
+        : status === "rejected"
+          ? "Rejected"
+          : "Not Sent (Draft)";
+  return (
+    <span className={`inline-block rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-tight ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
+const isMaternityPdfRow = (r: TimesheetPdfDailyRow) =>
+  r.leaveCategory === "maternity" ||
+  (r.leaveTypeName || "").toLowerCase().includes("maternity") ||
+  (r.notes || "").toLowerCase().includes("maternity");
 
 export default function TimesheetPdfPreviewModal({
   options,
@@ -43,6 +75,59 @@ export default function TimesheetPdfPreviewModal({
     () => options.dailyRows.reduce((acc, r) => acc + (Number(r.paidHours) || 0), 0),
     [options.dailyRows],
   );
+
+  const leaveAudit: TimesheetLeaveAuditSummary = useMemo(
+    () =>
+      options.metrics.leaveAudit ?? {
+        annualHours: 0,
+        annualDays: 0,
+        sickHours: 0,
+        sickDays: 0,
+        familyResponsibilityHours: 0,
+        familyResponsibilityDays: 0,
+        toilHours: 0,
+        toilDays: 0,
+        otherLeaveHours: 0,
+        otherLeaveDays: 0,
+        pendingApprovalDays: 0,
+        pendingApprovalDates: [],
+        notSentDays: 0,
+        notSentDates: [],
+        rejectedDays: 0,
+        rejectedDates: [],
+        breakdown: [],
+        maternity: {
+          isOnMaternity: false,
+          isEntirePeriodMaternity: false,
+          startDate: null,
+          endDate: null,
+          status: null,
+          totalDays: 0,
+          totalHours: 0,
+          label: "Maternity Leave",
+        },
+      },
+    [options.metrics.leaveAudit],
+  );
+
+  const maternityRows = useMemo(
+    () => options.dailyRows.filter(isMaternityPdfRow),
+    [options.dailyRows],
+  );
+  const nonMaternityRows = useMemo(
+    () => options.dailyRows.filter((r) => !isMaternityPdfRow(r)),
+    [options.dailyRows],
+  );
+  const isOnMaternity = leaveAudit.maternity.isOnMaternity || maternityRows.length > 0;
+  const isEntirePeriodMaternity =
+    leaveAudit.maternity.isEntirePeriodMaternity ||
+    (isOnMaternity && nonMaternityRows.length === 0);
+  const tableRowsToDisplay = isOnMaternity ? nonMaternityRows : options.dailyRows;
+  const nonMaternityBreakdown = useMemo(
+    () => leaveAudit.breakdown.filter((b) => b.category !== "maternity"),
+    [leaveAudit.breakdown],
+  );
+  const unloggedPastWeekdays = options.metrics.unloggedPastWeekdays ?? 0;
 
   if (!open) return null;
 
@@ -192,59 +277,212 @@ export default function TimesheetPdfPreviewModal({
                 </div>
               </div>
 
-              {/* KPI Summary Tiles: Compact 2-col on mobile, 4-col on desktop */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 min-w-0">
-                <div className="rounded-xl border border-border bg-surface p-2 sm:p-3 shadow-2xs min-w-0">
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-muted block truncate">
-                    Total Paid Hours
-                  </span>
-                  <p className="mt-0.5 text-base sm:text-lg font-black text-primary font-mono">
-                    {totalPaid.toFixed(2)}h
-                  </p>
-                  <span className="text-[9px] sm:text-[10px] text-muted block truncate">
-                    {options.metrics.daysWorked} days worked
-                  </span>
+              {/* Compact KPI Summary Tiles + Leave Categories */}
+              <div className="space-y-1.5 min-w-0">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 min-w-0">
+                  <div className="rounded-lg border border-border border-l-4 border-l-emerald-600 bg-surface px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted block truncate">
+                      Total Paid
+                    </span>
+                    <p className="mt-0.5 text-sm sm:text-base font-black text-primary font-mono leading-tight">
+                      {totalPaid.toFixed(2)}h
+                    </p>
+                    <span className="text-[8.5px] text-muted block truncate">
+                      {options.metrics.daysWorked}d worked
+                    </span>
+                  </div>
+                  <div className="rounded-lg border border-border border-l-4 border-l-emerald-600 bg-surface px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted block truncate">
+                      Normal Hours
+                    </span>
+                    <p className="mt-0.5 text-sm sm:text-base font-black text-foreground font-mono leading-tight">
+                      {totalNormal.toFixed(2)}h
+                    </p>
+                    <span className="text-[8.5px] text-muted block truncate">
+                      Standard rate
+                    </span>
+                  </div>
+                  <div className="rounded-lg border border-border border-l-4 border-l-amber-500 bg-surface px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted block truncate">
+                      Overtime Hours
+                    </span>
+                    <p className="mt-0.5 text-sm sm:text-base font-black text-amber-600 font-mono leading-tight">
+                      {totalOt.toFixed(2)}h
+                    </p>
+                    <span className="text-[8.5px] text-muted block truncate">
+                      Approved OT
+                    </span>
+                  </div>
+                  <div className="rounded-lg border border-purple-200 border-l-4 border-l-purple-600 bg-purple-50/50 px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+                      Leave Taken
+                    </span>
+                    <p className="mt-0.5 text-sm sm:text-base font-black text-purple-800 font-mono leading-tight">
+                      {Number(options.metrics.leaveHours || 0).toFixed(1)}h
+                    </p>
+                    <span className="text-[8.5px] text-purple-700 block truncate">
+                      {(Number(options.metrics.leaveHours || 0) / 8).toFixed(1)}d authorized
+                    </span>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 rounded-lg border border-border border-l-4 border-l-emerald-600 bg-surface px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] sm:text-[9px] font-bold uppercase tracking-wider text-muted block truncate">
+                      Attendance
+                    </span>
+                    <p className="mt-0.5 text-sm sm:text-base font-black text-foreground font-mono leading-tight">
+                      {options.metrics.daysWorked} / {options.metrics.totalDaysInPeriod}
+                    </p>
+                    <span className="text-[8.5px] text-muted block truncate">
+                      Days logged
+                    </span>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface p-2 sm:p-3 shadow-2xs min-w-0">
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-muted block truncate">
-                    Normal Hours
-                  </span>
-                  <p className="mt-0.5 text-base sm:text-lg font-black text-foreground font-mono">
-                    {totalNormal.toFixed(2)}h
-                  </p>
-                  <span className="text-[9px] sm:text-[10px] text-muted block truncate">
-                    Standard rate
-                  </span>
+
+                {/* 4 Category Leave Taken Summary */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 min-w-0">
+                  <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+                      Annual Leave Taken
+                    </span>
+                    <div className="mt-0.5 flex items-baseline justify-between gap-1">
+                      <span className="text-xs sm:text-sm font-black font-mono text-purple-950">
+                        {leaveAudit.annualHours.toFixed(1)}h
+                      </span>
+                      <span className="text-[9px] font-semibold text-purple-700">
+                        {leaveAudit.annualDays.toFixed(1)}d
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+                      Sick Leave Taken
+                    </span>
+                    <div className="mt-0.5 flex items-baseline justify-between gap-1">
+                      <span className="text-xs sm:text-sm font-black font-mono text-purple-950">
+                        {leaveAudit.sickHours.toFixed(1)}h
+                      </span>
+                      <span className="text-[9px] font-semibold text-purple-700">
+                        {leaveAudit.sickDays.toFixed(1)}d
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+                      Family Resp. Taken
+                    </span>
+                    <div className="mt-0.5 flex items-baseline justify-between gap-1">
+                      <span className="text-xs sm:text-sm font-black font-mono text-purple-950">
+                        {leaveAudit.familyResponsibilityHours.toFixed(1)}h
+                      </span>
+                      <span className="text-[9px] font-semibold text-purple-700">
+                        {leaveAudit.familyResponsibilityDays.toFixed(1)}d
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-2 py-1.5 shadow-2xs min-w-0">
+                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+                      Time Off In Lieu
+                    </span>
+                    <div className="mt-0.5 flex items-baseline justify-between gap-1">
+                      <span className="text-xs sm:text-sm font-black font-mono text-purple-950">
+                        {leaveAudit.toilHours.toFixed(1)}h
+                      </span>
+                      <span className="text-[9px] font-semibold text-purple-700">
+                        {leaveAudit.toilDays.toFixed(1)}d
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border bg-surface p-2 sm:p-3 shadow-2xs min-w-0">
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-muted block truncate">
-                    Overtime Hours
-                  </span>
-                  <p className="mt-0.5 text-base sm:text-lg font-black text-amber-600 font-mono">
-                    {totalOt.toFixed(2)}h
-                  </p>
-                  <span className="text-[9px] sm:text-[10px] text-muted block truncate">
-                    OT 1.5x / 2.0x
-                  </span>
-                </div>
-                <div className="rounded-xl border border-border bg-surface p-2 sm:p-3 shadow-2xs min-w-0">
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-muted block truncate">
-                    Leave Taken
-                  </span>
-                  <p className="mt-0.5 text-base sm:text-lg font-black text-emerald-800 font-mono">
-                    {Number(options.metrics.leaveHours || 0).toFixed(1)}h
-                  </p>
-                  <span className="text-[9px] sm:text-[10px] text-muted block truncate">
-                    Authorized leave
-                  </span>
-                </div>
+
+                {/* Unapproved / Unsubmitted Leave Audit Banner */}
+                {(leaveAudit.notSentDays > 0 ||
+                  leaveAudit.pendingApprovalDays > 0 ||
+                  leaveAudit.rejectedDays > 0 ||
+                  (unloggedPastWeekdays > 0 && !isEntirePeriodMaternity)) ? (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[10.5px] text-amber-900 space-y-1">
+                    {leaveAudit.notSentDays > 0 && (
+                      <p className="font-semibold">
+                        <AlertTriangle className="inline size-3.5 mr-1 text-amber-700" />
+                        {leaveAudit.notSentDays} leave day(s) not sent to manager for approval:{" "}
+                        <span className="font-mono">{leaveAudit.notSentDates.join(", ")}</span>
+                      </p>
+                    )}
+                    {leaveAudit.pendingApprovalDays > 0 && (
+                      <p className="font-semibold">
+                        <Clock className="inline size-3.5 mr-1 text-amber-700" />
+                        {leaveAudit.pendingApprovalDays} leave day(s) pending manager approval:{" "}
+                        <span className="font-mono">{leaveAudit.pendingApprovalDates.join(", ")}</span>
+                      </p>
+                    )}
+                    {leaveAudit.rejectedDays > 0 && (
+                      <p className="font-semibold text-rose-800">
+                        <AlertTriangle className="inline size-3.5 mr-1 text-rose-600" />
+                        {leaveAudit.rejectedDays} leave day(s) rejected:{" "}
+                        <span className="font-mono">{leaveAudit.rejectedDates.join(", ")}</span>
+                      </p>
+                    )}
+                    {unloggedPastWeekdays > 0 && !isEntirePeriodMaternity && (
+                      <p className="text-amber-800">
+                        <AlertTriangle className="inline size-3.5 mr-1 text-amber-600" />
+                        {unloggedPastWeekdays} past weekday(s) have no shift or leave added yet (Draft).
+                      </p>
+                    )}
+                  </div>
+                ) : (leaveAudit.breakdown.length > 0 || isOnMaternity) ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10.5px] text-emerald-900 font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5 text-emerald-700 shrink-0" />
+                    <span>All leave days in this payroll cycle have been submitted and approved by a manager.</span>
+                  </div>
+                ) : null}
+
+                {/* Maternity Leave Collapsed Block */}
+                {isOnMaternity && (
+                  <div className="rounded-xl border border-pink-300 bg-pink-50 px-3.5 py-3 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs sm:text-sm font-black uppercase tracking-tight text-pink-950">
+                        You are on Maternity Leave
+                      </p>
+                      <p className="text-[10.5px] text-pink-800 mt-0.5">
+                        {leaveAudit.maternity.startDate || options.startDate} to{" "}
+                        {leaveAudit.maternity.endDate || options.endDate} ·{" "}
+                        {leaveAudit.maternity.totalDays || maternityRows.length} working day(s)
+                      </p>
+                    </div>
+                    <LeaveStatusBadge status={leaveAudit.maternity.status || "approved"} />
+                  </div>
+                )}
+
+                {/* Leave Days Breakdown */}
+                {nonMaternityBreakdown.length > 0 && (
+                  <div className="rounded-xl border border-border bg-surface px-3 py-2 shadow-2xs">
+                    <p className="text-[9.5px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                      Leave Days Breakdown ({nonMaternityBreakdown.length})
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {nonMaternityBreakdown.map((b) => (
+                        <div
+                          key={b.key}
+                          className="rounded-lg border border-border bg-surface-muted/40 px-2 py-1 text-[10.5px]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-foreground truncate">{b.label}</span>
+                            <LeaveStatusBadge status={b.status} />
+                          </div>
+                          <p className="text-[9.5px] text-muted mt-0.5 truncate">
+                            <span className="font-mono font-bold text-foreground">{b.hours.toFixed(1)}h</span> ({b.days.toFixed(1)}d) · {b.dates.join(", ")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Daily Timesheet Section */}
+              {!isEntirePeriodMaternity && (
               <div className="rounded-xl sm:rounded-2xl border border-border bg-surface shadow-soft overflow-hidden min-w-0 max-w-full">
                 <div className="border-b border-border px-3 py-2 bg-surface-muted/50 flex items-center justify-between min-w-0">
                   <span className="text-xs font-bold text-foreground truncate">
-                    Daily Shift Timesheet ({options.dailyRows.length} Recorded Days)
+                    Daily Shift Timesheet ({tableRowsToDisplay.length} Recorded Days)
                   </span>
                   <span className="text-[10px] text-muted font-medium shrink-0">
                     Cycle Breakdown
@@ -253,12 +491,12 @@ export default function TimesheetPdfPreviewModal({
 
                 {/* 1. Mobile Compact List: ZERO horizontal scrolling on mobile */}
                 <div className="sm:hidden divide-y divide-border min-w-0 max-w-full">
-                  {options.dailyRows.length === 0 ? (
+                  {tableRowsToDisplay.length === 0 && !isOnMaternity ? (
                     <div className="p-6 text-center text-muted text-xs font-semibold">
                       No worked shifts or authorized leave records found for this period.
                     </div>
                   ) : (
-                    options.dailyRows.map((row) => {
+                    tableRowsToDisplay.map((row) => {
                     const statusLower = row.status.toLowerCase();
                     let badgeTone = "bg-slate-100 text-slate-700 border border-slate-200";
                     if (statusLower === "approved") {
@@ -346,6 +584,23 @@ export default function TimesheetPdfPreviewModal({
                   })
                   )}
 
+                  {isOnMaternity && !isEntirePeriodMaternity && (
+                    <div className="p-2.5 bg-pink-50/70 flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="font-bold text-pink-950 truncate">You are on Maternity Leave</p>
+                        <p className="text-[10px] text-pink-800 truncate">
+                          {leaveAudit.maternity.startDate || options.startDate} – {leaveAudit.maternity.endDate || options.endDate} · {leaveAudit.maternity.totalDays || maternityRows.length}d
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <LeaveStatusBadge status={leaveAudit.maternity.status || "approved"} />
+                        <div className="text-[10px] font-mono font-bold text-pink-900 mt-0.5">
+                          {Number(leaveAudit.maternity.totalHours || 0).toFixed(1)}h
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Mobile Totals Footer Banner */}
                   <div className="bg-slate-900 text-white p-2.5 flex items-center justify-between font-mono text-xs">
                     <div>
@@ -385,14 +640,14 @@ export default function TimesheetPdfPreviewModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {options.dailyRows.length === 0 ? (
+                      {tableRowsToDisplay.length === 0 && !isOnMaternity ? (
                         <tr>
                           <td colSpan={10} className="px-4 py-8 text-center text-muted font-medium text-xs">
                             No worked shifts or authorized leave records found for this period.
                           </td>
                         </tr>
                       ) : (
-                        options.dailyRows.map((row) => {
+                        tableRowsToDisplay.map((row) => {
                         const statusLower = row.status.toLowerCase();
                         let badgeTone = "bg-surface-muted text-muted";
                         if (statusLower === "approved") {
@@ -453,6 +708,24 @@ export default function TimesheetPdfPreviewModal({
                         );
                       })
                       )}
+                      {isOnMaternity && !isEntirePeriodMaternity && (
+                        <tr className="bg-pink-50/70 text-pink-950 font-semibold">
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {leaveAudit.maternity.startDate || options.startDate} – {leaveAudit.maternity.endDate || options.endDate}
+                          </td>
+                          <td className="px-2 py-2">{leaveAudit.maternity.totalDays || maternityRows.length}d</td>
+                          <td colSpan={3} className="px-2 py-2 font-bold">You are on Maternity Leave</td>
+                          <td className="px-2 py-2 text-right font-mono">0.0h</td>
+                          <td className="px-2 py-2 text-right font-mono">0.0h</td>
+                          <td className="px-2 py-2 text-right font-mono font-bold">
+                            {Number(leaveAudit.maternity.totalHours || 0).toFixed(1)}h
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <LeaveStatusBadge status={leaveAudit.maternity.status || "approved"} />
+                          </td>
+                          <td className="px-3 py-2 text-[11px] text-pink-800">Collapsed Maternity Leave period</td>
+                        </tr>
+                      )}
                       {/* Period Totals Row */}
                       <tr className="bg-slate-900 text-white font-bold text-xs">
                         <td colSpan={5} className="px-3 py-2.5 text-right uppercase tracking-wider text-[11px]">
@@ -475,6 +748,7 @@ export default function TimesheetPdfPreviewModal({
                   </table>
                 </div>
               </div>
+              )}
 
               {/* Official Sign-off preview */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-1 text-xs min-w-0">
@@ -544,6 +818,116 @@ export default function TimesheetPdfPreviewModal({
                   </div>
                 </div>
 
+                {/* Compact A4 KPI Summary (5 Core + 4 Leave Categories) */}
+                <div className="grid grid-cols-5 gap-1.5 mb-1.5">
+                  <div className="border border-slate-200 border-l-2 border-l-emerald-600 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-slate-500 block">Total Paid</span>
+                    <strong className="text-xs text-emerald-800 font-mono block">{totalPaid.toFixed(2)}h</strong>
+                    <span className="text-[7px] text-slate-500">{options.metrics.daysWorked}d worked</span>
+                  </div>
+                  <div className="border border-slate-200 border-l-2 border-l-emerald-600 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-slate-500 block">Normal Hours</span>
+                    <strong className="text-xs text-slate-900 font-mono block">{totalNormal.toFixed(2)}h</strong>
+                    <span className="text-[7px] text-slate-500">Standard shift</span>
+                  </div>
+                  <div className="border border-slate-200 border-l-2 border-l-amber-500 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-slate-500 block">Overtime</span>
+                    <strong className="text-xs text-amber-700 font-mono block">{totalOt.toFixed(2)}h</strong>
+                    <span className="text-[7px] text-slate-500">Approved OT</span>
+                  </div>
+                  <div className="border border-purple-200 border-l-2 border-l-purple-600 bg-purple-50/40 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-purple-700 block">Leave Taken</span>
+                    <strong className="text-xs text-purple-800 font-mono block">{Number(options.metrics.leaveHours || 0).toFixed(1)}h</strong>
+                    <span className="text-[7px] text-purple-600">{(Number(options.metrics.leaveHours || 0) / 8).toFixed(1)}d authorized</span>
+                  </div>
+                  <div className="border border-slate-200 border-l-2 border-l-emerald-600 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-slate-500 block">Attendance</span>
+                    <strong className="text-xs text-slate-900 font-mono block">{options.metrics.daysWorked} / {options.metrics.totalDaysInPeriod}</strong>
+                    <span className="text-[7px] text-slate-500">Days logged</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  <div className="border border-purple-200 border-l-2 border-l-purple-600 bg-purple-50/50 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-purple-800 block">Annual Leave Taken</span>
+                    <strong className="text-[11px] text-purple-950 font-mono">{leaveAudit.annualHours.toFixed(1)}h</strong>
+                    <span className="text-[7px] text-purple-700 ml-1">({leaveAudit.annualDays.toFixed(1)}d)</span>
+                  </div>
+                  <div className="border border-purple-200 border-l-2 border-l-purple-600 bg-purple-50/50 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-purple-800 block">Sick Leave Taken</span>
+                    <strong className="text-[11px] text-purple-950 font-mono">{leaveAudit.sickHours.toFixed(1)}h</strong>
+                    <span className="text-[7px] text-purple-700 ml-1">({leaveAudit.sickDays.toFixed(1)}d)</span>
+                  </div>
+                  <div className="border border-purple-200 border-l-2 border-l-purple-600 bg-purple-50/50 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-purple-800 block">Family Resp. Taken</span>
+                    <strong className="text-[11px] text-purple-950 font-mono">{leaveAudit.familyResponsibilityHours.toFixed(1)}h</strong>
+                    <span className="text-[7px] text-purple-700 ml-1">({leaveAudit.familyResponsibilityDays.toFixed(1)}d)</span>
+                  </div>
+                  <div className="border border-purple-200 border-l-2 border-l-purple-600 bg-purple-50/50 rounded p-1.5">
+                    <span className="text-[7.5px] font-bold uppercase text-purple-800 block">Time Off In Lieu</span>
+                    <strong className="text-[11px] text-purple-950 font-mono">{leaveAudit.toilHours.toFixed(1)}h</strong>
+                    <span className="text-[7px] text-purple-700 ml-1">({leaveAudit.toilDays.toFixed(1)}d)</span>
+                  </div>
+                </div>
+
+                {(leaveAudit.notSentDays > 0 ||
+                  leaveAudit.pendingApprovalDays > 0 ||
+                  leaveAudit.rejectedDays > 0 ||
+                  (unloggedPastWeekdays > 0 && !isEntirePeriodMaternity)) ? (
+                  <div className="border border-amber-300 border-l-2 border-l-amber-600 bg-amber-50 rounded p-1.5 text-[9px] text-amber-900 mb-2 space-y-0.5">
+                    {leaveAudit.notSentDays > 0 && (
+                      <div><strong>{leaveAudit.notSentDays} leave day(s) not sent to manager for approval:</strong> {leaveAudit.notSentDates.join(", ")}</div>
+                    )}
+                    {leaveAudit.pendingApprovalDays > 0 && (
+                      <div><strong>{leaveAudit.pendingApprovalDays} leave day(s) pending manager approval:</strong> {leaveAudit.pendingApprovalDates.join(", ")}</div>
+                    )}
+                    {leaveAudit.rejectedDays > 0 && (
+                      <div className="text-rose-800"><strong>{leaveAudit.rejectedDays} leave day(s) rejected:</strong> {leaveAudit.rejectedDates.join(", ")}</div>
+                    )}
+                    {unloggedPastWeekdays > 0 && !isEntirePeriodMaternity && (
+                      <div><strong>{unloggedPastWeekdays} past weekday(s)</strong> have no shift or leave added yet (Draft).</div>
+                    )}
+                  </div>
+                ) : (leaveAudit.breakdown.length > 0 || isOnMaternity) ? (
+                  <div className="border border-emerald-200 border-l-2 border-l-emerald-600 bg-emerald-50 rounded p-1.5 text-[9px] text-emerald-900 font-semibold mb-2">
+                    &#10003; All leave days in this payroll cycle have been submitted and approved by a manager.
+                  </div>
+                ) : null}
+
+                {isOnMaternity && (
+                  <div className="border border-pink-300 border-l-4 border-l-pink-600 bg-pink-50 rounded p-2.5 mb-2 flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-black uppercase text-pink-950">You are on Maternity Leave</div>
+                      <div className="text-[9px] text-pink-800">
+                        {leaveAudit.maternity.startDate || options.startDate} to {leaveAudit.maternity.endDate || options.endDate} · {leaveAudit.maternity.totalDays || maternityRows.length} working day(s)
+                      </div>
+                    </div>
+                    <LeaveStatusBadge status={leaveAudit.maternity.status || "approved"} />
+                  </div>
+                )}
+
+                {nonMaternityBreakdown.length > 0 && (
+                  <div className="border border-slate-200 bg-slate-50 rounded p-1.5 mb-2">
+                    <div className="text-[8px] font-bold uppercase text-slate-600 mb-1">
+                      Leave Days Breakdown ({nonMaternityBreakdown.length})
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {nonMaternityBreakdown.map((b) => (
+                        <div key={b.key} className="bg-white border border-slate-200 rounded p-1 text-[8.5px]">
+                          <div className="flex items-center justify-between gap-1">
+                            <strong className="text-slate-900">{b.label}</strong>
+                            <LeaveStatusBadge status={b.status} />
+                          </div>
+                          <div className="text-slate-600 mt-0.5">
+                            <strong>{b.hours.toFixed(1)}h</strong> ({b.days.toFixed(1)}d) · {b.dates.join(", ")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!isEntirePeriodMaternity && (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-[10px] sm:text-xs mb-3">
                     <thead>
@@ -560,14 +944,14 @@ export default function TimesheetPdfPreviewModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {options.dailyRows.length === 0 ? (
+                      {tableRowsToDisplay.length === 0 && !isOnMaternity ? (
                         <tr>
                           <td colSpan={9} className="p-4 text-center text-slate-500 text-xs">
                             No worked shifts or authorized leave records found for this period.
                           </td>
                         </tr>
                       ) : (
-                        options.dailyRows.map((r) => (
+                        tableRowsToDisplay.map((r) => (
                           <tr key={r.date} className="text-[9.5px] sm:text-[11px]">
                             <td className="p-1 sm:p-1.5 font-semibold">{r.date}</td>
                             <td className="p-1 sm:p-1.5 text-slate-600">{r.dayOfWeek}</td>
@@ -589,6 +973,17 @@ export default function TimesheetPdfPreviewModal({
                           </tr>
                         ))
                       )}
+                      {isOnMaternity && !isEntirePeriodMaternity && (
+                        <tr className="bg-pink-50 text-pink-950 text-[9.5px] sm:text-[11px] font-semibold">
+                          <td className="p-1 sm:p-1.5">{leaveAudit.maternity.startDate || options.startDate} – {leaveAudit.maternity.endDate || options.endDate}</td>
+                          <td className="p-1 sm:p-1.5">{leaveAudit.maternity.totalDays || maternityRows.length}d</td>
+                          <td colSpan={3} className="p-1 sm:p-1.5 font-bold">You are on Maternity Leave</td>
+                          <td className="p-1 sm:p-1.5 text-right font-mono">0.0h</td>
+                          <td className="p-1 sm:p-1.5 text-right font-mono">0.0h</td>
+                          <td className="p-1 sm:p-1.5 text-right font-mono font-bold">{Number(leaveAudit.maternity.totalHours || 0).toFixed(1)}h</td>
+                          <td className="p-1 sm:p-1.5 text-center text-[9px] font-bold uppercase">{leaveAudit.maternity.status || "approved"}</td>
+                        </tr>
+                      )}
                       <tr className="bg-slate-900 text-white font-bold text-[9.5px] sm:text-xs">
                         <td colSpan={5} className="p-1.5 sm:p-2 text-right uppercase text-[9px] sm:text-[10px]">
                           Cycle Totals:
@@ -605,6 +1000,7 @@ export default function TimesheetPdfPreviewModal({
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             </div>
           )}

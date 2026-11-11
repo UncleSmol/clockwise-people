@@ -44,7 +44,13 @@ import {
   isGenderAllowedForLeave,
   isUnpaidLeave,
 } from "@/lib/work-rules/realtime-accrual";
-import type { TimesheetPdfOptions, TimesheetPdfDailyRow } from "@/lib/reports/exporters";
+import type {
+  TimesheetPdfOptions,
+  TimesheetPdfDailyRow,
+  TimesheetLeaveAuditSummary,
+  TimesheetLeaveBreakdownItem,
+  LeaveAuditStatus,
+} from "@/lib/reports/exporters";
 import TimesheetPdfPreviewModal from "@/components/time-tracking/TimesheetPdfPreviewModal";
 
 const TimesheetRouteMap = dynamic(
@@ -98,10 +104,51 @@ export type DailyTimesheetItem = {
   hasWarning?: boolean;
   entry?: TimeEntryRecord;
   leave?: LeaveRequest;
+  leaveCategory?: string | null;
+  leaveTypeName?: string | null;
   holidayName?: string;
   locationEvents?: TimeClockLocationEvent[];
   workstationName?: string | null;
 };
+
+function inferLeaveCategory(nameOrNote?: string | null, explicitCategory?: string | null): string {
+  if (explicitCategory) return explicitCategory;
+  const text = (nameOrNote || "").toLowerCase();
+  if (text.includes("maternity")) return "maternity";
+  if (text.includes("parental") || text.includes("paternity")) return "parental";
+  if (text.includes("family") || text.includes("compassionate") || text.includes("bereavement")) {
+    return "family_responsibility";
+  }
+  if (text.includes("sick")) return "sick";
+  if (text.includes("toil") || text.includes("time off in lieu") || text.includes("in lieu")) {
+    return "toil_taken";
+  }
+  if (text.includes("unpaid") || text.includes("lwop")) return "unpaid";
+  if (text.includes("annual") || text.includes("vacation")) return "annual";
+  return "other";
+}
+
+function getLeaveCategoryLabel(category: string, fallbackName?: string | null): string {
+  if (fallbackName && fallbackName.trim()) return fallbackName.trim();
+  switch (category) {
+    case "annual":
+      return "Annual Leave";
+    case "sick":
+      return "Sick Leave";
+    case "family_responsibility":
+      return "Family Responsibility Leave";
+    case "toil_taken":
+      return "Time Off in Lieu (TOIL)";
+    case "maternity":
+      return "Maternity Leave";
+    case "parental":
+      return "Parental Leave";
+    case "unpaid":
+      return "Unpaid Leave";
+    default:
+      return "Leave";
+  }
+}
 
 function formatTime(val: string | null): string {
   if (!val) return "--:--";
@@ -307,6 +354,31 @@ export default function EmployeeMiniReportingPanel({
     });
   }, [leaveRequests, effectiveStartDate, effectiveEndDate]);
 
+  // Lookup map of leave types by ID (from leaveTypes prop and fallback leaveBalances)
+  const leaveTypeById = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; category: string; is_paid: boolean }>();
+    for (const lt of leaveTypes ?? []) {
+      map.set(lt.id, {
+        id: lt.id,
+        name: lt.name,
+        category: lt.category,
+        is_paid: lt.is_paid,
+      });
+    }
+    for (const b of leaveBalances ?? []) {
+      const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+      if (rel && rel.id && !map.has(rel.id)) {
+        map.set(rel.id, {
+          id: rel.id,
+          name: rel.name,
+          category: rel.category,
+          is_paid: rel.is_paid,
+        });
+      }
+    }
+    return map;
+  }, [leaveTypes, leaveBalances]);
+
   // Generate ALL days in the payroll cycle (worked days, unclocked drafts, leave, holidays, rest days)
   const cycleDays = useMemo<DailyTimesheetItem[]>(() => {
     const dates = enumerateDates(effectiveStartDate, effectiveEndDate);
@@ -343,7 +415,76 @@ export default function EmployeeMiniReportingPanel({
         else if (entry.late_arrival) warningText = "Late arrival";
         else if (entry.early_departure) warningText = "Early departure";
 
-        const isWorked = Boolean(entry.clock_in || entry.clock_out || paid > 0);
+        const hasClockings = Boolean(entry.clock_in || entry.clock_out);
+        const entryLeaveMeta = entry.leave_type_id
+          ? leaveTypeById.get(entry.leave_type_id)
+          : undefined;
+        const notesLower = (entry.notes || "").toLowerCase();
+        const looksLikeLeaveNote =
+          !hasClockings &&
+          !holiday &&
+          (notesLower.includes("leave") ||
+            notesLower.includes("sick") ||
+            notesLower.includes("annual") ||
+            notesLower.includes("maternity") ||
+            notesLower.includes("family responsibility") ||
+            notesLower.includes("toil") ||
+            notesLower.includes("time off in lieu"));
+        const isLeaveEntry =
+          !hasClockings &&
+          (Boolean(entry.leave_type_id) ||
+            looksLikeLeaveNote ||
+            (Boolean(matchingLeave) && paid <= 8));
+
+        if (isLeaveEntry) {
+          const reqLeaveMeta = matchingLeave?.leave_type_id
+            ? leaveTypeById.get(matchingLeave.leave_type_id)
+            : undefined;
+          const resolvedName =
+            entryLeaveMeta?.name ||
+            reqLeaveMeta?.name ||
+            matchingLeave?.leaveTypeName ||
+            (entry.notes && entry.notes.length <= 40 ? entry.notes : null);
+          const leaveCategory = inferLeaveCategory(
+            `${resolvedName || ""} ${entry.notes || ""} ${matchingLeave?.reason || ""}`,
+            entryLeaveMeta?.category || reqLeaveMeta?.category,
+          );
+          const leaveTypeName = getLeaveCategoryLabel(leaveCategory, resolvedName);
+          const effectiveStatus =
+            matchingLeave && entry.status === "draft" && matchingLeave.status !== "draft"
+              ? matchingLeave.status
+              : entry.status;
+          const isApproved = effectiveStatus === "approved" || effectiveStatus === "locked";
+          const isPaidType =
+            entryLeaveMeta?.is_paid ?? reqLeaveMeta?.is_paid ?? leaveCategory !== "unpaid";
+          const leavePaid = paid > 0 ? paid : isApproved && isPaidType ? 8 : 0;
+
+          return {
+            date,
+            dayOfWeek,
+            type: "leave",
+            status: effectiveStatus,
+            clockIn: null,
+            lunchStart: null,
+            lunchEnd: null,
+            clockOut: null,
+            lunch: null,
+            normalHours: 0,
+            overtimeHours: 0,
+            paidHours: leavePaid,
+            notes: entry.notes || leaveTypeName,
+            warningNotes: null,
+            hasWarning: false,
+            entry,
+            leave: matchingLeave,
+            leaveCategory,
+            leaveTypeName,
+            locationEvents: [],
+            workstationName: workstationName ?? null,
+          };
+        }
+
+        const isWorked = Boolean(hasClockings || paid > 0);
 
         return {
           date,
@@ -367,8 +508,21 @@ export default function EmployeeMiniReportingPanel({
         };
       }
 
-      if (matchingLeave) {
-        const isApproved = matchingLeave.status === "approved";
+      if (matchingLeave && !isWeekend && !holiday) {
+        const isApproved = matchingLeave.status === "approved" || matchingLeave.status === "locked";
+        const reqLeaveMeta = matchingLeave.leave_type_id
+          ? leaveTypeById.get(matchingLeave.leave_type_id)
+          : undefined;
+        const leaveCategory = inferLeaveCategory(
+          `${matchingLeave.leaveTypeName || ""} ${reqLeaveMeta?.name || ""} ${matchingLeave.reason || ""}`,
+          reqLeaveMeta?.category,
+        );
+        const leaveTypeName = getLeaveCategoryLabel(
+          leaveCategory,
+          matchingLeave.leaveTypeName || reqLeaveMeta?.name,
+        );
+        const isPaidType = reqLeaveMeta?.is_paid ?? leaveCategory !== "unpaid";
+
         return {
           date,
           dayOfWeek,
@@ -381,11 +535,13 @@ export default function EmployeeMiniReportingPanel({
           lunch: null,
           normalHours: 0,
           overtimeHours: 0,
-          paidHours: isApproved ? 8 : 0,
+          paidHours: isApproved && isPaidType ? 8 : 0,
           notes: matchingLeave.reason
-            ? `${matchingLeave.leaveTypeName ?? "Leave"}: ${matchingLeave.reason}`
-            : (matchingLeave.leaveTypeName ?? "Leave"),
+            ? `${leaveTypeName}: ${matchingLeave.reason}`
+            : leaveTypeName,
           leave: matchingLeave,
+          leaveCategory,
+          leaveTypeName,
           locationEvents: [],
         };
       }
@@ -454,6 +610,7 @@ export default function EmployeeMiniReportingPanel({
     periodLeaves,
     holidayMap,
     workstationName,
+    leaveTypeById,
   ]);
 
   // Aggregated hours and period metrics
@@ -468,6 +625,32 @@ export default function EmployeeMiniReportingPanel({
     let leaveHours = 0;
     let leaveDays = 0;
     let draftDays = 0;
+    let unloggedPastWeekdays = 0;
+
+    let annualHours = 0;
+    let annualDays = 0;
+    let sickHours = 0;
+    let sickDays = 0;
+    let familyResponsibilityHours = 0;
+    let familyResponsibilityDays = 0;
+    let toilHours = 0;
+    let toilDays = 0;
+    let otherLeaveHours = 0;
+    let otherLeaveDays = 0;
+
+    const pendingApprovalDates: string[] = [];
+    const notSentDates: string[] = [];
+    const rejectedDates: string[] = [];
+    const breakdownMap = new Map<string, TimesheetLeaveBreakdownItem>();
+
+    let maternityDaysCount = 0;
+    let maternityHoursCount = 0;
+    let maternityMinDate: string | null = null;
+    let maternityMaxDate: string | null = null;
+    let maternityStatus: LeaveAuditStatus | null = null;
+    let nonMaternityActiveCount = 0;
+
+    const todayIso = new Date().toISOString().slice(0, 10);
 
     for (const d of cycleDays) {
       if (d.type === "worked") {
@@ -484,20 +667,145 @@ export default function EmployeeMiniReportingPanel({
 
         if (d.paidHours > 0 || d.clockIn || d.clockOut) {
           daysWorked += 1;
+          nonMaternityActiveCount += 1;
         }
 
         if (d.entry?.missing_clocking) missingClockings += 1;
         if (d.entry?.late_arrival) lateArrivals += 1;
         if (d.entry?.early_departure) earlyDepartures += 1;
       } else if (d.type === "leave") {
-        if (d.status === "approved") {
+        const rawStatus: LeaveAuditStatus =
+          d.status === "approved" || d.status === "locked"
+            ? "approved"
+            : d.status === "submitted"
+              ? "submitted"
+              : d.status === "rejected"
+                ? "rejected"
+                : "draft";
+
+        const category = d.leaveCategory || "other";
+        const label = d.leaveTypeName || getLeaveCategoryLabel(category);
+        const expectedHours =
+          d.paidHours > 0
+            ? d.paidHours
+            : Number(d.entry?.paid_hours ?? 0) > 0
+              ? Number(d.entry?.paid_hours ?? 0)
+              : 8;
+        const dayFraction = Number((expectedHours / 8).toFixed(2));
+
+        if (rawStatus === "approved") {
           leaveDays += 1;
           leaveHours += d.paidHours;
+
+          if (category === "annual") {
+            annualHours += expectedHours;
+            annualDays += dayFraction;
+          } else if (category === "sick") {
+            sickHours += expectedHours;
+            sickDays += dayFraction;
+          } else if (category === "family_responsibility") {
+            familyResponsibilityHours += expectedHours;
+            familyResponsibilityDays += dayFraction;
+          } else if (category === "toil_taken") {
+            toilHours += expectedHours;
+            toilDays += dayFraction;
+          } else {
+            otherLeaveHours += expectedHours;
+            otherLeaveDays += dayFraction;
+          }
+        } else if (rawStatus === "submitted") {
+          pendingApprovalDates.push(d.date);
+        } else if (rawStatus === "rejected") {
+          rejectedDates.push(d.date);
+        } else {
+          notSentDates.push(d.date);
         }
+
+        if (category === "maternity") {
+          maternityDaysCount += 1;
+          maternityHoursCount += d.paidHours > 0 ? d.paidHours : expectedHours;
+          if (!maternityMinDate || d.date < maternityMinDate) maternityMinDate = d.date;
+          if (!maternityMaxDate || d.date > maternityMaxDate) maternityMaxDate = d.date;
+          if (!maternityStatus) maternityStatus = rawStatus;
+        } else {
+          nonMaternityActiveCount += 1;
+        }
+
+        const key = `${category}::${rawStatus}::${label}`;
+        const existing = breakdownMap.get(key);
+        if (existing) {
+          existing.hours = Number((existing.hours + expectedHours).toFixed(2));
+          existing.days = Number((existing.days + dayFraction).toFixed(2));
+          existing.dates.push(d.date);
+        } else {
+          breakdownMap.set(key, {
+            key,
+            label,
+            category,
+            status: rawStatus,
+            hours: Number(expectedHours.toFixed(2)),
+            days: Number(dayFraction.toFixed(2)),
+            dates: [d.date],
+          });
+        }
+      } else if (d.type === "holiday" && d.paidHours > 0) {
+        nonMaternityActiveCount += 1;
       } else if (d.type === "draft") {
         draftDays += 1;
+        if (d.date <= todayIso) {
+          unloggedPastWeekdays += 1;
+        }
       }
     }
+
+    // Also inspect periodLeaves directly in case a Maternity leave request covers weekends or has broader range
+    const maternityReq = periodLeaves.find((l) => {
+      const lt = l.leave_type_id ? leaveTypeById.get(l.leave_type_id) : undefined;
+      return inferLeaveCategory(`${l.leaveTypeName || ""} ${lt?.name || ""}`, lt?.category) === "maternity";
+    });
+    const isOnMaternity = maternityDaysCount > 0 || Boolean(maternityReq);
+    const maternityStart = maternityReq?.start_date || maternityMinDate;
+    const maternityEnd = maternityReq?.end_date || maternityMaxDate;
+    if (maternityReq && !maternityStatus) {
+      maternityStatus =
+        maternityReq.status === "approved" || maternityReq.status === "locked"
+          ? "approved"
+          : maternityReq.status === "submitted"
+            ? "submitted"
+            : maternityReq.status === "rejected"
+              ? "rejected"
+              : "draft";
+    }
+
+    const leaveAudit: TimesheetLeaveAuditSummary = {
+      annualHours: Number(annualHours.toFixed(2)),
+      annualDays: Number(annualDays.toFixed(2)),
+      sickHours: Number(sickHours.toFixed(2)),
+      sickDays: Number(sickDays.toFixed(2)),
+      familyResponsibilityHours: Number(familyResponsibilityHours.toFixed(2)),
+      familyResponsibilityDays: Number(familyResponsibilityDays.toFixed(2)),
+      toilHours: Number(toilHours.toFixed(2)),
+      toilDays: Number(toilDays.toFixed(2)),
+      otherLeaveHours: Number(otherLeaveHours.toFixed(2)),
+      otherLeaveDays: Number(otherLeaveDays.toFixed(2)),
+      pendingApprovalDays: pendingApprovalDates.length,
+      pendingApprovalDates,
+      notSentDays: notSentDates.length,
+      notSentDates,
+      rejectedDays: rejectedDates.length,
+      rejectedDates,
+      breakdown: Array.from(breakdownMap.values()),
+      maternity: {
+        isOnMaternity,
+        isEntirePeriodMaternity: isOnMaternity && nonMaternityActiveCount === 0,
+        startDate: maternityStart ?? null,
+        endDate: maternityEnd ?? null,
+        status: maternityStatus,
+        totalDays: maternityDaysCount,
+        totalHours: Number(maternityHoursCount.toFixed(2)),
+        label: "Maternity Leave",
+      },
+    };
 
     const totalOvertime = Number((ot15 + ot20).toFixed(2));
     const totalPaid = Number((workedHours + totalOvertime + leaveHours).toFixed(2));
@@ -510,13 +818,15 @@ export default function EmployeeMiniReportingPanel({
       leaveHours: Number(leaveHours.toFixed(2)),
       leaveDays,
       draftDays,
+      unloggedPastWeekdays,
       totalPaid,
       daysWorked,
       missingClockings,
       lateArrivals,
       earlyDepartures,
+      leaveAudit,
     };
-  }, [cycleDays, holidayMap]);
+  }, [cycleDays, holidayMap, periodLeaves, leaveTypeById]);
 
   // Filtered cycle days based on tab selection, search term, and status filter
   const filteredDays = useMemo(() => {
@@ -604,6 +914,10 @@ export default function EmployeeMiniReportingPanel({
         overtimeHours: d.overtimeHours,
         paidHours: d.paidHours,
         status: displayStatus,
+        rawStatus: d.status,
+        rowType: d.type,
+        leaveCategory: d.leaveCategory ?? null,
+        leaveTypeName: d.leaveTypeName ?? null,
         workstation: d.workstationName || workstationName || "--",
         notes: d.notes,
       };
@@ -632,6 +946,8 @@ export default function EmployeeMiniReportingPanel({
         overtimeHours: metrics.totalOvertime,
         leaveHours: metrics.leaveHours,
         missingCount: metrics.missingClockings,
+        unloggedPastWeekdays: metrics.unloggedPastWeekdays,
+        leaveAudit: metrics.leaveAudit,
       },
       dailyRows,
     };
@@ -832,6 +1148,167 @@ export default function EmployeeMiniReportingPanel({
                 : "✓"}
           </p>
         </div>
+      </div>
+
+      {/* Compact Leave Taken Breakdown & Cycle Audit Summary */}
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 min-w-0">
+          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+              Annual Leave Taken
+            </span>
+            <div className="mt-0.5 flex items-baseline justify-between gap-1">
+              <span className="text-sm font-black font-mono text-purple-950">
+                {metrics.leaveAudit.annualHours.toFixed(1)}h
+              </span>
+              <span className="text-[10px] font-semibold text-purple-700">
+                {metrics.leaveAudit.annualDays.toFixed(1)}d
+              </span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+              Sick Leave Taken
+            </span>
+            <div className="mt-0.5 flex items-baseline justify-between gap-1">
+              <span className="text-sm font-black font-mono text-purple-950">
+                {metrics.leaveAudit.sickHours.toFixed(1)}h
+              </span>
+              <span className="text-[10px] font-semibold text-purple-700">
+                {metrics.leaveAudit.sickDays.toFixed(1)}d
+              </span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+              Family Resp. Taken
+            </span>
+            <div className="mt-0.5 flex items-baseline justify-between gap-1">
+              <span className="text-sm font-black font-mono text-purple-950">
+                {metrics.leaveAudit.familyResponsibilityHours.toFixed(1)}h
+              </span>
+              <span className="text-[10px] font-semibold text-purple-700">
+                {metrics.leaveAudit.familyResponsibilityDays.toFixed(1)}d
+              </span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
+              Time Off In Lieu
+            </span>
+            <div className="mt-0.5 flex items-baseline justify-between gap-1">
+              <span className="text-sm font-black font-mono text-purple-950">
+                {metrics.leaveAudit.toilHours.toFixed(1)}h
+              </span>
+              <span className="text-[10px] font-semibold text-purple-700">
+                {metrics.leaveAudit.toilDays.toFixed(1)}d
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {(metrics.leaveAudit.notSentDays > 0 ||
+          metrics.leaveAudit.pendingApprovalDays > 0 ||
+          metrics.leaveAudit.rejectedDays > 0 ||
+          (metrics.unloggedPastWeekdays > 0 && !metrics.leaveAudit.maternity.isEntirePeriodMaternity)) && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 space-y-1">
+            {metrics.leaveAudit.notSentDays > 0 && (
+              <p className="font-semibold">
+                <AlertTriangle className="inline size-3.5 mr-1 text-amber-700" />
+                {metrics.leaveAudit.notSentDays} leave day(s) not sent to manager for approval:{" "}
+                <span className="font-mono">{metrics.leaveAudit.notSentDates.join(", ")}</span>
+              </p>
+            )}
+            {metrics.leaveAudit.pendingApprovalDays > 0 && (
+              <p className="font-semibold">
+                <Clock className="inline size-3.5 mr-1 text-amber-700" />
+                {metrics.leaveAudit.pendingApprovalDays} leave day(s) pending manager approval:{" "}
+                <span className="font-mono">{metrics.leaveAudit.pendingApprovalDates.join(", ")}</span>
+              </p>
+            )}
+            {metrics.leaveAudit.rejectedDays > 0 && (
+              <p className="font-semibold text-rose-800">
+                <AlertTriangle className="inline size-3.5 mr-1 text-rose-600" />
+                {metrics.leaveAudit.rejectedDays} leave day(s) rejected:{" "}
+                <span className="font-mono">{metrics.leaveAudit.rejectedDates.join(", ")}</span>
+              </p>
+            )}
+            {metrics.unloggedPastWeekdays > 0 && !metrics.leaveAudit.maternity.isEntirePeriodMaternity && (
+              <p className="text-amber-800">
+                <Info className="inline size-3.5 mr-1 text-amber-600" />
+                {metrics.unloggedPastWeekdays} past weekday(s) have no shift or leave added yet (Draft).
+              </p>
+            )}
+          </div>
+        )}
+
+        {metrics.leaveAudit.maternity.isOnMaternity && (
+          <div className="rounded-xl border border-pink-300 bg-pink-50 px-3.5 py-3 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs sm:text-sm font-black uppercase tracking-tight text-pink-950">
+                You are on Maternity Leave
+              </p>
+              <p className="text-[11px] text-pink-800 mt-0.5">
+                {metrics.leaveAudit.maternity.startDate || effectiveStartDate} to{" "}
+                {metrics.leaveAudit.maternity.endDate || effectiveEndDate} ·{" "}
+                {metrics.leaveAudit.maternity.totalDays} working day(s)
+              </p>
+            </div>
+            <span className="rounded-full bg-pink-200/80 px-2.5 py-0.5 text-[10px] font-bold uppercase text-pink-900 shrink-0">
+              {metrics.leaveAudit.maternity.status === "approved"
+                ? "Approved"
+                : metrics.leaveAudit.maternity.status === "submitted"
+                  ? "Pending Approval"
+                  : metrics.leaveAudit.maternity.status === "rejected"
+                    ? "Rejected"
+                    : "Not Sent"}
+            </span>
+          </div>
+        )}
+
+        {metrics.leaveAudit.breakdown.filter((b) => b.category !== "maternity").length > 0 && (
+          <div className="rounded-xl border border-border bg-surface px-3 py-2.5 shadow-2xs">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
+              Leave Days Breakdown
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {metrics.leaveAudit.breakdown
+                .filter((b) => b.category !== "maternity")
+                .map((b) => (
+                  <div
+                    key={b.key}
+                    className="rounded-lg border border-border bg-surface-muted/40 px-2.5 py-1.5 text-[11px] flex flex-col gap-0.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-foreground truncate">{b.label}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase shrink-0 ${
+                          b.status === "approved"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : b.status === "submitted"
+                              ? "bg-amber-100 text-amber-800"
+                              : b.status === "rejected"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {b.status === "approved"
+                          ? "Approved"
+                          : b.status === "submitted"
+                            ? "Pending Approval"
+                            : b.status === "rejected"
+                              ? "Rejected"
+                              : "Not Sent (Draft)"}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted truncate">
+                      <span className="font-mono font-bold text-foreground">{b.hours.toFixed(1)}h</span> ({b.days.toFixed(1)}d) · {b.dates.join(", ")}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Leave Entitlements & Balances Drawer */}

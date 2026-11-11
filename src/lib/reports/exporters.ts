@@ -257,6 +257,50 @@ export function exportReportToPdf(
   triggerPrintHtml(html);
 }
 
+export type LeaveAuditStatus = "approved" | "submitted" | "draft" | "rejected";
+
+export type TimesheetLeaveBreakdownItem = {
+  key: string;
+  label: string;
+  category: string;
+  status: LeaveAuditStatus;
+  hours: number;
+  days: number;
+  dates: string[];
+};
+
+export type TimesheetMaternitySummary = {
+  isOnMaternity: boolean;
+  isEntirePeriodMaternity: boolean;
+  startDate: string | null;
+  endDate: string | null;
+  status: LeaveAuditStatus | null;
+  totalDays: number;
+  totalHours: number;
+  label: string;
+};
+
+export type TimesheetLeaveAuditSummary = {
+  annualHours: number;
+  annualDays: number;
+  sickHours: number;
+  sickDays: number;
+  familyResponsibilityHours: number;
+  familyResponsibilityDays: number;
+  toilHours: number;
+  toilDays: number;
+  otherLeaveHours: number;
+  otherLeaveDays: number;
+  pendingApprovalDays: number;
+  pendingApprovalDates: string[];
+  notSentDays: number;
+  notSentDates: string[];
+  rejectedDays: number;
+  rejectedDates: string[];
+  breakdown: TimesheetLeaveBreakdownItem[];
+  maternity: TimesheetMaternitySummary;
+};
+
 export type TimesheetPdfDailyRow = {
   date: string;
   dayOfWeek: string;
@@ -267,6 +311,10 @@ export type TimesheetPdfDailyRow = {
   overtimeHours: number;
   paidHours: number;
   status: string;
+  rawStatus?: string;
+  rowType?: "worked" | "leave" | "holiday" | "rest" | "draft";
+  leaveCategory?: string | null;
+  leaveTypeName?: string | null;
   workstation?: string | null;
   notes?: string | null;
   hasDeviance?: boolean;
@@ -293,9 +341,33 @@ export type TimesheetPdfOptions = {
     overtimeHours: number;
     leaveHours: number;
     missingCount: number;
+    unloggedPastWeekdays?: number;
+    leaveAudit?: TimesheetLeaveAuditSummary;
   };
   dailyRows: TimesheetPdfDailyRow[];
 };
+
+function escapeHtmlText(value: string | null | undefined): string {
+  if (!value) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatLeaveStatusPillHtml(status: LeaveAuditStatus): string {
+  if (status === "approved") {
+    return `<span style="display:inline-block;padding:1px 5px;border-radius:9999px;font-size:6.5px;font-weight:700;text-transform:uppercase;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;">Approved</span>`;
+  }
+  if (status === "submitted") {
+    return `<span style="display:inline-block;padding:1px 5px;border-radius:9999px;font-size:6.5px;font-weight:700;text-transform:uppercase;background:#fef3c7;color:#b45309;border:1px solid #fde68a;">Pending Approval</span>`;
+  }
+  if (status === "rejected") {
+    return `<span style="display:inline-block;padding:1px 5px;border-radius:9999px;font-size:6.5px;font-weight:700;text-transform:uppercase;background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;">Rejected</span>`;
+  }
+  return `<span style="display:inline-block;padding:1px 5px;border-radius:9999px;font-size:6.5px;font-weight:700;text-transform:uppercase;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;">Not Sent (Draft)</span>`;
+}
 
 export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
   const {
@@ -316,16 +388,17 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
   // Strictly filter out days where employees were not at work and had no leave whatsoever
   const activeDailyRows = dailyRows.filter((r) => {
     const statusLower = (r.status || "").toLowerCase();
+    const isLeave = r.rowType === "leave" || statusLower.includes("leave");
     const isWorked = Boolean(
-      r.clockIn ||
-      r.clockOut ||
-      (Number(r.paidHours) || 0) > 0 ||
-      (Number(r.normalHours) || 0) > 0 ||
-      (Number(r.overtimeHours) || 0) > 0 ||
-      statusLower === "approved" ||
-      statusLower === "submitted",
+      !isLeave &&
+        (r.clockIn ||
+          r.clockOut ||
+          (Number(r.paidHours) || 0) > 0 ||
+          (Number(r.normalHours) || 0) > 0 ||
+          (Number(r.overtimeHours) || 0) > 0 ||
+          statusLower === "approved" ||
+          statusLower === "submitted"),
     );
-    const isLeave = statusLower.includes("leave");
     const isPaidHoliday = statusLower.includes("holiday") && (Number(r.paidHours) || 0) > 0;
     const isRestOrDraftWithoutHours =
       (statusLower.includes("rest") || statusLower.includes("weekend") || statusLower === "draft") &&
@@ -333,55 +406,236 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
       !r.clockOut &&
       (Number(r.paidHours) || 0) === 0;
 
-    if (isRestOrDraftWithoutHours) return false;
+    if (isRestOrDraftWithoutHours && !isLeave) return false;
     return isWorked || isLeave || isPaidHoliday;
   });
+
+  const leaveAudit: TimesheetLeaveAuditSummary = metrics.leaveAudit ?? {
+    annualHours: 0,
+    annualDays: 0,
+    sickHours: 0,
+    sickDays: 0,
+    familyResponsibilityHours: 0,
+    familyResponsibilityDays: 0,
+    toilHours: 0,
+    toilDays: 0,
+    otherLeaveHours: 0,
+    otherLeaveDays: 0,
+    pendingApprovalDays: 0,
+    pendingApprovalDates: [],
+    notSentDays: 0,
+    notSentDates: [],
+    rejectedDays: 0,
+    rejectedDates: [],
+    breakdown: [],
+    maternity: {
+      isOnMaternity: false,
+      isEntirePeriodMaternity: false,
+      startDate: null,
+      endDate: null,
+      status: null,
+      totalDays: 0,
+      totalHours: 0,
+      label: "Maternity Leave",
+    },
+  };
+
+  const isMaternityRow = (r: TimesheetPdfDailyRow) =>
+    r.leaveCategory === "maternity" ||
+    (r.leaveTypeName || "").toLowerCase().includes("maternity") ||
+    (r.notes || "").toLowerCase().includes("maternity");
+
+  const maternityRows = activeDailyRows.filter(isMaternityRow);
+  const nonMaternityRows = activeDailyRows.filter((r) => !isMaternityRow(r));
+  const isOnMaternity = leaveAudit.maternity.isOnMaternity || maternityRows.length > 0;
+  const isEntirePeriodMaternity =
+    leaveAudit.maternity.isEntirePeriodMaternity ||
+    (isOnMaternity && nonMaternityRows.length === 0);
 
   const totalNormal = activeDailyRows.reduce((acc, r) => acc + (Number(r.normalHours) || 0), 0);
   const totalOt = activeDailyRows.reduce((acc, r) => acc + (Number(r.overtimeHours) || 0), 0);
   const totalPaid = activeDailyRows.reduce((acc, r) => acc + (Number(r.paidHours) || 0), 0);
+  const displayRowsForTable = isOnMaternity ? nonMaternityRows : activeDailyRows;
 
-  const rowsHtml = activeDailyRows.length === 0
-    ? `<tr><td colspan="11" style="padding: 16px; text-align: center; color: #64748b; font-size: 8.5px;">No worked shifts or authorized leave recorded for this period.</td></tr>`
-    : activeDailyRows
-    .map((r, idx) => {
-      const isAlt = idx % 2 === 1;
-      const bg = isAlt ? "#f8fafc" : "#ffffff";
-      const statusLower = r.status.toLowerCase();
-      let statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #f1f5f9; color: #475569;">${r.status}</span>`;
-      if (statusLower === "approved") {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">Approved</span>`;
-      } else if (statusLower === "submitted") {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">Submitted</span>`;
-      } else if (statusLower === "draft") {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #e2e8f0; color: #334155;">Draft</span>`;
-      } else if (statusLower.includes("leave")) {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe;">Leave</span>`;
-      } else if (statusLower.includes("holiday")) {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe;">Holiday</span>`;
-      } else if (statusLower.includes("rest") || statusLower.includes("weekend")) {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #f8fafc; color: #94a3b8;">Rest Day</span>`;
-      } else if (statusLower === "rejected") {
-        statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">Rejected</span>`;
-      }
-
-      return `
-        <tr style="background: ${bg}; border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 4px 6px; font-size: 8px; font-weight: 600; color: #1e293b; white-space: nowrap;">${r.date}</td>
-          <td style="padding: 4px 6px; font-size: 8px; color: #64748b; font-weight: 600;">${r.dayOfWeek}</td>
-          <td style="padding: 4px 6px; font-size: 8px; color: #334155; font-family: monospace;">${r.clockIn || "--:--"}</td>
-          <td style="padding: 4px 6px; font-size: 8px; color: #334155; font-family: monospace;">${r.lunch || "--:--"}</td>
-          <td style="padding: 4px 6px; font-size: 8px; color: #334155; font-family: monospace;">${r.clockOut || "--:--"}</td>
-          <td style="padding: 4px 6px; font-size: 8px; text-align: right; font-variant-numeric: tabular-nums; color: #1e293b;">${Number(r.normalHours).toFixed(2)}h</td>
-          <td style="padding: 4px 6px; font-size: 8px; text-align: right; font-variant-numeric: tabular-nums; color: ${r.overtimeHours > 0 ? "#b45309" : "#64748b"}; font-weight: ${r.overtimeHours > 0 ? "700" : "normal"};">${Number(r.overtimeHours).toFixed(2)}h</td>
-          <td style="padding: 4px 6px; font-size: 8.5px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; color: #064e3b;">${Number(r.paidHours).toFixed(2)}h</td>
-          <td style="padding: 4px 6px; text-align: center;">${statusBadge}</td>
-          <td style="padding: 4px 6px; font-size: 7.5px; color: #475569; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${r.workstation || "--"}</td>
-          <td style="padding: 4px 6px; font-size: 7.5px; color: #64748b; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${r.notes || "--"}</td>
+  const maternitySummaryRowHtml =
+    isOnMaternity && !isEntirePeriodMaternity
+      ? `
+        <tr style="background: #fdf2f8; border-bottom: 1px solid #fbcfe8;">
+          <td style="padding: 5px 6px; font-size: 8px; font-weight: 700; color: #9d174d; white-space: nowrap;">
+            ${escapeHtmlText(leaveAudit.maternity.startDate || maternityRows[0]?.date || startDate)} &ndash; ${escapeHtmlText(leaveAudit.maternity.endDate || maternityRows[maternityRows.length - 1]?.date || endDate)}
+          </td>
+          <td style="padding: 5px 6px; font-size: 8px; color: #9d174d; font-weight: 600;">${leaveAudit.maternity.totalDays || maternityRows.length}d</td>
+          <td colspan="3" style="padding: 5px 6px; font-size: 8px; font-weight: 700; color: #831843;">You are on Maternity Leave</td>
+          <td style="padding: 5px 6px; font-size: 8px; text-align: right; color: #9d174d;">0.00h</td>
+          <td style="padding: 5px 6px; font-size: 8px; text-align: right; color: #9d174d;">0.00h</td>
+          <td style="padding: 5px 6px; font-size: 8.5px; text-align: right; font-weight: 800; color: #9d174d;">${Number(leaveAudit.maternity.totalHours || 0).toFixed(2)}h</td>
+          <td style="padding: 5px 6px; text-align: center;">${formatLeaveStatusPillHtml(leaveAudit.maternity.status || "approved")}</td>
+          <td colspan="2" style="padding: 5px 6px; font-size: 7.5px; color: #9d174d;">Collapsed Maternity Leave period</td>
         </tr>
+      `
+      : "";
+
+  const rowsHtml = isEntirePeriodMaternity
+    ? ""
+    : displayRowsForTable.length === 0 && !maternitySummaryRowHtml
+      ? `<tr><td colspan="11" style="padding: 14px; text-align: center; color: #64748b; font-size: 8.5px;">No worked shifts or authorized leave recorded for this period.</td></tr>`
+      : displayRowsForTable
+          .map((r, idx) => {
+            const isAlt = idx % 2 === 1;
+            const bg = isAlt ? "#f8fafc" : "#ffffff";
+            const statusLower = r.status.toLowerCase();
+            let statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #f1f5f9; color: #475569;">${escapeHtmlText(r.status)}</span>`;
+            if (statusLower === "approved") {
+              statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">Approved</span>`;
+            } else if (statusLower === "submitted") {
+              statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">Submitted</span>`;
+            } else if (statusLower === "draft") {
+              statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #e2e8f0; color: #334155;">Draft</span>`;
+            } else if (statusLower.includes("leave")) {
+              const rawLower = (r.rawStatus || "").toLowerCase();
+              if (rawLower === "submitted") {
+                statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7px; font-weight: 700; text-transform: uppercase; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">Leave · Pending</span>`;
+              } else if (rawLower === "draft") {
+                statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7px; font-weight: 700; text-transform: uppercase; background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1;">Leave · Not Sent</span>`;
+              } else if (rawLower === "rejected") {
+                statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7px; font-weight: 700; text-transform: uppercase; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">Leave · Rejected</span>`;
+              } else {
+                statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7px; font-weight: 700; text-transform: uppercase; background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe;">${escapeHtmlText(r.leaveTypeName || "Leave")}</span>`;
+              }
+            } else if (statusLower.includes("holiday")) {
+              statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe;">Holiday</span>`;
+            } else if (statusLower.includes("rest") || statusLower.includes("weekend")) {
+              statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #f8fafc; color: #94a3b8;">Rest Day</span>`;
+            } else if (statusLower === "rejected") {
+              statusBadge = `<span style="display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 7.5px; font-weight: 700; text-transform: uppercase; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca;">Rejected</span>`;
+            }
+
+            return `
+              <tr style="background: ${bg}; border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 4px 6px; font-size: 8px; font-weight: 600; color: #1e293b; white-space: nowrap;">${r.date}</td>
+                <td style="padding: 4px 6px; font-size: 8px; color: #64748b; font-weight: 600;">${r.dayOfWeek}</td>
+                <td style="padding: 4px 6px; font-size: 8px; color: #334155; font-family: monospace;">${r.clockIn || "--:--"}</td>
+                <td style="padding: 4px 6px; font-size: 8px; color: #334155; font-family: monospace;">${r.lunch || "--:--"}</td>
+                <td style="padding: 4px 6px; font-size: 8px; color: #334155; font-family: monospace;">${r.clockOut || "--:--"}</td>
+                <td style="padding: 4px 6px; font-size: 8px; text-align: right; font-variant-numeric: tabular-nums; color: #1e293b;">${Number(r.normalHours).toFixed(2)}h</td>
+                <td style="padding: 4px 6px; font-size: 8px; text-align: right; font-variant-numeric: tabular-nums; color: ${r.overtimeHours > 0 ? "#b45309" : "#64748b"}; font-weight: ${r.overtimeHours > 0 ? "700" : "normal"};">${Number(r.overtimeHours).toFixed(2)}h</td>
+                <td style="padding: 4px 6px; font-size: 8.5px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; color: #064e3b;">${Number(r.paidHours).toFixed(2)}h</td>
+                <td style="padding: 4px 6px; text-align: center;">${statusBadge}</td>
+                <td style="padding: 4px 6px; font-size: 7.5px; color: #475569; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtmlText(r.workstation || "--")}</td>
+                <td style="padding: 4px 6px; font-size: 7.5px; color: #64748b; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtmlText(r.notes || "--")}</td>
+              </tr>
+            `;
+          })
+          .join("") + maternitySummaryRowHtml;
+
+  const auditNotices: string[] = [];
+  if (leaveAudit.notSentDays > 0) {
+    auditNotices.push(
+      `<strong>${leaveAudit.notSentDays} leave day(s) not sent to manager for approval:</strong> ${escapeHtmlText(leaveAudit.notSentDates.join(", "))}`,
+    );
+  }
+  if (leaveAudit.pendingApprovalDays > 0) {
+    auditNotices.push(
+      `<strong>${leaveAudit.pendingApprovalDays} leave day(s) pending manager approval:</strong> ${escapeHtmlText(leaveAudit.pendingApprovalDates.join(", "))}`,
+    );
+  }
+  if (leaveAudit.rejectedDays > 0) {
+    auditNotices.push(
+      `<strong>${leaveAudit.rejectedDays} leave day(s) rejected:</strong> ${escapeHtmlText(leaveAudit.rejectedDates.join(", "))}`,
+    );
+  }
+  if ((metrics.unloggedPastWeekdays ?? 0) > 0 && !isEntirePeriodMaternity) {
+    auditNotices.push(
+      `<strong>${metrics.unloggedPastWeekdays} past weekday(s)</strong> have no clock-in or leave added yet (Draft).`,
+    );
+  }
+
+  const auditAlertsHtml =
+    auditNotices.length > 0
+      ? `<div class="audit-box audit-warn">${auditNotices.map((n) => `<div>&#9888; ${n}</div>`).join("")}</div>`
+      : leaveAudit.breakdown.length > 0 || isOnMaternity
+        ? `<div class="audit-box audit-ok">&#10003; All leave days in this payroll cycle have been submitted and approved by a manager.</div>`
+        : "";
+
+  const maternityBannerHtml = isOnMaternity
+    ? `
+      <div class="maternity-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div>
+            <div style="font-size:11px;font-weight:900;color:#831843;text-transform:uppercase;letter-spacing:0.3px;">
+              You are on Maternity Leave
+            </div>
+            <div style="font-size:8px;color:#9d174d;margin-top:2px;">
+              Period covered: <strong>${escapeHtmlText(leaveAudit.maternity.startDate || startDate)}</strong> to <strong>${escapeHtmlText(leaveAudit.maternity.endDate || endDate)}</strong>
+              &nbsp;&middot;&nbsp; ${leaveAudit.maternity.totalDays || maternityRows.length} working day(s)
+              ${leaveAudit.maternity.totalHours > 0 ? `&nbsp;&middot;&nbsp; ${Number(leaveAudit.maternity.totalHours).toFixed(1)}h` : ""}
+            </div>
+          </div>
+          <div>${formatLeaveStatusPillHtml(leaveAudit.maternity.status || "approved")}</div>
+        </div>
+      </div>
+    `
+    : "";
+
+  const nonMaternityBreakdown = leaveAudit.breakdown.filter((b) => b.category !== "maternity");
+  const leaveBreakdownHtml =
+    nonMaternityBreakdown.length > 0
+      ? `
+        <div class="breakdown-box">
+          <div class="breakdown-title">Leave Days Breakdown (${nonMaternityBreakdown.length} ${nonMaternityBreakdown.length === 1 ? "entry" : "entries"})</div>
+          <div class="breakdown-grid">
+            ${nonMaternityBreakdown
+              .map(
+                (b) => `
+                  <div class="breakdown-item">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                      <strong style="color:#0f172a;">${escapeHtmlText(b.label)}</strong>
+                      ${formatLeaveStatusPillHtml(b.status)}
+                    </div>
+                    <div style="color:#475569;margin-top:2px;">
+                      <strong>${Number(b.hours).toFixed(1)}h</strong> (${Number(b.days).toFixed(1)}d) &middot; ${escapeHtmlText(b.dates.join(", "))}
+                    </div>
+                  </div>
+                `,
+              )
+              .join("")}
+          </div>
+        </div>
+      `
+      : "";
+
+  const totalLeaveDays = Number(((Number(metrics.leaveHours || 0)) / 8).toFixed(1));
+  const dailyTableHtml = isEntirePeriodMaternity
+    ? ""
+    : `
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 72px;">Date</th>
+              <th style="width: 32px;">Day</th>
+              <th style="width: 48px;">Clock In</th>
+              <th style="width: 72px;">Lunch Break</th>
+              <th style="width: 48px;">Clock Out</th>
+              <th style="text-align: right; width: 50px;">Normal</th>
+              <th style="text-align: right; width: 45px;">OT</th>
+              <th style="text-align: right; width: 55px;">Total</th>
+              <th style="text-align: center; width: 68px;">Status</th>
+              <th>Workstation</th>
+              <th>Notes / Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr class="totals-row">
+              <td colspan="5" style="text-align: right; text-transform: uppercase;">Payroll Cycle Totals:</td>
+              <td style="text-align: right;">${totalNormal.toFixed(2)}h</td>
+              <td style="text-align: right;">${totalOt.toFixed(2)}h</td>
+              <td style="text-align: right; color: #4ade80 !important;">${totalPaid.toFixed(2)}h</td>
+              <td colspan="3" style="text-align: left; font-size: 7.5px; font-weight: normal; color: #cbd5e1;">${activeDailyRows.length} Shifts &amp; Leave Days</td>
+            </tr>
+          </tbody>
+        </table>
       `;
-    })
-    .join("");
 
   return `
     <!DOCTYPE html>
@@ -465,35 +719,102 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
           .kpi-row {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-            margin-bottom: 10px;
+            gap: 4px;
+            margin-bottom: 5px;
+          }
+          .kpi-leave-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            margin-bottom: 7px;
           }
           .kpi-tile {
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-left: 3px solid #2E9B5F;
-            border-radius: 6px;
-            padding: 5px 8px;
+            border-radius: 5px;
+            padding: 3.5px 6px;
           }
           .kpi-tile.kpi-accent {
             border-left-color: #f59e0b;
           }
+          .kpi-tile.kpi-leave {
+            border-left-color: #7c3aed;
+            background: #faf5ff;
+          }
           .kpi-tile-lbl {
-            font-size: 7.5px;
+            font-size: 6.5px;
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
+            letter-spacing: 0.2px;
           }
           .kpi-tile-val {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 900;
             color: #0f172a;
             font-variant-numeric: tabular-nums;
-            margin-top: 1px;
+            margin-top: 0.5px;
+            line-height: 1.15;
           }
           .kpi-tile-sub {
+            font-size: 6.5px;
+            color: #64748b;
+            line-height: 1.15;
+          }
+          .audit-box {
+            border-radius: 5px;
+            padding: 5px 8px;
+            margin-bottom: 7px;
+            font-size: 7.5px;
+            line-height: 1.35;
+          }
+          .audit-warn {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-left: 3px solid #d97706;
+            color: #78350f;
+          }
+          .audit-ok {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-left: 3px solid #16a34a;
+            color: #14532d;
+          }
+          .maternity-card {
+            background: #fdf2f8;
+            border: 1px solid #f9a8d4;
+            border-left: 4px solid #db2777;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+          }
+          .breakdown-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            padding: 5px 8px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+          }
+          .breakdown-title {
             font-size: 7px;
-            color: #94a3b8;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #334155;
+            letter-spacing: 0.4px;
+            margin-bottom: 4px;
+          }
+          .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px;
+          }
+          .breakdown-item {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 7px;
           }
           table {
             width: 100%;
@@ -635,9 +956,9 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
 
         <div class="kpi-row">
           <div class="kpi-tile">
-            <div class="kpi-tile-lbl">Total Paid Hours</div>
+            <div class="kpi-tile-lbl">Total Paid</div>
             <div class="kpi-tile-val" style="color: #065f46;">${totalPaid.toFixed(2)}h</div>
-            <div class="kpi-tile-sub">${metrics.daysWorked} days worked</div>
+            <div class="kpi-tile-sub">${metrics.daysWorked}d worked</div>
           </div>
           <div class="kpi-tile">
             <div class="kpi-tile-lbl">Normal Hours</div>
@@ -645,49 +966,49 @@ export function generateTimesheetPdfHtml(options: TimesheetPdfOptions): string {
             <div class="kpi-tile-sub">Standard shift</div>
           </div>
           <div class="kpi-tile kpi-accent">
-            <div class="kpi-tile-lbl">Overtime Hours</div>
+            <div class="kpi-tile-lbl">Overtime</div>
             <div class="kpi-tile-val" style="color: #b45309;">${totalOt.toFixed(2)}h</div>
             <div class="kpi-tile-sub">Approved OT</div>
           </div>
-          <div class="kpi-tile">
+          <div class="kpi-tile kpi-leave">
             <div class="kpi-tile-lbl">Leave Taken</div>
             <div class="kpi-tile-val" style="color: #6d28d9;">${Number(metrics.leaveHours || 0).toFixed(1)}h</div>
-            <div class="kpi-tile-sub">Authorized leave</div>
+            <div class="kpi-tile-sub">${totalLeaveDays.toFixed(1)}d authorized</div>
           </div>
           <div class="kpi-tile">
-            <div class="kpi-tile-lbl">Cycle Attendance</div>
+            <div class="kpi-tile-lbl">Attendance</div>
             <div class="kpi-tile-val">${metrics.daysWorked} / ${metrics.totalDaysInPeriod}</div>
             <div class="kpi-tile-sub">Days logged</div>
           </div>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 72px;">Date</th>
-              <th style="width: 32px;">Day</th>
-              <th style="width: 48px;">Clock In</th>
-              <th style="width: 72px;">Lunch Break</th>
-              <th style="width: 48px;">Clock Out</th>
-              <th style="text-align: right; width: 50px;">Normal</th>
-              <th style="text-align: right; width: 45px;">OT</th>
-              <th style="text-align: right; width: 55px;">Total</th>
-              <th style="text-align: center; width: 68px;">Status</th>
-              <th>Workstation</th>
-              <th>Notes / Remarks</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-            <tr class="totals-row">
-              <td colspan="5" style="text-align: right; text-transform: uppercase;">Payroll Cycle Totals:</td>
-              <td style="text-align: right;">${totalNormal.toFixed(2)}h</td>
-              <td style="text-align: right;">${totalOt.toFixed(2)}h</td>
-              <td style="text-align: right; color: #4ade80 !important;">${totalPaid.toFixed(2)}h</td>
-              <td colspan="3" style="text-align: left; font-size: 7.5px; font-weight: normal; color: #cbd5e1;">${activeDailyRows.length} Shifts &amp; Leave Days</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="kpi-leave-row">
+          <div class="kpi-tile kpi-leave">
+            <div class="kpi-tile-lbl">Annual Leave Taken</div>
+            <div class="kpi-tile-val" style="color: #5b21b6;">${leaveAudit.annualHours.toFixed(1)}h</div>
+            <div class="kpi-tile-sub">${leaveAudit.annualDays.toFixed(1)} days</div>
+          </div>
+          <div class="kpi-tile kpi-leave">
+            <div class="kpi-tile-lbl">Sick Leave Taken</div>
+            <div class="kpi-tile-val" style="color: #5b21b6;">${leaveAudit.sickHours.toFixed(1)}h</div>
+            <div class="kpi-tile-sub">${leaveAudit.sickDays.toFixed(1)} days</div>
+          </div>
+          <div class="kpi-tile kpi-leave">
+            <div class="kpi-tile-lbl">Family Resp. Taken</div>
+            <div class="kpi-tile-val" style="color: #5b21b6;">${leaveAudit.familyResponsibilityHours.toFixed(1)}h</div>
+            <div class="kpi-tile-sub">${leaveAudit.familyResponsibilityDays.toFixed(1)} days</div>
+          </div>
+          <div class="kpi-tile kpi-leave">
+            <div class="kpi-tile-lbl">Time Off In Lieu</div>
+            <div class="kpi-tile-val" style="color: #5b21b6;">${leaveAudit.toilHours.toFixed(1)}h</div>
+            <div class="kpi-tile-sub">${leaveAudit.toilDays.toFixed(1)} days</div>
+          </div>
+        </div>
+
+        ${auditAlertsHtml}
+        ${maternityBannerHtml}
+        ${leaveBreakdownHtml}
+        ${dailyTableHtml}
 
         <div class="sign-grid">
           <div class="sign-box">
