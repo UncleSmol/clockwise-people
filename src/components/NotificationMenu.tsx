@@ -416,7 +416,7 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
 
             {/* Device Native Notification Banner (PWA Mobile & Desktop Alert Hook - Digital Well Style) */}
             {permission !== "granted" ? (
-              <div className="digital-well rounded-2xl p-3 my-3 flex items-center justify-between gap-2.5 shadow-soft">
+              <div className="digital-well rounded-2xl p-3 mt-3 flex items-center justify-between gap-2.5 shadow-soft">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="grid size-7 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary border border-primary/20">
                     <BellRing className="size-3.5 stroke-[2.3]" />
@@ -439,21 +439,10 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
                   {requestingPerm ? "Enabling..." : "Enable"}
                 </button>
               </div>
-            ) : (
-              <div className="my-2.5 flex items-center justify-between px-1 text-[10px] font-bold text-primary">
-                <div className="flex items-center gap-1.5">
-                  <span className="relative flex size-2 shrink-0">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                    <span className="relative inline-flex size-2 rounded-full bg-primary shadow-[0_0_8px_rgba(46,155,95,0.8)]" />
-                  </span>
-                  <span>Device Alerts: Active</span>
-                </div>
-                <span className="text-[9px] text-muted uppercase font-extrabold tracking-wider">Live Sync</span>
-              </div>
-            )}
+            ) : null}
 
             {/* Notification List (Harmonized Cards) */}
-            <div className="max-h-[calc(100dvh-13rem)] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 pt-1">
+            <div className="max-h-[calc(100dvh-13rem)] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 pt-3">
               {liveNotifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
                   <div className="size-12 rounded-2xl flex items-center justify-center border border-primary/20 bg-primary/10 text-primary shadow-soft mb-2.5">
