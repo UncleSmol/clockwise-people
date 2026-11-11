@@ -16,11 +16,13 @@ import {
   UserCheck,
   UserPlus,
   Users,
+  Database,
 } from "lucide-react";
 import CreateCompanyModal from "./CreateCompanyModal";
 import CreateSysAdminEmployeeModal from "./CreateSysAdminEmployeeModal";
 import CredentialsRevealModal from "./CredentialsRevealModal";
 import ManageSuperAdminModal from "./ManageSuperAdminModal";
+import SuperAdminDatabaseMaintenancePanel from "./SuperAdminDatabaseMaintenancePanel";
 import { switchActiveCompanyAction, setSuperAdminRoleAction } from "@/lib/sysadmin/actions";
 import type { SysAdminCompanyOverview, SysAdminSuperAdminUser } from "@/lib/sysadmin/schema";
 
@@ -49,6 +51,7 @@ export default function SysAdminWorkspace({
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
   const [isManageSuperAdminOpen, setIsManageSuperAdminOpen] = useState(false);
   const [selectedTargetCompanyId, setSelectedTargetCompanyId] = useState<string>(activeCompanyId);
+  const [adminSubTab, setAdminSubTab] = useState<"tenants" | "database">("tenants");
 
   const [revealedCredentials, setRevealedCredentials] = useState<{
     email: string;
@@ -90,6 +93,11 @@ export default function SysAdminWorkspace({
   const openAddEmployeeForCompany = (companyId: string) => {
     setSelectedTargetCompanyId(companyId);
     setIsAddEmployeeOpen(true);
+  };
+
+  const openDatabaseMaintenanceForCompany = (companyId: string) => {
+    setSelectedTargetCompanyId(companyId);
+    setAdminSubTab("database");
   };
 
   return (
@@ -144,48 +152,104 @@ export default function SysAdminWorkspace({
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span className="truncate">Total Companies</span>
-              <Building2 className="size-4 shrink-0 text-primary" />
-            </div>
-            <div className="mt-1.5 text-2xl font-bold text-foreground">{companies.length}</div>
-            <div className="mt-0.5 truncate text-[11px] text-muted">Active workspace tenants</div>
-          </div>
+        {/* Sub-Tab Navigation: Tenants Overview vs Database Maintenance */}
+        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+          <button
+            type="button"
+            onClick={() => setAdminSubTab("tenants")}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+              adminSubTab === "tenants"
+                ? "bg-primary text-white shadow-soft"
+                : "text-muted hover:bg-surface-muted hover:text-foreground"
+            }`}
+          >
+            <Building2 className="size-3.5" />
+            <span>Tenant Overview & Companies</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] ${
+                adminSubTab === "tenants"
+                  ? "bg-white/20 text-white"
+                  : "bg-surface-muted text-muted"
+              }`}
+            >
+              {companies.length}
+            </span>
+          </button>
 
-          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span className="truncate">Total Employees</span>
-              <Users className="size-4 shrink-0 text-primary" />
-            </div>
-            <div className="mt-1.5 text-2xl font-bold text-foreground">{totalEmployees}</div>
-            <div className="mt-0.5 truncate text-[11px] text-muted">Across all tenants</div>
-          </div>
-
-          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span className="truncate">Active Workstations</span>
-              <MapPin className="size-4 shrink-0 text-primary" />
-            </div>
-            <div className="mt-1.5 text-2xl font-bold text-foreground">{totalWorkstations}</div>
-            <div className="mt-0.5 truncate text-[11px] text-muted">Geofenced clock locations</div>
-          </div>
-
-          <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
-            <div className="flex items-center justify-between text-xs text-muted">
-              <span className="truncate">RLS Security Policy</span>
-              <Lock className="size-4 shrink-0 text-emerald-500" />
-            </div>
-            <div className="mt-1.5 text-sm font-bold text-emerald-600">
-              Strict Multi-Tenancy
-            </div>
-            <div className="mt-0.5 truncate text-[11px] text-muted">Zero cross-company visibility</div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setAdminSubTab("database")}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+              adminSubTab === "database"
+                ? "bg-primary text-white shadow-soft"
+                : "text-muted hover:bg-surface-muted hover:text-foreground"
+            }`}
+          >
+            <Database className="size-3.5" />
+            <span>Database Maintenance Console</span>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] ${
+                adminSubTab === "database"
+                  ? "bg-white/20 text-white"
+                  : "bg-surface-muted text-muted"
+              }`}
+            >
+              Direct DB
+            </span>
+          </button>
         </div>
+
+        {adminSubTab === "tenants" ? (
+          <div className="mt-6 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span className="truncate">Total Companies</span>
+                <Building2 className="size-4 shrink-0 text-primary" />
+              </div>
+              <div className="mt-1.5 text-2xl font-bold text-foreground">{companies.length}</div>
+              <div className="mt-0.5 truncate text-[11px] text-muted">Active workspace tenants</div>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span className="truncate">Total Employees</span>
+                <Users className="size-4 shrink-0 text-primary" />
+              </div>
+              <div className="mt-1.5 text-2xl font-bold text-foreground">{totalEmployees}</div>
+              <div className="mt-0.5 truncate text-[11px] text-muted">Across all tenants</div>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span className="truncate">Active Workstations</span>
+                <MapPin className="size-4 shrink-0 text-primary" />
+              </div>
+              <div className="mt-1.5 text-2xl font-bold text-foreground">{totalWorkstations}</div>
+              <div className="mt-0.5 truncate text-[11px] text-muted">Geofenced clock locations</div>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-surface shadow-soft p-4">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span className="truncate">RLS Security Policy</span>
+                <Lock className="size-4 shrink-0 text-emerald-500" />
+              </div>
+              <div className="mt-1.5 text-sm font-bold text-emerald-600">
+                Strict Multi-Tenancy
+              </div>
+              <div className="mt-0.5 truncate text-[11px] text-muted">Zero cross-company visibility</div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <div className="space-y-4">
+      {adminSubTab === "database" ? (
+        <SuperAdminDatabaseMaintenancePanel
+          companies={companies}
+          initialCompanyId={selectedTargetCompanyId}
+        />
+      ) : (
+        <>
+          <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex w-full sm:max-w-md items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2.5 text-xs text-foreground shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <Search className="size-4 shrink-0 text-muted" />
@@ -290,6 +354,16 @@ export default function SysAdminWorkspace({
                 </div>
 
                 <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => openDatabaseMaintenanceForCompany(comp.id)}
+                    className="flex items-center justify-center gap-1.5 rounded-full border border-border/80 bg-surface px-3 py-2 text-xs font-bold text-foreground shadow-soft hover:bg-surface-muted transition-colors cursor-pointer"
+                    title="Open direct database maintenance console for this company"
+                  >
+                    <Database className="size-3.5 text-primary" />
+                    <span>Maintain DB</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => openAddEmployeeForCompany(comp.id)}
@@ -449,6 +523,8 @@ export default function SysAdminWorkspace({
           </div>
         </div>
       </div>
+    </>
+  )}
 
       <CreateCompanyModal
         isOpen={isCreateCompanyOpen}
