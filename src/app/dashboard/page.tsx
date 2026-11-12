@@ -980,7 +980,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             autoClockoutGraceMinutes={employeeTimeState?.autoClockoutGraceMinutes}
             hasUnsubmittedPastWeekDrafts={pastWeekInfo.hasUnsubmittedPastWeekDrafts}
             pastWeekDraftsCount={pastWeekInfo.pastWeekDraftsCount}
-            pastWeekRange={{ start: pastWeekInfo.startOfPastWeek, end: pastWeekInfo.endOfPastWeek }}
+            pastWeekRange={{
+              start: pastWeekInfo.oldestPastDraftDate,
+              end: pastWeekInfo.newestPastDraftDate,
+            }}
           />
         }
       employeeCalendar={
@@ -1019,6 +1022,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 defaultLunchMinutes={employeeTimeState.defaultLunchMinutes}
                 autoClockoutBasedOnSchedule={employeeTimeState.autoClockoutBasedOnSchedule}
                 autoClockoutGraceMinutes={employeeTimeState.autoClockoutGraceMinutes}
+                hasUnsubmittedPastWeekDrafts={pastWeekInfo.hasUnsubmittedPastWeekDrafts}
+                pastWeekDraftsCount={pastWeekInfo.pastWeekDraftsCount}
+                pastWeekRange={{
+                  start: pastWeekInfo.oldestPastDraftDate,
+                  end: pastWeekInfo.newestPastDraftDate,
+                }}
               />
             }
             clockBadge={clockBadge}

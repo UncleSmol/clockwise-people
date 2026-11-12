@@ -2,13 +2,13 @@
 
 import {
   Bell,
+  BellOff,
   BellRing,
   CheckCircle2,
   AlertTriangle,
   Calendar,
   Clock,
   Trash2,
-  Radio,
   ExternalLink,
   X,
 } from "lucide-react";
@@ -25,6 +25,14 @@ import {
   playNotificationPing,
   primeNotificationAudio,
 } from "@/lib/audio/notification-sound";
+import {
+  areNotificationsEnabled,
+  areNotificationSoundsEnabled,
+  getNotificationPreferences,
+  saveNotificationPreferences,
+  shouldDeliverAppNotification,
+  useNotificationPreferences,
+} from "@/lib/notifications/preferences";
 
 type NotificationMenuProps = {
   companyId: string;
@@ -111,6 +119,7 @@ async function triggerDeviceNotification(notification: {
   targetHref?: string | null;
 }) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (!areNotificationsEnabled()) return;
   if (Notification.permission !== "granted") return;
 
   const targetUrl = notification.targetHref || "/dashboard";
@@ -154,6 +163,8 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
   const notifiedIdsRef = useRef<Set<string>>(new Set());
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [requestingPerm, setRequestingPerm] = useState(false);
+  const preferences = useNotificationPreferences();
+  const notificationsEnabled = areNotificationsEnabled(preferences);
 
   const [clearState, clearAction, clearPending] = useActionState(
     clearAllDashboardNotifications,
@@ -178,7 +189,26 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
       const res = await Notification.requestPermission();
       setPermission(res);
       if (res === "granted") {
-        playNotificationPing();
+        const current = getNotificationPreferences();
+        const nextPrefs = saveNotificationPreferences({
+          ...current,
+          enabled: true,
+          clockReminders:
+            current.clockReminders || current.timesheetAlerts || current.approvals
+              ? current.clockReminders
+              : true,
+          timesheetAlerts:
+            current.clockReminders || current.timesheetAlerts || current.approvals
+              ? current.timesheetAlerts
+              : true,
+          approvals:
+            current.clockReminders || current.timesheetAlerts || current.approvals
+              ? current.approvals
+              : true,
+        });
+        if (areNotificationSoundsEnabled(nextPrefs)) {
+          playNotificationPing();
+        }
         await triggerDeviceNotification({
           title: "ClockWise People Alerts Active",
           body: "Mobile vibration and desktop popup alerts are enabled!",
@@ -216,16 +246,28 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
         const next = await fetchDashboardNotifications();
         setLiveNotifications(next);
 
-        // Dispatch sliding bottom toast and device notification for newly arrived notifications
+        const prefs = getNotificationPreferences();
+        if (!areNotificationsEnabled(prefs)) {
+          next.forEach((item) => notifiedIdsRef.current.add(item.id));
+          return;
+        }
+
+        // Dispatch popup toast, sound, and device notification for newly arrived enabled categories
         for (const item of next) {
           if (!notifiedIdsRef.current.has(item.id)) {
             notifiedIdsRef.current.add(item.id);
+            if (!shouldDeliverAppNotification(item.category, item.title, prefs)) {
+              continue;
+            }
+
             const destination = getNotificationDestination(item);
 
-            // Play iPhone ping sound
-            playNotificationPing();
+            // Play ping sound if enabled
+            if (areNotificationSoundsEnabled(prefs)) {
+              playNotificationPing();
+            }
 
-            // Pop up at the bottom of the screen
+            // Floating popup capsule
             dispatchGlobalToast({
               id: item.id,
               type: "notification",
@@ -346,13 +388,17 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
     <div ref={containerRef} className="relative">
       <button
         aria-expanded={open}
-        aria-label="Open notifications"
-        className="relative grid size-8 place-items-center sm:size-9 rounded-full border border-emerald-500/20 bg-surface text-foreground transition-all hover:bg-emerald-500/10 active:scale-95 cursor-pointer shadow-2xs"
+        aria-label={notificationsEnabled ? "Open notifications" : "Open notifications (muted)"}
+        className={`relative grid size-8 place-items-center sm:size-9 rounded-full border bg-surface transition-all hover:bg-emerald-500/10 active:scale-95 cursor-pointer shadow-2xs ${
+          notificationsEnabled
+            ? "border-emerald-500/20 text-foreground"
+            : "border-slate-300/60 dark:border-slate-700 text-muted"
+        }`}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        <Bell className="size-4" />
-        {liveNotifications.length > 0 ? (
+        {notificationsEnabled ? <Bell className="size-4" /> : <BellOff className="size-4" />}
+        {notificationsEnabled && liveNotifications.length > 0 ? (
           <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-gradient-to-r from-[#2E9B5F] to-[#258550] px-1 text-[9px] font-black leading-4 sm:min-w-5 sm:px-1 sm:text-[10px] sm:leading-5 text-white shadow-xs">
             {liveNotifications.length > 9 ? "9+" : liveNotifications.length}
           </span>
@@ -414,8 +460,24 @@ export default function NotificationMenu({ companyId, notifications }: Notificat
               </div>
             </div>
 
-            {/* Device Native Notification Banner (PWA Mobile & Desktop Alert Hook - Digital Well Style) */}
-            {permission !== "granted" ? (
+            {/* Device Native Notification Banner (only when notifications are enabled and browser permission not yet granted) */}
+            {!notificationsEnabled ? (
+              <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-surface-muted/60 px-3 py-2.5 mt-3 flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <BellOff className="size-3.5 shrink-0 text-muted" />
+                  <span className="text-[11px] font-semibold text-muted truncate">
+                    Notifications disabled in settings
+                  </span>
+                </div>
+                <a
+                  href="/dashboard?panel=account"
+                  onClick={() => setOpen(false)}
+                  className="shrink-0 text-[10px] font-extrabold text-primary hover:underline"
+                >
+                  Settings
+                </a>
+              </div>
+            ) : permission !== "granted" ? (
               <div className="digital-well rounded-2xl p-3 mt-3 flex items-center justify-between gap-2.5 shadow-soft">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="grid size-7 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary border border-primary/20">

@@ -4,6 +4,14 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { clearAllDashboardNotifications, markDashboardNotificationRead } from "@/lib/dashboard/actions";
 import type { DashboardExperienceData, DashboardReminderSchedule } from "@/lib/dashboard/schema";
+import { playNotificationPing } from "@/lib/audio/notification-sound";
+import {
+  areNotificationsEnabled,
+  areNotificationSoundsEnabled,
+  getNotificationPreferences,
+  saveNotificationPreferences,
+  useNotificationPreferences,
+} from "@/lib/notifications/preferences";
 
 type DashboardExperienceProps = {
   data: DashboardExperienceData;
@@ -54,14 +62,22 @@ function scheduleDateTime(schedule: DashboardReminderSchedule, time: string | nu
   return new Date(year, month - 1, day, Number(hours), Number(minutes), 0, 0);
 }
 
-async function showDeviceNotification(title: string, body: string, tag: string) {
+async function showDeviceNotification(
+  title: string,
+  body: string,
+  tag: string,
+  allowPrompt = false,
+) {
   if (!("Notification" in window)) return;
 
-  if (Notification.permission === "default") {
+  if (!allowPrompt && !areNotificationsEnabled()) return;
+
+  if (allowPrompt && Notification.permission === "default") {
     await Notification.requestPermission();
   }
 
   if (Notification.permission !== "granted") return;
+  if (!areNotificationsEnabled()) return;
 
   const registration = await navigator.serviceWorker?.ready.catch(() => null);
 
@@ -82,9 +98,12 @@ async function showDeviceNotification(title: string, body: string, tag: string) 
 
 function useSmartReminders(schedule: DashboardReminderSchedule | null) {
   const [popup, setPopup] = useState<{ title: string; body: string } | null>(null);
+  const preferences = useNotificationPreferences();
+  const remindersEnabled =
+    areNotificationsEnabled(preferences) && preferences.clockReminders;
 
   useEffect(() => {
-    if (!schedule?.isWorkingDay) return;
+    if (!schedule?.isWorkingDay || !remindersEnabled) return;
 
     const reminders = [
       {
@@ -172,7 +191,14 @@ function useSmartReminders(schedule: DashboardReminderSchedule | null) {
 
       return [
         window.setTimeout(() => {
+          const latestPrefs = getNotificationPreferences();
+          if (!areNotificationsEnabled(latestPrefs) || !latestPrefs.clockReminders) {
+            return;
+          }
           setPopup({ body: reminder.body, title: reminder.title });
+          if (areNotificationSoundsEnabled(latestPrefs)) {
+            playNotificationPing();
+          }
           showDeviceNotification(reminder.title, reminder.body, reminder.tag);
         }, delay),
       ];
@@ -181,9 +207,13 @@ function useSmartReminders(schedule: DashboardReminderSchedule | null) {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [schedule]);
+  }, [schedule, remindersEnabled]);
 
-  return { popup, setPopup };
+  return {
+    popup: remindersEnabled ? popup : null,
+    remindersEnabled,
+    setPopup,
+  };
 }
 
 export default function DashboardExperience({ data }: DashboardExperienceProps) {
@@ -192,7 +222,7 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
     clearAllDashboardNotifications,
     initialState,
   );
-  const { popup, setPopup } = useSmartReminders(data.reminderSchedule);
+  const { popup, remindersEnabled, setPopup } = useSmartReminders(data.reminderSchedule);
   const nextReminder = useMemo(() => {
     const schedule = data.reminderSchedule;
     if (!schedule?.isWorkingDay) return null;
@@ -278,13 +308,33 @@ export default function DashboardExperience({ data }: DashboardExperienceProps) 
                   <p className="text-xs text-muted">Next reminder</p>
                   <p className="mt-1 font-semibold text-foreground">{nextReminder}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => showDeviceNotification("Notifications enabled", "ClockWise reminders can appear on this device.", "notification-test")}
-                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors shadow-2xs justify-self-start"
-                >
-                  Enable device notifications
-                </button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = getNotificationPreferences();
+                      saveNotificationPreferences({
+                        ...current,
+                        enabled: true,
+                        clockReminders: true,
+                      });
+                      showDeviceNotification(
+                        "Notifications enabled",
+                        "ClockWise reminders can appear on this device.",
+                        "notification-test",
+                        true,
+                      );
+                    }}
+                    className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface-muted transition-colors shadow-2xs justify-self-start"
+                  >
+                    Enable device notifications
+                  </button>
+                  {!remindersEnabled ? (
+                    <span className="text-xs font-medium text-muted">
+                      Shift reminders are paused in Account settings.
+                    </span>
+                  ) : null}
+                </div>
               </>
             ) : (
               <p className="rounded-lg border border-border bg-surface-muted/30 px-3 py-3 text-sm text-muted">

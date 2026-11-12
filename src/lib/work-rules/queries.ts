@@ -4,6 +4,7 @@ import { cache } from "react";
 import {
   getActiveCompany,
   getCurrentUserAccess,
+  getOtherBranchManagerEmployeeIds,
   requireUser,
 } from "@/lib/foundation/queries";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -26,8 +27,6 @@ import {
   deriveGenderFromSouthAfricanId,
   isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
-  isMaternalLeave,
-  isPaternalLeave,
   isToilLeave,
   normalizeLeaveTypeName,
 } from "./realtime-accrual";
@@ -38,11 +37,13 @@ type LeaveRequestRow = LeaveRequest & {
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    workstation_id?: string | null;
   }[] | {
     avatar_url: string | null;
     employee_number: string;
     full_name: string;
     known_as: string | null;
+    workstation_id?: string | null;
   } | null;
   leave_types?: { name: string }[] | { name: string } | null;
 };
@@ -222,7 +223,6 @@ export const getCompanyWorkRulesData = cache(async function getCompanyWorkRulesD
         leave_types: canonicalLt,
       });
     } else {
-      const existing = dedupedCompanyBalancesMap.get(key)!;
       // Prefer the row matching the active canonical leave type, rather than additive stacking
       if (canonicalLt && b.leave_type_id === canonicalLt.id) {
         dedupedCompanyBalancesMap.set(key, {
@@ -603,6 +603,10 @@ export const getCompanyLeaveRequestQueue = cache(async function getCompanyLeaveR
     return [];
   }
 
+  if (access.isScopedBranchManager && !access.scopedWorkstationId) {
+    return [];
+  }
+
   // Use admin client when user has Root Admin, Admin, or Manager role to guarantee complete queue visibility across tenants
   const client =
     access.isSuperAdmin ||
@@ -616,7 +620,7 @@ export const getCompanyLeaveRequestQueue = cache(async function getCompanyLeaveR
 
   const { data, error } = await client
     .from("leave_requests")
-    .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, use_toil_first, toil_hours_used, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
+    .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, reason, attachment_url, status, submitted_at, rejection_reason, use_toil_first, toil_hours_used, employees(employee_number, full_name, known_as, avatar_url, workstation_id), leave_types(name)")
     .eq("company_id", company.id)
     .eq("status", "submitted")
     .is("deleted_at", null)
@@ -627,17 +631,28 @@ export const getCompanyLeaveRequestQueue = cache(async function getCompanyLeaveR
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as LeaveRequestRow[]).map((request) => {
-    const employee = firstRelation(request.employees);
-    const leaveType = firstRelation(request.leave_types);
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
 
-    return {
-      ...request,
-      avatarUrl: employee?.avatar_url ?? null,
-      employeeNumber: employee?.employee_number ?? "",
-      fullName: employee?.full_name ?? "Unknown employee",
-      knownAs: employee?.known_as ?? null,
-      leaveTypeName: leaveType?.name,
-    };
-  });
+  return ((data ?? []) as unknown as LeaveRequestRow[])
+    .filter((request) => {
+      if (!access.isScopedBranchManager) return true;
+      if (otherBranchManagerIds.has(request.employee_id)) return false;
+      const employee = firstRelation(request.employees);
+      return employee?.workstation_id === access.scopedWorkstationId;
+    })
+    .map((request) => {
+      const employee = firstRelation(request.employees);
+      const leaveType = firstRelation(request.leave_types);
+
+      return {
+        ...request,
+        avatarUrl: employee?.avatar_url ?? null,
+        employeeNumber: employee?.employee_number ?? "",
+        fullName: employee?.full_name ?? "Unknown employee",
+        knownAs: employee?.known_as ?? null,
+        leaveTypeName: leaveType?.name,
+      };
+    });
 });

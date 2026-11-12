@@ -1136,7 +1136,7 @@ export default function EmployeeTimeClock({
             <Clock className="size-3.5 stroke-[2.5]" />
           </div>
           <p className="text-xs sm:text-[13px] font-bold text-white tracking-tight whitespace-nowrap">
-            Submit last week&apos;s draft to clock in
+            Submit past drafts to clock in
           </p>
           <button
             type="button"
@@ -1169,7 +1169,7 @@ export default function EmployeeTimeClock({
                 <Clock className="size-3.5 stroke-[2.5]" />
               </div>
               <p className="text-xs font-bold truncate">
-                Submit last week&apos;s draft to clock in
+                Submit past drafts to clock in
               </p>
             </div>
             <button
@@ -1197,7 +1197,7 @@ export default function EmployeeTimeClock({
                       pendingActionRef.current = action.label;
                     }}
                     disabled={pending || locating || isClockInLocked}
-                    title={isClockInLocked ? "Clock in is locked until last week's drafts are submitted" : undefined}
+                    title={isClockInLocked ? "Clock in is locked until unsubmitted past drafts are submitted" : undefined}
                     className={`w-full rounded-md px-4 py-2 text-sm font-semibold shadow-lg disabled:opacity-60 sm:w-auto ${
                       isClockInLocked
                         ? "bg-slate-400 text-white cursor-not-allowed opacity-60"

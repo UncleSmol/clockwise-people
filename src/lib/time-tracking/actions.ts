@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getActiveCompany, getCurrentUserAccess } from "@/lib/foundation/queries";
+import {
+  getActiveCompany,
+  getCurrentUserAccess,
+  getOtherBranchManagerEmployeeIds,
+} from "@/lib/foundation/queries";
 import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
 import { getWeekBounds, type ClockEventType, type TimeClockLocationEvent, type TimeEntryRecord } from "./schema";
@@ -37,6 +41,157 @@ function isMissingManagerCalendarRpc(error: { code?: string; message?: string })
   );
 }
 
+function firstRel<T>(rel: T[] | T | null | undefined): T | null {
+  return Array.isArray(rel) ? (rel[0] ?? null) : (rel ?? null);
+}
+
+type ScopedAccess = Awaited<ReturnType<typeof getCurrentUserAccess>>;
+
+async function checkEmployeeWorkstationScope(
+  companyId: string,
+  employeeId: string,
+  access: ScopedAccess,
+): Promise<string | null> {
+  if (!access.isScopedBranchManager) return null;
+  if (!access.scopedWorkstationId) {
+    return "No workstation is assigned to your branch manager profile.";
+  }
+
+  const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);
+  if (otherBranchManagerIds.has(employeeId)) {
+    return "Branch managers cannot manage another branch manager's leave or timesheets.";
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: employee, error } = await adminClient
+    .from("employees")
+    .select("workstation_id")
+    .eq("id", employeeId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !employee || employee.workstation_id !== access.scopedWorkstationId) {
+    return "You can only manage records for employees in your assigned workstation.";
+  }
+  return null;
+}
+
+async function checkTimeEntriesWorkstationScope(
+  companyId: string,
+  timeEntryIds: string[],
+  access: ScopedAccess,
+): Promise<string | null> {
+  if (!access.isScopedBranchManager) return null;
+  if (!access.scopedWorkstationId) {
+    return "No workstation is assigned to your branch manager profile.";
+  }
+  if (timeEntryIds.length === 0) return null;
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: entries, error } = await adminClient
+    .from("time_entries")
+    .select("id, employee_id, workstation_id, employees(workstation_id)")
+    .eq("company_id", companyId)
+    .in("id", timeEntryIds)
+    .is("deleted_at", null);
+
+  if (error || !entries || entries.length !== timeEntryIds.length) {
+    return "One or more timesheets could not be verified for your workstation.";
+  }
+
+  const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);
+  if (entries.some((entry) => otherBranchManagerIds.has(entry.employee_id))) {
+    return "Branch managers cannot interact with another branch manager's timesheets.";
+  }
+
+  const hasOutOfScope = entries.some((entry) => {
+    const emp = firstRel(entry.employees);
+    const effectiveWorkstationId = entry.workstation_id || emp?.workstation_id;
+    return effectiveWorkstationId !== access.scopedWorkstationId;
+  });
+
+  return hasOutOfScope
+    ? "You can only interact with timesheets in your assigned workstation."
+    : null;
+}
+
+async function checkCorrectionsWorkstationScope(
+  companyId: string,
+  correctionIds: string[],
+  access: ScopedAccess,
+): Promise<string | null> {
+  if (!access.isScopedBranchManager) return null;
+  if (!access.scopedWorkstationId) {
+    return "No workstation is assigned to your branch manager profile.";
+  }
+  if (correctionIds.length === 0) return null;
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: requests, error } = await adminClient
+    .from("timesheet_correction_requests")
+    .select("id, employee_id, employees(workstation_id)")
+    .eq("company_id", companyId)
+    .in("id", correctionIds)
+    .is("deleted_at", null);
+
+  if (error || !requests || requests.length !== correctionIds.length) {
+    return "One or more correction requests could not be verified for your workstation.";
+  }
+
+  const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);
+  if (requests.some((req) => otherBranchManagerIds.has(req.employee_id))) {
+    return "Branch managers cannot review another branch manager's correction requests.";
+  }
+
+  const hasOutOfScope = requests.some((req) => {
+    const emp = firstRel(req.employees);
+    return emp?.workstation_id !== access.scopedWorkstationId;
+  });
+
+  return hasOutOfScope
+    ? "You can only review correction requests for employees in your assigned workstation."
+    : null;
+}
+
+async function checkLeaveRequestsWorkstationScope(
+  companyId: string,
+  leaveRequestIds: string[],
+  access: ScopedAccess,
+): Promise<string | null> {
+  if (!access.isScopedBranchManager) return null;
+  if (!access.scopedWorkstationId) {
+    return "No workstation is assigned to your branch manager profile.";
+  }
+  if (leaveRequestIds.length === 0) return null;
+
+  const adminClient = createSupabaseAdminClient();
+  const { data: requests, error } = await adminClient
+    .from("leave_requests")
+    .select("id, employee_id, employees(workstation_id)")
+    .eq("company_id", companyId)
+    .in("id", leaveRequestIds)
+    .is("deleted_at", null);
+
+  if (error || !requests || requests.length !== leaveRequestIds.length) {
+    return "One or more leave requests could not be verified for your workstation.";
+  }
+
+  const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);
+  if (requests.some((req) => otherBranchManagerIds.has(req.employee_id))) {
+    return "Branch managers cannot load another branch manager's leave requests.";
+  }
+
+  const hasOutOfScope = requests.some((req) => {
+    const emp = firstRel(req.employees);
+    return emp?.workstation_id !== access.scopedWorkstationId;
+  });
+
+  return hasOutOfScope
+    ? "You can only load leave requests for employees in your assigned workstation."
+    : null;
+}
+
 export async function recordClockEvent(
   eventType: ClockEventType,
   formData?: FormData,
@@ -66,23 +221,42 @@ export async function recordClockEvent(
       const today = currentDateInTimezone(effectiveTimezone);
       const bounds = getWeekBounds(today);
 
-      const { data: pastWeekDrafts } = await supabase
-        .from("time_entries")
-        .select("id, work_date, notes, status")
-        .eq("employee_id", access.employeeId)
-        .gte("work_date", bounds.startOfPastWeek)
-        .lte("work_date", bounds.endOfPastWeek)
-        .in("status", ["draft", "rejected"])
-        .is("deleted_at", null);
+      const [{ data: pastDrafts }, { data: holidays }] = await Promise.all([
+        supabase
+          .from("time_entries")
+          .select("id, work_date, notes, status")
+          .eq("employee_id", access.employeeId)
+          .lt("work_date", bounds.startOfCurrentWeek)
+          .in("status", ["draft", "rejected"])
+          .is("deleted_at", null)
+          .order("work_date", { ascending: false }),
+        supabase
+          .from("company_public_holidays")
+          .select("holiday_date")
+          .eq("company_id", company.id)
+          .is("deleted_at", null),
+      ]);
 
-      const unsubmittedDrafts = (pastWeekDrafts ?? []).filter(
-        (entry) => !entry.notes?.startsWith("Public holiday:"),
+      const holidayDateSet = new Set(
+        (holidays ?? []).map((h) => h.holiday_date as string),
+      );
+
+      const unsubmittedDrafts = (pastDrafts ?? []).filter(
+        (entry) =>
+          !entry.notes?.startsWith("Public holiday:") &&
+          !holidayDateSet.has(entry.work_date),
       );
 
       if (unsubmittedDrafts.length > 0) {
+        const newestDate = unsubmittedDrafts[0].work_date;
+        const oldestDate = unsubmittedDrafts[unsubmittedDrafts.length - 1].work_date;
+        const rangeLabel =
+          oldestDate === newestDate
+            ? oldestDate
+            : `${oldestDate} to ${newestDate}`;
         return {
           ok: false,
-          message: `Cannot clock in: You have ${unsubmittedDrafts.length} unsubmitted draft timesheet${unsubmittedDrafts.length === 1 ? "" : "s"} from last week (${bounds.startOfPastWeek} to ${bounds.endOfPastWeek}) that must be reviewed, adjusted, and submitted first.`,
+          message: `Cannot clock in: You have ${unsubmittedDrafts.length} unsubmitted past draft timesheet${unsubmittedDrafts.length === 1 ? "" : "s"} (${rangeLabel}) that must be reviewed, adjusted, and submitted first.`,
         };
       }
     }
@@ -314,6 +488,14 @@ export async function reviewTimesheetCorrection(
 
   if (!isManager) {
     return { ok: false, message: "You do not have permission to review correction requests." };
+  }
+
+  if (access.isScopedBranchManager) {
+    const { company } = await getActiveCompany();
+    const scopeError = await checkCorrectionsWorkstationScope(company.id, correctionIds, access);
+    if (scopeError) {
+      return { ok: false, message: scopeError };
+    }
   }
 
   const supabase = await createSupabaseServerClient();
@@ -720,6 +902,12 @@ export async function createManagedDraftTimeEntry(
     return { ok: false, message: "Choose an employee and date." };
   }
 
+  const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const scopeError = await checkEmployeeWorkstationScope(company.id, employeeId, access);
+  if (scopeError) {
+    return { ok: false, message: scopeError };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("create_managed_draft_time_entry_for_date", {
     target_employee_id: employeeId,
@@ -751,6 +939,12 @@ export async function loadManagedLeaveRequestsToTimesheets(
     return { ok: false, message: "Choose at least one approved leave request." };
   }
 
+  const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const scopeError = await checkLeaveRequestsWorkstationScope(company.id, leaveRequestIds, access);
+  if (scopeError) {
+    return { ok: false, message: scopeError };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("load_managed_leave_request_time_entries", {
     target_leave_request_ids: leaveRequestIds,
@@ -780,6 +974,16 @@ export async function updateManagedDraftTimeEntry(
 
   if (!timeEntryId || !employeeId) {
     return { ok: false, message: "Missing time entry or employee." };
+  }
+
+  const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const empScopeError = await checkEmployeeWorkstationScope(company.id, employeeId, access);
+  if (empScopeError) {
+    return { ok: false, message: empScopeError };
+  }
+  const entryScopeError = await checkTimeEntriesWorkstationScope(company.id, [timeEntryId], access);
+  if (entryScopeError) {
+    return { ok: false, message: entryScopeError };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -816,6 +1020,16 @@ export async function deleteManagedDraftTimeEntry(
     return { ok: false, message: "Missing time entry or employee." };
   }
 
+  const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const empScopeError = await checkEmployeeWorkstationScope(company.id, employeeId, access);
+  if (empScopeError) {
+    return { ok: false, message: empScopeError };
+  }
+  const entryScopeError = await checkTimeEntriesWorkstationScope(company.id, [timeEntryId], access);
+  if (entryScopeError) {
+    return { ok: false, message: entryScopeError };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("delete_managed_draft_time_entry", {
     target_time_entry_id: timeEntryId,
@@ -843,6 +1057,16 @@ export async function deleteTimeEntry(
 
   if (!timeEntryId || !employeeId) {
     return { ok: false, message: "Missing time entry or employee." };
+  }
+
+  const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const empScopeError = await checkEmployeeWorkstationScope(company.id, employeeId, access);
+  if (empScopeError) {
+    return { ok: false, message: empScopeError };
+  }
+  const entryScopeError = await checkTimeEntriesWorkstationScope(company.id, [timeEntryId], access);
+  if (entryScopeError) {
+    return { ok: false, message: entryScopeError };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -883,6 +1107,11 @@ export async function adminDeleteCalendarLeave(
 
   if (!employeeId || !workDate) {
     return { ok: false, message: "Missing employee or date." };
+  }
+
+  const delScopeError = await checkEmployeeWorkstationScope(company.id, employeeId, access);
+  if (delScopeError) {
+    return { ok: false, message: delScopeError };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -988,6 +1217,11 @@ export async function adminUpdateCalendarLeave(
 
   if (!employeeId || !workDate || !leaveTypeId) {
     return { ok: false, message: "Please select a leave type." };
+  }
+
+  const updScopeError = await checkEmployeeWorkstationScope(company.id, employeeId, access);
+  if (updScopeError) {
+    return { ok: false, message: updScopeError };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -1201,6 +1435,12 @@ export async function approveSubmittedTimesheets(
     return { ok: false, message: "Pick at least one timesheet to approve." };
   }
 
+  const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const scopeError = await checkTimeEntriesWorkstationScope(company.id, timeEntryIds, access);
+  if (scopeError) {
+    return { ok: false, message: scopeError };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("approve_managed_timesheets", {
     approval_notes: notes || null,
@@ -1255,6 +1495,14 @@ export async function reviewSubmittedTimesheets(
 
   if (!isManager) {
     return { ok: false, message: "You do not have permission to review timesheets." };
+  }
+
+  if (access.isScopedBranchManager) {
+    const { company } = await getActiveCompany();
+    const scopeError = await checkTimeEntriesWorkstationScope(company.id, timeEntryIds, access);
+    if (scopeError) {
+      return { ok: false, message: scopeError };
+    }
   }
 
   const supabase = await createSupabaseServerClient();

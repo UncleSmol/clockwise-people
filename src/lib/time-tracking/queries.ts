@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getActiveCompany,
   getCurrentUserAccess,
+  getOtherBranchManagerEmployeeIds,
   requireUser,
 } from "@/lib/foundation/queries";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -55,12 +56,14 @@ type CorrectionRequestRow = TimesheetCorrectionRequest & {
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
+    workstation_id?: string | null;
     company_workstations?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
+    workstation_id?: string | null;
     company_workstations?: { name: string }[] | { name: string } | null;
   } | null;
 };
@@ -71,12 +74,14 @@ type SubmittedTimesheetRow = TimeEntryRecord & {
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
+    workstation_id?: string | null;
     company_workstations?: { name: string }[] | { name: string } | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
+    workstation_id?: string | null;
     company_workstations?: { name: string }[] | { name: string } | null;
   } | null;
 };
@@ -93,11 +98,13 @@ type CalendarLeaveRequestRow = {
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
+    workstation_id?: string | null;
   }[] | {
     employee_number: string;
     full_name: string;
     known_as: string | null;
     avatar_url: string | null;
+    workstation_id?: string | null;
   } | null;
   leave_types?: { name: string }[] | { name: string } | null;
 };
@@ -484,6 +491,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     employeeResult,
     todayEntryResult,
     entriesResult,
+    unsubmittedPastDraftsResult,
     eventsResult,
     correctionRequestsResult,
     holidaysResult,
@@ -519,6 +527,17 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
       .lte("work_date", `${currentYear}-12-31`)
       .order("work_date", { ascending: false })
       .limit(400),
+    supabase
+      .from("time_entries")
+      .select(
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id",
+      )
+      .eq("employee_id", access.employeeId)
+      .lt("work_date", today)
+      .in("status", ["draft", "rejected"])
+      .is("deleted_at", null)
+      .order("work_date", { ascending: false })
+      .limit(200),
     supabase
       .from("time_clock_events")
       .select("id, event_type, event_at, local_work_date, local_event_time")
@@ -609,16 +628,37 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
     : false;
   const effectiveTodayEntryRow = isTodayHoliday ? null : todayEntryRow;
 
-  const rawRecentEntries = ((entriesResult.data ?? []) as TimeEntryRecord[]).filter(
-    (entry) => !entry.notes?.startsWith("Public holiday:") && !holidayDateSet.has(entry.work_date),
+  const entryById = new Map<string, TimeEntryRecord>();
+  for (const row of (entriesResult.data ?? []) as TimeEntryRecord[]) {
+    entryById.set(row.id, row);
+  }
+  for (const row of (unsubmittedPastDraftsResult.data ?? []) as TimeEntryRecord[]) {
+    if (!entryById.has(row.id)) {
+      entryById.set(row.id, row);
+    }
+  }
+
+  const rawRecentEntries = Array.from(entryById.values())
+    .filter(
+      (entry) => !entry.notes?.startsWith("Public holiday:") && !holidayDateSet.has(entry.work_date),
+    )
+    .sort((a, b) => b.work_date.localeCompare(a.work_date));
+
+  const locationTargetEntryIds = Array.from(
+    new Set([
+      ...(effectiveTodayEntryRow ? [effectiveTodayEntryRow.id] : []),
+      ...rawRecentEntries.slice(0, 14).map((entry) => entry.id),
+      ...rawRecentEntries
+        .filter((entry) => entry.status === "draft" || entry.status === "rejected")
+        .slice(0, 30)
+        .map((entry) => entry.id),
+    ]),
   );
+
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
     supabase,
     company.id,
-    [
-      ...(effectiveTodayEntryRow ? [effectiveTodayEntryRow.id] : []),
-      ...rawRecentEntries.slice(0, 14).map((entry) => entry.id),
-    ],
+    locationTargetEntryIds,
   );
   const todayEntry = effectiveTodayEntryRow
     ? {
@@ -921,7 +961,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     };
   }
 
-  const { supabase } = await requireUser();
+  await requireUser();
   const adminClient = createSupabaseAdminClient();
 
   await ensureHolidaysOnce(adminClient, company.id, Number(workDate.slice(0, 4)));
@@ -1211,35 +1251,52 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
     return [];
   }
 
+  if (access.isScopedBranchManager && !access.scopedWorkstationId) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("timesheet_correction_requests")
     .select(
-      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
+      "id, company_id, employee_id, time_entry_id, payroll_period_id, work_date, original_clock_in, original_lunch_start, original_lunch_end, original_clock_out, proposed_clock_in, proposed_lunch_start, proposed_lunch_end, proposed_clock_out, reason, status, submitted_at, reviewed_at, review_notes, employees(employee_number, full_name, known_as, avatar_url, workstation_id, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
     .is("deleted_at", null)
     .order("submitted_at", { ascending: true })
-    .limit(25);
+    .limit(200);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as CorrectionRequestRow[]).map((request) => {
-    const employee = Array.isArray(request.employees)
-      ? request.employees[0]
-      : request.employees;
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
 
-    return {
-      ...request,
-      workstationName: relationName(employee?.company_workstations),
-      employeeNumber: employee?.employee_number ?? "",
-      fullName: employee?.full_name ?? "Unknown employee",
-      knownAs: employee?.known_as ?? null,
-      avatarUrl: employee?.avatar_url ?? null,
-    };
-  });
+  return ((data ?? []) as unknown as CorrectionRequestRow[])
+    .filter((request) => {
+      if (!access.isScopedBranchManager) return true;
+      if (otherBranchManagerIds.has(request.employee_id)) return false;
+      const employee = Array.isArray(request.employees)
+        ? request.employees[0]
+        : request.employees;
+      return employee?.workstation_id === access.scopedWorkstationId;
+    })
+    .map((request) => {
+      const employee = Array.isArray(request.employees)
+        ? request.employees[0]
+        : request.employees;
+
+      return {
+        ...request,
+        workstationName: relationName(employee?.company_workstations),
+        employeeNumber: employee?.employee_number ?? "",
+        fullName: employee?.full_name ?? "Unknown employee",
+        knownAs: employee?.known_as ?? null,
+        avatarUrl: employee?.avatar_url ?? null,
+      };
+    });
 });
 
 export const getCompanySubmittedTimesheetQueue = cache(async function getCompanySubmittedTimesheetQueue(): Promise<CompanySubmittedTimesheet[]> {
@@ -1253,24 +1310,38 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     return [];
   }
 
+  if (access.isScopedBranchManager && !access.scopedWorkstationId) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("time_entries")
     .select(
-      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
+      "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, workstation_id, company_workstations(name))",
     )
     .eq("company_id", company.id)
     .eq("status", "submitted")
     .is("deleted_at", null)
     .order("work_date", { ascending: true })
-    .limit(50);
+    .limit(200);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rows = ((data ?? []) as unknown as SubmittedTimesheetRow[]).filter(
-    (entry) => !entry.notes?.startsWith("Public holiday:"),
-  );
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
+
+  const rows = ((data ?? []) as unknown as SubmittedTimesheetRow[]).filter((entry) => {
+    if (entry.notes?.startsWith("Public holiday:")) return false;
+    if (!access.isScopedBranchManager) return true;
+    if (otherBranchManagerIds.has(entry.employee_id)) return false;
+    const employee = Array.isArray(entry.employees)
+      ? entry.employees[0]
+      : entry.employees;
+    return (entry.workstation_id || employee?.workstation_id) === access.scopedWorkstationId;
+  });
   const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
   const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, employeeIds);
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
@@ -1320,6 +1391,10 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     return [];
   }
 
+  if (access.isScopedBranchManager && !access.scopedWorkstationId) {
+    return [];
+  }
+
   const workDate = currentDateInTimezone(company.timezone || "UTC");
   const currentYear = Number(workDate.slice(0, 4));
 
@@ -1329,7 +1404,7 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     supabase
       .from("time_entries")
       .select(
-        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, company_workstations(name))",
+        "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, workstation_id, company_workstations(name))",
       )
       .eq("company_id", company.id)
       .is("deleted_at", null)
@@ -1350,10 +1425,22 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
     throw new Error(error.message);
   }
 
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
+
   const holidayDateSet = new Set((holidaysData ?? []).map((h) => h.holiday_date));
-  const rows = ((data ?? []) as unknown as SubmittedTimesheetRow[]).filter(
-    (entry) => !entry.notes?.startsWith("Public holiday:") && !holidayDateSet.has(entry.work_date),
-  );
+  const rows = ((data ?? []) as unknown as SubmittedTimesheetRow[]).filter((entry) => {
+    if (entry.notes?.startsWith("Public holiday:") || holidayDateSet.has(entry.work_date)) {
+      return false;
+    }
+    if (!access.isScopedBranchManager) return true;
+    if (otherBranchManagerIds.has(entry.employee_id)) return false;
+    const employee = Array.isArray(entry.employees)
+      ? entry.employees[0]
+      : entry.employees;
+    return (entry.workstation_id || employee?.workstation_id) === access.scopedWorkstationId;
+  });
   const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
   const scheduleByEmployee = await getEmployeeSchedules(supabase, company.id, employeeIds);
   const locationEventsByEntry = await getLocationEventsByTimeEntry(
@@ -1438,22 +1525,37 @@ export const getCompanyCalendarEmployeeOptions = cache(async function getCompany
     return [];
   }
 
-  const { data, error } = await supabase
+  if (access.isScopedBranchManager && !access.scopedWorkstationId) {
+    return [];
+  }
+
+  let empQuery = supabase
     .from("employees")
     .select("id, employee_number, full_name, known_as")
     .eq("company_id", company.id)
     .eq("employment_status", "active")
-    .is("deleted_at", null)
-    .order("full_name");
+    .is("deleted_at", null);
+
+  if (access.isScopedBranchManager && access.scopedWorkstationId) {
+    empQuery = empQuery.eq("workstation_id", access.scopedWorkstationId);
+  }
+
+  const { data, error } = await empQuery.order("full_name");
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((employee) => ({
-    id: employee.id,
-    label: employee.known_as ?? employee.full_name,
-  }));
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
+
+  return (data ?? [])
+    .filter((employee) => !access.isScopedBranchManager || !otherBranchManagerIds.has(employee.id))
+    .map((employee) => ({
+      id: employee.id,
+      label: employee.known_as ?? employee.full_name,
+    }));
 });
 
 export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCalendarLeaveRequests(): Promise<CompanyCalendarLeaveRequest[]> {
@@ -1467,9 +1569,13 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
     return [];
   }
 
+  if (access.isScopedBranchManager && !access.scopedWorkstationId) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("leave_requests")
-    .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as, avatar_url), leave_types(name)")
+    .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as, avatar_url, workstation_id), leave_types(name)")
     .eq("company_id", company.id)
     .in("status", ["approved", "submitted"])
     .is("deleted_at", null)
@@ -1480,7 +1586,20 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as CalendarLeaveRequestRow[]).map((request) => {
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
+
+  return ((data ?? []) as unknown as CalendarLeaveRequestRow[])
+    .filter((request) => {
+      if (!access.isScopedBranchManager) return true;
+      if (otherBranchManagerIds.has(request.employee_id)) return false;
+      const employee = Array.isArray(request.employees)
+        ? request.employees[0]
+        : request.employees;
+      return employee?.workstation_id === access.scopedWorkstationId;
+    })
+    .map((request) => {
     const employee = Array.isArray(request.employees)
       ? request.employees[0]
       : request.employees;

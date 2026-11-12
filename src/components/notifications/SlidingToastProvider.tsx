@@ -11,6 +11,12 @@ import React, {
 import { Check, AlertCircle, Bell, Info, X } from "lucide-react";
 import Link from "next/link";
 import { playNotificationPing } from "@/lib/audio/notification-sound";
+import {
+  areNotificationsEnabled,
+  areNotificationSoundsEnabled,
+  getNotificationPreferences,
+  useNotificationPreferences,
+} from "@/lib/notifications/preferences";
 
 export type ToastType = "success" | "error" | "notification" | "info";
 
@@ -43,7 +49,7 @@ function formatMinimalMessage(toast: ToastPayload): string {
   const raw = (toast.title ? `${toast.title}: ${toast.message}` : toast.message) || "";
 
   if (raw.toLowerCase().includes("unsubmitted draft") || raw.toLowerCase().includes("cannot clock in")) {
-    return "Submit last week's draft to clock in";
+    return "Submit past drafts to clock in";
   }
   if (raw.toLowerCase().includes("clocked in successfully")) {
     return "Clocked in";
@@ -98,6 +104,14 @@ export function useToast() {
 export function SlidingToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const timersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const preferences = useNotificationPreferences();
+  const notificationsEnabled = areNotificationsEnabled(preferences);
+
+  useEffect(() => {
+    if (!notificationsEnabled) {
+      setToasts((prev) => prev.filter((t) => t.type !== "notification"));
+    }
+  }, [notificationsEnabled]);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -110,11 +124,21 @@ export function SlidingToastProvider({ children }: { children: React.ReactNode }
 
   const showToast = useCallback(
     (payload: ToastPayload) => {
+      const prefs = getNotificationPreferences();
+
+      // Suppress notification-type popups when notifications are disabled
+      if (payload.type === "notification" && !areNotificationsEnabled(prefs)) {
+        return;
+      }
+
       const id = payload.id || `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const duration = payload.durationMs ?? (payload.type === "error" ? 4500 : 3500);
 
-      // Play audio ping
-      if (payload.type === "notification" || payload.type === "success") {
+      // Play audio ping only when notifications and alert sounds are enabled
+      if (
+        (payload.type === "notification" || payload.type === "success") &&
+        areNotificationSoundsEnabled(prefs)
+      ) {
         playNotificationPing();
       }
 

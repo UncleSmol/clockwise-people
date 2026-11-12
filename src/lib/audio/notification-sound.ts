@@ -1,5 +1,7 @@
 "use client";
 
+import { areNotificationSoundsEnabled } from "@/lib/notifications/preferences";
+
 /**
  * Primary Notification Sound Player
  * Downloads and caches /sounds/ping-sound.mp3 locally on the user's device
@@ -144,6 +146,7 @@ export function primeNotificationAudio(): void {
  */
 export function playNotificationPing(): void {
   if (typeof window === "undefined") return;
+  if (!areNotificationSoundsEnabled()) return;
 
   // Ensure download is scheduled if not started yet
   if (!isDownloaded && !isDownloading) {

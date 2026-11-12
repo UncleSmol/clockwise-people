@@ -268,21 +268,30 @@ export function getPastWeekDraftsInfo(
       : holidayDates,
   );
 
-  const pastWeekDrafts = entries.filter((entry) => {
-    if (entry.work_date < bounds.startOfPastWeek || entry.work_date > bounds.endOfPastWeek) {
-      return false;
-    }
-    if (entry.status !== "draft" && entry.status !== "rejected") {
-      return false;
-    }
-    if (holidays.has(entry.work_date) || entry.notes?.startsWith("Public holiday:")) {
-      return false;
-    }
-    return true;
-  });
+  // Include all unsubmitted draft/rejected timesheets before the current week (last week + past months)
+  const pastWeekDrafts = entries
+    .filter((entry) => {
+      if (entry.work_date >= bounds.startOfCurrentWeek) {
+        return false;
+      }
+      if (entry.status !== "draft" && entry.status !== "rejected") {
+        return false;
+      }
+      if (holidays.has(entry.work_date) || entry.notes?.startsWith("Public holiday:")) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => b.work_date.localeCompare(a.work_date));
+
+  const newestPastDraftDate = pastWeekDrafts[0]?.work_date ?? bounds.endOfPastWeek;
+  const oldestPastDraftDate =
+    pastWeekDrafts[pastWeekDrafts.length - 1]?.work_date ?? bounds.startOfPastWeek;
 
   return {
     ...bounds,
+    oldestPastDraftDate,
+    newestPastDraftDate,
     pastWeekDrafts,
     pastWeekDraftsCount: pastWeekDrafts.length,
     hasUnsubmittedPastWeekDrafts: pastWeekDrafts.length > 0,

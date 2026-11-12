@@ -188,20 +188,30 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     roleKeys.has("owner");
 
   const adminClient = createSupabaseAdminClient();
-  const directReportsResult = activeEmployeeId
-    ? await adminClient
-        .from("employees")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", activeCompany.id)
-        .eq("manager_employee_id", activeEmployeeId)
-        .eq("employment_status", "active")
-        .is("deleted_at", null)
-    : null;
+  const [directReportsResult, activeEmployeeProfileResult] = activeEmployeeId
+    ? await Promise.all([
+        adminClient
+          .from("employees")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", activeCompany.id)
+          .eq("manager_employee_id", activeEmployeeId)
+          .eq("employment_status", "active")
+          .is("deleted_at", null),
+        adminClient
+          .from("employees")
+          .select("workstation_id")
+          .eq("id", activeEmployeeId)
+          .eq("company_id", activeCompany.id)
+          .is("deleted_at", null)
+          .maybeSingle(),
+      ])
+    : [null, null];
 
   if (directReportsResult?.error) {
     throw new Error(directReportsResult.error.message);
   }
 
+  const workstationId = activeEmployeeProfileResult?.data?.workstation_id ?? null;
   const canManageDirectReports = Number(directReportsResult?.count ?? 0) > 0;
 
   // Tenant-level roles
@@ -261,10 +271,24 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
 
   const canViewPayroll = canViewPayslips;
 
+  // A Branch Manager without company-wide Admin/Owner/SuperAdmin privileges is scoped
+  // strictly to their assigned workstation for leave applications, drafts, and reviews.
+  const isScopedBranchManager =
+    isBranchManager &&
+    !isSuperAdmin &&
+    !isSuperUser &&
+    !isOwner &&
+    !isHrAdmin &&
+    !canManageCompany;
+  const scopedWorkstationId = isScopedBranchManager ? workstationId : null;
+
   return {
     userEmail: userEmail ?? null,
     appUserId: targetAppUser?.id ?? null,
     employeeId: activeEmployeeId,
+    workstationId,
+    isScopedBranchManager,
+    scopedWorkstationId,
     companyIds,
     roles: Array.from(roleKeys),
     isSuperAdmin,
@@ -289,6 +313,56 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
     canManageDirectReports: isSuperAdmin || canManageDirectReports,
     canViewPayroll,
   };
+});
+
+export const getOtherBranchManagerEmployeeIds = cache(async function getOtherBranchManagerEmployeeIds(
+  companyId: string,
+  excludeEmployeeId: string | null,
+): Promise<Set<string>> {
+  const adminClient = createSupabaseAdminClient();
+  const { data: roleRows, error: roleError } = await adminClient
+    .from("user_roles")
+    .select("user_id, roles!inner(key)")
+    .eq("company_id", companyId)
+    .eq("roles.key", "branch_manager")
+    .is("revoked_at", null);
+
+  if (roleError || !roleRows || roleRows.length === 0) {
+    return new Set<string>();
+  }
+
+  const branchManagerUserIds = [...new Set(roleRows.map((r) => r.user_id).filter(Boolean))];
+  if (branchManagerUserIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const [{ data: appUserRows }, { data: empRows }] = await Promise.all([
+    adminClient
+      .from("app_users")
+      .select("employee_id")
+      .eq("company_id", companyId)
+      .in("id", branchManagerUserIds)
+      .not("employee_id", "is", null),
+    adminClient
+      .from("employees")
+      .select("id")
+      .eq("company_id", companyId)
+      .in("user_id", branchManagerUserIds)
+      .is("deleted_at", null),
+  ]);
+
+  const ids = new Set<string>();
+  for (const row of appUserRows ?? []) {
+    if (row.employee_id && row.employee_id !== excludeEmployeeId) {
+      ids.add(row.employee_id);
+    }
+  }
+  for (const row of empRows ?? []) {
+    if (row.id && row.id !== excludeEmployeeId) {
+      ids.add(row.id);
+    }
+  }
+  return ids;
 });
 
 export async function requireCompanyAdmin() {

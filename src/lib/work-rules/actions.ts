@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { getActiveCompany, getCurrentUserAccess, requireUser } from "@/lib/foundation/queries";
+import {
+  getActiveCompany,
+  getCurrentUserAccess,
+  getOtherBranchManagerEmployeeIds,
+  requireUser,
+} from "@/lib/foundation/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -9,7 +14,6 @@ import {
   leaveAccrualPreviewFormSchema,
   leaveAssignmentFormSchema,
   leaveRequestFormSchema,
-  leaveTypeFormSchema,
   publicHolidayFormSchema,
   updateLeaveTypeFormSchema,
   updateWorkScheduleFormSchema,
@@ -19,7 +23,6 @@ import {
 } from "./schema";
 import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
-import { calculateSimpleLeaveAccrual } from "./engine/accrual-engine";
 import {
   deriveGenderFromSouthAfricanId,
   isBalanceEligibleLeaveType,
@@ -990,6 +993,43 @@ export async function reviewLeaveRequest(
     return { ok: false, message: "You do not have permission to review leave requests." };
   }
 
+  if (access.isScopedBranchManager) {
+    if (!access.scopedWorkstationId) {
+      return { ok: false, message: "No workstation is assigned to your branch manager profile." };
+    }
+    const { company } = await getActiveCompany();
+    const adminClient = createSupabaseAdminClient();
+    const { data: targetLeave, error: targetLeaveError } = await adminClient
+      .from("leave_requests")
+      .select("id, employee_id, employees(workstation_id)")
+      .eq("id", leaveRequestId)
+      .eq("company_id", company.id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (targetLeaveError || !targetLeave) {
+      return { ok: false, message: "Leave request not found." };
+    }
+
+    const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(company.id, access.employeeId);
+    if (otherBranchManagerIds.has(targetLeave.employee_id)) {
+      return {
+        ok: false,
+        message: "Branch managers cannot review another branch manager's leave requests.",
+      };
+    }
+
+    const empRel = Array.isArray(targetLeave.employees)
+      ? targetLeave.employees[0]
+      : targetLeave.employees;
+    if (empRel?.workstation_id !== access.scopedWorkstationId) {
+      return {
+        ok: false,
+        message: "You can only review leave requests for employees in your assigned workstation.",
+      };
+    }
+  }
+
   const supabase = await createSupabaseServerClient();
   let reviewError = (
     await supabase.rpc("review_managed_leave_request", {
@@ -1175,7 +1215,6 @@ export async function syncEmployeeAccruals(
   const companyDefaultAnnualDays = isTalane ? 21 : (isKemistry || isAlora ? 17 : 15);
 
   const settingsData = settingsResult.data;
-  const standardMonthlyHours = Number(settingsData?.standard_monthly_hours ?? 173.33);
   const standardDailyHours = Number(settingsData?.standard_daily_hours ?? 8);
   const leaveRules = (settingsData?.leave_rules ?? {}) as Record<string, unknown>;
   const preventAdditiveImportStacking = Boolean(
@@ -1562,6 +1601,8 @@ export async function autoSyncOwnLeaveAccruals(
   _previousState?: ActionState,
   _formData?: FormData,
 ): Promise<ActionState> {
+  void _previousState;
+  void _formData;
   const { employeeId } = await getCurrentUserAccess();
   const { company } = await getActiveCompany();
 

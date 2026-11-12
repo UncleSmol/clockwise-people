@@ -877,32 +877,36 @@ export default function EmployeeTimesheetCorrections({
 
     return [...holidayEvents, ...timesheetEvents, ...leaveRequestEvents];
   }, [entries, leaveRequests, publicHolidays, holidayDates, isEntryFixed]);
-  const pastWeekEntries = useMemo(
-    () => entries.filter((e) => e.work_date >= startOfPastWeek && e.work_date <= endOfPastWeek),
-    [entries, startOfPastWeek, endOfPastWeek],
-  );
+  const MAX_REVIEW_RECORDS = 6;
 
   const currentWeekEntries = useMemo(
     () => entries.filter((e) => e.work_date >= startOfCurrentWeek && e.work_date <= currentWorkDate),
     [entries, startOfCurrentWeek, currentWorkDate],
   );
 
+  // Include all unsubmitted/rejected non-holiday drafts from before this week (last week + past months)
   const unsubmittedPastWeekDrafts = useMemo(
     () =>
-      pastWeekEntries.filter(
-        (e) =>
-          (e.status === "draft" || e.status === "rejected") &&
-          !holidayDates.has(e.work_date) &&
-          !e.notes?.startsWith("Public holiday:"),
-      ),
-    [pastWeekEntries, holidayDates],
+      entries
+        .filter(
+          (e) =>
+            e.work_date < startOfCurrentWeek &&
+            (e.status === "draft" || e.status === "rejected") &&
+            !holidayDates.has(e.work_date) &&
+            !e.notes?.startsWith("Public holiday:"),
+        )
+        .sort((a, b) => b.work_date.localeCompare(a.work_date)),
+    [entries, startOfCurrentWeek, holidayDates],
   );
 
   const unsubmittedPastWeekDraftsCount = unsubmittedPastWeekDrafts.length;
   const hasUnsubmittedPastWeekDrafts = unsubmittedPastWeekDraftsCount > 0;
+  const newestPastDraftDate = unsubmittedPastWeekDrafts[0]?.work_date ?? endOfPastWeek;
+  const oldestPastDraftDate =
+    unsubmittedPastWeekDrafts[unsubmittedPastWeekDrafts.length - 1]?.work_date ?? startOfPastWeek;
 
   // Automatic draft selection:
-  // If the user has drafts from last week that have not been submitted,
+  // If the user has unsubmitted drafts from past weeks/months,
   // the ONLY thing they see on the review component is those drafts that need attention!
   const editableEntries = useMemo(() => {
     if (hasUnsubmittedPastWeekDrafts) {
@@ -911,22 +915,23 @@ export default function EmployeeTimesheetCorrections({
     return currentWeekEntries.filter(
       (entry) =>
         (entry.status === "draft" || entry.status === "rejected") &&
-        entry.work_date >= startOfPastWeek &&
         !holidayDates.has(entry.work_date) &&
         !entry.notes?.startsWith("Public holiday:"),
     );
-  }, [hasUnsubmittedPastWeekDrafts, unsubmittedPastWeekDrafts, currentWeekEntries, startOfPastWeek, holidayDates]);
+  }, [hasUnsubmittedPastWeekDrafts, unsubmittedPastWeekDrafts, currentWeekEntries, holidayDates]);
 
   const submittedEntries = useMemo(
     () =>
-      entries.filter(
-        (entry) =>
-          entry.status !== "draft" &&
-          entry.status !== "rejected" &&
-          entry.work_date >= startOfPastWeek &&
-          !holidayDates.has(entry.work_date) &&
-          !entry.notes?.startsWith("Public holiday:"),
-      ),
+      entries
+        .filter(
+          (entry) =>
+            entry.status !== "draft" &&
+            entry.status !== "rejected" &&
+            entry.work_date >= startOfPastWeek &&
+            !holidayDates.has(entry.work_date) &&
+            !entry.notes?.startsWith("Public holiday:"),
+        )
+        .sort((a, b) => b.work_date.localeCompare(a.work_date)),
     [entries, startOfPastWeek, holidayDates],
   );
 
@@ -936,11 +941,10 @@ export default function EmployeeTimesheetCorrections({
     }
     return currentWeekEntries.filter(
       (entry) =>
-        entry.work_date >= startOfPastWeek &&
         !holidayDates.has(entry.work_date) &&
         !entry.notes?.startsWith("Public holiday:"),
     );
-  }, [hasUnsubmittedPastWeekDrafts, unsubmittedPastWeekDrafts, currentWeekEntries, startOfPastWeek, holidayDates]);
+  }, [hasUnsubmittedPastWeekDrafts, unsubmittedPastWeekDrafts, currentWeekEntries, holidayDates]);
 
   const timesheetSectionRef = useRef<HTMLDivElement>(null);
 
@@ -951,9 +955,9 @@ export default function EmployeeTimesheetCorrections({
     });
   }, []);
 
-  // Timesheets Tab Pagination
+  // Timesheets Tab Pagination (capped at 6 records per view)
   const [timesheetsPage, setTimesheetsPage] = useState(1);
-  const [timesheetsPageSize, setTimesheetsPageSize] = useState(12);
+  const timesheetsPageSize = MAX_REVIEW_RECORDS;
 
   const totalTimesheets = filteredEntries.length;
   const totalTimesheetsPages = Math.max(1, Math.ceil(totalTimesheets / timesheetsPageSize));
@@ -977,9 +981,9 @@ export default function EmployeeTimesheetCorrections({
     scrollToTimesheetSection();
   }, [scrollToTimesheetSection]);
 
-  // Requests Tab Pagination
+  // Requests Tab Pagination (capped at 6 records per view)
   const [requestsPage, setRequestsPage] = useState(1);
-  const [requestsPageSize, setRequestsPageSize] = useState(12);
+  const requestsPageSize = MAX_REVIEW_RECORDS;
 
   const totalRequests = submittedEntries.length;
   const totalRequestsPages = Math.max(1, Math.ceil(totalRequests / requestsPageSize));
@@ -1095,22 +1099,27 @@ export default function EmployeeTimesheetCorrections({
     return editableEntries;
   }, [selectorFilter, readyEntries, fixedEntries, attentionEntries, editableEntries]);
 
+  const visibleEditableEntries = useMemo(
+    () => displayedEditableEntries.slice(0, MAX_REVIEW_RECORDS),
+    [displayedEditableEntries],
+  );
+
   const isAllDisplayedSelected =
-    displayedEditableEntries.length > 0 &&
-    displayedEditableEntries.every((e) => selectedEntryIds.has(e.id));
+    visibleEditableEntries.length > 0 &&
+    visibleEditableEntries.every((e) => selectedEntryIds.has(e.id));
 
   const toggleEntrySelection = (entryId: string, shiftKey?: boolean) => {
     setAcknowledgedFlags(false);
 
     if (shiftKey && lastClickedEntryIdRef.current) {
-      const lastIndex = displayedEditableEntries.findIndex(
+      const lastIndex = visibleEditableEntries.findIndex(
         (e) => e.id === lastClickedEntryIdRef.current,
       );
-      const currentIndex = displayedEditableEntries.findIndex((e) => e.id === entryId);
+      const currentIndex = visibleEditableEntries.findIndex((e) => e.id === entryId);
       if (lastIndex !== -1 && currentIndex !== -1) {
         const start = Math.min(lastIndex, currentIndex);
         const end = Math.max(lastIndex, currentIndex);
-        const rangeIds = displayedEditableEntries.slice(start, end + 1).map((e) => e.id);
+        const rangeIds = visibleEditableEntries.slice(start, end + 1).map((e) => e.id);
         setSelectedEntryIds((prev) => {
           const next = new Set(prev);
           rangeIds.forEach((id) => next.add(id));
@@ -1138,13 +1147,13 @@ export default function EmployeeTimesheetCorrections({
     if (isAllDisplayedSelected) {
       setSelectedEntryIds((prev) => {
         const next = new Set(prev);
-        displayedEditableEntries.forEach((e) => next.delete(e.id));
+        visibleEditableEntries.forEach((e) => next.delete(e.id));
         return next;
       });
     } else {
       setSelectedEntryIds((prev) => {
         const next = new Set(prev);
-        displayedEditableEntries.forEach((e) => next.add(e.id));
+        visibleEditableEntries.forEach((e) => next.add(e.id));
         return next;
       });
     }
@@ -1916,7 +1925,7 @@ export default function EmployeeTimesheetCorrections({
         ) : null}
 
         <div className="mt-3.5 grid gap-2">
-          {displayedEditableEntries.map((entry) => {
+          {visibleEditableEntries.map((entry) => {
             const isFixed = isEntryFixed(entry);
             const isRejected = entry.status === "rejected" && !isFixed;
             const needsAttention = entryNeedsAttention(entry) && !isFixed;
@@ -2035,10 +2044,10 @@ export default function EmployeeTimesheetCorrections({
               </div>
               <div className="flex-1 space-y-1">
                 <p className="font-extrabold text-sm text-amber-950 dark:text-amber-100">
-                  Clock-in Locked: {unsubmittedPastWeekDraftsCount} Draft Timesheet{unsubmittedPastWeekDraftsCount === 1 ? "" : "s"} Needing Attention
+                  Clock-in Locked: {unsubmittedPastWeekDraftsCount} Past Draft Timesheet{unsubmittedPastWeekDraftsCount === 1 ? "" : "s"} Needing Attention
                 </p>
                 <p className="text-xs text-amber-900/90 dark:text-amber-300/90 leading-relaxed">
-                  You have unsubmitted drafts from last week ({startOfPastWeek} to {endOfPastWeek}). Only these drafts are displayed below so you can review, adjust, and submit them to immediately unlock clock-in.
+                  You have unsubmitted drafts from past periods ({oldestPastDraftDate === newestPastDraftDate ? oldestPastDraftDate : `${oldestPastDraftDate} to ${newestPastDraftDate}`}). Up to {MAX_REVIEW_RECORDS} drafts are displayed below at a time so you can review, adjust, and submit them to immediately unlock clock-in.
                 </p>
               </div>
             </div>
@@ -2167,25 +2176,8 @@ export default function EmployeeTimesheetCorrections({
                       Showing <strong className="font-bold text-foreground">{timesheetStartIndex}</strong> to{" "}
                       <strong className="font-bold text-foreground">{timesheetEndIndex}</strong> of{" "}
                       <strong className="font-bold text-foreground">{totalTimesheets}</strong> timesheets
+                      <span className="ml-1.5 text-[11px] text-muted/80">(max {MAX_REVIEW_RECORDS} per view)</span>
                     </span>
-
-                    <div className="flex items-center gap-1.5 ml-2">
-                      <span className="text-[11px] font-semibold text-muted">Per page:</span>
-                      <select
-                        value={timesheetsPageSize}
-                        onChange={(e) => {
-                          setTimesheetsPageSize(Number(e.target.value));
-                          setTimesheetsPage(1);
-                        }}
-                        className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
-                      >
-                        {[6, 12, 24, 48].map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
 
                   {totalTimesheetsPages > 1 ? (
@@ -2239,12 +2231,45 @@ export default function EmployeeTimesheetCorrections({
           ) : (
             <div className="grid gap-3">
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 items-start">
-                {submittedEntries.map((entry) => (
+                {paginatedSubmittedEntries.map((entry) => (
                   <div key={entry.id} className="w-full min-w-0 max-w-full">
                     {renderTimesheetEntry(entry)}
                   </div>
                 ))}
               </div>
+              {totalRequests > 0 ? (
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/80">
+                  <div className="text-xs font-medium text-muted">
+                    Showing <strong className="font-bold text-foreground">{requestStartIndex}</strong> to{" "}
+                    <strong className="font-bold text-foreground">{requestEndIndex}</strong> of{" "}
+                    <strong className="font-bold text-foreground">{totalRequests}</strong> submitted
+                    <span className="ml-1.5 text-[11px] text-muted/80">(max {MAX_REVIEW_RECORDS} per view)</span>
+                  </div>
+                  {totalRequestsPages > 1 ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleRequestsPageChange(Math.max(1, requestsPage - 1))}
+                        disabled={requestsPage === 1}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border/80 bg-surface text-foreground hover:bg-surface-muted disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        Prev
+                      </button>
+                      <span className="px-2 text-xs font-semibold text-muted">
+                        Page {requestsPage} of {totalRequestsPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRequestsPageChange(Math.min(totalRequestsPages, requestsPage + 1))}
+                        disabled={requestsPage === totalRequestsPages}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border/80 bg-surface text-foreground hover:bg-surface-muted disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
