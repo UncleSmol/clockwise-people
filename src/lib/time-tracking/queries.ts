@@ -1400,8 +1400,20 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
 
   await ensureHolidaysOnce(supabase, company.id, currentYear);
 
-  const [{ data, error }, { data: holidaysData }] = await Promise.all([
-    supabase
+  const holidaysPromise = supabase
+    .from("company_public_holidays")
+    .select("holiday_date")
+    .eq("company_id", company.id)
+    .is("deleted_at", null)
+    .gte("holiday_date", `${currentYear}-01-01`)
+    .lte("holiday_date", `${currentYear}-12-31`);
+
+  const PAGE_SIZE = 1000;
+  const allTimeEntries: SubmittedTimesheetRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data: pageData, error: pageError } = await supabase
       .from("time_entries")
       .select(
         "id, company_id, employee_id, work_date, workstation_id, clock_in, lunch_start, lunch_end, clock_out, gross_hours, lunch_hours, paid_hours, normal_hours, overtime_hours, missing_clocking, late_arrival, early_departure, warning_notes, notes, status, leave_type_id, employees(employee_number, full_name, known_as, avatar_url, workstation_id, company_workstations(name))",
@@ -1411,19 +1423,23 @@ export const getCompanyTimesheetCalendarEntries = cache(async function getCompan
       .gte("work_date", `${currentYear}-01-01`)
       .lte("work_date", `${currentYear}-12-31`)
       .order("work_date", { ascending: false })
-      .limit(1500),
-    supabase
-      .from("company_public_holidays")
-      .select("holiday_date")
-      .eq("company_id", company.id)
-      .is("deleted_at", null)
-      .gte("holiday_date", `${currentYear}-01-01`)
-      .lte("holiday_date", `${currentYear}-12-31`),
-  ]);
+      .range(from, from + PAGE_SIZE - 1);
 
-  if (error) {
-    throw new Error(error.message);
+    if (pageError) {
+      throw new Error(pageError.message);
+    }
+    if (!pageData || pageData.length === 0) break;
+    allTimeEntries.push(...(pageData as unknown as SubmittedTimesheetRow[]));
+    if (pageData.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
+
+  const { data: holidaysData, error: holidaysError } = await holidaysPromise;
+  if (holidaysError) {
+    throw new Error(holidaysError.message);
+  }
+
+  const data = allTimeEntries;
 
   const otherBranchManagerIds = access.isScopedBranchManager
     ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
@@ -1573,18 +1589,30 @@ export const getCompanyCalendarLeaveRequests = cache(async function getCompanyCa
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("leave_requests")
-    .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as, avatar_url, workstation_id), leave_types(name)")
-    .eq("company_id", company.id)
-    .in("status", ["approved", "submitted"])
-    .is("deleted_at", null)
-    .order("start_date", { ascending: true })
-    .limit(200);
+  const PAGE_SIZE = 1000;
+  const allLeaveRequests: CalendarLeaveRequestRow[] = [];
+  let from = 0;
 
-  if (error) {
-    throw new Error(error.message);
+  while (true) {
+    const { data: pageData, error: pageError } = await supabase
+      .from("leave_requests")
+      .select("id, employee_id, start_date, end_date, total_hours, status, employees(employee_number, full_name, known_as, avatar_url, workstation_id), leave_types(name)")
+      .eq("company_id", company.id)
+      .in("status", ["approved", "submitted"])
+      .is("deleted_at", null)
+      .order("start_date", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (pageError) {
+      throw new Error(pageError.message);
+    }
+    if (!pageData || pageData.length === 0) break;
+    allLeaveRequests.push(...(pageData as unknown as CalendarLeaveRequestRow[]));
+    if (pageData.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
+
+  const data = allLeaveRequests;
 
   const otherBranchManagerIds = access.isScopedBranchManager
     ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)

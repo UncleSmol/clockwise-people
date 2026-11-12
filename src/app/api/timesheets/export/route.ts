@@ -66,27 +66,76 @@ export async function GET(request: Request) {
     const deptMap = new Map((deptRes.data || []).map((d) => [d.id, d.name]));
 
     // 3. Fetch all timesheet entries (historical imported + live clocked)
-    let query = supabase
-      .from("time_entries")
-      .select(
-        "id, employee_id, work_date, entry_type, clock_in, lunch_start, lunch_end, clock_out, gross_hours, paid_hours, normal_hours, overtime_hours, status, notes, workstation_id",
-      )
-      .eq("company_id", company.id)
-      .is("deleted_at", null)
-      .order("work_date", { ascending: true });
+    const PAGE_SIZE = 1000;
+    type ExportTimeEntry = {
+      id: string;
+      employee_id: string;
+      work_date: string;
+      entry_type?: string | null;
+      clock_in: string | null;
+      lunch_start: string | null;
+      lunch_end: string | null;
+      clock_out: string | null;
+      gross_hours: number | null;
+      paid_hours: number | null;
+      normal_hours: number | null;
+      overtime_hours: number | null;
+      status: string;
+      notes: string | null;
+      workstation_id: string | null;
+    };
+    const timeEntries: ExportTimeEntry[] = [];
+    let teFrom = 0;
 
-    if (startDate) query = query.gte("work_date", startDate);
-    if (endDate) query = query.lte("work_date", endDate);
+    while (true) {
+      let pageQuery = supabase
+        .from("time_entries")
+        .select(
+          "id, employee_id, work_date, entry_type, clock_in, lunch_start, lunch_end, clock_out, gross_hours, paid_hours, normal_hours, overtime_hours, status, notes, workstation_id",
+        )
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .order("work_date", { ascending: true })
+        .range(teFrom, teFrom + PAGE_SIZE - 1);
 
-    const { data: timeEntries, error: teErr } = await query;
-    if (teErr) throw new Error(teErr.message);
+      if (startDate) pageQuery = pageQuery.gte("work_date", startDate);
+      if (endDate) pageQuery = pageQuery.lte("work_date", endDate);
+
+      const { data: pageData, error: teErr } = await pageQuery;
+      if (teErr) throw new Error(teErr.message);
+      if (!pageData || pageData.length === 0) break;
+      timeEntries.push(...(pageData as unknown as ExportTimeEntry[]));
+      if (pageData.length < PAGE_SIZE) break;
+      teFrom += PAGE_SIZE;
+    }
 
     // 4. Fetch leave requests to map leave_type names for leave entries
-    const { data: leaveRequests } = await supabase
-      .from("leave_requests")
-      .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, status")
-      .eq("company_id", company.id)
-      .neq("status", "cancelled");
+    type ExportLeaveRequest = {
+      id: string;
+      employee_id: string;
+      leave_type_id: string;
+      start_date: string;
+      end_date: string;
+      total_hours: number | null;
+      status: string;
+    };
+    const leaveRequests: ExportLeaveRequest[] = [];
+    let lrFrom = 0;
+
+    while (true) {
+      const { data: lrPage, error: lrErr } = await supabase
+        .from("leave_requests")
+        .select("id, employee_id, leave_type_id, start_date, end_date, total_hours, status")
+        .eq("company_id", company.id)
+        .neq("status", "cancelled")
+        .range(lrFrom, lrFrom + PAGE_SIZE - 1);
+
+      if (lrErr) throw new Error(lrErr.message);
+      if (!lrPage || lrPage.length === 0) break;
+      leaveRequests.push(...(lrPage as unknown as ExportLeaveRequest[]));
+      if (lrPage.length < PAGE_SIZE) break;
+      lrFrom += PAGE_SIZE;
+    }
 
     // Build Timesheet Rows
     const timesheetRows = (timeEntries || []).map((entry) => {
