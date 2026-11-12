@@ -1036,6 +1036,13 @@ export async function reviewLeaveRequest(
       return { ok: false, message: "Leave request not found." };
     }
 
+    if (access.employeeId && targetLeave.employee_id === access.employeeId) {
+      return {
+        ok: false,
+        message: "Branch managers cannot review or approve their own leave requests.",
+      };
+    }
+
     const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(company.id, access.employeeId);
     if (otherBranchManagerIds.has(targetLeave.employee_id)) {
       return {

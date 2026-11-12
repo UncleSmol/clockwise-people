@@ -16,7 +16,14 @@ export type TimesheetPayrollRow = {
   holidayHours: number;
   leaveHours: number;
   totalPaidHours: number;
-  status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked" | string;
+  status:
+    | "draft"
+    | "submitted"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "locked"
+    | string;
   managerSignOff: string | null;
   hasComplianceFlag: boolean;
   complianceNotes: string | null;
@@ -94,7 +101,14 @@ export type AbsenceReportRow = {
   isPaid: boolean;
   reason: string | null;
   approvedBy: string | null;
-  status: "draft" | "submitted" | "approved" | "rejected" | "cancelled" | "locked" | string;
+  status:
+    | "draft"
+    | "submitted"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "locked"
+    | string;
 };
 
 export type ReportKPIs = {

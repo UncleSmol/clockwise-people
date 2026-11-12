@@ -1,9 +1,27 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import SignInButton from "@/components/auth/SignInButton";
 import PasswordInput from "@/components/ui/PasswordInput";
 import { signIn } from "@/lib/auth/actions";
+
+function ChevronLeftIcon({ className = "size-5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
 
 type LoginPageProps = {
   searchParams?: Promise<{ message?: string }>;
@@ -21,7 +39,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             className="inline-flex size-9 items-center justify-center rounded-full border border-border bg-surface text-foreground shadow-2xs hover:bg-surface-muted transition-colors"
             aria-label="Back to home"
           >
-            <ChevronLeft className="size-5" />
+            <ChevronLeftIcon className="size-5" />
           </Link>
         </div>
 

@@ -1,47 +1,47 @@
 "use client";
 
+import CompanyPayslipsWorkspace from "@/components/payroll/CompanyPayslipsWorkspace";
+import type { EmployeeRecord } from "@/lib/employees/schema";
+import type { CompanyPayslipContext } from "@/lib/payroll/payslip-types";
+import {
+  buildAbsenceReport,
+  buildAccrualReport,
+  buildAttendanceReport,
+  buildComplianceDistributionStats,
+  buildDailyAttendanceStats,
+  buildDepartmentWorkloadStats,
+  buildEmployeeHoursSummaryReport,
+  buildLeaveCategoryStats,
+  buildTimesheetPayrollReport,
+  buildWorkstationWorkloadStats,
+  calculateReportKPIs,
+} from "@/lib/reports/aggregators";
+import {
+  exportCompleteAuditPackExcel,
+  exportReportToCsv,
+  exportReportToPdf,
+} from "@/lib/reports/exporters";
+import {
+  defaultPayrollConfig,
+  formatPeriodDate,
+  generatePayrollPeriods,
+  type PayrollPeriodConfig,
+} from "@/lib/reports/payroll-periods";
+import type { ScheduleDayLike } from "@/lib/time-tracking/schedule-compliance";
+import type {
+  CompanyCalendarLeaveRequest,
+  CompanyPublicHoliday,
+  CompanyTimesheetCalendarEntry,
+} from "@/lib/time-tracking/schema";
+import type { LeaveType } from "@/lib/work-rules/schema";
 import { useMemo, useState } from "react";
+import AbsenceReportTable from "./AbsenceReportTable";
+import AttendanceReportTable from "./AttendanceReportTable";
+import EmployeeHoursSummaryReportTable from "./EmployeeHoursSummaryReportTable";
+import LeaveAccrualReportTable from "./LeaveAccrualReportTable";
 import PayrollPeriodSettingsForm from "./PayrollPeriodSettingsForm";
 import ReportsOverviewAnalytics from "./ReportsOverviewAnalytics";
 import TimesheetPayrollReportTable from "./TimesheetPayrollReportTable";
-import AttendanceReportTable from "./AttendanceReportTable";
-import LeaveAccrualReportTable from "./LeaveAccrualReportTable";
-import AbsenceReportTable from "./AbsenceReportTable";
-import EmployeeHoursSummaryReportTable from "./EmployeeHoursSummaryReportTable";
-import CompanyPayslipsWorkspace from "@/components/payroll/CompanyPayslipsWorkspace";
-import type { CompanyPayslipContext } from "@/lib/payroll/payslip-types";
-import type { EmployeeRecord } from "@/lib/employees/schema";
-import {
-  generatePayrollPeriods,
-  formatPeriodDate,
-  type PayrollPeriodConfig,
-  defaultPayrollConfig,
-} from "@/lib/reports/payroll-periods";
-import {
-  buildTimesheetPayrollReport,
-  buildAttendanceReport,
-  buildAccrualReport,
-  buildAbsenceReport,
-  buildEmployeeHoursSummaryReport,
-  calculateReportKPIs,
-  buildDailyAttendanceStats,
-  buildComplianceDistributionStats,
-  buildLeaveCategoryStats,
-  buildDepartmentWorkloadStats,
-  buildWorkstationWorkloadStats,
-} from "@/lib/reports/aggregators";
-import {
-  exportReportToCsv,
-  exportReportToPdf,
-  exportCompleteAuditPackExcel,
-} from "@/lib/reports/exporters";
-import type { ScheduleDayLike } from "@/lib/time-tracking/schedule-compliance";
-import type {
-  CompanyTimesheetCalendarEntry,
-  CompanyPublicHoliday,
-  CompanyCalendarLeaveRequest,
-} from "@/lib/time-tracking/schema";
-import type { LeaveType } from "@/lib/work-rules/schema";
 
 type CompanyReportsWorkspaceProps = {
   companyName: string;
@@ -90,53 +90,6 @@ type ReportTab =
 
 function formatHours(val: number | string | null | undefined): string {
   return `${Number(val ?? 0).toFixed(2)}h`;
-}
-
-function getCategoryCardStyle(category: string) {
-  const cat = (category || "").toLowerCase();
-  if (cat.includes("annual")) {
-    return {
-      cardBg: "from-emerald-500/15 via-emerald-500/5 to-surface border-emerald-500/30",
-      accentText: "text-emerald-700 dark:text-emerald-300",
-      badge: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200",
-      dot: "bg-emerald-500",
-      subtitle: "BCEA Sec 20 Entitlement",
-    };
-  }
-  if (cat.includes("sick")) {
-    return {
-      cardBg: "from-rose-500/15 via-rose-500/5 to-surface border-rose-500/30",
-      accentText: "text-rose-700 dark:text-rose-300",
-      badge: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200",
-      dot: "bg-rose-500",
-      subtitle: "BCEA Sec 22 Entitlement",
-    };
-  }
-  if (cat.includes("family")) {
-    return {
-      cardBg: "from-amber-500/15 via-amber-500/5 to-surface border-amber-500/30",
-      accentText: "text-amber-800 dark:text-amber-300",
-      badge: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200",
-      dot: "bg-amber-500",
-      subtitle: "BCEA Sec 27 Entitlement",
-    };
-  }
-  if (cat.includes("toil")) {
-    return {
-      cardBg: "from-amber-500/15 via-amber-500/5 to-surface border-amber-500/30",
-      accentText: "text-amber-800 dark:text-amber-300",
-      badge: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200",
-      dot: "bg-amber-500",
-      subtitle: "BCEA Sec 10(3)(b) 1.5x",
-    };
-  }
-  return {
-    cardBg: "from-slate-500/15 via-slate-500/5 to-surface border-slate-500/30",
-    accentText: "text-slate-800 dark:text-slate-300",
-    badge: "bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200",
-    dot: "bg-slate-500",
-    subtitle: "Company Policy",
-  };
 }
 
 export default function CompanyReportsWorkspace({
@@ -220,7 +173,9 @@ export default function CompanyReportsWorkspace({
   const filteredEmployeesList = useMemo(() => {
     if (showInactive) return employees;
     return employees.filter((emp) => {
-      const status = activeEmployeeStatusMap.get(emp.id) ?? (emp as { employment_status?: string }).employment_status;
+      const status =
+        activeEmployeeStatusMap.get(emp.id) ??
+        (emp as { employment_status?: string }).employment_status;
       return status !== "terminated" && status !== "inactive";
     });
   }, [employees, showInactive, activeEmployeeStatusMap]);
@@ -231,7 +186,8 @@ export default function CompanyReportsWorkspace({
   );
 
   const filteredTimesheetEntriesInput = useMemo(
-    () => timesheetEntries.filter((te) => activeEmployeeIdSet.has(te.employee_id)),
+    () =>
+      timesheetEntries.filter((te) => activeEmployeeIdSet.has(te.employee_id)),
     [timesheetEntries, activeEmployeeIdSet],
   );
 
@@ -241,7 +197,8 @@ export default function CompanyReportsWorkspace({
   );
 
   const filteredLeaveAssignmentsInput = useMemo(
-    () => leaveAssignments.filter((la) => activeEmployeeIdSet.has(la.employee_id)),
+    () =>
+      leaveAssignments.filter((la) => activeEmployeeIdSet.has(la.employee_id)),
     [leaveAssignments, activeEmployeeIdSet],
   );
 
@@ -294,17 +251,6 @@ export default function CompanyReportsWorkspace({
     [aggregatorInput],
   );
 
-  const kpis = useMemo(
-    () =>
-      calculateReportKPIs(
-        rawTimesheetRows,
-        rawAttendanceRows,
-        rawAbsenceRows,
-        rawAccrualRows,
-      ),
-    [rawTimesheetRows, rawAttendanceRows, rawAbsenceRows, rawAccrualRows],
-  );
-
   // Filtered rows for active tables
   const filteredEmployeeSummaryRows = useMemo(() => {
     return rawEmployeeSummaryRows.filter((r) => {
@@ -316,7 +262,12 @@ export default function CompanyReportsWorkspace({
         return false;
       return true;
     });
-  }, [rawEmployeeSummaryRows, employeeFilter, departmentFilter, workstationFilter]);
+  }, [
+    rawEmployeeSummaryRows,
+    employeeFilter,
+    departmentFilter,
+    workstationFilter,
+  ]);
 
   const filteredTimesheets = useMemo(() => {
     return rawTimesheetRows.filter((r) => {
@@ -357,57 +308,6 @@ export default function CompanyReportsWorkspace({
     return filteredEmployeesList.find((e) => e.id === employeeFilter) ?? null;
   }, [employeeFilter, filteredEmployeesList]);
 
-  const liveAccrualCards = useMemo(() => {
-    if (selectedEmployeeObj) {
-      return filteredAccruals.map((r) => ({
-        key: `${r.employeeId}-${r.leaveType}`,
-        leaveType: r.leaveType,
-        leaveCategory: r.leaveCategory,
-        hours: r.currentBalanceHours,
-        days: r.currentBalanceDays,
-        employeeName: r.employeeName,
-        isAggregated: false,
-      }));
-    }
-
-    const map = new Map<
-      string,
-      {
-        key: string;
-        leaveType: string;
-        leaveCategory: string;
-        hours: number;
-        days: number;
-        count: number;
-        isAggregated: boolean;
-      }
-    >();
-
-    for (const r of filteredAccruals) {
-      const existing = map.get(r.leaveType);
-      if (existing) {
-        existing.hours += r.currentBalanceHours;
-        existing.days += r.currentBalanceDays;
-        existing.count += 1;
-      } else {
-        map.set(r.leaveType, {
-          key: r.leaveType,
-          leaveType: r.leaveType,
-          leaveCategory: r.leaveCategory,
-          hours: r.currentBalanceHours,
-          days: r.currentBalanceDays,
-          count: 1,
-          isAggregated: true,
-        });
-      }
-    }
-
-    return Array.from(map.values()).map((v) => ({
-      ...v,
-      hours: Number(v.hours.toFixed(2)),
-      days: Number(v.days.toFixed(1)),
-    }));
-  }, [selectedEmployeeObj, filteredAccruals]);
 
   const filteredAbsences = useMemo(() => {
     return rawAbsenceRows.filter((r) => {
@@ -418,6 +318,22 @@ export default function CompanyReportsWorkspace({
       return true;
     });
   }, [rawAbsenceRows, employeeFilter, departmentFilter]);
+
+  const kpis = useMemo(
+    () =>
+      calculateReportKPIs(
+        filteredTimesheets,
+        filteredAttendance,
+        filteredAbsences,
+        filteredAccruals,
+      ),
+    [
+      filteredTimesheets,
+      filteredAttendance,
+      filteredAbsences,
+      filteredAccruals,
+    ],
+  );
 
   // Visual Statistics Datasets for Recharts
   const dailyStats = useMemo(
@@ -437,8 +353,7 @@ export default function CompanyReportsWorkspace({
     [filteredTimesheets],
   );
   const workstationStats = useMemo(
-    () =>
-      buildWorkstationWorkloadStats(filteredTimesheets, filteredAttendance),
+    () => buildWorkstationWorkloadStats(filteredTimesheets, filteredAttendance),
     [filteredTimesheets, filteredAttendance],
   );
 
@@ -985,7 +900,8 @@ export default function CompanyReportsWorkspace({
               Compliance, Payroll &amp; Attendance Reporting Center
             </h2>
             <p className="mt-1 text-xs text-muted">
-              Audit attendance punctuality, overtime trends, statutory leave accruals, and pull executive compliance reports.
+              Audit attendance punctuality, overtime trends, statutory leave
+              accruals, and pull executive compliance reports.
             </p>
           </div>
 
@@ -1080,13 +996,14 @@ export default function CompanyReportsWorkspace({
                 onChange={(e) => setEmployeeFilter(e.target.value)}
                 className="min-h-[44px] sm:min-h-9 px-3.5 py-1.5 text-base sm:text-xs font-semibold rounded-full bg-background border border-border/80 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-xs leading-normal"
               >
-                <option value="all">Active Employees ({filteredEmployeesList.length})</option>
+                <option value="all">
+                  Active Employees ({filteredEmployeesList.length})
+                </option>
                 {filteredEmployeesList.map((emp) => (
                   <option key={emp.id} value={emp.id}>
                     {emp.known_as ?? emp.full_name}
                   </option>
                 ))}
-
               </select>
             </div>
           )}
@@ -1145,7 +1062,8 @@ export default function CompanyReportsWorkspace({
           )}
 
           <div className="ml-auto text-xs text-muted font-medium">
-            Active Cycle: <span className="font-bold text-foreground">{periodLabel}</span>
+            Active Cycle:{" "}
+            <span className="font-bold text-foreground">{periodLabel}</span>
           </div>
         </div>
       </div>
@@ -1297,73 +1215,14 @@ export default function CompanyReportsWorkspace({
       )}
 
       {activeTab === "accruals" && (
-        <div className="space-y-4">
-          {liveAccrualCards.length > 0 && (
-            <div className="rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                <div>
-                  <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-                    <span>Current Live Leave Balances</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
-                      Live Portal View
-                    </span>
-                  </h3>
-                  <p className="text-xs text-muted">
-                    {selectedEmployeeObj
-                      ? `Live leave balances currently available to ${selectedEmployeeObj.known_as || selectedEmployeeObj.full_name} as shown on their employee dashboard.`
-                      : "Aggregated live leave balances across all employees in the current filter."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                {liveAccrualCards.map((c) => {
-                  const style = getCategoryCardStyle(c.leaveCategory);
-                  return (
-                    <article
-                      key={c.key}
-                      className={`relative flex flex-col justify-between rounded-2xl border bg-gradient-to-b ${style.cardBg} bg-surface p-4 sm:p-5 shadow-soft transition-all hover:shadow-md min-w-0`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="text-xs sm:text-sm font-extrabold text-foreground truncate tracking-tight">
-                          {c.leaveType}
-                        </p>
-                        <span className={`size-2 rounded-full shrink-0 ${style.dot}`} />
-                      </div>
-
-                      <div className="mt-3 flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-foreground">
-                          {c.hours.toFixed(2)}h
-                        </span>
-                        <span className="text-xs font-bold text-muted font-mono">
-                          ({c.days} {c.days === 1 ? "day" : "days"})
-                        </span>
-                      </div>
-
-                      <div className="mt-2 text-[10px] font-medium text-muted truncate">
-                        {"count" in c && typeof (c as { count?: number }).count === "number" && (c as { count: number }).count > 1
-                          ? `${(c as { count: number }).count} employees with balance`
-                          : style.subtitle}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <LeaveAccrualReportTable
-            data={filteredAccruals}
-            periodLabel={periodLabel}
-          />
-        </div>
+        <LeaveAccrualReportTable
+          data={filteredAccruals}
+          periodLabel={periodLabel}
+        />
       )}
 
       {activeTab === "absences" && (
-        <AbsenceReportTable
-          data={filteredAbsences}
-          periodLabel={periodLabel}
-        />
+        <AbsenceReportTable data={filteredAbsences} periodLabel={periodLabel} />
       )}
 
       {activeTab === "settings" && (
@@ -1373,7 +1232,8 @@ export default function CompanyReportsWorkspace({
               Payroll Period &amp; Cycle Configuration
             </h3>
             <p className="text-xs text-muted mt-0.5">
-              Customize cycle frequencies (monthly, fortnightly, bi-monthly), cutoff dates, and grace periods for automated timesheet sign-offs.
+              Customize cycle frequencies (monthly, fortnightly, bi-monthly),
+              cutoff dates, and grace periods for automated timesheet sign-offs.
             </p>
           </div>
           <PayrollPeriodSettingsForm initialConfig={payrollConfig} />

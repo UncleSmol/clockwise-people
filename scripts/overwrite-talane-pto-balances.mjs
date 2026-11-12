@@ -2,8 +2,23 @@ import { createClient } from "@supabase/supabase-js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function loadEnv() {
+  const parsed = {};
+  for (const f of [".env", ".env.local"]) {
+    if (fs.existsSync(f)) {
+      const content = fs.readFileSync(f, "utf8");
+      for (const line of content.split(/\r?\n/)) {
+        const match = line.match(/^([^=]+)=(.*)$/);
+        if (match) parsed[match[1].trim()] = match[2].trim().replace(/^['"]|['"]$/g, "");
+      }
+    }
+  }
+  return parsed;
+}
+
+const env = loadEnv();
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error("Missing SUPABASE credentials in environment");
@@ -162,18 +177,18 @@ async function main() {
     process.exit(1);
   }
 
-  // Remove stale duplicate 'FRL' (61ef2844...) leave_balance row if present so FRL isn't double-counted
+  // Remove stale duplicate 'FRL' (61ef2844...) and 'Approved Day Off' (65d5d0d5...) leave_balance rows
   const { data: deletedDupes, error: delErr } = await admin
     .from("leave_balances")
     .delete()
     .eq("company_id", TALANE_COMPANY_ID)
-    .eq("leave_type_id", LEGACY_DUPLICATE_FRL_ID)
+    .in("leave_type_id", [LEGACY_DUPLICATE_FRL_ID, "65d5d0d5-b659-4eff-becf-f55ce3cc9740"])
     .select("id");
 
   if (delErr) {
-    console.warn("Warning deleting stale duplicate FRL balance row:", delErr.message);
+    console.warn("Warning deleting stale duplicate/non-eligible balance rows:", delErr.message);
   } else {
-    console.log(`Removed ${deletedDupes?.length || 0} stale duplicate FRL balance row(s).`);
+    console.log(`Removed ${deletedDupes?.length || 0} stale balance row(s).`);
   }
 
   // Verification readout

@@ -3,7 +3,44 @@ import { getPastWeekDraftsInfo } from "@/lib/time-tracking/schema";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown, X } from "lucide-react";
+function ChevronDownIcon({ className = "size-5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
 import ComplianceDocuments from "@/components/compliance/ComplianceDocuments";
 import CalendarWorkspace from "@/components/dashboard/CalendarWorkspace";
 import { getAccountProfile, getCompanySettings } from "@/lib/account/queries";
@@ -411,6 +448,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
 
   const panels: WorkspacePanel[] = [];
+  const scopedWorkstations = access.isScopedBranchManager && access.scopedWorkstationId
+    ? (geolocationData?.workstations ?? []).filter((w) => w.id === access.scopedWorkstationId)
+    : (geolocationData?.workstations ?? []);
 
   if (employeeTimeState) {
     panels.push({
@@ -542,7 +582,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       href="/dashboard?panel=people"
                       className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-bold text-foreground shadow-2xs hover:bg-surface-muted transition-colors cursor-pointer shrink-0"
                     >
-                      <X className="size-3.5" />
+                      <CloseIcon className="size-3.5" />
                       <span>Close Record</span>
                     </Link>
                   </div>
@@ -657,7 +697,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <h2 className="text-base sm:text-lg font-bold text-foreground">Company profile</h2>
                     <p className="mt-0.5 text-xs text-muted">Registration and workspace details.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDownIcon className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="grid gap-6 border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyProfileForm company={accountProfile.account.company} />
@@ -675,7 +715,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <h2 className="text-base sm:text-lg font-bold text-foreground">Workstations &amp; Geolocation</h2>
                     <p className="mt-0.5 text-xs text-muted">Manage physical locations and geofence boundaries.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDownIcon className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyGeolocationPanel key={company.id} data={geolocationData} />
@@ -689,7 +729,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <h2 className="text-base sm:text-lg font-bold text-foreground">Work rules &amp; leave</h2>
                     <p className="mt-0.5 text-xs text-muted">Define working hours, overtime rules, and leave policies.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDownIcon className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface grid gap-6">
                   <CompanyAllAccrualsTable data={workRulesData} timeEntries={calendarEntries} />
@@ -705,7 +745,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <h2 className="text-base sm:text-lg font-bold text-foreground">Departments</h2>
                     <p className="mt-0.5 text-xs text-muted">Organise employees into departments for reporting and filtering.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDownIcon className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <CompanyDepartmentPanel
@@ -724,7 +764,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       <h2 className="text-base sm:text-lg font-bold text-foreground">Add employee</h2>
                       <p className="mt-0.5 text-xs text-muted">Create employee records scoped to the company.</p>
                     </div>
-                    <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                    <ChevronDownIcon className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                   </summary>
                   <div className="border-t border-border p-4 sm:p-6 bg-surface">
                     {employeesData.workstations.length === 0 ? (
@@ -751,7 +791,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <h2 className="text-base sm:text-lg font-bold text-foreground">Timesheet &amp; leave migration</h2>
                     <p className="mt-0.5 text-xs text-muted">Import historical attendance shifts and leave records from Excel spreadsheets.</p>
                   </div>
-                  <ChevronDown className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                  <ChevronDownIcon className="size-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-border p-4 sm:p-6 bg-surface">
                   <TimesheetMigrationPanel />
@@ -845,7 +885,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           canViewPayslips={canViewPayslips}
           employees={finalReportEmployees}
           departments={employeesData?.departments ?? []}
-          workstations={geolocationData?.workstations ?? []}
+          workstations={scopedWorkstations}
           timesheetEntries={calendarEntries.filter((ce) => activeEmployeeIdSet.has(ce.employee_id))}
           leaveRequests={calendarLeaveRequests.filter((lr) => activeEmployeeIdSet.has(lr.employee_id))}
           leaveTypes={workRulesData?.leaveTypes ?? []}
@@ -1108,6 +1148,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             isSysAdmin={access.isSuperAdmin}
             isSuperAdmin={access.isSuperAdmin}
             leaveTypes={leaveState?.leaveTypes ?? []}
+            workstations={scopedWorkstations}
+            currentEmployeeId={access.employeeId}
+            isBranchManager={access.isScopedBranchManager}
           />
         ) : undefined
       }

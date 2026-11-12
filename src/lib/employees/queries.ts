@@ -311,10 +311,20 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
     return { ...emp, is_super_admin: isSuperAdmin };
   });
 
+  const scopedEmployees =
+    access.isScopedBranchManager && access.scopedWorkstationId
+      ? enrichedEmployees.filter((emp) => emp.workstation_id === access.scopedWorkstationId)
+      : enrichedEmployees;
+
+  const scopedWorkstations =
+    access.isScopedBranchManager && access.scopedWorkstationId
+      ? (workstationsResult.data ?? []).filter((w) => w.id === access.scopedWorkstationId)
+      : (workstationsResult.data ?? []);
+
   return {
     isConfigured: true,
     companyName: company.name,
-    workstations: (workstationsResult.data ?? []).map((workstation) => ({
+    workstations: scopedWorkstations.map((workstation) => ({
       id: workstation.id,
       label: workstation.name,
     })),
@@ -327,10 +337,10 @@ export const getEmployeePageData = cache(async function getEmployeePageData(): P
       label: schedule.name,
     })),
     standardMonthlyHours: Number(settingsResult.data.standard_monthly_hours),
-    managers: enrichedEmployees
+    managers: scopedEmployees
       .filter((employee) => employee.employment_status === "active")
       .map((employee) => ({ id: employee.id, label: employee.full_name })),
-    employees: enrichedEmployees,
+    employees: scopedEmployees,
   };
 });
 
@@ -386,6 +396,12 @@ export const getEmployeeDetail = cache(async function getEmployeeDetail(employee
       employeeData = fallback.data;
     } else {
       throw new Error(error.message);
+    }
+  }
+
+  if (access.isScopedBranchManager && access.scopedWorkstationId) {
+    if ((employeeData as EmployeeRow)?.workstation_id !== access.scopedWorkstationId) {
+      return null;
     }
   }
 

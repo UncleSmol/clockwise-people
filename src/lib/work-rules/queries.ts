@@ -658,6 +658,7 @@ export const getCompanyLeaveRequestQueue = cache(async function getCompanyLeaveR
     .filter((request) => {
       if (!access.isScopedBranchManager) return true;
       if (otherBranchManagerIds.has(request.employee_id)) return false;
+      if (access.employeeId && request.employee_id === access.employeeId) return false;
       const employee = firstRelation(request.employees);
       return employee?.workstation_id === access.scopedWorkstationId;
     })

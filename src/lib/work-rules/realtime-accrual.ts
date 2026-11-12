@@ -159,11 +159,19 @@ export function isGenderAllowedForLeave(
 /**
  * Normalizes a leave type name for grouping and deduplication.
  */
-export function normalizeLeaveTypeName(name: string, category?: string): string {
+export function normalizeLeaveTypeName(
+  name: string,
+  category?: string,
+): string {
   const lower = (name || "").trim().toLowerCase();
   const cat = (category || "").trim().toLowerCase();
 
-  if (cat === "toil_taken" || lower.includes("toil") || lower.includes("time off in lieu") || lower.includes("overtime comp")) {
+  if (
+    cat === "toil_taken" ||
+    lower.includes("toil") ||
+    lower.includes("time off in lieu") ||
+    lower.includes("overtime comp")
+  ) {
     return "toil";
   }
   if (cat === "annual" || lower.includes("annual")) {
@@ -172,7 +180,12 @@ export function normalizeLeaveTypeName(name: string, category?: string): string 
   if (cat === "sick" || lower.includes("sick")) {
     return "sick";
   }
-  if (lower.includes("patern") || lower.includes("parental") || cat === "parental" || cat === "paternal") {
+  if (
+    lower.includes("patern") ||
+    lower.includes("parental") ||
+    cat === "parental" ||
+    cat === "paternal"
+  ) {
     return "paternal";
   }
   if (lower.includes("matern") || cat === "maternity") {
@@ -192,7 +205,11 @@ export function normalizeLeaveTypeName(name: string, category?: string): string 
   if (cat === "unpaid" || lower.includes("unpaid")) {
     return "unpaid";
   }
-  if (cat === "holiday" || cat === "public_holiday" || lower.includes("holiday")) {
+  if (
+    cat === "holiday" ||
+    cat === "public_holiday" ||
+    lower.includes("holiday")
+  ) {
     return "holiday";
   }
   return lower;
@@ -234,7 +251,10 @@ export type ShiftTimeEntryInput = {
   overtime_hours?: number | null;
 };
 
-export function parseTimeToDate(timeStr: string, baseDateStr?: string | null): Date {
+export function parseTimeToDate(
+  timeStr: string,
+  baseDateStr?: string | null,
+): Date {
   const [h = "0", m = "0", s = "0"] = timeStr.split(":");
   const d = new Date();
   if (baseDateStr) {
@@ -286,7 +306,10 @@ export function calculateNetWorkedMinutes(
   } else if (entry.lunch_start && entry.lunch_end) {
     const lunchStartDate = parseTimeToDate(entry.lunch_start, baseDate);
     const lunchEndDate = parseTimeToDate(entry.lunch_end, baseDate);
-    const beforeLunch = Math.max(0, lunchStartDate.getTime() - inDate.getTime());
+    const beforeLunch = Math.max(
+      0,
+      lunchStartDate.getTime() - inDate.getTime(),
+    );
     const afterLunch = Math.max(0, now.getTime() - lunchEndDate.getTime());
     workedMs = beforeLunch + afterLunch;
   }
@@ -320,21 +343,25 @@ export function resolveLeaveAccrualRate(
     const yearlyHours = Number(rules.yearly_hours ?? 0);
     const rawEntitlementDays = Number(
       rules.entitlement_days ??
-      rules.yearly_days ??
-      (yearlyHours > 0 && yearlyHours <= 40 ? yearlyHours : 0)
+        rules.yearly_days ??
+        (yearlyHours > 0 && yearlyHours <= 40 ? yearlyHours : 0),
     );
-    const entitlementDays = rawEntitlementDays > 0
-      ? rawEntitlementDays
-      : yearlyHours > 0
-        ? Number((yearlyHours / 8).toFixed(2))
-        : 15.0; // Statutory BCEA minimum for 5-day week
-    const entitlementHours = Number((entitlementDays * safeDailyHours).toFixed(2));
+    const entitlementDays =
+      rawEntitlementDays > 0
+        ? rawEntitlementDays
+        : yearlyHours > 0
+          ? Number((yearlyHours / 8).toFixed(2))
+          : 15.0; // Statutory BCEA minimum for 5-day week
+    const entitlementHours = Number(
+      (entitlementDays * safeDailyHours).toFixed(2),
+    );
 
     // Hours worked required to accumulate 1 hour of annual leave:
     // Statutory BCEA Section 20 floor is 1h per 17h worked.
-    const ruleHoursPerLeaveHour = entitlementHours > 0
-      ? Number((effectiveAnnualHours / entitlementHours).toFixed(2))
-      : 17.0;
+    const ruleHoursPerLeaveHour =
+      entitlementHours > 0
+        ? Number((effectiveAnnualHours / entitlementHours).toFixed(2))
+        : 17.0;
     const hoursWorkedPerLeaveHour = Math.min(17.0, ruleHoursPerLeaveHour);
 
     // 1 leave hour = 60 leave minutes, 1 work hour = 60 work minutes:
@@ -433,7 +460,11 @@ export function calculateLiveLeaveBalance(options: {
   let activeShiftAccruedMinutes = 0;
   let minutesToNextAccrual = 0;
 
-  if (rateInfo.isDynamic && rateInfo.minutesWorkedPerLeaveMinute > 0 && activeShiftEntry) {
+  if (
+    rateInfo.isDynamic &&
+    rateInfo.minutesWorkedPerLeaveMinute > 0 &&
+    activeShiftEntry
+  ) {
     liveWorkedMinutesToday = calculateNetWorkedMinutes(activeShiftEntry, now);
 
     // Accruals for dynamic categories based on worked minutes in active shift
@@ -441,19 +472,27 @@ export function calculateLiveLeaveBalance(options: {
       activeShiftAccruedMinutes = Math.floor(
         liveWorkedMinutesToday / rateInfo.minutesWorkedPerLeaveMinute,
       );
-      const remainderMinutes = liveWorkedMinutesToday % rateInfo.minutesWorkedPerLeaveMinute;
-      minutesToNextAccrual = Math.ceil(rateInfo.minutesWorkedPerLeaveMinute - remainderMinutes);
+      const remainderMinutes =
+        liveWorkedMinutesToday % rateInfo.minutesWorkedPerLeaveMinute;
+      minutesToNextAccrual = Math.ceil(
+        rateInfo.minutesWorkedPerLeaveMinute - remainderMinutes,
+      );
     } else if (rateInfo.category === "toil_taken") {
       const otHours = Number(activeShiftEntry.overtime_hours ?? 0);
       if (otHours > 0) {
-        activeShiftAccruedMinutes = Math.floor(otHours * 60 * (toilMultiplier || 1.5));
+        activeShiftAccruedMinutes = Math.floor(
+          otHours * 60 * (toilMultiplier || 1.5),
+        );
       }
     } else if (rateInfo.category === "sick") {
       activeShiftAccruedMinutes = Math.floor(
         liveWorkedMinutesToday / rateInfo.minutesWorkedPerLeaveMinute,
       );
-      const remainderMinutes = liveWorkedMinutesToday % rateInfo.minutesWorkedPerLeaveMinute;
-      minutesToNextAccrual = Math.ceil(rateInfo.minutesWorkedPerLeaveMinute - remainderMinutes);
+      const remainderMinutes =
+        liveWorkedMinutesToday % rateInfo.minutesWorkedPerLeaveMinute;
+      minutesToNextAccrual = Math.ceil(
+        rateInfo.minutesWorkedPerLeaveMinute - remainderMinutes,
+      );
     }
   }
 
@@ -480,4 +519,3 @@ export function calculateLiveLeaveBalance(options: {
     rateInfo,
   };
 }
-

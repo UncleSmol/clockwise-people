@@ -100,6 +100,10 @@ async function checkTimeEntriesWorkstationScope(
     return "One or more timesheets could not be verified for your workstation.";
   }
 
+  if (access.employeeId && entries.some((entry) => entry.employee_id === access.employeeId)) {
+    return "Branch managers cannot approve their own timesheets or drafts.";
+  }
+
   const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);
   if (entries.some((entry) => otherBranchManagerIds.has(entry.employee_id))) {
     return "Branch managers cannot interact with another branch manager's timesheets.";
@@ -139,6 +143,10 @@ async function checkCorrectionsWorkstationScope(
     return "One or more correction requests could not be verified for your workstation.";
   }
 
+  if (access.employeeId && requests.some((req) => req.employee_id === access.employeeId)) {
+    return "Branch managers cannot review or approve their own correction requests.";
+  }
+
   const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);
   if (requests.some((req) => otherBranchManagerIds.has(req.employee_id))) {
     return "Branch managers cannot review another branch manager's correction requests.";
@@ -175,6 +183,10 @@ async function checkLeaveRequestsWorkstationScope(
 
   if (error || !requests || requests.length !== leaveRequestIds.length) {
     return "One or more leave requests could not be verified for your workstation.";
+  }
+
+  if (access.employeeId && requests.some((req) => req.employee_id === access.employeeId)) {
+    return "Branch managers cannot load or approve their own leave requests.";
   }
 
   const otherBranchManagerIds = await getOtherBranchManagerEmployeeIds(companyId, access.employeeId);

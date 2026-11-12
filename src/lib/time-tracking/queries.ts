@@ -1025,8 +1025,20 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     settingsResult?.data?.default_lunch_minutes ?? settingsApprovalRules.default_lunch_minutes ?? 60,
   );
 
-  const rawEmployees = (employeesResult.data ?? []) as unknown as (EmployeeRow & { work_schedule_id?: string | null })[];
-  const rawEntries = (entriesResult.data ?? []) as TimeEntryRecord[];
+  const otherBranchManagerIds = access.isScopedBranchManager
+    ? await getOtherBranchManagerEmployeeIds(company.id, access.employeeId)
+    : new Set<string>();
+
+  const rawEmployeesAll = (employeesResult.data ?? []) as unknown as (EmployeeRow & { work_schedule_id?: string | null })[];
+  const rawEmployees = rawEmployeesAll.filter((emp) => {
+    if (!access.isScopedBranchManager) return true;
+    if (otherBranchManagerIds.has(emp.id)) return false;
+    return emp.workstation_id === access.scopedWorkstationId;
+  });
+  const allowedEmployeeIds = new Set(rawEmployees.map((e) => e.id));
+  const rawEntries = ((entriesResult.data ?? []) as TimeEntryRecord[]).filter((entry) =>
+    !access.isScopedBranchManager || allowedEmployeeIds.has(entry.employee_id)
+  );
 
   // Fetch active company schedules to map schedules to each employee
   const { data: defaultSchedule } = await adminClient
@@ -1190,7 +1202,7 @@ export const getCompanyLiveTimeOverview = cache(async function getCompanyLiveTim
     );
   }
 
-  const entries = ((employeesResult.data ?? []) as unknown as EmployeeRow[]).map(
+  const entries = rawEmployees.map(
     (employee) => {
       const entry = entriesByEmployee.get(employee.id) ?? null;
       const geofence = geofenceByEmployee.get(employee.id) ?? null;
@@ -1278,6 +1290,7 @@ export const getCompanyTimesheetCorrectionQueue = cache(async function getCompan
     .filter((request) => {
       if (!access.isScopedBranchManager) return true;
       if (otherBranchManagerIds.has(request.employee_id)) return false;
+      if (access.employeeId && request.employee_id === access.employeeId) return false;
       const employee = Array.isArray(request.employees)
         ? request.employees[0]
         : request.employees;
@@ -1337,6 +1350,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     if (entry.notes?.startsWith("Public holiday:")) return false;
     if (!access.isScopedBranchManager) return true;
     if (otherBranchManagerIds.has(entry.employee_id)) return false;
+    if (access.employeeId && entry.employee_id === access.employeeId) return false;
     const employee = Array.isArray(entry.employees)
       ? entry.employees[0]
       : entry.employees;
