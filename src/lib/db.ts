@@ -111,7 +111,7 @@ export class ClockwiseLocalDB extends Dexie {
   leave_requests!: EntityTable<LocalLeaveRequest, "id">;
   leave_balances!: EntityTable<LocalLeaveBalance, "id">;
   employees!: EntityTable<LocalEmployee, "id">;
-  notifications!: EntityTable<LocalNotification, "id">;
+  app_notifications!: EntityTable<LocalNotification, "id">;
 
   constructor() {
     super("ClockwisePeopleDB");
@@ -123,7 +123,7 @@ export class ClockwiseLocalDB extends Dexie {
       leave_requests: "id, company_id, employee_id, start_date, end_date, status, updated_at",
       leave_balances: "id, company_id, employee_id, leave_type_id, updated_at, [company_id+employee_id]",
       employees: "id, company_id, employee_number, full_name, workstation_id, updated_at",
-      notifications: "id, user_id, is_read, created_at, updated_at",
+      app_notifications: "id, user_id, is_read, created_at, updated_at",
     });
   }
 }
@@ -138,7 +138,7 @@ export const db = new ClockwiseLocalDB();
  * 2. Appends mutation to _sync_outbox with UUID idempotency key for scheduled batch push.
  */
 export async function queueOptimisticMutation<T extends Record<string, unknown>>(
-  tableName: keyof Pick<ClockwiseLocalDB, "time_entries" | "leave_requests" | "leave_balances" | "employees" | "notifications">,
+  tableName: keyof Pick<ClockwiseLocalDB, "time_entries" | "leave_requests" | "leave_balances" | "employees" | "app_notifications">,
   operation: SyncOperation,
   payload: T,
   recordId?: string

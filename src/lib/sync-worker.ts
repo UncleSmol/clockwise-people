@@ -19,12 +19,12 @@ export type SyncResult = {
   durationMs: number;
 };
 
-const SYNCED_TABLES: Array<keyof Pick<ClockwiseLocalDB, "time_entries" | "leave_requests" | "leave_balances" | "employees" | "notifications">> = [
+const SYNCED_TABLES: Array<keyof Pick<ClockwiseLocalDB, "time_entries" | "leave_requests" | "leave_balances" | "employees" | "app_notifications">> = [
   "time_entries",
   "leave_requests",
   "leave_balances",
   "employees",
-  "notifications",
+  "app_notifications",
 ];
 
 const MAX_RETRY_COUNT = 5;
@@ -119,7 +119,7 @@ export async function pullDeltaSync(companyId?: string): Promise<{ pulled: numbe
         .order("updated_at", { ascending: true })
         .limit(1000);
 
-      if (companyId && tableName !== "notifications") {
+      if (companyId && tableName !== "app_notifications") {
         query = query.eq("company_id", companyId);
       }
 

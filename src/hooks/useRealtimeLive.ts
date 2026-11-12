@@ -79,7 +79,7 @@ export function useRealtimeLive({
 
     // 1. Immediately store into local IndexedDB
     try {
-      await db.notifications.put({
+      await db.app_notifications.put({
         id: item.id,
         user_id: item.userId,
         title: item.title,
@@ -103,7 +103,7 @@ export function useRealtimeLive({
     if (!currentUserId) return;
     let isMounted = true;
 
-    db.notifications
+    db.app_notifications
       .where("user_id")
       .equals(currentUserId)
       .and((n) => !n.is_read)
@@ -205,7 +205,7 @@ export function useRealtimeLive({
           {
             event: "INSERT",
             schema: "public",
-            table: "notifications",
+            table: "app_notifications",
             filter: `user_id=eq.${currentUserId}`,
           },
           (payload) => {
