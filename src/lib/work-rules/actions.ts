@@ -25,6 +25,7 @@ import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payro
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
 import {
   deriveGenderFromSouthAfricanId,
+  isApprovedDayOffLeave,
   isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
   isToilLeave,
@@ -523,6 +524,30 @@ export async function submitLeaveRequest(
   ]);
   const employeeId = access.employeeId;
   const supabase = await createSupabaseServerClient();
+
+  const canManageOrReview =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canManageCompany ||
+    access.canReviewBranchTime;
+
+  if (!canManageOrReview) {
+    const { data: requestedLt } = await supabase
+      .from("leave_types")
+      .select("name, category")
+      .eq("id", parsed.data.leave_type_id)
+      .maybeSingle();
+
+    if (requestedLt && isApprovedDayOffLeave(requestedLt.name, requestedLt.category)) {
+      return {
+        ok: false,
+        message: "Approved Day Off is strictly reserved for managers and admins.",
+      };
+    }
+  }
 
   // Guard: For past days, ensure no timesheets have been loaded and day is not a public holiday
   // NOTE: For Time Off (leaving early while clocked in), existing timesheets on that day are permitted!

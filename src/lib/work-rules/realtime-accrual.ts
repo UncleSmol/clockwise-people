@@ -99,6 +99,25 @@ export function isToilLeave(
 }
 
 /**
+ * Checks if a leave name or category is Approved Day Off.
+ * This leave type is strictly reserved for managers and admins.
+ */
+export function isApprovedDayOffLeave(
+  name?: string | null,
+  category?: string | null,
+): boolean {
+  const n = (name || "").toLowerCase().trim();
+  const c = (category || "").toLowerCase().trim();
+  return (
+    c === "day_off" ||
+    c === "approved_day_off" ||
+    n === "approved day off" ||
+    n.includes("approved day off") ||
+    n.includes("day off")
+  );
+}
+
+/**
  * Returns true when a leave type should have a tracked/visible balance row:
  * - Unpaid leave never carries a balance.
  * - Holiday / Public Holiday never carries a balance.
@@ -111,6 +130,7 @@ export function isBalanceEligibleLeaveType(
 ): boolean {
   if (isUnpaidLeave(name, category)) return false;
   if (isHolidayLeave(name, category)) return false;
+  if (isApprovedDayOffLeave(name, category)) return false;
   if (!toilEnabled && isToilLeave(name, category)) return false;
   return true;
 }

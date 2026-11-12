@@ -63,6 +63,22 @@ export default function LeaveAccrualReportTable({
         },
       },
       {
+        accessorKey: "currentBalanceHours",
+        header: "Current Balance",
+        cell: ({ row }) => {
+          const hours = row.original.currentBalanceHours ?? row.original.closingBalanceHours;
+          const days = row.original.currentBalanceDays ?? row.original.closingBalanceDays;
+          return (
+            <div className="font-mono whitespace-nowrap">
+              <span className="font-bold text-foreground text-sm">{hours.toFixed(2)}h</span>
+              <span className="text-muted text-[11px] block font-normal">
+                ({days} {Number(days) === 1 ? "day" : "days"})
+              </span>
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: "openingBalanceHours",
         header: "Opening Balance",
         cell: ({ row }) => (

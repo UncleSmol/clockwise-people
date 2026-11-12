@@ -68,6 +68,8 @@ export type AccrualReportRow = {
   department: string;
   leaveType: string;
   leaveCategory: string;
+  currentBalanceHours: number;
+  currentBalanceDays: number;
   openingBalanceHours: number;
   accruedPeriodHours: number;
   takenPeriodHours: number;

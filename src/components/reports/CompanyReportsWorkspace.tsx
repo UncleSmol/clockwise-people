@@ -1,19 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  BarChart3,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Cog,
-  Download,
-  FileSpreadsheet,
-  Printer,
-  TrendingUp,
-  Sparkles,
-  Users,
-} from "lucide-react";
 import PayrollPeriodSettingsForm from "./PayrollPeriodSettingsForm";
 import ReportsOverviewAnalytics from "./ReportsOverviewAnalytics";
 import TimesheetPayrollReportTable from "./TimesheetPayrollReportTable";
@@ -103,6 +90,53 @@ type ReportTab =
 
 function formatHours(val: number | string | null | undefined): string {
   return `${Number(val ?? 0).toFixed(2)}h`;
+}
+
+function getCategoryCardStyle(category: string) {
+  const cat = (category || "").toLowerCase();
+  if (cat.includes("annual")) {
+    return {
+      cardBg: "from-emerald-500/15 via-emerald-500/5 to-surface border-emerald-500/30",
+      accentText: "text-emerald-700 dark:text-emerald-300",
+      badge: "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200",
+      dot: "bg-emerald-500",
+      subtitle: "BCEA Sec 20 Entitlement",
+    };
+  }
+  if (cat.includes("sick")) {
+    return {
+      cardBg: "from-rose-500/15 via-rose-500/5 to-surface border-rose-500/30",
+      accentText: "text-rose-700 dark:text-rose-300",
+      badge: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200",
+      dot: "bg-rose-500",
+      subtitle: "BCEA Sec 22 Entitlement",
+    };
+  }
+  if (cat.includes("family")) {
+    return {
+      cardBg: "from-amber-500/15 via-amber-500/5 to-surface border-amber-500/30",
+      accentText: "text-amber-800 dark:text-amber-300",
+      badge: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200",
+      dot: "bg-amber-500",
+      subtitle: "BCEA Sec 27 Entitlement",
+    };
+  }
+  if (cat.includes("toil")) {
+    return {
+      cardBg: "from-amber-500/15 via-amber-500/5 to-surface border-amber-500/30",
+      accentText: "text-amber-800 dark:text-amber-300",
+      badge: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200",
+      dot: "bg-amber-500",
+      subtitle: "BCEA Sec 10(3)(b) 1.5x",
+    };
+  }
+  return {
+    cardBg: "from-slate-500/15 via-slate-500/5 to-surface border-slate-500/30",
+    accentText: "text-slate-800 dark:text-slate-300",
+    badge: "bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200",
+    dot: "bg-slate-500",
+    subtitle: "Company Policy",
+  };
 }
 
 export default function CompanyReportsWorkspace({
@@ -318,6 +352,63 @@ export default function CompanyReportsWorkspace({
     });
   }, [rawAccrualRows, employeeFilter, departmentFilter]);
 
+  const selectedEmployeeObj = useMemo(() => {
+    if (employeeFilter === "all") return null;
+    return filteredEmployeesList.find((e) => e.id === employeeFilter) ?? null;
+  }, [employeeFilter, filteredEmployeesList]);
+
+  const liveAccrualCards = useMemo(() => {
+    if (selectedEmployeeObj) {
+      return filteredAccruals.map((r) => ({
+        key: `${r.employeeId}-${r.leaveType}`,
+        leaveType: r.leaveType,
+        leaveCategory: r.leaveCategory,
+        hours: r.currentBalanceHours,
+        days: r.currentBalanceDays,
+        employeeName: r.employeeName,
+        isAggregated: false,
+      }));
+    }
+
+    const map = new Map<
+      string,
+      {
+        key: string;
+        leaveType: string;
+        leaveCategory: string;
+        hours: number;
+        days: number;
+        count: number;
+        isAggregated: boolean;
+      }
+    >();
+
+    for (const r of filteredAccruals) {
+      const existing = map.get(r.leaveType);
+      if (existing) {
+        existing.hours += r.currentBalanceHours;
+        existing.days += r.currentBalanceDays;
+        existing.count += 1;
+      } else {
+        map.set(r.leaveType, {
+          key: r.leaveType,
+          leaveType: r.leaveType,
+          leaveCategory: r.leaveCategory,
+          hours: r.currentBalanceHours,
+          days: r.currentBalanceDays,
+          count: 1,
+          isAggregated: true,
+        });
+      }
+    }
+
+    return Array.from(map.values()).map((v) => ({
+      ...v,
+      hours: Number(v.hours.toFixed(2)),
+      days: Number(v.days.toFixed(1)),
+    }));
+  }, [selectedEmployeeObj, filteredAccruals]);
+
   const filteredAbsences = useMemo(() => {
     return rawAbsenceRows.filter((r) => {
       if (employeeFilter !== "all" && r.employeeId !== employeeFilter)
@@ -455,6 +546,8 @@ export default function CompanyReportsWorkspace({
             "Employee #",
             "Department",
             "Leave Type",
+            "Current Balance (h)",
+            "Current Balance (Days)",
             "Opening (h)",
             "Accrued (h)",
             "Taken (h)",
@@ -467,6 +560,8 @@ export default function CompanyReportsWorkspace({
             r.employeeNumber,
             r.department,
             r.leaveType,
+            r.currentBalanceHours,
+            r.currentBalanceDays,
             r.openingBalanceHours,
             r.accruedPeriodHours,
             r.takenPeriodHours,
@@ -631,6 +726,8 @@ export default function CompanyReportsWorkspace({
         "Employee #",
         "Department",
         "Leave Type",
+        "Current Balance (h)",
+        "Current Balance (Days)",
         "Opening (h)",
         "Accrued (h)",
         "Taken (h)",
@@ -643,6 +740,8 @@ export default function CompanyReportsWorkspace({
         r.employeeNumber,
         r.department,
         r.leaveType,
+        r.currentBalanceHours,
+        r.currentBalanceDays,
         r.openingBalanceHours,
         r.accruedPeriodHours,
         r.takenPeriodHours,
@@ -806,21 +905,23 @@ export default function CompanyReportsWorkspace({
         "Employee",
         "Emp #",
         "Leave Type",
+        "Current (h)",
+        "Current (Days)",
         "Opening (h)",
         "Accrued (h)",
         "Taken (h)",
         "Closing (h)",
-        "Closing (Days)",
       ];
       const rows = filteredAccruals.map((r) => [
         r.employeeName,
         r.employeeNumber,
         r.leaveType,
+        formatHours(r.currentBalanceHours),
+        `${r.currentBalanceDays}d`,
         formatHours(r.openingBalanceHours),
         formatHours(r.accruedPeriodHours),
         formatHours(r.takenPeriodHours),
         formatHours(r.closingBalanceHours),
-        `${r.closingBalanceDays}d`,
       ]);
       await exportReportToPdf(
         "Leave Accrual & Balance Ledger",
@@ -1196,10 +1297,66 @@ export default function CompanyReportsWorkspace({
       )}
 
       {activeTab === "accruals" && (
-        <LeaveAccrualReportTable
-          data={filteredAccruals}
-          periodLabel={periodLabel}
-        />
+        <div className="space-y-4">
+          {liveAccrualCards.length > 0 && (
+            <div className="rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
+                    <span>Current Live Leave Balances</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                      Live Portal View
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted">
+                    {selectedEmployeeObj
+                      ? `Live leave balances currently available to ${selectedEmployeeObj.known_as || selectedEmployeeObj.full_name} as shown on their employee dashboard.`
+                      : "Aggregated live leave balances across all employees in the current filter."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {liveAccrualCards.map((c) => {
+                  const style = getCategoryCardStyle(c.leaveCategory);
+                  return (
+                    <article
+                      key={c.key}
+                      className={`relative flex flex-col justify-between rounded-2xl border bg-gradient-to-b ${style.cardBg} bg-surface p-4 sm:p-5 shadow-soft transition-all hover:shadow-md min-w-0`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-xs sm:text-sm font-extrabold text-foreground truncate tracking-tight">
+                          {c.leaveType}
+                        </p>
+                        <span className={`size-2 rounded-full shrink-0 ${style.dot}`} />
+                      </div>
+
+                      <div className="mt-3 flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-foreground">
+                          {c.hours.toFixed(2)}h
+                        </span>
+                        <span className="text-xs font-bold text-muted font-mono">
+                          ({c.days} {c.days === 1 ? "day" : "days"})
+                        </span>
+                      </div>
+
+                      <div className="mt-2 text-[10px] font-medium text-muted truncate">
+                        {"count" in c && typeof (c as { count?: number }).count === "number" && (c as { count: number }).count > 1
+                          ? `${(c as { count: number }).count} employees with balance`
+                          : style.subtitle}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <LeaveAccrualReportTable
+            data={filteredAccruals}
+            periodLabel={periodLabel}
+          />
+        </div>
       )}
 
       {activeTab === "absences" && (

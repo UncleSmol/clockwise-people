@@ -25,6 +25,7 @@ import {
 import { ensureCompanyToilLeaveType, ensureEmployeeToilBalance } from "./actions";
 import {
   deriveGenderFromSouthAfricanId,
+  isApprovedDayOffLeave,
   isBalanceEligibleLeaveType,
   isGenderAllowedForLeave,
   isToilLeave,
@@ -441,6 +442,24 @@ export const getEmployeeLeaveState = cache(async function getEmployeeLeaveState(
     if (!isBalanceEligibleLeaveType(name, category, toilEnabled)) return false;
     return isGenderAllowedForLeave(name, category, employeeGender);
   });
+
+  // Approved Day Off is strictly reserved for managers and admins as per the app's roles
+  const canManageOrReview =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canManageCompany ||
+    access.canReviewBranchTime;
+
+  if (!canManageOrReview) {
+    leaveTypes = leaveTypes.filter((lt) => !isApprovedDayOffLeave(lt.name, lt.category));
+    balances = balances.filter((b) => {
+      const rel = Array.isArray(b.leave_types) ? b.leave_types[0] : b.leave_types;
+      return !isApprovedDayOffLeave(rel?.name, rel?.category);
+    });
+  }
 
   // 2. Deduplicate leave types by canonical name so employee never gets duplicate options
   const dedupedEmployeeTypesMap = new Map<string, LeaveType>();

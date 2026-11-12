@@ -21,7 +21,10 @@ import {
   resolveScheduleDayForDate,
   type ScheduleDayLike,
 } from "@/lib/time-tracking/schedule-compliance";
-import { isBalanceEligibleLeaveType } from "@/lib/work-rules/realtime-accrual";
+import {
+  isBalanceEligibleLeaveType,
+  isGenderAllowedForLeave,
+} from "@/lib/work-rules/realtime-accrual";
 
 function resolveEmployeeScheduleDays(
   employeeSchedules: AggregatorInput["employeeSchedules"],
@@ -341,6 +344,10 @@ export function buildAccrualReport(input: AggregatorInput): AccrualReportRow[] {
     if (!emp || !lt) continue;
     if (!isBalanceEligibleLeaveType(lt.name, lt.category, Boolean(input.toilEnabled))) continue;
 
+    // Filter leave types based on employee gender (paternal for male, maternal for female)
+    const empGender = (emp as { gender?: string | null }).gender;
+    if (!isGenderAllowedForLeave(lt.name, lt.category, empGender)) continue;
+
     const currentBalance = Number(assign.balance_hours ?? 0);
     const key = `${assign.employee_id}-${lt.name.toLowerCase()}`;
     const takenPeriod = takenInPeriodMap.get(key) ?? 0;
@@ -352,7 +359,15 @@ export function buildAccrualReport(input: AggregatorInput): AccrualReportRow[] {
     const scheduleScale = empWeeklyHours > 0 ? empWeeklyHours / 40 : 1;
     const baseYearly = (lt.accrual_rules?.yearly_hours as number | undefined) ?? 120;
     const yearly = Number((baseYearly * scheduleScale).toFixed(2));
-    const monthlyAccrual = yearly > 0 ? Number((yearly / 12).toFixed(2)) : 0;
+
+    const isAnnual = lt.category === "annual" || lt.name.toLowerCase().includes("annual");
+    let monthlyAccrual = 0;
+    if (isAnnual) {
+      monthlyAccrual = yearly > 0 ? Number((yearly / 12).toFixed(2)) : 0;
+    } else if (lt.accrual_rules && typeof lt.accrual_rules.monthly_hours === "number") {
+      monthlyAccrual = Number(lt.accrual_rules.monthly_hours);
+    }
+
     const openingBalance = Number((currentBalance + takenPeriod - monthlyAccrual).toFixed(2));
     const closingBalance = Number(currentBalance.toFixed(2));
     const closingDays = Number((closingBalance / empDailyHours).toFixed(1));
@@ -365,6 +380,8 @@ export function buildAccrualReport(input: AggregatorInput): AccrualReportRow[] {
       department: emp.department_name ?? "General",
       leaveType: lt.name,
       leaveCategory: lt.category,
+      currentBalanceHours: closingBalance,
+      currentBalanceDays: closingDays,
       openingBalanceHours: Math.max(0, openingBalance),
       accruedPeriodHours: monthlyAccrual,
       takenPeriodHours: takenPeriod,
