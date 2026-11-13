@@ -388,9 +388,13 @@ export default function ZenModeView({
     return pastPendingDays.slice(0, 3);
   }, [pastPendingDays]);
 
-  // Geolocation helper
+  // Geolocation helper - prioritizes employee assigned standard workstation
   const effectiveWorkstationId =
-    workstationId || assignedWorkstationId || workstations[0]?.id || "";
+    (assignedWorkstationId && workstations.some((w) => w.id === assignedWorkstationId)
+      ? assignedWorkstationId
+      : workstationId && workstations.some((w) => w.id === workstationId)
+        ? workstationId
+        : assignedWorkstationId || workstations[0]?.id || "");
 
   const getGeoFormData = async (overrideTime?: string): Promise<FormData | null> => {
     const formData = new FormData();

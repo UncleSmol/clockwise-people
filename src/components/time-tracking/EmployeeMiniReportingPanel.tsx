@@ -1191,67 +1191,11 @@ export default function EmployeeMiniReportingPanel({
         </div>
       </div>
 
-      {/* Compact Leave Taken Breakdown & Cycle Audit Summary */}
+      {/* Cycle Audit Alerts & Maternity Summary */}
       <div className="space-y-2">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 min-w-0">
-          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
-              Annual Leave Taken
-            </span>
-            <div className="mt-0.5 flex items-baseline justify-between gap-1">
-              <span className="text-sm font-black font-mono text-purple-950">
-                {metrics.leaveAudit.annualHours.toFixed(1)}h
-              </span>
-              <span className="text-[10px] font-semibold text-purple-700">
-                {metrics.leaveAudit.annualDays.toFixed(1)}d
-              </span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
-              Sick Leave Taken
-            </span>
-            <div className="mt-0.5 flex items-baseline justify-between gap-1">
-              <span className="text-sm font-black font-mono text-purple-950">
-                {metrics.leaveAudit.sickHours.toFixed(1)}h
-              </span>
-              <span className="text-[10px] font-semibold text-purple-700">
-                {metrics.leaveAudit.sickDays.toFixed(1)}d
-              </span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
-              Family Resp. Taken
-            </span>
-            <div className="mt-0.5 flex items-baseline justify-between gap-1">
-              <span className="text-sm font-black font-mono text-purple-950">
-                {metrics.leaveAudit.familyResponsibilityHours.toFixed(1)}h
-              </span>
-              <span className="text-[10px] font-semibold text-purple-700">
-                {metrics.leaveAudit.familyResponsibilityDays.toFixed(1)}d
-              </span>
-            </div>
-          </div>
-          <div className="rounded-xl border border-purple-200 bg-purple-50/60 px-2.5 py-2 shadow-2xs min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-purple-800 block truncate">
-              Time Off In Lieu
-            </span>
-            <div className="mt-0.5 flex items-baseline justify-between gap-1">
-              <span className="text-sm font-black font-mono text-purple-950">
-                {metrics.leaveAudit.toilHours.toFixed(1)}h
-              </span>
-              <span className="text-[10px] font-semibold text-purple-700">
-                {metrics.leaveAudit.toilDays.toFixed(1)}d
-              </span>
-            </div>
-          </div>
-        </div>
-
         {(metrics.leaveAudit.notSentDays > 0 ||
           metrics.leaveAudit.pendingApprovalDays > 0 ||
-          metrics.leaveAudit.rejectedDays > 0 ||
-          (metrics.unloggedPastWeekdays > 0 && !metrics.leaveAudit.maternity.isEntirePeriodMaternity)) && (
+          metrics.leaveAudit.rejectedDays > 0) && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 space-y-1">
             {metrics.leaveAudit.notSentDays > 0 && (
               <p className="font-semibold">
@@ -1272,12 +1216,6 @@ export default function EmployeeMiniReportingPanel({
                 <AlertTriangle className="inline size-3.5 mr-1 text-rose-600" />
                 {metrics.leaveAudit.rejectedDays} leave day(s) rejected:{" "}
                 <span className="font-mono">{metrics.leaveAudit.rejectedDates.join(", ")}</span>
-              </p>
-            )}
-            {metrics.unloggedPastWeekdays > 0 && !metrics.leaveAudit.maternity.isEntirePeriodMaternity && (
-              <p className="text-amber-800">
-                <Info className="inline size-3.5 mr-1 text-amber-600" />
-                {metrics.unloggedPastWeekdays} past weekday(s) have no shift or leave added yet (Draft).
               </p>
             )}
           </div>
@@ -1304,50 +1242,6 @@ export default function EmployeeMiniReportingPanel({
                     ? "Rejected"
                     : "Not Sent"}
             </span>
-          </div>
-        )}
-
-        {metrics.leaveAudit.breakdown.filter((b) => b.category !== "maternity").length > 0 && (
-          <div className="rounded-xl border border-border bg-surface px-3 py-2.5 shadow-2xs">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
-              Leave Days Breakdown
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {metrics.leaveAudit.breakdown
-                .filter((b) => b.category !== "maternity")
-                .map((b) => (
-                  <div
-                    key={b.key}
-                    className="rounded-lg border border-border bg-surface-muted/40 px-2.5 py-1.5 text-[11px] flex flex-col gap-0.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-foreground truncate">{b.label}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase shrink-0 ${
-                          b.status === "approved"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : b.status === "submitted"
-                              ? "bg-amber-100 text-amber-800"
-                              : b.status === "rejected"
-                                ? "bg-rose-100 text-rose-800"
-                                : "bg-slate-200 text-slate-700"
-                        }`}
-                      >
-                        {b.status === "approved"
-                          ? "Approved"
-                          : b.status === "submitted"
-                            ? "Pending Approval"
-                            : b.status === "rejected"
-                              ? "Rejected"
-                              : "Not Sent (Draft)"}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted truncate">
-                      <span className="font-mono font-bold text-foreground">{b.hours.toFixed(1)}h</span> ({b.days.toFixed(1)}d) · {b.dates.join(", ")}
-                    </p>
-                  </div>
-                ))}
-            </div>
           </div>
         )}
       </div>

@@ -501,7 +501,7 @@ export const getEmployeeTimeState = cache(async function getEmployeeTimeState():
   ] = await Promise.all([
     supabase
       .from("employees")
-      .select("id, full_name, known_as, avatar_url, job_title, work_schedule_id")
+      .select("id, full_name, known_as, avatar_url, job_title, work_schedule_id, workstation_id")
       .eq("id", access.employeeId)
       .is("deleted_at", null)
       .maybeSingle(),

@@ -348,9 +348,17 @@ export default function EmployeeTimeClock({
   } | null>(null);
   const [locating, setLocating] = useState(false);
   const [workstationId, setWorkstationId] = useState(() => {
-    if (assignedWorkstationId) return assignedWorkstationId;
+    if (assignedWorkstationId && workstations.some((w) => w.id === assignedWorkstationId)) {
+      return assignedWorkstationId;
+    }
     return workstations[0]?.id ?? "";
   });
+
+  useEffect(() => {
+    if (assignedWorkstationId && workstations.some((w) => w.id === assignedWorkstationId)) {
+      setWorkstationId(assignedWorkstationId);
+    }
+  }, [assignedWorkstationId, workstations]);
   const formRef = useRef<HTMLFormElement>(null);
   const latitudeRef = useRef<HTMLInputElement>(null);
   const longitudeRef = useRef<HTMLInputElement>(null);
@@ -496,6 +504,15 @@ export default function EmployeeTimeClock({
     }
     return workstations[0]?.id ?? "";
   }, [workstationId, assignedWorkstationId, workstations]);
+
+  const sortedWorkstations = useMemo(() => {
+    if (!assignedWorkstationId) return workstations;
+    return [...workstations].sort((a, b) => {
+      if (a.id === assignedWorkstationId) return -1;
+      if (b.id === assignedWorkstationId) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [workstations, assignedWorkstationId]);
 
   const [state, formAction, pending] = useActionState(
     async (previousState: ClockActionState, formData: FormData) => {
@@ -922,9 +939,10 @@ export default function EmployeeTimeClock({
                       disabled={pending || locating}
                       className="w-full min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-[9rem]"
                     >
-                      {workstations.map((workstation) => (
-                        <option key={workstation.id} value={workstation.id}>
+                      {sortedWorkstations.map((workstation) => (
+                        <option key={workstation.id} value={workstation.id} className="text-foreground bg-surface">
                           {workstation.name}
+                          {workstation.id === assignedWorkstationId ? " (Standard)" : ""}
                         </option>
                       ))}
                     </select>
@@ -1103,9 +1121,10 @@ export default function EmployeeTimeClock({
                   disabled={pending || locating}
                   className="h-9 min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold text-primary-foreground outline-none"
                 >
-                  {workstations.map((workstation) => (
-                    <option key={workstation.id} value={workstation.id}>
+                  {sortedWorkstations.map((workstation) => (
+                    <option key={workstation.id} value={workstation.id} className="text-foreground bg-surface">
                       {workstation.name}
+                      {workstation.id === assignedWorkstationId ? " (Standard)" : ""}
                     </option>
                   ))}
                 </select>
