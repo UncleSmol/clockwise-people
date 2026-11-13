@@ -814,7 +814,13 @@ input.has-icon-right,
 
 .fc-popover,
 .cw-timesheet-calendar .fc-popover {
-  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  z-index: -1 !important;
 }
 
 .cw-timesheet-calendar .fc-popover-header {
