@@ -1328,7 +1328,6 @@ export default function CompanyTimesheetCalendar({
                     String(d.getDate()).padStart(2, "0"),
                   ].join("-");
                   setDayRosterDate(dateStr);
-                  return "none";
                 }}
                 plugins={[dayGridPlugin, interactionPlugin]}
                 views={{

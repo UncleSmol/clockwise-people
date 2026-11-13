@@ -812,6 +812,7 @@ input.has-icon-right,
   text-align: center;
 }
 
+.fc-popover,
 .cw-timesheet-calendar .fc-popover {
   display: none !important;
 }
