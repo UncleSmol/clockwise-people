@@ -391,12 +391,13 @@ export default function EmployeeMiniReportingPanel({
     [workSchedule],
   );
 
-  // Generate ALL days in the payroll cycle (worked days, unclocked drafts, leave, holidays, rest days)
+  // Generate days in the payroll cycle: only days worked or on leave/holiday are included (unworked empty days and unclocked drafts are excluded)
   const cycleDays = useMemo<DailyTimesheetItem[]>(() => {
     const dates = enumerateDates(effectiveStartDate, effectiveEndDate);
     const scheduleDays = workSchedule?.days;
+    const items: DailyTimesheetItem[] = [];
 
-    return dates.map((date) => {
+    for (const date of dates) {
       const dayOfWeek = formatDayOfWeek(date);
       const dayOfWeekNum = new Date(`${date}T00:00:00`).getDay();
       const schedDay = resolveScheduleDayForDate(scheduleDays, date);
@@ -477,7 +478,7 @@ export default function EmployeeMiniReportingPanel({
           const expectedLeaveHours = scheduledDayHours > 0 ? scheduledDayHours : avgDailyHours;
           const leavePaid = paid > 0 ? paid : isApproved && isPaidType ? expectedLeaveHours : 0;
 
-          return {
+          items.push({
             date,
             dayOfWeek,
             type: "leave",
@@ -500,17 +501,23 @@ export default function EmployeeMiniReportingPanel({
             leaveTypeName,
             locationEvents: [],
             workstationName: workstationName ?? null,
-          };
+          });
+          continue;
         }
 
         const isWorked = Boolean(hasClockings || paid > 0);
+        // Exclude unclocked drafts with 0 hours: only include days actually worked
+        if (!isWorked) {
+          continue;
+        }
+
         const dynamicNotes =
           compliance.dynamicNote !== "--" ? compliance.dynamicNote : entry.notes || null;
 
-        return {
+        items.push({
           date,
           dayOfWeek,
-          type: isWorked ? "worked" : entry.status === "draft" ? "draft" : "worked",
+          type: "worked",
           status: entry.status,
           clockIn: entry.clock_in,
           lunchStart: entry.lunch_start,
@@ -530,7 +537,8 @@ export default function EmployeeMiniReportingPanel({
           entry,
           locationEvents: entry.locationEvents ?? [],
           workstationName: workstationName ?? null,
-        };
+        });
+        continue;
       }
 
       if (matchingLeave && !isWeekend && !holiday) {
@@ -549,7 +557,7 @@ export default function EmployeeMiniReportingPanel({
         const isPaidType = reqLeaveMeta?.is_paid ?? leaveCategory !== "unpaid";
         const expectedLeaveHours = scheduledDayHours > 0 ? scheduledDayHours : avgDailyHours;
 
-        return {
+        items.push({
           date,
           dayOfWeek,
           type: "leave",
@@ -570,7 +578,8 @@ export default function EmployeeMiniReportingPanel({
           leaveCategory,
           leaveTypeName,
           locationEvents: [],
-        };
+        });
+        continue;
       }
 
       if (holiday) {
@@ -579,7 +588,7 @@ export default function EmployeeMiniReportingPanel({
             ? scheduledDayHours
             : avgDailyHours
           : 0;
-        return {
+        items.push({
           date,
           dayOfWeek,
           type: "holiday",
@@ -596,46 +605,14 @@ export default function EmployeeMiniReportingPanel({
           notes: holiday.name,
           holidayName: holiday.name,
           locationEvents: [],
-        };
+        });
+        continue;
       }
 
-      if (isWeekend) {
-        return {
-          date,
-          dayOfWeek,
-          type: "rest",
-          status: "rest",
-          clockIn: null,
-          lunchStart: null,
-          lunchEnd: null,
-          clockOut: null,
-          lunch: null,
-          normalHours: 0,
-          overtimeHours: 0,
-          paidHours: 0,
-          notes: "Rest Day / Weekend",
-          locationEvents: [],
-        };
-      }
+      // Any day not worked and without leave/holiday is excluded
+    }
 
-      // Default: weekday with no record is an unclocked Draft
-      return {
-        date,
-        dayOfWeek,
-        type: "draft",
-        status: "draft",
-        clockIn: null,
-        lunchStart: null,
-        lunchEnd: null,
-        clockOut: null,
-        lunch: null,
-        normalHours: 0,
-        overtimeHours: 0,
-        paidHours: 0,
-        notes: "No clocking recorded (Draft)",
-        locationEvents: [],
-      };
-    });
+    return items;
   }, [
     effectiveStartDate,
     effectiveEndDate,
@@ -791,11 +768,9 @@ export default function EmployeeMiniReportingPanel({
         }
       } else if (d.type === "holiday" && d.paidHours > 0) {
         nonMaternityActiveCount += 1;
-      } else if (d.type === "draft") {
+      }
+      if (d.status === "draft") {
         draftDays += 1;
-        if (d.date <= todayIso) {
-          unloggedPastWeekdays += 1;
-        }
       }
     }
 
@@ -874,7 +849,7 @@ export default function EmployeeMiniReportingPanel({
     return cycleDays.filter((item) => {
       // Tab category filter
       if (recordType === "worked" && item.type !== "worked") return false;
-      if (recordType === "drafts" && item.type !== "draft") return false;
+      if (recordType === "drafts" && item.status !== "draft") return false;
       if (recordType === "leave" && item.type !== "leave" && item.type !== "holiday")
         return false;
 
@@ -901,9 +876,13 @@ export default function EmployeeMiniReportingPanel({
     let drafts = 0;
     let leave = 0;
     for (const d of cycleDays) {
-      if (d.type === "worked") worked++;
-      else if (d.type === "draft") drafts++;
-      else if (d.type === "leave" || d.type === "holiday") leave++;
+      if (d.type === "worked") {
+        worked++;
+        if (d.status === "draft") drafts++;
+      } else if (d.type === "leave" || d.type === "holiday") {
+        leave++;
+        if (d.status === "draft") drafts++;
+      }
     }
     return {
       all: cycleDays.length,
