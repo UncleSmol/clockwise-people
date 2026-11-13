@@ -522,6 +522,7 @@ export default function ZenModeView({
       try {
         const formData = new FormData();
         formData.append("time_entry_ids", idToSubmit);
+        formData.append("acknowledged_ids", idToSubmit);
         const res = await submitSelectedTimesheets({ ok: true, message: "" }, formData);
         if (res.ok) {
           if (todayEntry?.id === idToSubmit) {

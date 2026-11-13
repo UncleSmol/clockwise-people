@@ -451,3 +451,4 @@ end;
 $$;
 
 grant execute on function public.record_employee_time_event(public.clock_event_type, jsonb, uuid, time, uuid) to authenticated;
+
