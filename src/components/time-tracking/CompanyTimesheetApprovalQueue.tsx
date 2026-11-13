@@ -390,47 +390,48 @@ export default function CompanyTimesheetApprovalQueue({
 
   return (
     <section ref={queueSectionRef} className="grid gap-5 min-w-0">
-      {/* Header Banner */}
-      <div className="card-hero-green rounded-3xl p-5 text-white shadow-soft sm:p-6">
-        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+      {/* Sleek Toolbar for Selection & Stats */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface-muted/40 p-3 sm:p-4">
+        <div className="flex items-center gap-2.5">
+          <div className="grid size-8 place-items-center rounded-xl bg-emerald-500/10 text-emerald-700">
+            <ClipboardCheck className="size-4.5" />
+          </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">
-              Payroll Period Verification
-            </p>
-            <h2 className="mt-0.5 flex items-center gap-2 text-xl font-black text-white sm:text-2xl">
-              <ClipboardCheck className="size-6 text-white" />
+            <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
               Compiled Employee Timesheets
-            </h2>
-            <p className="mt-0.5 text-xs text-white/85">
-              Drafts compile into a single timesheet per employee. Approve all shifts at once or review individual drafts below.
+            </h3>
+            <p className="text-[11px] text-muted">
+              {totalEmployees} employee{totalEmployees === 1 ? "" : "s"} · {totalTimesheets} shift draft{totalTimesheets === 1 ? "" : "s"}
             </p>
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {timesheets.length > 0 ? (
-              <>
-                <button
-                  type="button"
-                  onClick={toggleSelectCurrentPage}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
-                >
-                  <CheckSquare className="size-3.5" />
-                  Select page ({paginatedEmployees.length} employees)
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleSelectAll}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
-                >
-                  {allSelected ? <Square className="size-3.5" /> : <CheckSquare className="size-3.5" />}
-                  {allSelected ? "Clear all" : `Select all (${totalTimesheets})`}
-                </button>
-              </>
-            ) : null}
-            <span className="w-max rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-black text-white shadow-soft backdrop-blur-xs">
-              {totalEmployees} Employees · {totalTimesheets} Shifts
+        <div className="flex flex-wrap items-center gap-2">
+          {timesheets.length > 0 ? (
+            <>
+              <button
+                type="button"
+                onClick={toggleSelectCurrentPage}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-extrabold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
+              >
+                <CheckSquare className="size-3.5 text-primary" />
+                Select page ({paginatedEmployees.length})
+              </button>
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-extrabold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer"
+              >
+                {allSelected ? <Square className="size-3.5 text-primary" /> : <CheckSquare className="size-3.5 text-primary" />}
+                {allSelected ? "Clear all" : `Select all (${totalTimesheets})`}
+              </button>
+            </>
+          ) : null}
+          {selectedIds.size > 0 ? (
+            <span className="rounded-full bg-primary/10 border border-primary/30 px-3 py-1 text-xs font-black text-primary">
+              {selectedIds.size} selected
             </span>
-          </div>
+          ) : null}
         </div>
       </div>
 
@@ -472,7 +473,7 @@ export default function CompanyTimesheetApprovalQueue({
                   }`}
                 >
                   {/* Top Compiled Summary Header */}
-                  <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 bg-surface">
                     {/* Left: Checkbox, Avatar, Employee Info & Workstation */}
                     <div className="flex items-center gap-3.5 min-w-0">
                       <label
@@ -504,7 +505,7 @@ export default function CompanyTimesheetApprovalQueue({
                       </div>
 
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base font-extrabold text-foreground truncate">
                             {emp.knownAs ?? emp.fullName}
                           </h3>
@@ -513,6 +514,25 @@ export default function CompanyTimesheetApprovalQueue({
                               #{emp.employeeNumber}
                             </span>
                           ) : null}
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider ${
+                              emp.isCompliant
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : "bg-amber-100 text-amber-900 border border-amber-300"
+                            }`}
+                          >
+                            {emp.isCompliant ? (
+                              <>
+                                <CheckCircle2 className="size-3 text-emerald-600" />
+                                Ready
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="size-3 text-amber-600" />
+                                {emp.devianceCount > 0 ? `${emp.devianceCount} Deviance` : "Exceptions"}
+                              </>
+                            )}
+                          </span>
                         </div>
                         <p className="text-xs text-muted truncate mt-0.5">
                           {emp.workstationName ?? "Assigned Workstation"} ·{" "}
@@ -523,66 +543,8 @@ export default function CompanyTimesheetApprovalQueue({
                       </div>
                     </div>
 
-                    {/* Middle: Aggregated Metric Cards (Total Hours, NT, OT, Leave, Break) */}
-                    <div className="grid grid-cols-2 min-[480px]:grid-cols-5 gap-2 rounded-2xl bg-surface-muted/40 p-2 text-center">
-                      <div className="rounded-xl bg-background p-2 shadow-2xs">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Total Paid</p>
-                        <p className="font-extrabold text-primary text-sm font-mono mt-0.5">
-                          {formatHours(emp.totalPaidHours)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-background p-2 shadow-2xs">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Normal (NT)</p>
-                        <p className="font-extrabold text-foreground text-sm font-mono mt-0.5">
-                          {formatHours(emp.totalNormalHours)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-background p-2 shadow-2xs">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Overtime (OT)</p>
-                        <p className="font-extrabold text-amber-700 text-sm font-mono mt-0.5">
-                          {formatHours(emp.totalOvertimeHours)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-background p-2 shadow-2xs">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Leave Hours</p>
-                        <p className="font-extrabold text-violet-700 text-sm font-mono mt-0.5">
-                          {formatHours(emp.totalLeaveHours)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl bg-background p-2 shadow-2xs col-span-2 min-[480px]:col-span-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Break Time</p>
-                        <p className="font-extrabold text-slate-700 text-sm font-mono mt-0.5">
-                          {formatHours(emp.totalBreakHours)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Right: Status Badge & Quick Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end lg:self-center">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                          emp.isCompliant
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                            : "bg-amber-100 text-amber-900 border border-amber-300"
-                        }`}
-                      >
-                        {emp.isCompliant ? (
-                          <>
-                            <CheckCircle2 className="size-3.5 text-emerald-600" />
-                            Ready
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="size-3.5 text-amber-600" />
-                            {emp.devianceCount > 0 ? `${emp.devianceCount} Deviance` : "Exceptions"}
-                          </>
-                        )}
-                      </span>
-
+                    {/* Right: Action Buttons */}
+                    <div className="flex items-center gap-2.5 shrink-0 ml-auto sm:ml-0">
                       {/* One-click: Approve all drafts for this employee */}
                       <button
                         type="button"
@@ -611,6 +573,44 @@ export default function CompanyTimesheetApprovalQueue({
                         <span>{isExpanded ? "Hide Drafts" : `View Drafts (${emp.entries.length})`}</span>
                         {isExpanded ? <ChevronUp className="size-3.5 text-muted" /> : <ChevronDown className="size-3.5 text-muted" />}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Dedicated Full-Width Metric Strip (Clean, spacious, zero text collision) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 border-t border-border/70 bg-surface-muted/30 divide-y sm:divide-y-0 sm:divide-x divide-border/60">
+                    <div className="p-3 sm:p-3.5 flex flex-col justify-center">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Total Paid</span>
+                      <span className="font-black text-primary text-base font-mono mt-0.5">
+                        {formatHours(emp.totalPaidHours)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 sm:p-3.5 flex flex-col justify-center">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted">Normal (NT)</span>
+                      <span className="font-bold text-foreground text-base font-mono mt-0.5">
+                        {formatHours(emp.totalNormalHours)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 sm:p-3.5 flex flex-col justify-center">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted">Overtime (OT)</span>
+                      <span className="font-bold text-amber-700 text-base font-mono mt-0.5">
+                        {formatHours(emp.totalOvertimeHours)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 sm:p-3.5 flex flex-col justify-center">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted">Leave Hours</span>
+                      <span className="font-bold text-violet-700 text-base font-mono mt-0.5">
+                        {formatHours(emp.totalLeaveHours)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 sm:p-3.5 flex flex-col justify-center col-span-2 sm:col-span-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted">Break Time</span>
+                      <span className="font-bold text-slate-700 text-base font-mono mt-0.5">
+                        {formatHours(emp.totalBreakHours)}
+                      </span>
                     </div>
                   </div>
 
