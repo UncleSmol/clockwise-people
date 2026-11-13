@@ -508,15 +508,8 @@ export async function submitLeaveRequest(
   let requestUseToilFirst = useToilFirst === null || useToilFirst === "true" || useToilFirst === "on";
 
   const isTimeOff = formData.get("is_time_off") === "true";
-  const rawHours = isTimeOff ? (formData.get("time_off_hours") || formData.get("request_total_hours")) : null;
-  const parsedTimeOffHours = rawHours ? parseFloat(String(rawHours)) : null;
-  const timeOffHours = isTimeOff && parsedTimeOffHours && !isNaN(parsedTimeOffHours) && parsedTimeOffHours > 0
-    ? parsedTimeOffHours
-    : null;
-
-  if (isTimeOff && (!timeOffHours || timeOffHours <= 0)) {
-    return { ok: false, message: "Please specify the time off hours requested (e.g. 2.5h)." };
-  }
+  const knockOffTime = sanitizeString(formData.get("knock_off_time"), 10);
+  const returnTime = sanitizeString(formData.get("return_time"), 10) || null;
 
   const [{ company }, access] = await Promise.all([
     getActiveCompany(),
@@ -524,6 +517,45 @@ export async function submitLeaveRequest(
   ]);
   const employeeId = access.employeeId;
   const supabase = await createSupabaseServerClient();
+
+  // For partial day off: the system calculates hours to deduct based on standard work rule deficit
+  let timeOffHours: number | null = null;
+  if (isTimeOff) {
+    if (!knockOffTime) {
+      return { ok: false, message: "Please specify your knock-off time." };
+    }
+
+    const { data: settings } = await supabase
+      .from("company_settings")
+      .select("standard_daily_hours")
+      .eq("company_id", company.id)
+      .maybeSingle();
+
+    const standardDailyHours = Number(settings?.standard_daily_hours ?? 8);
+
+    const { data: dayEntries } = await supabase
+      .from("time_entries")
+      .select("paid_hours, normal_hours")
+      .eq("company_id", company.id)
+      .eq("employee_id", employeeId || "")
+      .eq("work_date", parsed.data.start_date)
+      .is("deleted_at", null);
+
+    const workedHours = (dayEntries ?? []).reduce(
+      (sum, e) => sum + Number(e.paid_hours ?? e.normal_hours ?? 0),
+      0,
+    );
+
+    const deficit = Math.max(0, standardDailyHours - workedHours);
+    if (deficit <= 0) {
+      return {
+        ok: false,
+        message: `Shift on this date already has full hours logged (${workedHours.toFixed(2)}h), satisfying your standard daily work rule of ${standardDailyHours.toFixed(2)}h. Partial day off is not permitted.`,
+      };
+    }
+
+    timeOffHours = Number(deficit.toFixed(2));
+  }
 
   const canManageOrReview =
     access.isSuperAdmin ||
@@ -618,8 +650,16 @@ export async function submitLeaveRequest(
     }
   }
 
+  const timeOffNote = isTimeOff
+    ? knockOffTime
+      ? returnTime
+        ? `Knock-off: ${knockOffTime} \u2192 Return: ${returnTime}`
+        : `Knock-off: ${knockOffTime} onwards`
+      : "Partial day off"
+    : "";
+
   const finalReason = isTimeOff
-    ? `[Time Off: ${timeOffHours}h] ${parsed.data.reason || "Left work early"}`
+    ? `[Partial Day Off: ${timeOffHours}h | ${timeOffNote}] ${parsed.data.reason || "Partial day off to cover missing shift hours"}`
     : (parsed.data.reason || null);
 
   const { error } = await supabase.rpc("submit_own_leave_request", {
@@ -640,7 +680,7 @@ export async function submitLeaveRequest(
   return {
     ok: true,
     message: isTimeOff
-      ? `Time off request for ${timeOffHours}h under annual leave sent.`
+      ? `Partial day off request for ${timeOffHours}h under annual leave submitted (covering missing shift hours).`
       : "Leave request sent.",
   };
 }

@@ -813,11 +813,7 @@ input.has-icon-right,
 }
 
 .cw-timesheet-calendar .fc-popover {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-soft);
-  color: var(--color-foreground);
+  display: none !important;
 }
 
 .cw-timesheet-calendar .fc-popover-header {

@@ -477,8 +477,8 @@ export default function CompanyTimesheetCalendar({
   } | null>(null);
 
   const clampTooltip = (rect: DOMRect) => {
-    const cardWidth = 260;
-    const cardHeight = 110;
+    const cardWidth = 280;
+    const cardHeight = 125;
     const padding = 12;
     let x = rect.left + rect.width / 2 - cardWidth / 2;
     if (typeof window !== "undefined") {
@@ -488,7 +488,10 @@ export default function CompanyTimesheetCalendar({
     if (typeof window !== "undefined" && y + cardHeight > window.innerHeight - padding) {
       y = rect.top - cardHeight - 8;
     }
-    return { x, y: Math.max(padding, y) };
+    if (y < padding) {
+      y = padding;
+    }
+    return { x, y };
   };
 
   const [editing, setEditing] = useState(false);
@@ -1316,6 +1319,8 @@ export default function CompanyTimesheetCalendar({
                         : "dayGridMonth"
                 }
                 moreLinkClick={(arg) => {
+                  arg.jsEvent?.preventDefault?.();
+                  arg.jsEvent?.stopPropagation?.();
                   const d = arg.date;
                   const dateStr = [
                     d.getFullYear(),

@@ -5,19 +5,23 @@ import {
   AlertTriangle,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ChevronsLeft,
   ChevronsRight,
   ClipboardCheck,
   Clock,
   FileText,
   Footprints,
+  Layers,
   LocateFixed,
   LogOut,
   MapPin,
   Square,
   Timer,
+  UserCheck,
   UtensilsCrossed,
   XCircle,
 } from "lucide-react";
@@ -122,7 +126,6 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
   const lunchEndEvt = events.find((e) => e.event_type === "lunch_end");
   const clockOutEvt = events.find((e) => e.event_type === "clock_out");
 
-  // 1. Clock In milestone
   if (clockInEvt || timesheet.clock_in) {
     const status = clockInEvt?.geofence_status ?? "in_range";
     milestones.push({
@@ -137,7 +140,6 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
     });
   }
 
-  // 2. Lunch Start (Take Lunch) milestone
   if (lunchStartEvt || timesheet.lunch_start) {
     const status = lunchStartEvt?.geofence_status ?? "in_range";
     milestones.push({
@@ -152,7 +154,6 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
     });
   }
 
-  // 3. Lunch End (Return from Lunch) milestone
   if (lunchEndEvt || timesheet.lunch_end) {
     const status = lunchEndEvt?.geofence_status ?? "in_range";
     milestones.push({
@@ -167,7 +168,6 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
     });
   }
 
-  // 4. Clock Out milestone
   if (clockOutEvt || timesheet.clock_out) {
     const status = clockOutEvt?.geofence_status ?? "in_range";
     milestones.push({
@@ -182,7 +182,6 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
     });
   }
 
-  // 5. Additional interactions / movement breadcrumbs
   events
     .filter(
       (e) =>
@@ -196,21 +195,36 @@ function getShiftMilestones(timesheet: CompanySubmittedTimesheet): ResolvedShift
         id: e.id,
         eventType: e.event_type,
         title:
-          e.event_type === "app_interaction"
-            ? "App Interaction"
-            : e.event_type === "switch_workstation"
-              ? "Switch Workstation"
-              : e.event_type.replaceAll("_", " "),
-        time: e.local_event_time,
-        workstationName: e.workstationName || timesheet.workstationName,
-        distanceMeters: e.distance_meters,
+          e.event_type === "switch_workstation"
+            ? "Switch Workstation"
+            : String(e.event_type).replace(/_/g, " "),
+        time: e.local_event_time || "",
+        workstationName: e.workstationName || timesheet.workstationName || "Workstation",
+        distanceMeters: e.distance_meters ?? null,
         geofenceStatus: e.geofence_status,
         isDeviance: e.geofence_status === "out_of_range",
       });
     });
 
-  return milestones.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+  return milestones;
 }
+
+type CompiledEmployeeTimesheet = {
+  employeeId: string;
+  fullName: string;
+  knownAs: string | null;
+  employeeNumber: string;
+  avatarUrl: string | null;
+  workstationName: string | null;
+  entries: CompanySubmittedTimesheet[];
+  totalPaidHours: number;
+  totalNormalHours: number;
+  totalOvertimeHours: number;
+  totalLeaveHours: number;
+  totalBreakHours: number;
+  devianceCount: number;
+  isCompliant: boolean;
+};
 
 export default function CompanyTimesheetApprovalQueue({
   timesheets,
@@ -218,13 +232,63 @@ export default function CompanyTimesheetApprovalQueue({
   const queueSectionRef = useRef<HTMLElement>(null);
   const [activeMapEntryId, setActiveMapEntryId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [expandedEmployeeIds, setExpandedEmployeeIds] = useState<Set<string>>(() => new Set());
 
-  // Timesheets Pagination setup matching EmployeeTimesheetCorrections
+  // Compile individual drafts into a single timesheet per employee
+  const compiledEmployees: CompiledEmployeeTimesheet[] = useMemo(() => {
+    const map = new Map<string, CompiledEmployeeTimesheet>();
+
+    for (const ts of timesheets) {
+      let rec = map.get(ts.employee_id);
+      if (!rec) {
+        rec = {
+          employeeId: ts.employee_id,
+          fullName: ts.fullName,
+          knownAs: ts.knownAs,
+          employeeNumber: ts.employeeNumber,
+          avatarUrl: ts.avatarUrl,
+          workstationName: ts.workstationName,
+          entries: [],
+          totalPaidHours: 0,
+          totalNormalHours: 0,
+          totalOvertimeHours: 0,
+          totalLeaveHours: 0,
+          totalBreakHours: 0,
+          devianceCount: 0,
+          isCompliant: true,
+        };
+        map.set(ts.employee_id, rec);
+      }
+
+      rec.entries.push(ts);
+      rec.totalPaidHours += Number(ts.paid_hours ?? 0);
+      rec.totalNormalHours += Number(ts.normal_hours ?? 0);
+      rec.totalOvertimeHours += Number(ts.overtime_hours ?? 0);
+      rec.totalLeaveHours += Number(ts.paidTimeOffHours ?? 0);
+      rec.totalBreakHours += Number(ts.lunch_hours ?? 0);
+
+      const milestones = getShiftMilestones(ts);
+      const deviances = milestones.filter((m) => m.isDeviance);
+      rec.devianceCount += deviances.length;
+      if (deviances.length > 0 || ts.missing_clocking || ts.late_arrival || ts.early_departure) {
+        rec.isCompliant = false;
+      }
+    }
+
+    // Sort entries within each employee by work_date
+    for (const rec of map.values()) {
+      rec.entries.sort((a, b) => a.work_date.localeCompare(b.work_date));
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }, [timesheets]);
+
+  // Pagination for compiled employee records
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(10);
 
-  const totalTimesheets = timesheets.length;
-  const totalPages = Math.max(1, Math.ceil(totalTimesheets / pageSize));
+  const totalEmployees = compiledEmployees.length;
+  const totalPages = Math.max(1, Math.ceil(totalEmployees / pageSize));
 
   useEffect(() => {
     if (page > totalPages) {
@@ -232,13 +296,13 @@ export default function CompanyTimesheetApprovalQueue({
     }
   }, [page, totalPages]);
 
-  const paginatedTimesheets = useMemo(() => {
+  const paginatedEmployees = useMemo(() => {
     const startIndex = (page - 1) * pageSize;
-    return timesheets.slice(startIndex, startIndex + pageSize);
-  }, [timesheets, page, pageSize]);
+    return compiledEmployees.slice(startIndex, startIndex + pageSize);
+  }, [compiledEmployees, page, pageSize]);
 
-  const startIndex = totalTimesheets > 0 ? (page - 1) * pageSize + 1 : 0;
-  const endIndex = Math.min(page * pageSize, totalTimesheets);
+  const startIndex = totalEmployees > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endIndex = Math.min(page * pageSize, totalEmployees);
 
   const handlePageChange = useCallback((p: number) => {
     setPage(p);
@@ -249,6 +313,7 @@ export default function CompanyTimesheetApprovalQueue({
     }
   }, []);
 
+  const totalTimesheets = timesheets.length;
   const allSelected = totalTimesheets > 0 && selectedIds.size === totalTimesheets;
 
   const toggleSelect = useCallback((id: string) => {
@@ -263,6 +328,21 @@ export default function CompanyTimesheetApprovalQueue({
     });
   }, []);
 
+  const toggleSelectEmployee = useCallback((employee: CompiledEmployeeTimesheet) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const employeeEntryIds = employee.entries.map((e) => e.id);
+      const allSelectedForEmp = employeeEntryIds.every((id) => next.has(id));
+
+      if (allSelectedForEmp) {
+        employeeEntryIds.forEach((id) => next.delete(id));
+      } else {
+        employeeEntryIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, []);
+
   const toggleSelectAll = useCallback(() => {
     if (allSelected) {
       setSelectedIds(new Set());
@@ -272,7 +352,7 @@ export default function CompanyTimesheetApprovalQueue({
   }, [allSelected, timesheets]);
 
   const toggleSelectCurrentPage = useCallback(() => {
-    const pageIds = paginatedTimesheets.map((t) => t.id);
+    const pageIds = paginatedEmployees.flatMap((e) => e.entries.map((t) => t.id));
     const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -283,7 +363,19 @@ export default function CompanyTimesheetApprovalQueue({
       }
       return next;
     });
-  }, [paginatedTimesheets, selectedIds]);
+  }, [paginatedEmployees, selectedIds]);
+
+  const toggleExpandEmployee = useCallback((employeeId: string) => {
+    setExpandedEmployeeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(employeeId)) {
+        next.delete(employeeId);
+      } else {
+        next.add(employeeId);
+      }
+      return next;
+    });
+  }, []);
 
   const [state, formAction, pending] = useActionState(
     async (prev: ApprovalState, formData: FormData) => {
@@ -297,20 +389,20 @@ export default function CompanyTimesheetApprovalQueue({
   );
 
   return (
-    <section ref={queueSectionRef} className="grid gap-4 min-w-0">
-      {/* Header */}
-      <div className="card-hero-green rounded-2xl p-5 text-white shadow-soft sm:p-6">
+    <section ref={queueSectionRef} className="grid gap-5 min-w-0">
+      {/* Header Banner */}
+      <div className="card-hero-green rounded-3xl p-5 text-white shadow-soft sm:p-6">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">
-              Management Approval
+              Payroll Period Verification
             </p>
             <h2 className="mt-0.5 flex items-center gap-2 text-xl font-black text-white sm:text-2xl">
-              <ClipboardCheck className="size-5 text-white" />
-              Submitted Timesheets
+              <ClipboardCheck className="size-6 text-white" />
+              Compiled Employee Timesheets
             </h2>
             <p className="mt-0.5 text-xs text-white/85">
-              Approve ready timesheets or reject them with a clear note.
+              Drafts compile into a single timesheet per employee. Approve all shifts at once or review individual drafts below.
             </p>
           </div>
 
@@ -320,363 +412,447 @@ export default function CompanyTimesheetApprovalQueue({
                 <button
                   type="button"
                   onClick={toggleSelectCurrentPage}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
                 >
                   <CheckSquare className="size-3.5" />
-                  Select page ({paginatedTimesheets.length})
+                  Select page ({paginatedEmployees.length} employees)
                 </button>
                 <button
                   type="button"
                   onClick={toggleSelectAll}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-white/20 shadow-2xs backdrop-blur-xs transition-all cursor-pointer"
                 >
-                  {allSelected ? (
-                    <>
-                      <Square className="size-3.5" />
-                      Deselect all
-                    </>
-                  ) : (
-                    <>
-                      <CheckSquare className="size-3.5" />
-                      Select all ({timesheets.length})
-                    </>
-                  )}
+                  {allSelected ? <Square className="size-3.5" /> : <CheckSquare className="size-3.5" />}
+                  {allSelected ? "Clear all" : `Select all (${totalTimesheets})`}
                 </button>
               </>
             ) : null}
-
-            <span className="w-max rounded-full bg-white/20 px-3.5 py-1 text-xs font-bold text-white shadow-soft backdrop-blur-xs">
-              {timesheets.length} ready
+            <span className="w-max rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-black text-white shadow-soft backdrop-blur-xs">
+              {totalEmployees} Employees · {totalTimesheets} Shifts
             </span>
-            {selectedIds.size > 0 && (
-              <span className="w-max rounded-full bg-emerald-300 text-emerald-950 px-3 py-1 text-xs font-black shadow-soft">
-                {selectedIds.size} selected
-              </span>
-            )}
           </div>
         </div>
       </div>
 
-      {state.message && (
+      {state.message ? (
         <div
           className={`rounded-2xl border px-4 py-3 text-sm font-semibold shadow-soft ${
             state.ok
-              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-              : "border-rose-300 bg-rose-50 text-rose-950"
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-danger/30 bg-danger/10 text-danger"
           }`}
         >
           {state.message}
         </div>
-      )}
+      ) : null}
 
-      {timesheets.length === 0 ? (
-        <p className="rounded-2xl border border-border bg-surface p-6 text-center text-sm font-medium text-muted shadow-soft">
-          No submitted timesheets need approval.
+      {compiledEmployees.length === 0 ? (
+        <p className="rounded-3xl border border-dashed border-border/80 bg-surface p-12 text-center text-sm font-medium text-muted shadow-soft">
+          No submitted timesheets or drafts require review for this period.
         </p>
       ) : (
-        <form action={formAction} className="grid gap-4">
-          {Array.from(selectedIds).map((id) => (
-            <input key={id} type="hidden" name="time_entry_ids" value={id} />
-          ))}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 items-start">
-            {paginatedTimesheets.map((timesheet) => {
-              const hasWarning =
-                timesheet.missing_clocking ||
-                timesheet.late_arrival ||
-                timesheet.early_departure;
-              const validation = timesheet.scheduleValidation;
-              const milestones = getShiftMilestones(timesheet);
-              const deviances = milestones.filter((m) => m.isDeviance);
-              const clockInDeviance = milestones.find((m) => m.eventType === "clock_in")?.isDeviance;
-              const lunchDeviance = milestones.some(
-                (m) => (m.eventType === "lunch_start" || m.eventType === "lunch_end") && m.isDeviance,
-              );
-              const clockOutDeviance = milestones.find((m) => m.eventType === "clock_out")?.isDeviance;
-              const isCompliant = (validation?.isCompliant ?? !hasWarning) && deviances.length === 0;
-              const isSelected = selectedIds.has(timesheet.id);
+        <form action={formAction} className="grid gap-4 min-w-0">
+          {/* Compiled Employee Timesheet Cards */}
+          <div className="grid gap-4">
+            {paginatedEmployees.map((emp) => {
+              const isExpanded = expandedEmployeeIds.has(emp.employeeId);
+              const employeeEntryIds = emp.entries.map((e) => e.id);
+              const allEmployeeSelected =
+                employeeEntryIds.length > 0 && employeeEntryIds.every((id) => selectedIds.has(id));
+              const someEmployeeSelected =
+                !allEmployeeSelected && employeeEntryIds.some((id) => selectedIds.has(id));
 
               return (
-                <article
-                  key={timesheet.id}
-                  className={`flex flex-col justify-between gap-3 rounded-2xl p-4 shadow-soft transition-all w-full max-w-full overflow-hidden ${
-                    isSelected
-                      ? "ring-3 ring-white shadow-xl scale-[1.01]"
-                      : ""
-                  } ${
-                    isCompliant
-                      ? "card-hero-green text-white"
-                      : "bg-rose-600 text-white"
+                <div
+                  key={emp.employeeId}
+                  className={`rounded-3xl border transition-all overflow-hidden shadow-soft ${
+                    allEmployeeSelected
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/30"
+                      : "border-border/80 bg-surface hover:border-primary/40"
                   }`}
                 >
-                  {/* Top Bar: Checkbox, Avatar Monogram, Name & Status Badge */}
-                  <div className="flex items-center justify-between gap-1.5 min-w-0 max-w-full">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <label className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full border border-white/30 bg-white/20 shadow-soft hover:bg-white/30 transition-colors">
+                  {/* Top Compiled Summary Header */}
+                  <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    {/* Left: Checkbox, Avatar, Employee Info & Workstation */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <label
+                        className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-xl border border-border bg-background shadow-2xs hover:bg-surface-muted transition-colors"
+                        title={allEmployeeSelected ? "Deselect employee" : "Select all drafts for employee"}
+                      >
                         <input
                           type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(timesheet.id)}
-                          aria-label={`Select ${timesheet.knownAs ?? timesheet.fullName} timesheet for ${timesheet.work_date}`}
-                          className="size-4 accent-primary cursor-pointer"
+                          checked={allEmployeeSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someEmployeeSelected;
+                          }}
+                          onChange={() => toggleSelectEmployee(emp)}
+                          className="size-4.5 accent-primary cursor-pointer"
                         />
                       </label>
 
                       <div className="relative shrink-0">
                         <EmployeeAvatar
-                          name={timesheet.knownAs ?? timesheet.fullName}
-                          src={timesheet.avatarUrl}
-                          className="size-9 rounded-full border border-white/30 bg-white/20 shadow-soft ring-2 ring-white/30"
+                          name={emp.knownAs ?? emp.fullName}
+                          src={emp.avatarUrl}
+                          className="size-11 rounded-2xl border border-border shadow-soft"
                         />
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 block size-2.5 rounded-full ring-2 ${
-                            isCompliant
-                              ? "bg-emerald-300 ring-emerald-600"
-                              : "bg-rose-300 ring-rose-700"
+                          className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full ring-2 ring-surface ${
+                            emp.isCompliant ? "bg-emerald-500" : "bg-amber-500"
                           }`}
                         />
                       </div>
 
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold text-white break-words leading-tight">
-                          {timesheet.knownAs ?? timesheet.fullName}
-                        </p>
-                        <p
-                          className={`text-[11px] font-medium break-words leading-tight mt-0.5 ${
-                            isCompliant ? "text-white/85" : "text-rose-100"
-                          }`}
-                        >
-                          {timesheet.workstationName ?? "Assigned workstation"} ·{" "}
-                          <span className="font-semibold text-white">{formatDate(timesheet.work_date)}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <span
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
-                        isCompliant
-                          ? "bg-white/20 text-white border border-white/30"
-                          : "bg-rose-950/50 text-rose-200 border border-rose-400/30"
-                      }`}
-                    >
-                      {isCompliant ? (
-                        <CheckCircle2 className="size-2.5 text-white" />
-                      ) : (
-                        <AlertTriangle className="size-2.5 text-rose-200" />
-                      )}
-                      {isCompliant ? "Ready" : deviances.length > 0 ? `${deviances.length} Deviance${deviances.length > 1 ? "s" : ""}` : "Exception"}
-                    </span>
-                  </div>
-
-                  {/* High-Contrast White Metric Boxes (Smart Auto-Fit Grid) */}
-                  <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0 w-full">
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock In</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
-                        {shortTime(timesheet.clock_in)}
-                        {clockInDeviance && (
-                          <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Clock-in deviance (outside radius)" />
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
-                        {shortLunch(timesheet.lunch_start, timesheet.lunch_end)}
-                        {lunchDeviance && (
-                          <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Lunch deviance (outside radius)" />
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock Out</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
-                        {shortTime(timesheet.clock_out)}
-                        {clockOutDeviance && (
-                          <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Clock-out deviance (outside radius)" />
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Total Paid</p>
-                      <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(timesheet.paid_hours)}</p>
-                    </div>
-                  </div>
-
-                  {/* Hours Breakdown Subgrid */}
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-1.5 text-center text-slate-900 shadow-xs min-w-0 w-full">
-                    <div className="min-w-0">
-                      <p className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Normal</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(timesheet.normal_hours)}</p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 break-words leading-tight">Overtime</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(timesheet.overtime_hours)}</p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-[8.5px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
-                      <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight">{formatHours(timesheet.lunch_hours)}</p>
-                    </div>
-                  </div>
-
-                  {/* Complementary Footer Pills */}
-                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] min-w-0 pt-0.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-semibold text-[10px] break-words ${
-                        isCompliant ? "bg-white/20 text-white" : "bg-rose-800/80 text-rose-100"
-                      }`}
-                      title={timesheet.workstationName ?? "Assigned workstation"}
-                    >
-                      <MapPin className="mr-1 inline size-2.5 shrink-0 opacity-80" />
-                      <span className="break-words leading-tight">{timesheet.workstationName ?? "Workstation logged"}</span>
-                    </span>
-
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap border ${
-                        isCompliant
-                          ? "bg-white/20 text-white border-white/30"
-                          : "bg-rose-950/50 text-rose-200 border border-rose-400/30"
-                      }`}
-                    >
-                      {isCompliant
-                        ? "Fully Compliant"
-                        : deviances.length > 0
-                        ? `${deviances.length} Out-of-Range Deviance${deviances.length > 1 ? "s" : ""}`
-                        : "Review Required"}
-                    </span>
-                  </div>
-
-                  {/* Location History Dropdown & Visual Route Map */}
-                  <details className="rounded-2xl border border-border/80 bg-surface overflow-hidden shadow-soft text-foreground" open={activeMapEntryId === timesheet.id}>
-                    <summary className="flex cursor-pointer items-center justify-between gap-1.5 px-3 py-2.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <MapPin className="size-3.5 text-primary shrink-0" />
-                        <span className="truncate">Shift Milestones ({milestones.length})</span>
-                        {deviances.length > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-extrabold text-rose-800 border border-rose-300 shrink-0">
-                            <AlertTriangle className="size-2.5 text-rose-600" />
-                            {deviances.length} {deviances.length === 1 ? "deviance" : "deviances"}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-extrabold text-foreground truncate">
+                            {emp.knownAs ?? emp.fullName}
+                          </h3>
+                          {emp.employeeNumber ? (
+                            <span className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] font-bold text-muted">
+                              #{emp.employeeNumber}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-muted truncate mt-0.5">
+                          {emp.workstationName ?? "Assigned Workstation"} ·{" "}
+                          <span className="font-semibold text-foreground">
+                            {emp.entries.length} shift{emp.entries.length === 1 ? "" : "s"} submitted
                           </span>
-                        )}
-                      </div>
-                      {timesheet.locationEvents.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setActiveMapEntryId((prev) => (prev === timesheet.id ? null : timesheet.id));
-                          }}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-primary-hover shadow-soft transition-all"
-                        >
-                          <Footprints className="size-3 text-white" />
-                          {activeMapEntryId === timesheet.id ? "Hide Map" : "View Route Map"}
-                        </button>
-                      )}
-                    </summary>
-
-                    {/* Interactive Leaflet Route Map */}
-                    {activeMapEntryId === timesheet.id && (
-                      <div className="p-2 border-t border-border bg-slate-950">
-                        <TimesheetRouteMap
-                          employeeName={timesheet.knownAs ?? timesheet.fullName}
-                          workDate={timesheet.work_date}
-                          locationEvents={timesheet.locationEvents}
-                          onClose={() => setActiveMapEntryId(null)}
-                        />
-                      </div>
-                    )}
-
-                    <div className="divide-y divide-border border-t border-border bg-surface p-1">
-                      {milestones.length === 0 ? (
-                        <p className="p-2.5 text-center text-xs text-muted">
-                          No shift milestones or location events recorded for this shift.
                         </p>
-                      ) : (
-                        milestones.map((milestone) => {
-                          const isDeviance = milestone.isDeviance;
+                      </div>
+                    </div>
+
+                    {/* Middle: Aggregated Metric Cards (Total Hours, NT, OT, Leave, Break) */}
+                    <div className="grid grid-cols-2 min-[480px]:grid-cols-5 gap-2 rounded-2xl bg-surface-muted/40 p-2 text-center">
+                      <div className="rounded-xl bg-background p-2 shadow-2xs">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Total Paid</p>
+                        <p className="font-extrabold text-primary text-sm font-mono mt-0.5">
+                          {formatHours(emp.totalPaidHours)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-background p-2 shadow-2xs">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Normal (NT)</p>
+                        <p className="font-extrabold text-foreground text-sm font-mono mt-0.5">
+                          {formatHours(emp.totalNormalHours)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-background p-2 shadow-2xs">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Overtime (OT)</p>
+                        <p className="font-extrabold text-amber-700 text-sm font-mono mt-0.5">
+                          {formatHours(emp.totalOvertimeHours)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-background p-2 shadow-2xs">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Leave Hours</p>
+                        <p className="font-extrabold text-violet-700 text-sm font-mono mt-0.5">
+                          {formatHours(emp.totalLeaveHours)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-background p-2 shadow-2xs col-span-2 min-[480px]:col-span-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Break Time</p>
+                        <p className="font-extrabold text-slate-700 text-sm font-mono mt-0.5">
+                          {formatHours(emp.totalBreakHours)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right: Status Badge & Quick Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end lg:self-center">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                          emp.isCompliant
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                            : "bg-amber-100 text-amber-900 border border-amber-300"
+                        }`}
+                      >
+                        {emp.isCompliant ? (
+                          <>
+                            <CheckCircle2 className="size-3.5 text-emerald-600" />
+                            Ready
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="size-3.5 text-amber-600" />
+                            {emp.devianceCount > 0 ? `${emp.devianceCount} Deviance` : "Exceptions"}
+                          </>
+                        )}
+                      </span>
+
+                      {/* One-click: Approve all drafts for this employee */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const fd = new FormData();
+                          fd.set("decision", "approve");
+                          emp.entries.forEach((e) => fd.append("time_entry_ids", e.id));
+                          await formAction(fd);
+                        }}
+                        disabled={pending}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-soft cursor-pointer"
+                        title={`Approve entire timesheet (${emp.entries.length} drafts) for ${emp.fullName}`}
+                      >
+                        <UserCheck className="size-3.5" />
+                        Approve Timesheet ({emp.entries.length})
+                      </button>
+
+                      {/* Toggle Expand / Collapse Drafts List */}
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandEmployee(emp.employeeId)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-2 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors shadow-2xs cursor-pointer"
+                        aria-expanded={isExpanded}
+                      >
+                        <Layers className="size-3.5 text-muted" />
+                        <span>{isExpanded ? "Hide Drafts" : `View Drafts (${emp.entries.length})`}</span>
+                        {isExpanded ? <ChevronUp className="size-3.5 text-muted" /> : <ChevronDown className="size-3.5 text-muted" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded List of Individual Draft Shifts */}
+                  {isExpanded ? (
+                    <div className="border-t border-border/80 bg-surface-muted/30 p-4 sm:p-5 space-y-3 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between pb-1">
+                        <p className="text-xs font-extrabold uppercase tracking-wider text-muted">
+                          Shift Drafts Breakdown ({emp.entries.length} entries for {emp.knownAs ?? emp.fullName})
+                        </p>
+                        <span className="text-[11px] text-muted">
+                          Each submitted shift automatically updates here upon clock-out.
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5">
+                        {emp.entries.map((timesheet) => {
+                          const validation = timesheet.scheduleValidation;
+                          const hasWarning =
+                            timesheet.missing_clocking ||
+                            timesheet.late_arrival ||
+                            timesheet.early_departure;
+                          const milestones = getShiftMilestones(timesheet);
+                          const deviances = milestones.filter((m) => m.isDeviance);
+                          const clockInDeviance = milestones.find((m) => m.eventType === "clock_in")?.isDeviance;
+                          const lunchDeviance = milestones.some(
+                            (m) => (m.eventType === "lunch_start" || m.eventType === "lunch_end") && m.isDeviance,
+                          );
+                          const clockOutDeviance = milestones.find((m) => m.eventType === "clock_out")?.isDeviance;
+                          const isCompliant = (validation?.isCompliant ?? !hasWarning) && deviances.length === 0;
+                          const isSelected = selectedIds.has(timesheet.id);
+
                           return (
-                            <div
-                              key={milestone.id}
-                              className={`grid gap-1.5 p-2 sm:grid-cols-[130px_1fr_auto] sm:items-center text-xs transition-colors ${
-                                isDeviance ? "bg-rose-50/70" : ""
+                            <article
+                              key={timesheet.id}
+                              className={`flex flex-col justify-between gap-3 rounded-2xl p-4 shadow-soft transition-all w-full max-w-full overflow-hidden ${
+                                isSelected
+                                  ? "ring-3 ring-primary shadow-xl scale-[1.01]"
+                                  : ""
+                              } ${
+                                isCompliant
+                                  ? "card-hero-green text-white"
+                                  : "bg-rose-600 text-white"
                               }`}
                             >
-                              <div className="flex items-start gap-1.5 min-w-0">
+                              {/* Top Bar: Checkbox, Date & Compliance Badge */}
+                              <div className="flex items-center justify-between gap-2 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <label className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full border border-white/30 bg-white/20 shadow-soft hover:bg-white/30 transition-colors">
+                                    <input
+                                      type="checkbox"
+                                      name="time_entry_ids"
+                                      value={timesheet.id}
+                                      checked={isSelected}
+                                      onChange={() => toggleSelect(timesheet.id)}
+                                      aria-label={`Select timesheet for ${timesheet.work_date}`}
+                                      className="size-4 accent-primary cursor-pointer"
+                                    />
+                                  </label>
+
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-extrabold text-white truncate">
+                                      {formatDate(timesheet.work_date)}
+                                    </p>
+                                    <p className="text-[11px] font-medium text-white/80 truncate">
+                                      {timesheet.workstationName ?? "Assigned Workstation"}
+                                    </p>
+                                  </div>
+                                </div>
+
                                 <span
-                                  className={`mt-0.5 shrink-0 rounded p-1 ${
-                                    milestone.eventType === "clock_in"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : milestone.eventType === "clock_out"
-                                      ? "bg-slate-100 text-slate-800"
-                                      : milestone.eventType.startsWith("lunch")
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-blue-100 text-blue-800"
+                                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${
+                                    isCompliant
+                                      ? "bg-white/20 text-white border border-white/30"
+                                      : "bg-rose-950/50 text-rose-200 border border-rose-400/30"
                                   }`}
                                 >
-                                  {milestone.eventType === "clock_in" ? (
-                                    <Clock className="size-3" />
-                                  ) : milestone.eventType === "clock_out" ? (
-                                    <LogOut className="size-3" />
-                                  ) : milestone.eventType.startsWith("lunch") ? (
-                                    <UtensilsCrossed className="size-3" />
+                                  {isCompliant ? (
+                                    <CheckCircle2 className="size-2.5 text-white" />
                                   ) : (
-                                    <Footprints className="size-3" />
+                                    <AlertTriangle className="size-2.5 text-rose-200" />
                                   )}
+                                  {isCompliant
+                                    ? "Compliant"
+                                    : deviances.length > 0
+                                      ? `${deviances.length} Deviance${deviances.length > 1 ? "s" : ""}`
+                                      : "Exception"}
                                 </span>
-                                <div>
-                                  <p className="font-bold capitalize text-foreground break-words leading-tight">
-                                    {milestone.title}
+                              </div>
+
+                              {/* Shift Time Metric Boxes */}
+                              <div className="grid grid-cols-2 min-[440px]:grid-cols-4 gap-1 rounded-xl bg-white p-2 text-center text-slate-900 shadow-xs min-w-0 w-full">
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock In</p>
+                                  <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
+                                    {shortTime(timesheet.clock_in)}
+                                    {clockInDeviance && (
+                                      <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Clock-in deviance" />
+                                    )}
                                   </p>
-                                  <p className="text-[11px] font-mono text-muted">
-                                    {formatTime(milestone.time)}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Lunch</p>
+                                  <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
+                                    {shortLunch(timesheet.lunch_start, timesheet.lunch_end)}
+                                    {lunchDeviance && (
+                                      <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Lunch deviance" />
+                                    )}
                                   </p>
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 break-words leading-tight">Clock Out</p>
+                                  <p className="font-extrabold text-slate-900 text-xs break-words font-mono leading-tight flex items-center justify-center gap-1">
+                                    {shortTime(timesheet.clock_out)}
+                                    {clockOutDeviance && (
+                                      <span className="size-2 rounded-full bg-rose-500 shrink-0" title="Clock-out deviance" />
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 break-words leading-tight">Paid</p>
+                                  <p className="font-extrabold text-emerald-700 text-xs break-words font-mono leading-tight">{formatHours(timesheet.paid_hours)}</p>
                                 </div>
                               </div>
 
-                              <div className="min-w-0 text-muted">
-                                <p className="font-medium break-words leading-tight text-foreground/90">
-                                  {milestone.workstationName ?? "Assigned workstation"}
-                                  {milestone.distanceMeters !== null
-                                    ? ` · ${Math.round(milestone.distanceMeters)}m from workstation`
-                                    : ""}
-                                </p>
-                                {isDeviance && (
-                                  <p className="text-[10px] font-semibold text-rose-600 mt-0.5">
-                                    Outside geofence radius (Coordinates hidden for POPIA privacy)
-                                  </p>
-                                )}
+                              {/* Normal Time & Overtime Breakdown */}
+                              <div className="grid grid-cols-3 gap-1 rounded-xl bg-white/95 p-1.5 text-center text-slate-900 shadow-xs min-w-0 w-full text-[11px]">
+                                <div>
+                                  <span className="text-[8.5px] uppercase font-bold text-slate-500 block">NT</span>
+                                  <span className="font-mono font-extrabold">{formatHours(timesheet.normal_hours)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[8.5px] uppercase font-bold text-slate-500 block">OT</span>
+                                  <span className="font-mono font-extrabold">{formatHours(timesheet.overtime_hours)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[8.5px] uppercase font-bold text-slate-500 block">Break</span>
+                                  <span className="font-mono font-extrabold">{formatHours(timesheet.lunch_hours)}</span>
+                                </div>
                               </div>
 
-                              <span
-                                className={`inline-flex w-max items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${geofenceClass(milestone.geofenceStatus)} shadow-soft`}
-                              >
-                                <LocateFixed className="size-3" />
-                                {geofenceLabel(milestone.geofenceStatus)}
-                              </span>
-                            </div>
+                              {/* Milestones & Route Map */}
+                              <details className="rounded-xl border border-border/80 bg-surface overflow-hidden shadow-soft text-foreground" open={activeMapEntryId === timesheet.id}>
+                                <summary className="flex cursor-pointer items-center justify-between gap-1.5 px-3 py-2 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <MapPin className="size-3.5 text-primary shrink-0" />
+                                    <span className="truncate">Milestones ({milestones.length})</span>
+                                  </div>
+                                  {timesheet.locationEvents.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setActiveMapEntryId((prev) => (prev === timesheet.id ? null : timesheet.id));
+                                      }}
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white hover:bg-primary-hover shadow-soft"
+                                    >
+                                      <Footprints className="size-2.5" />
+                                      {activeMapEntryId === timesheet.id ? "Hide Map" : "Route Map"}
+                                    </button>
+                                  )}
+                                </summary>
+
+                                {activeMapEntryId === timesheet.id && (
+                                  <div className="p-2 border-t border-border bg-slate-950">
+                                    <TimesheetRouteMap
+                                      employeeName={timesheet.knownAs ?? timesheet.fullName}
+                                      workDate={timesheet.work_date}
+                                      locationEvents={timesheet.locationEvents}
+                                      onClose={() => setActiveMapEntryId(null)}
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="divide-y divide-border border-t border-border bg-surface p-1 max-h-36 overflow-y-auto">
+                                  {milestones.length === 0 ? (
+                                    <p className="p-2 text-center text-xs text-muted">No location pings</p>
+                                  ) : (
+                                    milestones.map((m) => (
+                                      <div key={m.id} className="flex items-center justify-between gap-2 p-1.5 text-[11px]">
+                                        <span className="font-bold capitalize">{m.title}</span>
+                                        <span className="font-mono text-muted">{formatTime(m.time)}</span>
+                                        <span className={`rounded-full px-2 py-0.2 text-[9px] font-bold border ${geofenceClass(m.geofenceStatus)}`}>
+                                          {geofenceLabel(m.geofenceStatus)}
+                                        </span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </details>
+
+                              {/* Single Draft Action Buttons */}
+                              <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/20">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const fd = new FormData();
+                                    fd.set("decision", "reject");
+                                    fd.append("time_entry_ids", timesheet.id);
+                                    await formAction(fd);
+                                  }}
+                                  disabled={pending}
+                                  className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-bold text-white hover:bg-white/20 transition cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const fd = new FormData();
+                                    fd.set("decision", "approve");
+                                    fd.append("time_entry_ids", timesheet.id);
+                                    await formAction(fd);
+                                  }}
+                                  disabled={pending}
+                                  className="rounded-full bg-white px-3.5 py-1 text-xs font-bold text-emerald-900 hover:bg-white/90 transition shadow-soft cursor-pointer"
+                                >
+                                  Approve Draft
+                                </button>
+                              </div>
+                            </article>
                           );
-                        })
-                      )}
+                        })}
+                      </div>
                     </div>
-                  </details>
-                </article>
+                  ) : null}
+                </div>
               );
             })}
           </div>
 
-          {/* Timesheets Pagination Controls matching EmployeeTimesheetCorrections */}
-          {totalTimesheets > 0 ? (
+          {/* Pagination Controls */}
+          {totalEmployees > 0 ? (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-border/80 bg-surface/90 backdrop-blur-md p-3.5 sm:p-4 text-xs shadow-soft">
               <div className="flex flex-wrap items-center gap-2 text-muted">
                 <span>
                   Showing <strong className="font-bold text-foreground">{startIndex}</strong> to{" "}
                   <strong className="font-bold text-foreground">{endIndex}</strong> of{" "}
-                  <strong className="font-bold text-foreground">{totalTimesheets}</strong> timesheets
+                  <strong className="font-bold text-foreground">{totalEmployees}</strong> compiled employees ({totalTimesheets} total shifts)
                 </span>
 
                 <div className="flex items-center gap-1.5 ml-2">
@@ -689,7 +865,7 @@ export default function CompanyTimesheetApprovalQueue({
                     }}
                     className="px-2.5 py-1 text-xs rounded-full bg-background border border-border/80 text-foreground focus:outline-none focus:border-primary shadow-2xs font-semibold cursor-pointer"
                   >
-                    {[6, 12, 24, 48].map((size) => (
+                    {[5, 10, 20, 50].map((size) => (
                       <option key={size} value={size}>
                         {size}
                       </option>
@@ -699,7 +875,7 @@ export default function CompanyTimesheetApprovalQueue({
 
                 {selectedIds.size > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold text-primary border border-primary/20">
-                    {selectedIds.size} selected
+                    {selectedIds.size} shifts selected
                   </span>
                 )}
               </div>
@@ -729,40 +905,21 @@ export default function CompanyTimesheetApprovalQueue({
 
                   <div className="flex items-center gap-1 px-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter((p) => {
-                        return (
-                          p === 1 ||
-                          p === totalPages ||
-                          Math.abs(p - page) <= 1
-                        );
-                      })
-                      .reduce<Array<number | string>>((acc, p, idx, arr) => {
-                        if (idx > 0 && typeof arr[idx - 1] === "number" && p - (arr[idx - 1] as number) > 1) {
-                          acc.push("...");
-                        }
-                        acc.push(p);
-                        return acc;
-                      }, [])
-                      .map((item, idx) =>
-                        typeof item === "string" ? (
-                          <span key={`ts-page-ellipsis-${idx}`} className="px-1 text-muted">
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={`ts-page-${item}`}
-                            type="button"
-                            onClick={() => handlePageChange(item)}
-                            className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              item === page
-                                ? "bg-primary text-primary-foreground shadow-2xs scale-105"
-                                : "hover:bg-surface-muted text-muted hover:text-foreground"
-                            }`}
-                          >
-                            {item}
-                          </button>
-                        )
-                      )}
+                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                      .map((item) => (
+                        <button
+                          key={`emp-page-${item}`}
+                          type="button"
+                          onClick={() => handlePageChange(item)}
+                          className={`grid size-7 place-items-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            item === page
+                              ? "bg-primary text-primary-foreground shadow-2xs scale-105"
+                              : "hover:bg-surface-muted text-muted hover:text-foreground"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      ))}
                   </div>
 
                   <button
@@ -790,7 +947,7 @@ export default function CompanyTimesheetApprovalQueue({
             </div>
           ) : null}
 
-          {/* Action Note Box & Decision Buttons */}
+          {/* Action Note Box & Bulk Decision Buttons */}
           <div className="grid gap-3 rounded-2xl border border-border/80 bg-surface p-4 sm:p-5 shadow-soft">
             <label className="grid gap-1.5">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Review note</span>

@@ -121,7 +121,8 @@ export default function EmployeeLeaveRequests({
   const [reason, setReason] = useState("");
   const [useToilFirst, setUseToilFirst] = useState(true);
   const [applicationMode, setApplicationMode] = useState<"leave" | "time_off">("leave");
-  const [timeOffHours, setTimeOffHours] = useState<string>("4");
+  const [knockOffTime, setKnockOffTime] = useState<string>("13:00");
+  const [returnTime, setReturnTime] = useState<string>("");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<"all" | "submitted" | "approved" | "rejected">("all");
   const [liveNow, setLiveNow] = useState(() => new Date());
 
@@ -318,7 +319,8 @@ export default function EmployeeLeaveRequests({
         setEndDate("");
         setAttachmentUrl("");
         setReason("");
-        setTimeOffHours("4");
+        setKnockOffTime("13:00");
+        setReturnTime("");
       }
 
       return result;
@@ -900,92 +902,101 @@ export default function EmployeeLeaveRequests({
             </div>
           ) : null}
 
-          {/* Shift Details on Selected Date if in Time Off mode */}
-          {applicationMode === "time_off" && startDate && selectedDateEntry ? (
-            <div className="w-full rounded-2xl border border-amber-200/80 bg-amber-50/50 p-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-amber-950">Clocked Shift on {formatDate(startDate)}</span>
-                <span className="font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-[10px]">
-                  {Number(selectedDateEntry.paid_hours ?? 0).toFixed(2)}h worked
-                </span>
-              </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-muted text-[11px]">
-                <span>In: <strong className="text-foreground">{selectedDateEntry.clock_in ? selectedDateEntry.clock_in.slice(0, 5) : "--:--"}</strong></span>
-                <span>Lunch: <strong className="text-foreground">{selectedDateEntry.lunch_start ? selectedDateEntry.lunch_start.slice(0, 5) : "--"} - {selectedDateEntry.lunch_end ? selectedDateEntry.lunch_end.slice(0, 5) : "--"}</strong></span>
-                <span>Out: <strong className="text-foreground">{selectedDateEntry.clock_out ? selectedDateEntry.clock_out.slice(0, 5) : "--:--"}</strong></span>
-              </div>
-              {(() => {
-                const std = state.standardDailyHours || 8;
-                const worked = Number(selectedDateEntry.paid_hours ?? 0);
-                const unworked = Math.max(0, std - worked);
-                return unworked > 0 ? (
-                  <p className="mt-2 text-[11px] font-semibold text-amber-900">
-                    💡 Standard shift is {std}h. Unworked balance: <strong>{unworked.toFixed(1)}h</strong>.
-                  </p>
-                ) : null;
-              })()}
-            </div>
-          ) : null}
-
-          {/* Time Off Hours input when in Time Off mode */}
+          {/* Shift Details & Automatic Deficit Calculation on Selected Date if in Time Off mode */}
           {applicationMode === "time_off" ? (
-            <div className="grid w-full min-w-0 max-w-full gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                  Time Off Hours to Deduct
-                </span>
-                <span className="text-[11px] font-bold text-amber-800">
-                  Deducted from Annual Leave
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center rounded-xl border border-border bg-background px-3 py-1">
-                  <input
-                    type="number"
-                    min="0.5"
-                    max="24"
-                    step="0.5"
-                    value={timeOffHours}
-                    onChange={(e) => setTimeOffHours(e.target.value)}
-                    className="w-16 bg-transparent text-sm font-bold text-foreground outline-none"
-                  />
-                  <span className="text-xs font-bold text-muted ml-1">hours</span>
+            <div className="grid w-full min-w-0 max-w-full gap-3">
+              {startDate && selectedDateEntry ? (
+                <div className="w-full rounded-2xl border border-amber-200/80 bg-amber-50/50 p-3 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-amber-950">Clocked Shift on {formatDate(startDate)}</span>
+                    <span className="font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-[10px]">
+                      {Number(selectedDateEntry.paid_hours ?? 0).toFixed(2)}h worked
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-muted text-[11px]">
+                    <span>In: <strong className="text-foreground">{selectedDateEntry.clock_in ? selectedDateEntry.clock_in.slice(0, 5) : "--:--"}</strong></span>
+                    <span>Lunch: <strong className="text-foreground">{selectedDateEntry.lunch_start ? selectedDateEntry.lunch_start.slice(0, 5) : "--"} - {selectedDateEntry.lunch_end ? selectedDateEntry.lunch_end.slice(0, 5) : "--"}</strong></span>
+                    <span>Out: <strong className="text-foreground">{selectedDateEntry.clock_out ? selectedDateEntry.clock_out.slice(0, 5) : "--:--"}</strong></span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {["1", "2", "3", "4", "5", "6"].map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => setTimeOffHours(h)}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
-                        timeOffHours === h
-                          ? "bg-amber-600 text-white shadow-xs"
-                          : "border border-border bg-surface text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {h}h
-                    </button>
-                  ))}
-                  {selectedDateEntry && (() => {
-                    const std = state.standardDailyHours || 8;
-                    const worked = Number(selectedDateEntry.paid_hours ?? 0);
-                    const unworked = Math.max(0, std - worked);
-                    if (unworked > 0 && !["1", "2", "3", "4", "5", "6"].includes(String(unworked))) {
-                      return (
-                        <button
-                          key="suggested"
-                          type="button"
-                          onClick={() => setTimeOffHours(String(unworked))}
-                          className="rounded-lg border border-amber-400 bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900 hover:bg-amber-200 transition"
-                        >
-                          Suggest ({unworked.toFixed(1)}h)
-                        </button>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
+              ) : null}
+
+              {/* Time Inputs: Knocking Off Time & Return Time */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <label className="grid gap-1">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                    Knock-off Time (Departure) *
+                  </span>
+                  <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 shadow-2xs">
+                    <Clock className="size-4 text-amber-600 mr-2 shrink-0" />
+                    <input
+                      type="time"
+                      value={knockOffTime}
+                      onChange={(e) => setKnockOffTime(e.target.value)}
+                      required
+                      className="w-full bg-transparent text-sm font-bold text-foreground outline-none cursor-pointer"
+                    />
+                  </div>
+                </label>
+
+                <label className="grid gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                      Return Time (Optional)
+                    </span>
+                    {returnTime ? (
+                      <button
+                        type="button"
+                        onClick={() => setReturnTime("")}
+                        className="text-[10px] text-amber-700 font-bold hover:underline"
+                      >
+                        Not returning
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 shadow-2xs">
+                    <Clock className="size-4 text-slate-400 mr-2 shrink-0" />
+                    <input
+                      type="time"
+                      value={returnTime}
+                      onChange={(e) => setReturnTime(e.target.value)}
+                      placeholder="Leave blank if not returning"
+                      className="w-full bg-transparent text-sm font-bold text-foreground outline-none cursor-pointer"
+                    />
+                  </div>
+                </label>
               </div>
+
+              {/* Automatic System Calculation Box */}
+              {(() => {
+                const std = Number(state.standardDailyHours || 8);
+                const worked = selectedDateEntry ? Number(selectedDateEntry.paid_hours ?? 0) : 0;
+                const deficit = Math.max(0, std - worked);
+
+                return (
+                  <div className="rounded-2xl border border-emerald-300 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 shadow-soft">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-emerald-950 uppercase tracking-wider text-[11px]">
+                        Automatic Leave Deduction
+                      </span>
+                      <span className="font-mono text-sm font-black text-emerald-800 bg-emerald-200/70 px-2.5 py-0.5 rounded-full">
+                        {deficit.toFixed(2)}h
+                      </span>
+                    </div>
+
+                    <p className="mt-1.5 text-[11px] text-emerald-900 leading-relaxed">
+                      Standard work rule ({std.toFixed(2)}h) − Shift worked ({worked.toFixed(2)}h) ={" "}
+                      <strong>{deficit.toFixed(2)}h</strong> will be deducted from your Annual Leave to satisfy your daily schedule.
+                    </p>
+
+                    {worked >= std ? (
+                      <p className="mt-1 text-[11px] font-bold text-rose-700">
+                        ⚠️ This shift already has full hours logged ({worked.toFixed(2)}h). No partial day off is permitted.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
 
@@ -999,13 +1010,31 @@ export default function EmployeeLeaveRequests({
             <>
               <input
                 type="hidden"
+                name="knock_off_time"
+                value={knockOffTime}
+              />
+              <input
+                type="hidden"
+                name="return_time"
+                value={returnTime}
+              />
+              <input
+                type="hidden"
                 name="time_off_hours"
-                value={timeOffHours}
+                value={(() => {
+                  const std = Number(state.standardDailyHours || 8);
+                  const worked = selectedDateEntry ? Number(selectedDateEntry.paid_hours ?? 0) : 0;
+                  return Math.max(0, std - worked).toFixed(2);
+                })()}
               />
               <input
                 type="hidden"
                 name="request_total_hours"
-                value={timeOffHours}
+                value={(() => {
+                  const std = Number(state.standardDailyHours || 8);
+                  const worked = selectedDateEntry ? Number(selectedDateEntry.paid_hours ?? 0) : 0;
+                  return Math.max(0, std - worked).toFixed(2);
+                })()}
               />
             </>
           ) : null}
@@ -1627,7 +1656,7 @@ export default function EmployeeLeaveRequests({
               disabled={
                 pending ||
                 (applicationMode === "time_off"
-                  ? !startDate || Number(timeOffHours) <= 0
+                  ? !startDate || !knockOffTime || (Number(state.standardDailyHours || 8) - (selectedDateEntry ? Number(selectedDateEntry.paid_hours ?? 0) : 0)) <= 0
                   : hasBlockingConflict || Boolean(calculation?.exceeds_balance))
               }
               className={`w-full min-w-0 inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold text-white shadow-soft disabled:opacity-60 transition-colors ${

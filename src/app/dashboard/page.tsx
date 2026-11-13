@@ -535,10 +535,117 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         "Review pending leave requests, submitted timesheets, correction requests, and live workforce status.",
       content: (
         <div className="grid gap-6">
-          {canViewLiveWorkforce && liveTimeOverview ? <CompanyLiveWorkforce overview={liveTimeOverview} /> : null}
-          {canReviewLeave ? <CompanyLeaveRequestQueue requests={leaveRequests} /> : null}
-          <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
-          <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
+          {canViewLiveWorkforce && liveTimeOverview ? (
+            <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+              <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-base font-extrabold text-foreground">Live Workforce Attendance</h2>
+                    <p className="text-xs text-muted">Real-time working status and active shifts</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1 text-xs font-bold">
+                    {liveTimeOverview.entries?.length ?? 0} active
+                  </span>
+                  <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </div>
+              </summary>
+              <div className="p-4 sm:p-6">
+                <CompanyLiveWorkforce overview={liveTimeOverview} />
+              </div>
+            </details>
+          ) : null}
+
+          {canReviewLeave ? (
+            <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+              <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-base font-extrabold text-foreground">Pending Leave Requests</h2>
+                    <p className="text-xs text-muted">Review, approve, or decline employee leave applications</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 text-xs font-bold">
+                    {leaveRequests.length} pending
+                  </span>
+                  <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </div>
+              </summary>
+              <div className="p-4 sm:p-6">
+                <CompanyLeaveRequestQueue requests={leaveRequests} />
+              </div>
+            </details>
+          ) : null}
+
+          <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+            <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
+              <div className="flex items-center gap-3">
+                <div className="grid size-9 place-items-center rounded-xl bg-rose-500/10 text-rose-600">
+                  <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-foreground">Timesheet Correction Requests</h2>
+                  <p className="text-xs text-muted">Punched time adjustments and missed clocking corrections</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 text-xs font-bold">
+                  {correctionQueue.length} pending
+                </span>
+                <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </div>
+            </summary>
+            <div className="p-4 sm:p-6">
+              <CompanyTimesheetCorrectionQueue requests={correctionQueue} />
+            </div>
+          </details>
+
+          <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+            <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
+              <div className="flex items-center gap-3">
+                <div className="grid size-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-700">
+                  <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-foreground">Submitted Timesheets (Payroll Period)</h2>
+                  <p className="text-xs text-muted">Compiled employee timesheets and shift drafts awaiting approval</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 text-xs font-bold">
+                  {submittedTimesheets.length} shifts
+                </span>
+                <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </div>
+            </summary>
+            <div className="p-4 sm:p-6">
+              <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
+            </div>
+          </details>
         </div>
       ),
     });
