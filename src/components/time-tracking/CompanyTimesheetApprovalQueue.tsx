@@ -509,11 +509,6 @@ export default function CompanyTimesheetApprovalQueue({
                           <h3 className="text-base font-extrabold text-foreground truncate">
                             {emp.knownAs ?? emp.fullName}
                           </h3>
-                          {emp.employeeNumber ? (
-                            <span className="rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] font-bold text-muted">
-                              #{emp.employeeNumber}
-                            </span>
-                          ) : null}
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider ${
                               emp.isCompliant
