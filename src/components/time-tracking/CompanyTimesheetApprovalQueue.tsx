@@ -30,6 +30,11 @@ import { useActionState, useState, useMemo, useEffect, useCallback, useRef } fro
 import EmployeeAvatar from "@/components/EmployeeAvatar";
 import { reviewSubmittedTimesheets } from "@/lib/time-tracking/actions";
 import type { CompanySubmittedTimesheet } from "@/lib/time-tracking/schema";
+import {
+  generatePayrollPeriods,
+  type PayrollPeriodConfig,
+  defaultPayrollConfig,
+} from "@/lib/reports/payroll-periods";
 
 const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
   ssr: false,
@@ -42,6 +47,7 @@ const TimesheetRouteMap = dynamic(() => import("./TimesheetRouteMap"), {
 
 type CompanyTimesheetApprovalQueueProps = {
   timesheets: CompanySubmittedTimesheet[];
+  payrollConfig?: PayrollPeriodConfig;
 };
 
 type ApprovalState = {
@@ -228,17 +234,65 @@ type CompiledEmployeeTimesheet = {
 
 export default function CompanyTimesheetApprovalQueue({
   timesheets,
+  payrollConfig,
 }: CompanyTimesheetApprovalQueueProps) {
   const queueSectionRef = useRef<HTMLElement>(null);
   const [activeMapEntryId, setActiveMapEntryId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [expandedEmployeeIds, setExpandedEmployeeIds] = useState<Set<string>>(() => new Set());
 
-  // Compile individual drafts into a single timesheet per employee
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const effectiveConfig = payrollConfig ?? defaultPayrollConfig;
+
+  // Generate periods and filter ONLY to periods that have submitted timesheet records (or the current period)
+  const availablePeriods = useMemo(() => {
+    const all = generatePayrollPeriods(effectiveConfig, todayIso, 24);
+    return all.filter((p) => {
+      const hasRecords = timesheets.some(
+        (ts) => ts.work_date >= p.startDate && ts.work_date <= p.endDate,
+      );
+      return hasRecords || p.isCurrent;
+    });
+  }, [effectiveConfig, todayIso, timesheets]);
+
+  // Initial period: prioritize the period with the most submitted timesheets, or the current period
+  const initialPeriodId = useMemo(() => {
+    if (availablePeriods.length === 0) return "all";
+    const periodWithMost = [...availablePeriods].sort((a, b) => {
+      const countA = timesheets.filter((ts) => ts.work_date >= a.startDate && ts.work_date <= a.endDate).length;
+      const countB = timesheets.filter((ts) => ts.work_date >= b.startDate && ts.work_date <= b.endDate).length;
+      return countB - countA;
+    })[0];
+    return periodWithMost?.id ?? availablePeriods[0]?.id ?? "all";
+  }, [availablePeriods, timesheets]);
+
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(initialPeriodId);
+
+  // Sync selectedPeriodId if availablePeriods updates
+  useEffect(() => {
+    if (selectedPeriodId !== "all" && !availablePeriods.some((p) => p.id === selectedPeriodId)) {
+      setSelectedPeriodId(initialPeriodId);
+    }
+  }, [availablePeriods, selectedPeriodId, initialPeriodId]);
+
+  const selectedPeriod = useMemo(
+    () => availablePeriods.find((p) => p.id === selectedPeriodId) ?? null,
+    [availablePeriods, selectedPeriodId],
+  );
+
+  // Filter submitted timesheets strictly within the selected payroll period
+  const periodFilteredTimesheets = useMemo(() => {
+    if (!selectedPeriod || selectedPeriodId === "all") return timesheets;
+    return timesheets.filter(
+      (ts) => ts.work_date >= selectedPeriod.startDate && ts.work_date <= selectedPeriod.endDate,
+    );
+  }, [timesheets, selectedPeriod, selectedPeriodId]);
+
+  // Compile individual drafts into a single timesheet per employee for this payroll period
   const compiledEmployees: CompiledEmployeeTimesheet[] = useMemo(() => {
     const map = new Map<string, CompiledEmployeeTimesheet>();
 
-    for (const ts of timesheets) {
+    for (const ts of periodFilteredTimesheets) {
       let rec = map.get(ts.employee_id);
       if (!rec) {
         rec = {
@@ -281,7 +335,7 @@ export default function CompanyTimesheetApprovalQueue({
     }
 
     return Array.from(map.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
-  }, [timesheets]);
+  }, [periodFilteredTimesheets]);
 
   // Pagination for compiled employee records
   const [page, setPage] = useState(1);
@@ -313,7 +367,7 @@ export default function CompanyTimesheetApprovalQueue({
     }
   }, []);
 
-  const totalTimesheets = timesheets.length;
+  const totalTimesheets = periodFilteredTimesheets.length;
   const allSelected = totalTimesheets > 0 && selectedIds.size === totalTimesheets;
 
   const toggleSelect = useCallback((id: string) => {
@@ -347,9 +401,9 @@ export default function CompanyTimesheetApprovalQueue({
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(timesheets.map((t) => t.id)));
+      setSelectedIds(new Set(periodFilteredTimesheets.map((t) => t.id)));
     }
-  }, [allSelected, timesheets]);
+  }, [allSelected, periodFilteredTimesheets]);
 
   const toggleSelectCurrentPage = useCallback(() => {
     const pageIds = paginatedEmployees.flatMap((e) => e.entries.map((t) => t.id));
@@ -406,8 +460,40 @@ export default function CompanyTimesheetApprovalQueue({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {timesheets.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2.5">
+          {availablePeriods.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted whitespace-nowrap">
+                Payroll Period:
+              </span>
+              <div className="relative">
+                <select
+                  value={selectedPeriodId}
+                  onChange={(e) => {
+                    setSelectedPeriodId(e.target.value);
+                    setSelectedIds(new Set());
+                    setPage(1);
+                  }}
+                  className="appearance-none rounded-full border border-border bg-surface pl-3 pr-8 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted shadow-2xs transition-all cursor-pointer outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  {availablePeriods.map((p) => {
+                    const countInPeriod = timesheets.filter(
+                      (ts) => ts.work_date >= p.startDate && ts.work_date <= p.endDate,
+                    ).length;
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.label} ({countInPeriod} shift{countInPeriod === 1 ? "" : "s"})
+                      </option>
+                    );
+                  })}
+                  <option value="all">All Dates ({timesheets.length} shifts)</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted" />
+              </div>
+            </div>
+          )}
+
+          {periodFilteredTimesheets.length > 0 ? (
             <>
               <button
                 type="button"

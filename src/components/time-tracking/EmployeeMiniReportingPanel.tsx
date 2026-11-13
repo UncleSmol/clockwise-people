@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -223,21 +223,48 @@ export default function EmployeeMiniReportingPanel({
 }: EmployeeMiniReportingPanelProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  // Generate payroll periods (strictly exclude future cycles)
-  const generatedPeriods = useMemo(
-    () =>
-      generatePayrollPeriods(payrollConfig, todayIso, 12).filter(
-        (p) => p.startDate <= todayIso,
-      ),
-    [payrollConfig, todayIso],
-  );
+  // Generate payroll periods: strictly only include periods on record (periods with entries or leave) or the current period
+  const generatedPeriods = useMemo(() => {
+    const all = generatePayrollPeriods(payrollConfig, todayIso, 24).filter(
+      (p) => p.startDate <= todayIso,
+    );
 
-  const initialPeriodId =
-    generatedPeriods.find((p) => p.isCurrent)?.id ??
-    generatedPeriods[0]?.id ??
-    "custom";
+    return all.filter((p) => {
+      // Include current period
+      if (p.isCurrent) return true;
+      // Include if there are timesheet entries on record in this period
+      const hasEntries = entries.some(
+        (e) => e.work_date >= p.startDate && e.work_date <= p.endDate,
+      );
+      if (hasEntries) return true;
+      // Include if there are leave requests on record in this period
+      const hasLeave = leaveRequests.some(
+        (l) => l.start_date <= p.endDate && l.end_date >= p.startDate,
+      );
+      return hasLeave;
+    });
+  }, [payrollConfig, todayIso, entries, leaveRequests]);
+
+  const initialPeriodId = useMemo(() => {
+    const periodWithEntries = generatedPeriods.find((p) =>
+      entries.some((e) => e.work_date >= p.startDate && e.work_date <= p.endDate),
+    );
+    return (
+      periodWithEntries?.id ??
+      generatedPeriods.find((p) => p.isCurrent)?.id ??
+      generatedPeriods[0]?.id ??
+      "custom"
+    );
+  }, [generatedPeriods, entries]);
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(initialPeriodId);
+
+  // Sync selectedPeriodId if generatedPeriods updates
+  useEffect(() => {
+    if (selectedPeriodId !== "custom" && !generatedPeriods.some((p) => p.id === selectedPeriodId)) {
+      setSelectedPeriodId(initialPeriodId);
+    }
+  }, [generatedPeriods, selectedPeriodId, initialPeriodId]);
 
   const currentPeriod = useMemo(
     () =>

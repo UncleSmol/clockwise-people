@@ -643,7 +643,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </summary>
             <div className="p-4 sm:p-6">
-              <CompanyTimesheetApprovalQueue timesheets={submittedTimesheets} />
+              <CompanyTimesheetApprovalQueue
+                timesheets={submittedTimesheets}
+                payrollConfig={payrollConfig}
+              />
             </div>
           </details>
         </div>

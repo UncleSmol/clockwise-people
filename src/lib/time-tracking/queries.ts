@@ -1336,7 +1336,7 @@ export const getCompanySubmittedTimesheetQueue = cache(async function getCompany
     .eq("status", "submitted")
     .is("deleted_at", null)
     .order("work_date", { ascending: true })
-    .limit(200);
+    .limit(500);
 
   if (error) {
     throw new Error(error.message);
