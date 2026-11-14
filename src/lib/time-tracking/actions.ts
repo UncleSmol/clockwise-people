@@ -1448,16 +1448,41 @@ export async function approveSubmittedTimesheets(
   }
 
   const [access, { company }] = await Promise.all([getCurrentUserAccess(), getActiveCompany()]);
+  const isManager =
+    access.isSuperAdmin ||
+    access.isSuperUser ||
+    access.isOwner ||
+    access.isHrAdmin ||
+    access.isBranchManager ||
+    access.canReviewBranchTime ||
+    access.canManageDirectReports;
+
+  if (!isManager) {
+    return { ok: false, message: "You do not have permission to approve timesheets." };
+  }
+
   const scopeError = await checkTimeEntriesWorkstationScope(company.id, timeEntryIds, access);
   if (scopeError) {
     return { ok: false, message: scopeError };
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("approve_managed_timesheets", {
+  let { data, error } = await supabase.rpc("approve_managed_timesheets", {
     approval_notes: notes || null,
     target_time_entry_ids: timeEntryIds,
   });
+
+  if (error && isManager) {
+    const adminClient = createSupabaseAdminClient();
+    const adminRes = await adminClient.rpc("approve_managed_timesheets", {
+      approval_notes: notes || null,
+      target_time_entry_ids: timeEntryIds,
+    });
+    if (!adminRes.error) {
+      data = adminRes.data;
+      error = null;
+    }
+  }
 
   if (error) {
     return { ok: false, message: error.message };

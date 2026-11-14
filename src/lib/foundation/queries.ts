@@ -251,7 +251,8 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   const canViewPayslips =
     !isRestrictedSuperAdmin && hasAuthorizedPayslipRole;
 
-  const canManageCompany = isFullSuperAdmin || roleKeys.has("owner") || roleKeys.has("hr_admin");
+  const canManageCompany =
+    isFullSuperAdmin || isSuperUser || roleKeys.has("owner") || roleKeys.has("hr_admin");
 
   const canAssignRoles =
     !isRestrictedSuperAdmin &&
@@ -265,6 +266,7 @@ export const getCurrentUserAccess = cache(async function getCurrentUserAccess() 
   // Whitney can monitor and assist with time management across all branches
   const canReviewBranchTime =
     isSuperAdmin ||
+    isSuperUser ||
     roleKeys.has("owner") ||
     roleKeys.has("hr_admin") ||
     roleKeys.has("branch_manager");
