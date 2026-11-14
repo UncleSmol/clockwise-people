@@ -354,36 +354,18 @@ export async function setSuperAdminRoleAction(
     }
   }
 
-  // If granting and no existing user row in public.users, check if auth account exists to link
-  const { data: userRecords } = await admin
-    .from("users")
-    .select("id")
-    .eq("email", normalizedTarget);
+  if (grantSuperAdmin) {
+    const { data: authUserList } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
+    const matchedAuthUser = authUserList?.users?.find(
+      (u) => u.email?.toLowerCase() === normalizedTarget,
+    );
 
-  if ((!userRecords || userRecords.length === 0) && grantSuperAdmin) {
-    const { data: listData } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
-    const authUser = listData?.users?.find((u) => u.email?.toLowerCase() === normalizedTarget);
-
-    const { data: formalizeCompany } = await admin
-      .from("companies")
-      .select("id")
-      .eq("name", "formalize")
-      .maybeSingle();
-
-    if (formalizeCompany && authUser) {
-      await admin.from("users").insert({
-        company_id: formalizeCompany.id,
-        auth_user_id: authUser.id,
-        full_name: authUser.user_metadata?.full_name || normalizedTarget.split("@")[0],
-        email: normalizedTarget,
-        is_super_admin: true,
-        status: "active",
+    if (matchedAuthUser) {
+      await admin.rpc("provision_super_admin_across_companies", {
+        target_auth_user_id: matchedAuthUser.id,
+        target_email: normalizedTarget,
+        target_name: matchedAuthUser.user_metadata?.full_name || normalizedTarget.split("@")[0],
       });
-    } else if (!authUser) {
-      return {
-        ok: false,
-        message: `No account found for "${targetEmail}". Ensure the employee or login account has been created first.`,
-      };
     }
   }
 

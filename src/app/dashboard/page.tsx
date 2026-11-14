@@ -250,6 +250,12 @@ const CompanyPayslipsWorkspace = dynamic(
     loading: () => <LoadingPanel label="payslip generator" />,
   },
 );
+const SuperAdminApprovalOverridePanel = dynamic(
+  () => import("@/components/sysadmin/SuperAdminApprovalOverridePanel"),
+  {
+    loading: () => <LoadingPanel label="approval override control" />,
+  },
+);
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
@@ -535,6 +541,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         "Review pending leave requests, submitted timesheets, correction requests, and live workforce status.",
       content: (
         <div className="grid gap-6">
+          {isRootAdmin ? (
+            <SuperAdminApprovalOverridePanel
+              companyId={company.id}
+              companyName={company.name}
+              employees={calendarEmployees.map((e) => ({
+                id: e.id,
+                name: e.label,
+              }))}
+            />
+          ) : null}
+
           {canViewLiveWorkforce && liveTimeOverview ? (
             <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
               <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
@@ -550,9 +567,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1 text-xs font-bold">
-                    {liveTimeOverview.entries?.length ?? 0} active
-                  </span>
                   <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="m6 9 6 6 6-6"/>
                   </svg>
@@ -565,7 +579,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           ) : null}
 
           {canReviewLeave ? (
-            <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+            <details
+              {...(!(canViewLiveWorkforce && liveTimeOverview) ? { open: true } : {})}
+              className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all"
+            >
               <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
                 <div className="flex items-center gap-3">
                   <div className="grid size-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
@@ -579,9 +596,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 text-xs font-bold">
-                    {leaveRequests.length} pending
-                  </span>
                   <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="m6 9 6 6 6-6"/>
                   </svg>
@@ -593,7 +607,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </details>
           ) : null}
 
-          <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+          <details
+            {...(!(canViewLiveWorkforce && liveTimeOverview) && !canReviewLeave ? { open: true } : {})}
+            className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all"
+          >
             <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
               <div className="flex items-center gap-3">
                 <div className="grid size-9 place-items-center rounded-xl bg-rose-500/10 text-rose-600">
@@ -607,9 +624,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </div>
               </div>
               <div className="flex items-center gap-2.5">
-                <span className="rounded-full bg-rose-100 text-rose-800 border border-rose-300 px-3 py-1 text-xs font-bold">
-                  {correctionQueue.length} pending
-                </span>
                 <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="m6 9 6 6 6-6"/>
                 </svg>
@@ -620,7 +634,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
           </details>
 
-          <details open className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
+          <details className="group rounded-3xl border border-border/80 bg-surface shadow-soft overflow-hidden transition-all">
             <summary className="flex items-center justify-between cursor-pointer list-none px-6 py-4 bg-surface hover:bg-surface-muted/50 border-b border-border/60 transition-colors select-none">
               <div className="flex items-center gap-3">
                 <div className="grid size-9 place-items-center rounded-xl bg-emerald-500/10 text-emerald-700">
@@ -634,9 +648,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </div>
               </div>
               <div className="flex items-center gap-2.5">
-                <span className="rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 text-xs font-bold">
-                  {submittedTimesheets.length} shifts
-                </span>
                 <svg className="size-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="m6 9 6 6 6-6"/>
                 </svg>
@@ -1255,8 +1266,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             publicHolidays={calendarHolidays}
             liveOverview={canViewLiveWorkforce ? liveTimeOverview : null}
             canViewLiveWorkforce={canViewLiveWorkforce}
-            isSysAdmin={access.isSuperAdmin}
-            isSuperAdmin={access.isSuperAdmin}
+            isSysAdmin={access.isSuperAdmin || access.isSuperUser}
+            isSuperAdmin={access.isSuperAdmin || access.isSuperUser}
             leaveTypes={leaveState?.leaveTypes ?? []}
             workstations={scopedWorkstations}
             currentEmployeeId={access.employeeId}

@@ -408,8 +408,9 @@ export default function CompanyTimesheetCalendar({
   const [showDateActions, setShowDateActions] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [dayRosterDate, setDayRosterDate] = useState<string | null>(null);
-  const [dayRosterFilter, setDayRosterFilter] = useState<"all" | "in" | "completed" | "leave" | "exception">("all");
+  const [dayRosterFilter, setDayRosterFilter] = useState<"all" | "in" | "completed" | "leave" | "exception" | "not_clocked_in">("all");
   const [dayRosterSearch, setDayRosterSearch] = useState("");
+  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState<string>("all");
   const [calendarWindow, setCalendarWindow] = useState<CalendarWindow>("month");
 
   useEffect(() => {
@@ -517,7 +518,8 @@ export default function CompanyTimesheetCalendar({
       (e) =>
         e.work_date === calendarFocusDate &&
         !holidayDates.has(e.work_date) &&
-        !e.notes?.startsWith("Public holiday:"),
+        !e.notes?.startsWith("Public holiday:") &&
+        (selectedEmployeeFilter === "all" || e.employee_id === selectedEmployeeFilter),
     );
 
     const existingEmployeesOnDate = new Set(dayEntries.map((e) => e.employee_id));
@@ -525,6 +527,7 @@ export default function CompanyTimesheetCalendar({
 
     for (const lr of leaveRequests ?? []) {
       if (lr.status !== "approved" && lr.status !== "submitted") continue;
+      if (selectedEmployeeFilter !== "all" && lr.employee_id !== selectedEmployeeFilter) continue;
       const isPending = lr.status === "submitted";
       if (calendarFocusDate >= lr.start_date && calendarFocusDate <= lr.end_date) {
         if (!existingEmployeesOnDate.has(lr.employee_id) && !holidayDates.has(calendarFocusDate)) {
@@ -564,7 +567,7 @@ export default function CompanyTimesheetCalendar({
     }
 
     return [...dayEntries, ...extraLeave];
-  }, [entries, leaveRequests, calendarFocusDate, holidayDates]);
+  }, [entries, leaveRequests, calendarFocusDate, holidayDates, selectedEmployeeFilter]);
 
   const visibleMobileEntries = useMemo(() => {
     if (showAllMobileEntries || mobileEntriesForFocusDate.length <= 6) {
@@ -602,6 +605,7 @@ export default function CompanyTimesheetCalendar({
       if (lr.status !== "approved" && lr.status !== "submitted") continue;
       if (dayRosterDate >= lr.start_date && dayRosterDate <= lr.end_date) {
         if (!existingEmployeeIds.has(lr.employee_id) && !holidayDates.has(dayRosterDate)) {
+          existingEmployeeIds.add(lr.employee_id);
           rosterLeave.push({
             id: `roster-leave-${lr.id}-${dayRosterDate}`,
             company_id: "",
@@ -637,8 +641,45 @@ export default function CompanyTimesheetCalendar({
       }
     }
 
-    return [...dateEntries, ...rosterLeave];
-  }, [dayRosterDate, entries, leaveRequests, holidayDates]);
+    const notClockedIn: CompanyTimesheetCalendarEntry[] = [];
+    for (const emp of employees ?? []) {
+      if (!existingEmployeeIds.has(emp.id) && !holidayDates.has(dayRosterDate)) {
+        notClockedIn.push({
+          id: `roster-absent-${emp.id}-${dayRosterDate}`,
+          company_id: "",
+          employee_id: emp.id,
+          work_date: dayRosterDate,
+          clock_in: null,
+          lunch_start: null,
+          lunch_end: null,
+          clock_out: null,
+          normal_hours: 0,
+          overtime_hours: 0,
+          paid_hours: 0,
+          missing_clocking: true,
+          late_arrival: false,
+          early_departure: false,
+          status: "draft",
+          notes: "Did not clock in",
+          warning_notes: "Absent / No clocking recorded",
+          workstation_id: null,
+          gross_hours: 0,
+          lunch_hours: 0,
+          leave_type_id: null,
+          employeeNumber: "",
+          fullName: emp.label,
+          knownAs: null,
+          avatarUrl: null,
+          workstationName: "Not Clocked In",
+          paidTimeOffHours: 0,
+          locationEvents: [],
+          scheduleValidation: { isCompliant: false, issues: ["Did not clock in"] },
+        });
+      }
+    }
+
+    return [...dateEntries, ...rosterLeave, ...notClockedIn];
+  }, [dayRosterDate, entries, leaveRequests, holidayDates, employees]);
 
   const filteredDayRoster = useMemo(() => {
     let list = dayRosterItems;
@@ -649,6 +690,8 @@ export default function CompanyTimesheetCalendar({
       list = list.filter((e) => e.clock_in && e.clock_out && !isLeaveEntry(e));
     } else if (dayRosterFilter === "leave") {
       list = list.filter((e) => isLeaveEntry(e));
+    } else if (dayRosterFilter === "not_clocked_in") {
+      list = list.filter((e) => !e.clock_in && !isLeaveEntry(e));
     } else if (dayRosterFilter === "exception") {
       list = list.filter((e) => e.missing_clocking || e.late_arrival || e.early_departure || e.status === "draft" || (!e.clock_in && !isLeaveEntry(e)));
     }
@@ -719,12 +762,20 @@ export default function CompanyTimesheetCalendar({
         classNames: ["cw-calendar-holiday"],
       }));
 
+      const activeEntries = selectedEmployeeFilter === "all"
+        ? entries
+        : entries.filter((e) => e.employee_id === selectedEmployeeFilter);
+
+      const activeLeaveRequests = selectedEmployeeFilter === "all"
+        ? (leaveRequests ?? [])
+        : (leaveRequests ?? []).filter((lr) => lr.employee_id === selectedEmployeeFilter);
+
       const existingKeySet = new Set(
-        entries.map((entry) => `${entry.employee_id}_${entry.work_date}`),
+        activeEntries.map((entry) => `${entry.employee_id}_${entry.work_date}`),
       );
 
       const leaveRequestEvents: EventInput[] = [];
-      for (const lr of leaveRequests ?? []) {
+      for (const lr of activeLeaveRequests) {
         if (lr.status !== "approved" && lr.status !== "submitted") continue;
         const isPending = lr.status === "submitted";
         const [sy, sm, sd] = lr.start_date.split("-").map(Number);
@@ -767,7 +818,7 @@ export default function CompanyTimesheetCalendar({
         }
       }
 
-      const timesheetEvents = entries
+      const timesheetEvents = activeEntries
         .filter(
           (entry) =>
             !holidayDates.has(entry.work_date) &&
@@ -794,20 +845,26 @@ export default function CompanyTimesheetCalendar({
 
       return [...holidayEvents, ...timesheetEvents, ...leaveRequestEvents];
     },
-    [entries, leaveRequests, publicHolidays, holidayDates],
+    [entries, leaveRequests, publicHolidays, holidayDates, selectedEmployeeFilter],
   );
 
   const totals = useMemo(() => {
-    const validEntries = entries.filter(
-      (entry) =>
-        !holidayDates.has(entry.work_date) &&
-        !entry.notes?.startsWith("Public holiday:"),
-    );
+    const validEntries = entries
+      .filter((e) => selectedEmployeeFilter === "all" || e.employee_id === selectedEmployeeFilter)
+      .filter(
+        (entry) =>
+          !holidayDates.has(entry.work_date) &&
+          !entry.notes?.startsWith("Public holiday:"),
+      );
     const leaveEntriesCount = validEntries.filter(isLeaveEntry).length;
 
     const existingKeySet = new Set(validEntries.map((e) => `${e.employee_id}_${e.work_date}`));
     let extraLeaveCount = 0;
-    for (const lr of leaveRequests ?? []) {
+    const activeLeaveRequests = selectedEmployeeFilter === "all"
+      ? (leaveRequests ?? [])
+      : (leaveRequests ?? []).filter((lr) => lr.employee_id === selectedEmployeeFilter);
+
+    for (const lr of activeLeaveRequests) {
       if (lr.status !== "approved") continue;
       const [sy, sm, sd] = lr.start_date.split("-").map(Number);
       const [ey, em, ed] = lr.end_date.split("-").map(Number);
@@ -1140,22 +1197,45 @@ export default function CompanyTimesheetCalendar({
           </div>
         ) : null}
 
-        <div className="hidden flex-wrap gap-2 sm:flex">
-          {([
-            ["day", "Daily View"],
-            ["week", "Weekly View"],
-            ["payroll", "Payroll Period"],
-            ["month", "Monthly View"],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setCalendarWindow(value)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${viewButtonClass(calendarWindow === value)}`}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="hidden flex-wrap gap-2 sm:flex">
+            {([
+              ["day", "Daily View"],
+              ["week", "Weekly View"],
+              ["payroll", "Payroll Period"],
+              ["month", "Monthly View"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setCalendarWindow(value)}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${viewButtonClass(calendarWindow === value)}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Employee Filter */}
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+            <label htmlFor="calendar-emp-filter" className="flex items-center gap-1.5 text-xs font-bold text-muted shrink-0">
+              <User className="size-3.5 text-primary" />
+              <span>Filter Employee:</span>
+            </label>
+            <select
+              id="calendar-emp-filter"
+              value={selectedEmployeeFilter}
+              onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
+              className="w-full sm:w-auto rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-soft cursor-pointer"
             >
-              {label}
-            </button>
-          ))}
+              <option value="all">All Employees ({employees.length})</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <button
@@ -2426,6 +2506,13 @@ export default function CompanyTimesheetCalendar({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setDayRosterFilter("not_clocked_in")}
+                  className={`rounded-full px-3 py-1 transition-all ${dayRosterFilter === "not_clocked_in" ? "bg-rose-600 text-white shadow-soft" : "bg-surface border border-border text-foreground hover:bg-surface-muted"}`}
+                >
+                  Not Clocked In ({dayRosterItems.filter((e) => !e.clock_in && !isLeaveEntry(e)).length})
+                </button>
+                <button
+                  type="button"
                   onClick={() => setDayRosterFilter("exception")}
                   className={`rounded-full px-3 py-1 transition-all ${dayRosterFilter === "exception" ? "bg-amber-600 text-white shadow-soft" : "bg-surface border border-border text-foreground hover:bg-surface-muted"}`}
                 >
@@ -2474,9 +2561,11 @@ export default function CompanyTimesheetCalendar({
                                 ? "bg-emerald-500 animate-pulse"
                                 : isLeave
                                   ? "bg-violet-500"
-                                  : entry.status === "approved"
-                                    ? "bg-emerald-600"
-                                    : "bg-amber-500"
+                                  : (!entry.clock_in && !entry.clock_out)
+                                    ? "bg-slate-300"
+                                    : entry.status === "approved"
+                                      ? "bg-emerald-600"
+                                      : "bg-amber-500"
                             }`}
                           />
                         </div>
@@ -2508,7 +2597,7 @@ export default function CompanyTimesheetCalendar({
                               <span className="font-mono">
                                 {entry.clock_in || entry.clock_out
                                   ? `${formatTime(entry.clock_in)} \u2192 ${formatTime(entry.clock_out)}`
-                                  : "No clocking recorded"}
+                                  : "Did not clock in"}
                                 {entry.paid_hours ? ` · ${formatHours(entry.paid_hours)} paid` : ""}
                               </span>
                             )}
@@ -2518,7 +2607,13 @@ export default function CompanyTimesheetCalendar({
 
                       {/* Right Actions / Status */}
                       <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                        <RecordStatusBadge status={entry.status} size={32} />
+                        {!entry.clock_in && !entry.clock_out && !isLeave ? (
+                          <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+                            Not Clocked In
+                          </span>
+                        ) : (
+                          <RecordStatusBadge status={entry.status} size={32} />
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -2542,13 +2637,6 @@ export default function CompanyTimesheetCalendar({
             {/* Modal Footer */}
             <div className="flex shrink-0 items-center justify-between border-t border-border/80 bg-surface px-5 py-3 text-xs text-muted">
               <span>Showing {filteredDayRoster.length} of {dayRosterItems.length} records</span>
-              <button
-                type="button"
-                onClick={() => setDayRosterDate(null)}
-                className="rounded-full border border-border bg-surface px-4 py-1.5 text-xs font-bold text-foreground hover:bg-surface-muted transition-colors shadow-soft"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>,

@@ -354,6 +354,22 @@ export async function toggleEmployeeSuperAdminAction(
       .eq("email", targetEmail);
   }
 
+  if (grantSuperAdmin && employee.user_id) {
+    const { data: userRow } = await admin
+      .from("users")
+      .select("auth_user_id")
+      .eq("id", employee.user_id)
+      .maybeSingle();
+
+    if (userRow?.auth_user_id) {
+      await admin.rpc("provision_super_admin_across_companies", {
+        target_auth_user_id: userRow.auth_user_id,
+        target_email: targetEmail,
+        target_name: employee.full_name,
+      });
+    }
+  }
+
   revalidatePath(`/dashboard/employees/${employee.id}`);
   revalidatePath("/dashboard/employees");
   revalidatePath("/dashboard");

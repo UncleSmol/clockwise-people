@@ -23,6 +23,7 @@ import {
 } from "./schema";
 import type { CustomPayrollRule, PayrollPeriodConfig } from "@/lib/reports/payroll-periods";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
+import { sanitizeUserFacingErrorMessage } from "@/lib/foundation/errors";
 import {
   deriveGenderFromSouthAfricanId,
   isApprovedDayOffLeave,
@@ -1125,7 +1126,7 @@ export async function reviewLeaveRequest(
   }
 
   if (reviewError) {
-    return { ok: false, message: reviewError.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(reviewError.message) };
   }
 
   if (decision === "approve") {

@@ -10,6 +10,7 @@ import {
 } from "@/lib/foundation/queries";
 import { syncEmployeeAccruals } from "@/lib/work-rules/actions";
 import { sanitizeMultilineText, sanitizeString } from "@/lib/security/sanitizer";
+import { sanitizeUserFacingErrorMessage } from "@/lib/foundation/errors";
 import { getWeekBounds, type ClockEventType, type TimeClockLocationEvent, type TimeEntryRecord } from "./schema";
 
 type ClockActionState = {
@@ -294,7 +295,7 @@ export async function recordClockEvent(
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(error.message) };
   }
 
   const entry = data as TimeEntryRecord & {
@@ -633,7 +634,7 @@ export async function saveDraftTimeEntry(
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(error.message) };
   }
 
   revalidatePath("/dashboard");
@@ -678,7 +679,7 @@ export async function createPastDraftTimeEntry(
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(error.message) };
   }
 
   const createdId = (data as { id?: string } | null)?.id;
@@ -1370,7 +1371,7 @@ export async function deleteDraftTimeEntry(
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(error.message) };
   }
 
   revalidatePath("/dashboard");
@@ -1485,7 +1486,7 @@ export async function approveSubmittedTimesheets(
   }
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(error.message) };
   }
 
   try {
@@ -1565,7 +1566,7 @@ export async function reviewSubmittedTimesheets(
   }
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: sanitizeUserFacingErrorMessage(error.message) };
   }
 
   if (decision === "approve") {
